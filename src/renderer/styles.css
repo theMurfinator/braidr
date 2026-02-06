@@ -1912,7 +1912,7 @@
 .to-braid-inbox {
   width: 280px;
   flex-shrink: 0;
-  background: var(--bg-tertiary);
+  background: #f7f6f4;
   border-radius: 8px;
   padding: 16px;
   border-left: 1px solid var(--border);
@@ -2314,8 +2314,8 @@
 }
 
 .scene-detail-panel {
-  background: var(--bg-primary);
-  border-left: 1px solid var(--border);
+  background: #fbfbfa;
+  border-left: 1px solid #e8e7e5;
   height: calc(100vh - 130px);
   overflow-y: auto;
   position: sticky;
@@ -2510,32 +2510,40 @@
 .braided-scene-item.compact {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid #e8e7e5;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.02);
+  margin-bottom: 8px;
 }
 
 .braided-scene-item.compact:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: #fefefe;
+  border-color: #d1cfcc;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
   transform: translateY(-1px);
 }
 
 .braided-drag-handle {
-  color: var(--text-muted);
+  color: #b3b1ae;
   font-size: 12px;
   letter-spacing: 2px;
   cursor: grab;
-  opacity: 0.4;
-  transition: opacity 0.15s;
+  opacity: 0.3;
+  transition: opacity 0.2s;
   user-select: none;
 }
 
 .braided-scene-item.compact:hover .braided-drag-handle {
-  opacity: 1;
+  opacity: 0.7;
+}
+
+.braided-drag-handle:hover {
+  opacity: 1 !important;
 }
 
 .braided-drag-handle:active {
@@ -2544,46 +2552,49 @@
 
 .braided-scene-number {
   font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
-  min-width: 28px;
+  font-weight: 700;
+  color: #7a7876;
+  min-width: 30px;
 }
 
 .braided-scene-title {
   flex: 1;
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
   font-family: 'PT Serif', Georgia, serif;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.01em;
 }
 
 .braided-scene-character {
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  padding: 3px 8px;
-  border-radius: 4px;
+  color: #5a5856;
+  background: #f0efed;
+  padding: 4px 10px;
+  border-radius: 10px;
 }
 
 .braided-scene-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .braided-scene-plotpoint,
 .braided-scene-scenenumber {
   font-size: 11px;
-  color: var(--text-muted);
+  color: #9a9896;
+  font-weight: 500;
 }
 
 .braided-scene-plotpoint {
   font-style: italic;
+  opacity: 0.85;
 }
 
 .braided-scene-connections-badge {
@@ -2679,10 +2690,10 @@
 .braided-chapter {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 24px 0 12px 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  gap: 10px;
+  margin: 32px 0 16px 0;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e8e7e5;
   cursor: grab;
 }
 
@@ -2695,11 +2706,17 @@
 }
 
 .chapter-drag-handle {
-  color: var(--text-muted);
+  color: #b3b1ae;
   font-size: 12px;
   letter-spacing: 2px;
   cursor: grab;
   user-select: none;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.braided-chapter:hover .chapter-drag-handle {
+  opacity: 1;
 }
 
 .chapter-drop-zone {
@@ -2720,22 +2737,25 @@
 }
 
 .braided-chapter-title {
-  font-size: 24px;
-  font-weight: 400;
+  font-size: 26px;
+  font-weight: 600;
   font-family: 'PT Serif', Georgia, serif;
-  color: var(--text-primary);
+  color: #1a1a1a;
   background: transparent;
   border: none;
   outline: none;
   flex: 1;
   padding: 4px 0;
+  letter-spacing: -0.02em;
+  transition: background 0.15s;
 }
 
 .braided-chapter-title:focus {
-  background: var(--bg-tertiary);
-  padding: 4px 8px;
-  margin: -4px -8px;
+  background: #fafaf8;
+  padding: 6px 10px;
+  margin: -6px -10px;
   border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(168, 166, 163, 0.1);
 }
 
 .delete-chapter-btn {
@@ -3492,9 +3512,9 @@
 .braided-sub-toggle {
   display: flex;
   gap: 2px;
-  background: var(--bg-tertiary);
+  background: #f0efed;
   border-radius: 6px;
-  padding: 2px;
+  padding: 3px;
 }
 
 .braided-sub-toggle button {
@@ -3503,7 +3523,7 @@
   font-weight: 500;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: #7a7876;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s;
@@ -3511,13 +3531,13 @@
 }
 
 .braided-sub-toggle button:hover {
-  color: var(--text-primary);
+  color: #2c2c2c;
 }
 
 .braided-sub-toggle button.active {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  color: #1a1a1a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 /* Rails View Container */
