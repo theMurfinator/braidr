@@ -618,8 +618,8 @@
 .scene-list {
   max-width: 1100px;
   margin: 0 auto;
-  background: var(--bg-primary);
-  padding: 32px 48px;
+  background: #fafaf8;
+  padding: 36px 52px;
 }
 
 /* When in braided view, allow full width for two-column layout */
@@ -689,10 +689,10 @@
 .plot-point-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
+  gap: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e8e7e5;
+  margin-bottom: 12px;
 }
 
 .section-reorder-buttons {
@@ -728,25 +728,34 @@
   font-size: var(--font-section-title-size);
   font-weight: 600;
   font-family: var(--font-section-title);
-  color: var(--text-primary);
+  color: #1a1a1a;
   cursor: pointer;
+  letter-spacing: -0.01em;
+  transition: color 0.15s;
 }
 
 .plot-point-title:hover {
-  color: var(--text-secondary);
+  color: #4a4846;
 }
 
 .plot-point-title-input {
   font-size: var(--font-section-title-size);
   font-weight: 600;
   font-family: var(--font-section-title);
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-  border: none;
+  color: #1a1a1a;
+  background: #fafaf8;
+  border: 1px solid #d1cfcc;
   outline: none;
-  padding: 4px 8px;
-  border-radius: 3px;
+  padding: 6px 10px;
+  border-radius: 4px;
   width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.plot-point-title-input:focus {
+  border-color: #a8a6a3;
+  box-shadow: 0 0 0 3px rgba(168, 166, 163, 0.1);
+}
 }
 
 .plot-point-count {
@@ -848,21 +857,20 @@
 
 /* Scene card */
 .scene-card {
-  background: var(--bg-primary);
-  padding: 12px 16px;
-  margin-bottom: 4px;
-  transition: all 0.15s ease;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(44, 44, 44, 0.04);
+  background: #ffffff;
+  padding: 14px 18px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  border: 1px solid #e8e7e5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.02);
 }
 
 .scene-card:hover {
-  background: var(--bg-secondary);
-  margin-left: -8px;
-  box-shadow: 0 2px 8px rgba(44, 44, 44, 0.08);
-  margin-right: -8px;
-  padding-left: 8px;
-  padding-right: 8px;
+  background: #fefefe;
+  border-color: #d1cfcc;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
 }
 
 /* New row-based layout */
@@ -891,40 +899,40 @@
 }
 
 .scene-drag-handle {
-  color: var(--text-muted);
+  color: #b3b1ae;
   font-size: 14px;
   letter-spacing: 3px;
   cursor: grab;
   user-select: none;
-  padding: 2px 6px;
-  margin-right: 4px;
-  opacity: 0.4;
-  transition: all 0.15s ease;
+  padding: 2px 7px;
+  margin-right: 6px;
+  opacity: 0.3;
+  transition: all 0.2s ease;
   border-radius: 4px;
   line-height: 1.5;
 }
 
 .scene-card:hover .scene-drag-handle {
-  opacity: 0.7;
-  background: rgba(0, 0, 0, 0.04);
+  opacity: 0.6;
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .scene-drag-handle:hover {
   opacity: 1 !important;
-  background: rgba(0, 0, 0, 0.08);
-  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.06);
+  color: #5a5856;
 }
 
 .scene-drag-handle:active {
   cursor: grabbing;
-  background: rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .scene-number {
   font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  min-width: 28px;
+  font-weight: 700;
+  color: #4a4846;
+  min-width: 30px;
   line-height: 1.5;
 }
 
@@ -932,9 +940,10 @@
   font-size: var(--font-scene-title-size);
   font-weight: 600;
   font-family: var(--font-scene-title);
-  color: var(--text-primary);
+  color: #1a1a1a;
   flex: 1;
   line-height: 1.5;
+  letter-spacing: -0.01em;
 }
 
 .scene-character {
@@ -1032,18 +1041,24 @@
 .scene-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-left: 34px; /* Align with title (after scene number) */
-  margin-top: 4px;
+  gap: 6px;
+  margin-left: 36px; /* Align with title (after scene number) */
+  margin-top: 8px;
 }
 
 .tag {
   font-size: 11px;
-  padding: 0 4px;
-  border-radius: 2px;
+  padding: 3px 8px;
+  border-radius: 10px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: transparent;
-  opacity: 0.7;
+  background: rgba(0, 0, 0, 0.04);
+  opacity: 0.85;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+
+.tag:hover {
+  opacity: 1;
 }
 
 .tag.people { color: var(--tag-people); }
@@ -1191,21 +1206,26 @@
 
 /* Scene notes */
 .scene-notes {
-  margin-top: 8px;
-  margin-left: 34px; /* Align with title */
+  margin-top: 10px;
+  margin-left: 36px; /* Align with title */
   cursor: text;
-  padding: 8px 12px;
-  border-left: 2px solid var(--border);
+  padding: 10px 14px;
+  border-left: 2px solid #d1cfcc;
   min-height: 16px;
-  background: var(--bg-primary);
-  border-radius: 2px;
+  background: #fafaf8;
+  border-radius: 4px;
+  transition: border-color 0.15s;
+}
+
+.scene-notes:hover {
+  border-left-color: #a8a6a3;
 }
 
 /* TipTap Editor for notes */
 .notes-editor {
   font-size: var(--font-body-size);
   font-family: var(--font-body);
-  color: var(--text-secondary);
+  color: #5a5856;
   line-height: 1.6;
 }
 
@@ -1248,17 +1268,18 @@
 .notes-editor .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: var(--text-muted);
+  color: #b3b1ae;
   font-style: italic;
   pointer-events: none;
   height: 0;
 }
 
 .notes-editor .tiptap:focus {
-  background: var(--bg-primary);
-  margin: -8px;
-  padding: 8px;
+  background: #ffffff;
+  margin: -10px;
+  padding: 10px;
   border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(168, 166, 163, 0.08);
 }
 
 /* Collapsible notes for braided view */
@@ -1269,25 +1290,25 @@
 
 /* Notes toggle in header (POV view) */
 .notes-toggle-header {
-  font-size: 18px;
+  font-size: 17px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: var(--text-muted);
+  color: #b3b1ae;
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 3px 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-  transition: all 0.15s;
-  min-width: 24px;
+  transition: all 0.2s;
+  min-width: 26px;
   line-height: 1.5;
 }
 
 .notes-toggle-header:hover {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
+  color: #5a5856;
+  background: rgba(0, 0, 0, 0.03);
 }
 
 /* Old notes toggle - keeping for backwards compatibility */
@@ -1488,19 +1509,26 @@
 .scene-edit-textarea {
   flex: 1;
   font-size: 18px;
-  font-weight: 700;
-  font-family: 'PT Serif', Georgia, serif;
-  color: var(--text-primary);
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
+  font-weight: 600;
+  font-family: var(--font-scene-title, 'PT Serif', Georgia, serif);
+  color: #1a1a1a;
+  background: #fafaf8;
+  border: 1px solid #d1cfcc;
   outline: none;
-  padding: 4px 8px;
-  margin: -4px -8px;
+  padding: 6px 10px;
+  margin: -6px -10px;
   border-radius: 4px;
   resize: none;
   line-height: 1.5;
-  min-height: 27px;
+  min-height: 30px;
   vertical-align: top;
+  letter-spacing: -0.01em;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.scene-edit-textarea:focus {
+  border-color: #a8a6a3;
+  box-shadow: 0 0 0 3px rgba(168, 166, 163, 0.1);
 }
 
 /* Filter bar */
