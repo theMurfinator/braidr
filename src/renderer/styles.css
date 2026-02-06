@@ -3545,9 +3545,10 @@
   display: flex;
   gap: 24px;
   max-width: none;
-  padding: 16px;
+  padding: 20px;
   height: 100%;
   box-sizing: border-box;
+  background: #fafaf8;
 }
 
 .rails-main {
@@ -3562,26 +3563,29 @@
 .rails-header {
   display: grid;
   grid-template-columns: 50px repeat(var(--rails-columns, 4), 1fr);
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-primary);
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 2px solid #e8e7e5;
+  background: #fbfbfa;
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
 .rails-header-cell {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 10px 12px;
+  letter-spacing: 0.8px;
+  padding: 12px 14px;
   text-align: center;
   border-radius: 6px;
-  color: var(--text-primary);
+  color: #1a1a1a;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  background: #ffffff;
+  border: 1px solid #e8e7e5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .rails-header-cell.draggable {
@@ -3589,7 +3593,9 @@
 }
 
 .rails-header-cell.draggable:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
+  border-color: #d1cfcc;
+  transform: translateY(-1px);
 }
 
 .rails-header-cell.dragging {
@@ -3598,14 +3604,16 @@
 }
 
 .rails-header-cell.drop-target {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: scale(1.02);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 8px 20px rgba(0, 0, 0, 0.06);
+  border-color: #a8a6a3;
 }
 
 .rails-row-number-header {
   background: transparent !important;
-  border-bottom: none !important;
-  color: var(--text-muted);
+  border: none !important;
+  box-shadow: none !important;
+  color: #9a9896;
 }
 
 /* Rails Grid */
@@ -3618,8 +3626,8 @@
 .rails-grid-inner {
   display: grid;
   grid-template-columns: 50px repeat(var(--rails-columns, 4), 1fr);
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 10px;
+  padding: 12px 20px;
 }
 
 /* Rails Row */
@@ -3633,7 +3641,7 @@
   justify-content: center;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: #b3b1ae;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
@@ -3642,17 +3650,17 @@
   min-height: var(--row-height, 52px);
   height: var(--row-height, 52px);
   border-radius: 6px;
-  transition: background 0.15s, height 0.2s;
+  transition: background 0.15s, height 0.2s, border-color 0.15s;
 }
 
 .rails-cell.empty {
-  background: var(--bg-tertiary);
-  border: 1px dashed var(--border);
-  opacity: 0.4;
+  background: #f9f8f6;
+  border: 1px dashed #d1cfcc;
+  opacity: 0.5;
 }
 
 .rails-cell.has-scene {
-  background: var(--bg-primary);
+  background: #ffffff;
 }
 
 /* Rails Row Number - match cell height */
@@ -3662,15 +3670,15 @@
 
 /* Rails Scene Card */
 .rails-scene-card {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: 6px;
-  border-left: 4px solid;
-  background: var(--bg-primary);
-  border-top: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-left: 3px solid;
+  background: #ffffff;
+  border-top: 1px solid #e8e7e5;
+  border-right: 1px solid #e8e7e5;
+  border-bottom: 1px solid #e8e7e5;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
   position: relative;
   height: 100%;
   min-height: 100%;
@@ -3678,16 +3686,24 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .rails-scene-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #fefefe;
+  border-top-color: #d1cfcc;
+  border-right-color: #d1cfcc;
+  border-bottom-color: #d1cfcc;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.04);
   transform: translateY(-1px);
 }
 
 .rails-scene-card.highlighted {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);
   transform: translateY(-2px);
+  border-top-color: #a8a6a3;
+  border-right-color: #a8a6a3;
+  border-bottom-color: #a8a6a3;
 }
 
 .rails-scene-card.has-connections::before {
@@ -3704,14 +3720,15 @@
 
 .rails-scene-title {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
+  font-weight: 600;
+  color: #1a1a1a;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   font-family: 'PT Serif', Georgia, serif;
+  letter-spacing: -0.01em;
 }
 
 .rails-scene-connection-indicator {
