@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-electron/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# App packages
+*.dmg
+*.zip
+*.pkg
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test projects
+test-project/
+New project/
+save the cat/
+Design Inspiration/
