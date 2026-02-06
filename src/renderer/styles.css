@@ -3,23 +3,23 @@
 
 /* Base styles */
 :root {
-  /* Warm cream backgrounds (Margin-inspired) */
-  --bg-primary: #faf8f5;
-  --bg-secondary: #f5f2ed;
-  --bg-tertiary: #efeae3;
+  /* Warm cream backgrounds (Ulysses/Scrivener-inspired) */
+  --bg-primary: #fafaf8;
+  --bg-secondary: #f7f6f4;
+  --bg-tertiary: #f0efed;
 
-  /* Softer text colors */
-  --text-primary: #2c2c2c;
-  --text-secondary: #6b6b6b;
-  --text-muted: #a0a0a0;
+  /* Refined text colors */
+  --text-primary: #1a1a1a;
+  --text-secondary: #5a5856;
+  --text-muted: #9a9896;
 
   /* Refined accents */
-  --accent: #2c2c2c;
-  --accent-hover: #1a1a1a;
-  --accent-light: rgba(44, 44, 44, 0.06);
+  --accent: #1a1a1a;
+  --accent-hover: #000000;
+  --accent-light: rgba(26, 26, 26, 0.06);
 
-  /* Warmer border */
-  --border: #e8e4de;
+  /* Warmer borders */
+  --border: #e8e7e5;
 
   /* Tag colors (keep vibrant for contrast) */
   --tag-people: #2e7d32;
@@ -42,7 +42,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--bg-primary);
+  background: #fafaf8;
   font-family: 'PT Serif', Georgia, 'Times New Roman', serif;
 }
 
@@ -51,11 +51,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 20px;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border);
+  padding: 10px 24px;
+  background: #fbfbfa;
+  border-bottom: 1px solid #e8e7e5;
   -webkit-app-region: drag;
-  gap: 12px;
+  gap: 16px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
 }
 
 .toolbar-left {
@@ -68,10 +69,10 @@
 .toolbar-left h1 {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1a1a1a;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   margin-left: 70px; /* Space for macOS traffic light buttons */
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
@@ -90,32 +91,34 @@
 
 .view-toggle {
   display: flex;
-  background: var(--bg-secondary);
+  background: #f0efed;
   border-radius: 6px;
   padding: 3px;
   gap: 2px;
 }
 
 .view-toggle button {
-  padding: 5px 14px;
+  padding: 6px 16px;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: #7a7876;
   font-size: 12px;
   font-weight: 500;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .view-toggle button:hover {
-  color: var(--text-primary);
+  color: #2c2c2c;
 }
 
 .view-toggle button.active {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  color: #1a1a1a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  font-weight: 600;
 }
 
 /* Legacy support */
@@ -196,37 +199,39 @@
 .toolbar-divider {
   width: 1px;
   height: 20px;
-  background: var(--border);
-  margin: 0 4px;
+  background: #d1cfcc;
+  margin: 0 6px;
 }
 
 .toolbar-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 6px 12px;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: #7a7876;
   font-size: 12px;
   font-weight: 500;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
   transition: all 0.15s;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .toolbar-btn:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  background: #f0efed;
+  color: #2c2c2c;
 }
 
 .toolbar-btn.active {
-  background: var(--accent-light);
-  color: var(--accent);
+  background: #f0efed;
+  color: #1a1a1a;
+  font-weight: 600;
 }
 
 .toolbar-btn svg {
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
 .toolbar-btn.active svg {
@@ -234,32 +239,33 @@
 }
 
 .toolbar-compile-btn {
-  padding: 5px 14px;
-  background: var(--text-primary);
-  color: var(--bg-primary);
+  padding: 6px 16px;
+  background: #1a1a1a;
+  color: #ffffff;
   border: none;
-  border-radius: 4px;
+  border-radius: 5px;
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   cursor: pointer;
   font-weight: 600;
-  transition: opacity 0.15s;
+  transition: background 0.15s, box-shadow 0.15s;
 }
 
 .toolbar-compile-btn:hover {
-  opacity: 0.8;
+  background: #2c2c2c;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .sub-view-toggle {
   display: flex;
-  background: var(--bg-tertiary);
-  border-radius: 4px;
-  padding: 2px;
+  background: #f0efed;
+  border-radius: 5px;
+  padding: 3px;
   gap: 2px;
 }
 
 .sub-view-toggle button {
-  padding: 4px 12px;
+  padding: 5px 14px;
   border: none;
   background: transparent;
   color: var(--text-secondary);
