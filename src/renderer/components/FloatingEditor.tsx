@@ -195,6 +195,11 @@ export default function FloatingEditor({
     !scene.tags.includes(tag.name)
   );
 
+  const getTagCategory = (tagName: string): string => {
+    const tag = tags.find(t => t.name === tagName);
+    return tag?.category || 'people';
+  };
+
   // Clean title for display
   const displayTitle = scene.content
     .replace(/==\*\*/g, '')
@@ -300,7 +305,7 @@ export default function FloatingEditor({
             </div>
             <div className="floating-editor-tags">
               {scene.tags.map(tag => (
-                <span key={tag} className="floating-editor-tag">
+                <span key={tag} className={`floating-editor-tag ${getTagCategory(tag)}`}>
                   #{tag}
                   <button
                     className="floating-editor-tag-remove"
@@ -316,9 +321,10 @@ export default function FloatingEditor({
             </div>
             {showTagPicker && (
               <div className="floating-editor-tag-picker">
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+                <div className="floating-editor-tag-picker-row">
                   <input
                     type="text"
+                    className="floating-editor-tag-picker-input"
                     placeholder="Search or create tag..."
                     value={tagFilter}
                     onChange={(e) => setTagFilter(e.target.value)}
@@ -335,14 +341,12 @@ export default function FloatingEditor({
                         setTagFilter('');
                       }
                     }}
-                    style={{ flex: 1 }}
                   />
                   <select
-                    className="tag-picker-category"
+                    className="floating-editor-tag-picker-category"
                     value={newTagCategory}
                     onChange={e => setNewTagCategory(e.target.value as typeof newTagCategory)}
                     title="Tag category"
-                    style={{ fontSize: '11px', padding: '4px 6px' }}
                   >
                     <option value="people">Person</option>
                     <option value="locations">Location</option>
@@ -355,7 +359,7 @@ export default function FloatingEditor({
                   {filteredTags.slice(0, 8).map(tag => (
                     <button
                       key={tag.id}
-                      className="floating-editor-tag-option"
+                      className={`floating-editor-tag-option ${tag.category}`}
                       onClick={() => handleAddTag(tag.name)}
                     >
                       #{tag.name}

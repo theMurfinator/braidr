@@ -144,6 +144,7 @@ export default function EditorView({
     const saved = localStorage.getItem('editor-meta-width');
     return saved !== null ? parseInt(saved, 10) : 240;
   });
+  const [scratchpad, setScratchpad] = useState<Record<string, string>>({});
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagCategory, setNewTagCategory] = useState<'people' | 'locations' | 'arcs' | 'things' | 'time'>('people');
@@ -654,16 +655,20 @@ export default function EditorView({
                 const key = getSceneKey(scene);
                 const char = characters.find(c => c.id === scene.characterId);
                 const hasDraft = !!(draftContent[key] && draftContent[key] !== '<p></p>');
+                const charColor = characterColors[scene.characterId] || '#888';
+                const isActive = selectedSceneKey === key;
                 return (
                   <div
                     key={key}
-                    className={`editor-nav-item ${selectedSceneKey === key ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`}
+                    className={`editor-nav-item ${isActive ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`}
+                    style={isActive ? { borderLeftColor: charColor, backgroundColor: `${charColor}12` } : undefined}
                     onClick={() => handleSceneSelect(key)}
                   >
-                    <span className="editor-nav-item-char-dot" style={{ backgroundColor: characterColors[scene.characterId] || '#888' }} />
-                    <span className="editor-nav-item-char-label" style={{ color: characterColors[scene.characterId] || '#888' }}>{char?.name} {scene.sceneNumber}</span>
-                    <span className="editor-nav-item-title">{cleanContent(scene.content)}</span>
-                    {hasDraft && <span className="editor-nav-item-dot" style={{ backgroundColor: characterColors[scene.characterId] || '#888' }} />}
+                    <div className="editor-nav-item-stack">
+                      <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
+                      <span className="editor-nav-item-title">{cleanContent(scene.content)}</span>
+                    </div>
+                    {hasDraft && <span className="editor-nav-item-draft-indicator" style={{ backgroundColor: charColor }} />}
                   </div>
                 );
               })}
@@ -674,16 +679,20 @@ export default function EditorView({
                     const key = getSceneKey(scene);
                     const char = characters.find(c => c.id === scene.characterId);
                     const hasDraft = !!(draftContent[key] && draftContent[key] !== '<p></p>');
+                    const charColor = characterColors[scene.characterId] || '#888';
+                    const isActive = selectedSceneKey === key;
                     return (
                       <div
                         key={key}
-                        className={`editor-nav-item ${selectedSceneKey === key ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`}
+                        className={`editor-nav-item ${isActive ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`}
+                        style={isActive ? { borderLeftColor: charColor, backgroundColor: `${charColor}12` } : undefined}
                         onClick={() => handleSceneSelect(key)}
                       >
-                        <span className="editor-nav-item-char-dot" style={{ backgroundColor: characterColors[scene.characterId] || '#888' }} />
-                        <span className="editor-nav-item-char-label" style={{ color: characterColors[scene.characterId] || '#888' }}>{char?.name} {scene.sceneNumber}</span>
-                        <span className="editor-nav-item-title">{cleanContent(scene.content)}</span>
-                        {hasDraft && <span className="editor-nav-item-dot" style={{ backgroundColor: characterColors[scene.characterId] || '#888' }} />}
+                        <div className="editor-nav-item-stack">
+                          <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
+                          <span className="editor-nav-item-title">{cleanContent(scene.content)}</span>
+                        </div>
+                        {hasDraft && <span className="editor-nav-item-draft-indicator" style={{ backgroundColor: charColor }} />}
                       </div>
                     );
                   })}
@@ -739,22 +748,65 @@ export default function EditorView({
                 {cleanContent(selectedScene.content) || 'Untitled scene'}
               </h2>
             )}
-            <span className="editor-draft-scene-subtitle">
-              {characters.find(c => c.id === selectedScene.characterId)?.name} · Scene {selectedScene.sceneNumber}
-            </span>
+            <div className="editor-draft-scene-subtitle">
+              <span>{characters.find(c => c.id === selectedScene.characterId)?.name} · Scene {selectedScene.sceneNumber}</span>
+              <div className="editor-draft-status-pill-wrap" ref={statusPillRef}>
+                <button
+                  className="editor-draft-status-pill"
+                  style={{ '--status-color': (statusOptions.find(s => s.value === (currentMeta['_status'] as string))?.color) || '#9e9e9e' } as React.CSSProperties}
+                  onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                >
+                  {(currentMeta['_status'] as string) || 'No status'}
+                </button>
+                {showStatusDropdown && (
+                  <div className="editor-draft-status-dropdown">
+                    {statusOptions.map(s => (
+                      <button
+                        key={s.value}
+                        className={`editor-meta-status-option ${(currentMeta['_status'] as string) === s.value ? 'active' : ''}`}
+                        onClick={() => { handleMetaChange('_status', s.value); setShowStatusDropdown(false); }}
+                      >
+                        <span className="editor-meta-status-dot" style={{ background: s.color }} />
+                        {s.value}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
         <div className="editor-draft-editor">
           <EditorContent editor={editor} />
         </div>
         <div className="editor-draft-footer">
-          <span className="editor-word-count">{wordCount.toLocaleString()} words</span>
+          <div className="editor-draft-footer-left">
+            <span className="editor-word-count">Word Count: {wordCount.toLocaleString()}</span>
+            <span className="editor-reading-time">Reading Time: {Math.max(1, Math.round(wordCount / 250))} min</span>
+          </div>
+          {selectedScene && (
+            <span className="editor-scene-label">Last Saved: {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase()}</span>
+          )}
         </div>
       </div>
 
-      {/* Right: Metadata + Tags */}
+      {/* Right: Metadata Panel */}
       {showMeta && <div className="editor-resize-handle" onMouseDown={e => handleResizeStart(e, 'meta')} />}
       {showMeta && <div className="editor-meta" style={{ width: metaWidth }}>
+        {/* Scene Synopsis (formerly Notes) */}
+        <div className="editor-meta-section">
+          <h4 className="editor-meta-label">Scene Synopsis</h4>
+          {notesEditorFocused && notesEditor && (
+            <div className="editor-meta-notes-toolbar">
+              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
+              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
+              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
+              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
+            </div>
+          )}
+          <EditorContent editor={notesEditor} className="editor-meta-notes-editor" />
+        </div>
+
         {/* Tags */}
         <div className="editor-meta-section">
           <h4 className="editor-meta-label">Tags</h4>
@@ -810,6 +862,21 @@ export default function EditorView({
           </div>
         </div>
 
+        {/* Scratchpad */}
+        <div className="editor-meta-section">
+          <h4 className="editor-meta-label">Scratchpad</h4>
+          <textarea
+            className="editor-meta-scratchpad"
+            placeholder="Jot down quick notes, ideas, reminders..."
+            value={selectedSceneKey ? (scratchpad[selectedSceneKey] || '') : ''}
+            onChange={e => {
+              if (selectedSceneKey) {
+                setScratchpad(prev => ({ ...prev, [selectedSceneKey]: e.target.value }));
+              }
+            }}
+          />
+        </div>
+
         {/* Go-to buttons */}
         {selectedScene && (
           <div className="editor-meta-goto-row">
@@ -824,7 +891,7 @@ export default function EditorView({
             <h4 className="editor-meta-label">Status</h4>
             <button className="editor-meta-edit-btn" onClick={openStatusEditor}>Edit</button>
           </div>
-          <div className="editor-meta-status-pill-wrap" ref={statusPillRef}>
+          <div className="editor-meta-status-pill-wrap">
             <button
               className="editor-meta-status-pill"
               style={{ '--status-color': (statusOptions.find(s => s.value === (currentMeta['_status'] as string))?.color) || '#9e9e9e' } as React.CSSProperties}
@@ -849,28 +916,14 @@ export default function EditorView({
           </div>
         </div>
 
-        {/* Notes */}
-        <div className="editor-meta-section">
-          <h4 className="editor-meta-label">Notes</h4>
-          {notesEditorFocused && notesEditor && (
-            <div className="editor-meta-notes-toolbar">
-              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
-              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
-              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
-              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
-            </div>
-          )}
-          <EditorContent editor={notesEditor} className="editor-meta-notes-editor" />
-        </div>
-
-        {/* Drafts */}
+        {/* History (formerly Drafts) */}
         {selectedScene && (() => {
           const key = getSceneKey(selectedScene);
           const sceneDrafts = drafts[key] || [];
           return (
             <div className="editor-meta-section">
               <div className="editor-meta-label-row">
-                <h4 className="editor-meta-label">Drafts</h4>
+                <h4 className="editor-meta-label">History</h4>
                 <div className="editor-meta-label-row-actions">
                   {sceneDrafts.length >= 2 && (
                     <button className="editor-meta-edit-btn" onClick={() => { setDiffVersionA(sceneDrafts[sceneDrafts.length - 2].version); setDiffVersionB(sceneDrafts[sceneDrafts.length - 1].version); setShowDiffModal(true); }}>Compare</button>
