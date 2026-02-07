@@ -1,6 +1,6 @@
 {
   "name": "braidr",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A tool for managing multiple POV character outlines with independent timeline views",
   "main": "dist-electron/main/main.js",
   "scripts": {
@@ -51,7 +51,7 @@
     "productName": "Braidr",
     "mac": {
       "category": "public.app-category.productivity",
-      "target": "dmg"
+      "target": ["dmg", "zip"]
     },
     "win": {
       "target": "nsis"
