@@ -839,22 +839,23 @@
 .plot-point-description {
   padding: 4px 0 8px 0;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--font-body-size);
   line-height: 1.6;
   min-height: 16px;
 }
 
 /* TipTap Editor for description */
 .description-editor {
-  font-size: 16px;
+  font-size: var(--font-body-size);
   font-family: var(--font-body);
-  color: var(--text-secondary);
-  line-height: 1.7;
+  color: #5a5856;
+  line-height: 1.6;
 }
 
 .description-editor .tiptap {
   outline: none;
   min-height: 20px;
+  cursor: text;
 }
 
 .description-editor .tiptap p {
@@ -876,23 +877,24 @@
 .description-editor .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: var(--text-muted);
+  color: #9ca3af;
   font-style: italic;
   pointer-events: none;
   height: 0;
 }
 
 .description-editor .tiptap:focus {
-  background: var(--bg-tertiary);
-  margin: -8px;
-  padding: 8px;
+  background: #ffffff;
+  margin: -10px;
+  padding: 10px;
   border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(168, 166, 163, 0.08);
 }
 
 /* Scene card */
 .scene-card {
   background: #ffffff;
-  padding: 14px 18px;
+  padding: 14px 0;
   margin-bottom: 0;
   transition: all 0.15s ease;
   border-radius: 0;
@@ -908,7 +910,7 @@
 .scene-row {
   display: flex;
   align-items: flex-start;
-  gap: 4px;
+  gap: 0px;
 }
 
 .scene-controls {
@@ -920,6 +922,7 @@
 .scene-content {
   flex: 1;
   min-width: 0;
+  width: 100%;
 }
 
 .scene-header {
@@ -1334,7 +1337,67 @@
   margin-left: 32px;
 }
 
-/* Notes toggle in header (POV view) */
+/* Scene movement buttons (POV view) */
+.scene-move-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-right: 8px;
+}
+
+.scene-move-btn {
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #666;
+  background: transparent;
+  border: none;
+  padding: 3px 5px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.scene-move-btn:hover:not(:disabled) {
+  color: #333;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.scene-move-btn:disabled {
+  opacity: 0.15;
+  cursor: not-allowed;
+}
+
+/* Synopsis section */
+.scene-synopsis-section {
+  margin-top: 8px;
+}
+
+.scene-synopsis-header {
+  padding: 6px 0 4px 0;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 8px;
+}
+
+.synopsis-toggle-btn {
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #999;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.synopsis-toggle-btn:hover {
+  color: #666;
+}
+
+/* Notes toggle in header (POV view) - DEPRECATED */
 .notes-toggle-header {
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

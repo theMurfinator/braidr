@@ -23,6 +23,11 @@ interface SceneCardProps {
   showDragHandle?: boolean;
   dragHandleRef?: (el: HTMLSpanElement | null) => void;
   forceNotesExpanded?: boolean | null;
+  // Movement arrows for POV view
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
   // Connection props for braided view
   connectedScenes?: { id: string; label: string }[];
   onStartConnection?: () => void;
@@ -55,6 +60,10 @@ function SceneCard({
   showDragHandle = false,
   dragHandleRef,
   forceNotesExpanded = null,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = true,
+  canMoveDown = true,
   connectedScenes,
   onStartConnection,
   onRemoveConnection,
@@ -394,24 +403,47 @@ function SceneCard({
       style={backgroundColor ? { backgroundColor } : undefined}
     >
       <div className="scene-row">
-        {/* Left controls */}
-        <div className="scene-controls">
-          {showDragHandle && (
-            <span
-              className="scene-drag-handle"
-              ref={dragHandleRef}
-            >
-              ⋮⋮
-            </span>
-          )}
-          <button className="notes-toggle-header" onClick={toggleNotesExpanded} title={notesExpanded ? 'Collapse synopsis' : 'Expand synopsis'}>
-            {notesExpanded ? '▾' : '▸'} <span className="notes-toggle-label">Synopsis</span>
-          </button>
-        </div>
-
-        {/* Main content */}
+        {/* Main content - now full width */}
         <div className="scene-content">
           <div className="scene-header">
+            {/* Movement arrows for POV view */}
+            {(onMoveUp || onMoveDown) && (
+              <div className="scene-move-buttons">
+                <button
+                  className="scene-move-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMoveUp?.();
+                  }}
+                  disabled={!canMoveUp}
+                  title="Move scene up"
+                >
+                  ▲
+                </button>
+                <button
+                  className="scene-move-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMoveDown?.();
+                  }}
+                  disabled={!canMoveDown}
+                  title="Move scene down"
+                >
+                  ▼
+                </button>
+              </div>
+            )}
+
+            {/* Drag handle for braided view */}
+            {showDragHandle && !onMoveUp && !onMoveDown && (
+              <span
+                className="scene-drag-handle"
+                ref={dragHandleRef}
+              >
+                ⋮⋮
+              </span>
+            )}
+
             <span className="scene-number">{numberToShow}.</span>
 
             {isEditing ? (
@@ -564,25 +596,33 @@ function SceneCard({
         )}
       </div>
 
-          {notesExpanded && (
+          {/* Synopsis section with toggle inside */}
+          <div className="scene-synopsis-section">
             <div className="scene-notes">
-              {editorFocused && editor && (
-                <div className="notes-toolbar">
-                  <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleBold().run()} title="Bold (Ctrl+B)">
-                    <strong>B</strong>
-                  </button>
-                  <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic (Ctrl+I)">
-                    <em>I</em>
-                  </button>
-                  <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet List">
-                    ≡
-                  </button>
-                  <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleTaskList().run()} title="Checkbox List">
-                    ☐
-                  </button>
-                </div>
-              )}
-              <EditorContent editor={editor} className="notes-editor" />
+              <div className="scene-synopsis-header">
+                <button className="synopsis-toggle-btn" onClick={toggleNotesExpanded} title={notesExpanded ? 'Collapse synopsis' : 'Expand synopsis'}>
+                  {notesExpanded ? '▾' : '▸'} Synopsis
+                </button>
+              </div>
+              {notesExpanded && (
+                <>
+                  {editorFocused && editor && (
+                    <div className="notes-toolbar">
+                      <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleBold().run()} title="Bold (Ctrl+B)">
+                        <strong>B</strong>
+                      </button>
+                      <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic (Ctrl+I)">
+                        <em>I</em>
+                      </button>
+                      <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet List">
+                        ≡
+                      </button>
+                      <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleTaskList().run()} title="Checkbox List">
+                        ☐
+                      </button>
+                    </div>
+                  )}
+                  <EditorContent editor={editor} className="notes-editor" />
               {/* Connection controls in notes area */}
               {(onStartConnection || connectedScenes || onWordCountChange) && (
                 <div className="scene-connections-inline">
@@ -842,8 +882,10 @@ function SceneCard({
                   )}
                 </div>
               )}
+                </>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

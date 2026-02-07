@@ -21,6 +21,10 @@ interface PlotPointSectionProps {
   isFirst?: boolean;
   isLast?: boolean;
   forceNotesExpanded?: boolean | null;
+  // Scene movement props (for arrow buttons)
+  onSceneMoveUp?: (sceneId: string) => void;
+  onSceneMoveDown?: (sceneId: string) => void;
+  allCharacterScenes?: Scene[]; // All scenes for the character to determine global boundaries
   // Scene dragging props
   onSceneDragStart?: (scene: Scene) => void;
   onSceneDragEnd?: () => void;
@@ -44,7 +48,7 @@ interface PlotPointSectionProps {
   onMetadataFieldDefsChange?: (defs: MetadataFieldDef[]) => void;
 }
 
-function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange }: PlotPointSectionProps) {
+function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange }: PlotPointSectionProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingCount, setIsEditingCount] = useState(false);
   // Ensure title always has a fallback value
@@ -368,6 +372,20 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
                   sceneHandleRefs.current.delete(scene.id);
                 }
               }}
+              onMoveUp={onSceneMoveUp ? () => onSceneMoveUp(scene.id) : undefined}
+              onMoveDown={onSceneMoveDown ? () => onSceneMoveDown(scene.id) : undefined}
+              canMoveUp={(() => {
+                if (!allCharacterScenes) return index > 0;
+                const globalSorted = [...allCharacterScenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+                const globalIndex = globalSorted.findIndex(s => s.id === scene.id);
+                return globalIndex > 0;
+              })()}
+              canMoveDown={(() => {
+                if (!allCharacterScenes) return index < sortedScenes.length - 1;
+                const globalSorted = [...allCharacterScenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+                const globalIndex = globalSorted.findIndex(s => s.id === scene.id);
+                return globalIndex < globalSorted.length - 1;
+              })()}
               connectedScenes={getConnectedScenes?.(scene.id)}
               onStartConnection={onStartConnection ? () => onStartConnection(scene.id) : undefined}
               onRemoveConnection={onRemoveConnection ? (targetId) => onRemoveConnection(scene.id, targetId) : undefined}

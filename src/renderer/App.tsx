@@ -848,6 +848,106 @@ function App() {
     }
   };
 
+  const handlePovSceneMoveUp = async (sceneId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+
+    // Get all scenes for this character, sorted by scene number
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === selectedCharacterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    const currentIndex = charScenes.findIndex(s => s.id === sceneId);
+    if (currentIndex <= 0) return; // Already at top or not found
+
+    const currentScene = charScenes[currentIndex];
+    const prevScene = charScenes[currentIndex - 1];
+
+    // Check if we're moving to a different plot point
+    const movingToNewPlotPoint = currentScene.plotPointId !== prevScene.plotPointId;
+
+    const updatedScenes = projectData.scenes.map(s => {
+      if (s.id === currentScene.id) {
+        return {
+          ...s,
+          sceneNumber: prevScene.sceneNumber,
+          plotPointId: movingToNewPlotPoint ? prevScene.plotPointId : s.plotPointId
+        };
+      } else if (s.id === prevScene.id) {
+        return {
+          ...s,
+          sceneNumber: currentScene.sceneNumber,
+          plotPointId: movingToNewPlotPoint ? currentScene.plotPointId : s.plotPointId
+        };
+      }
+      return s;
+    });
+
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+
+    // Save to file
+    const updatedCharScenes = updatedScenes.filter(s => s.characterId === selectedCharacterId);
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === selectedCharacterId);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, updatedCharScenes);
+    } catch (err) {
+      console.error('Failed to save:', err);
+    }
+  };
+
+  const handlePovSceneMoveDown = async (sceneId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+
+    // Get all scenes for this character, sorted by scene number
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === selectedCharacterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    const currentIndex = charScenes.findIndex(s => s.id === sceneId);
+    if (currentIndex === -1 || currentIndex >= charScenes.length - 1) return; // Already at bottom or not found
+
+    const currentScene = charScenes[currentIndex];
+    const nextScene = charScenes[currentIndex + 1];
+
+    // Check if we're moving to a different plot point
+    const movingToNewPlotPoint = currentScene.plotPointId !== nextScene.plotPointId;
+
+    const updatedScenes = projectData.scenes.map(s => {
+      if (s.id === currentScene.id) {
+        return {
+          ...s,
+          sceneNumber: nextScene.sceneNumber,
+          plotPointId: movingToNewPlotPoint ? nextScene.plotPointId : s.plotPointId
+        };
+      } else if (s.id === nextScene.id) {
+        return {
+          ...s,
+          sceneNumber: currentScene.sceneNumber,
+          plotPointId: movingToNewPlotPoint ? currentScene.plotPointId : s.plotPointId
+        };
+      }
+      return s;
+    });
+
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+
+    // Save to file
+    const updatedCharScenes = updatedScenes.filter(s => s.characterId === selectedCharacterId);
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === selectedCharacterId);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, updatedCharScenes);
+    } catch (err) {
+      console.error('Failed to save:', err);
+    }
+  };
+
   const handleUpdateChapter = async (chapterId: string, newTitle: string) => {
     if (!projectData) return;
     const updatedChapters = braidedChapters.map(ch =>
@@ -1990,6 +2090,9 @@ function App() {
                     isFirst={index === 0}
                     isLast={index === displayedPlotPoints.length - 1}
                     forceNotesExpanded={allNotesExpanded}
+                    onSceneMoveUp={handlePovSceneMoveUp}
+                    onSceneMoveDown={handlePovSceneMoveDown}
+                    allCharacterScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
                     onSceneDragStart={(scene) => setDraggedPovScene(scene)}
                     onSceneDragEnd={() => setDraggedPovScene(null)}
                     onSceneDrop={handlePovSceneDrop}
