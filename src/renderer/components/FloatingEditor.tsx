@@ -39,6 +39,7 @@ export default function FloatingEditor({
 }: FloatingEditorProps) {
   const [localNotes, setLocalNotes] = useState<string[]>(scene.notes);
   const [localWordCount, setLocalWordCount] = useState<string>(scene.wordCount?.toString() || '');
+  const [localScratchpad, setLocalScratchpad] = useState('');
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [tagFilter, setTagFilter] = useState('');
   const [newTagCategory, setNewTagCategory] = useState<'people' | 'locations' | 'arcs' | 'things' | 'time'>('people');
@@ -407,13 +408,28 @@ export default function FloatingEditor({
             </div>
           </div>
 
+          {/* Scene Synopsis Section */}
+          <div className="floating-editor-section">
+            <div className="floating-editor-section-header">
+              <span className="floating-editor-section-title">Scene Synopsis</span>
+            </div>
+            <div className="floating-editor-notes">
+              <EditorContent editor={notesEditor} className="floating-editor-notes-editor" />
+            </div>
+          </div>
+
           {/* Notes Section */}
           <div className="floating-editor-section floating-editor-notes-section">
             <div className="floating-editor-section-header">
               <span className="floating-editor-section-title">Notes</span>
             </div>
-            <div className="floating-editor-notes">
-              <EditorContent editor={notesEditor} className="floating-editor-notes-editor" />
+            <div className="floating-editor-scratchpad-wrap">
+              <textarea
+                className="floating-editor-scratchpad"
+                placeholder="Jot down quick notes, ideas, reminders..."
+                value={localScratchpad}
+                onChange={(e) => setLocalScratchpad(e.target.value)}
+              />
             </div>
           </div>
         </div>

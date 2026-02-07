@@ -404,8 +404,8 @@ function SceneCard({
               ⋮⋮
             </span>
           )}
-          <button className="notes-toggle-header" onClick={toggleNotesExpanded} title={notesExpanded ? 'Collapse notes' : 'Expand notes'}>
-            {notesExpanded ? '▾' : '▸'}
+          <button className="notes-toggle-header" onClick={toggleNotesExpanded} title={notesExpanded ? 'Collapse synopsis' : 'Expand synopsis'}>
+            {notesExpanded ? '▾' : '▸'} <span className="notes-toggle-label">Synopsis</span>
           </button>
         </div>
 
