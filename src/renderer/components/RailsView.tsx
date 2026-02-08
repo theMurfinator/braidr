@@ -68,6 +68,7 @@ export default function RailsView({
   onDraftChange,
   onOpenInEditor,
 }: RailsViewProps) {
+  const [inboxCharFilter, setInboxCharFilter] = useState<string>('all');
   const [floatingEditorScene, setFloatingEditorScene] = useState<Scene | null>(null);
   const [scenePositions, setScenePositions] = useState<Record<string, { left: number; right: number; y: number }>>({});
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
@@ -182,6 +183,39 @@ export default function RailsView({
   });
 
   const numColumns = characters.length;
+
+  // Pre-compute connector data: for each character, which row indices have their scenes
+  // Then for each cell we can determine if it needs a connector line above/below
+  const charSceneRows = new Map<string, number[]>();
+  gridRows.forEach((row, index) => {
+    const existing = charSceneRows.get(row.characterId) || [];
+    existing.push(index);
+    charSceneRows.set(row.characterId, existing);
+  });
+
+  // For a given row index and character, determine connector state
+  const getCellConnector = (rowIndex: number, characterId: string): 'above' | 'below' | 'both' | 'through' | null => {
+    const rows = charSceneRows.get(characterId);
+    if (!rows || rows.length < 2) return null;
+
+    const isScene = gridRows[rowIndex]?.characterId === characterId;
+    const posInList = rows.indexOf(rowIndex);
+
+    if (isScene) {
+      const hasAbove = posInList > 0;
+      const hasBelow = posInList < rows.length - 1;
+      if (hasAbove && hasBelow) return 'both';
+      if (hasAbove) return 'above';
+      if (hasBelow) return 'below';
+      return null;
+    } else {
+      // Empty cell — check if this row is between two of this character's scenes
+      const firstScene = rows[0];
+      const lastScene = rows[rows.length - 1];
+      if (rowIndex > firstScene && rowIndex < lastScene) return 'through';
+      return null;
+    }
+  };
 
   // Calculate row heights based on word counts
   const minRowHeight = 44; // Minimum row height in pixels (scenes under 100 words)
@@ -368,15 +402,18 @@ export default function RailsView({
                   <div className="rails-row-number">{row.position}</div>
 
                   {/* Cells for each character */}
-                  {characters.map((char, cellIndex) => (
+                  {characters.map((char, cellIndex) => {
+                    const connector = getCellConnector(index, char.id);
+                    return (
                     <div
                       key={char.id}
-                      className={`rails-cell ${char.id === row.characterId ? 'has-scene' : 'empty'}`}
+                      className={`rails-cell ${char.id === row.characterId ? 'has-scene' : 'empty'} ${connector ? `connector-${connector}` : ''}`}
                       style={{
                         backgroundColor: showPovColors && char.id === row.characterId
                           ? getCharacterBgColor(char.id)
                           : undefined,
-                      }}
+                        '--connector-color': connector ? getCharacterHexColor(char.id) : undefined,
+                      } as React.CSSProperties}
                     >
                       {char.id === row.characterId && (
                         <RailsSceneCard
@@ -396,7 +433,8 @@ export default function RailsView({
                         />
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })}
@@ -420,9 +458,21 @@ export default function RailsView({
         onDragOver={handleInboxDragOver}
         onDrop={onDropOnInbox}
       >
-        <h2 className="inbox-title">To Braid</h2>
+        <div className="inbox-header">
+          <h2 className="inbox-title">To Braid</h2>
+          <select
+            className="inbox-char-filter"
+            value={inboxCharFilter}
+            onChange={(e) => setInboxCharFilter(e.target.value)}
+          >
+            <option value="all">All Characters</option>
+            {allCharacters.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
         <div className="inbox-characters">
-          {allCharacters.map(char => {
+          {allCharacters.filter(c => inboxCharFilter === 'all' || c.id === inboxCharFilter).map(char => {
             const charPlotPointMap = unbraidedScenesByCharacter.get(char.id);
             const charPlotPoints = plotPoints
               .filter(p => p.characterId === char.id)
@@ -436,10 +486,16 @@ export default function RailsView({
               }
             }
 
+            const charColor = getCharacterHexColor(char.id);
+
             return (
               <div key={char.id} className="inbox-character-group">
-                <div className="inbox-character-header">
+                <div className="inbox-character-header" style={{ borderLeftColor: charColor }}>
+                  <div className="inbox-character-color" style={{ backgroundColor: charColor }} />
                   <h3 className="inbox-character-name">{char.name}</h3>
+                  {totalUnbraided > 0 && (
+                    <span className="inbox-character-count">{totalUnbraided}</span>
+                  )}
                 </div>
                 <div className="inbox-scenes">
                   {totalUnbraided > 0 ? (
@@ -454,6 +510,7 @@ export default function RailsView({
                               <div
                                 key={scene.id}
                                 className="inbox-scene"
+                                style={{ '--char-color': charColor } as React.CSSProperties}
                                 draggable
                                 onDragStart={(e) => onDragStart(e, scene)}
                                 onDragEnd={onDragEnd}
@@ -472,6 +529,7 @@ export default function RailsView({
                         <div
                           key={scene.id}
                           className="inbox-scene"
+                          style={{ '--char-color': charColor } as React.CSSProperties}
                           draggable
                           onDragStart={(e) => onDragStart(e, scene)}
                           onDragEnd={onDragEnd}
@@ -484,7 +542,7 @@ export default function RailsView({
                       ))}
                     </>
                   ) : (
-                    <div className="inbox-empty">All scenes braided</div>
+                    <div className="inbox-empty">All braided</div>
                   )}
                 </div>
               </div>

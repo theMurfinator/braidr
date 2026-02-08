@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Heading from '@tiptap/extension-heading';
@@ -7,6 +7,7 @@ import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion } from '../../shared/types';
+import SceneSubEditor from './SceneSubEditor';
 
 interface EditorViewProps {
   scenes: Scene[];
@@ -162,6 +163,16 @@ export default function EditorView({
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const statusPillRef = useRef<HTMLDivElement>(null);
 
+  // Multi-select state (Scrivenings mode)
+  const [selectedSceneKeys, setSelectedSceneKeys] = useState<string[]>([]);
+  const [primarySceneKey, setPrimarySceneKey] = useState<string | null>(null);
+  const [lastClickedKey, setLastClickedKey] = useState<string | null>(null);
+  const subEditorsRef = useRef<Map<string, Editor>>(new Map());
+  const [activeEditorKey, setActiveEditorKey] = useState<string | null>(null);
+  const [subEditorWordCounts, setSubEditorWordCounts] = useState<Record<string, number>>({});
+
+  const isMultiSelect = selectedSceneKeys.length > 1;
+
   // Get filtered scenes
   const filteredScenes = scenes.filter(s =>
     selectedCharFilter === 'all' || s.characterId === selectedCharFilter
@@ -182,13 +193,25 @@ export default function EditorView({
     .sort((a, b) => (a.timelinePosition as number) - (b.timelinePosition as number));
   const braidedUnplaced = filteredScenes.filter(s => s.timelinePosition === null);
 
-  // Update selected scene when key changes
+  // Navigator order (placed then unplaced) — used for shift+click range selection
+  const navOrderKeys = useMemo(() => {
+    return [...braidedPlaced, ...braidedUnplaced].map(s => getSceneKey(s));
+  }, [braidedPlaced, braidedUnplaced]);
+
+  // Scenes selected in navigator display order
+  const selectedScenesOrdered = useMemo(() => {
+    const allScenes = [...braidedPlaced, ...braidedUnplaced];
+    return allScenes.filter(s => selectedSceneKeys.includes(getSceneKey(s)));
+  }, [braidedPlaced, braidedUnplaced, selectedSceneKeys]);
+
+  // Update selected scene when key changes (use primarySceneKey in multi-select, selectedSceneKey in single)
   useEffect(() => {
-    if (selectedSceneKey) {
-      const scene = scenes.find(s => getSceneKey(s) === selectedSceneKey);
+    const key = isMultiSelect ? primarySceneKey : selectedSceneKey;
+    if (key) {
+      const scene = scenes.find(s => getSceneKey(s) === key);
       setSelectedScene(scene || null);
     }
-  }, [selectedSceneKey, scenes]);
+  }, [selectedSceneKey, primarySceneKey, isMultiSelect, scenes]);
 
   // Select initial scene on mount (uses initialSceneKey if provided)
   useEffect(() => {
@@ -197,6 +220,8 @@ export default function EditorView({
         ? initialSceneKey
         : getSceneKey(scenes[0]);
       setSelectedSceneKey(key);
+      setSelectedSceneKeys([key]);
+      setLastClickedKey(key);
       onSceneSelect?.(key);
     }
   }, [scenes, initialSceneKey]);
@@ -270,30 +295,98 @@ export default function EditorView({
     }
   }, [onDraftChange]);
 
-  // Flush before switching scenes
+  // Flush before switching scenes (single-select only)
   const handleSceneSelect = (key: string) => {
     if (key === selectedSceneKey) return;
     flushPending();
     setSelectedSceneKey(key);
+    setSelectedSceneKeys([key]);
+    setLastClickedKey(key);
+    setPrimarySceneKey(null);
+    setActiveEditorKey(null);
     onSceneSelect?.(key);
+  };
+
+  // Multi-select click handler: plain, cmd+click, shift+click
+  const handleSceneClick = (key: string, e: React.MouseEvent) => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const isModClick = isMac ? e.metaKey : e.ctrlKey;
+    const isShiftClick = e.shiftKey;
+
+    if (isModClick) {
+      // Cmd+click: toggle scene in/out of selection
+      setSelectedSceneKeys(prev => {
+        const exists = prev.includes(key);
+        let next: string[];
+        if (exists) {
+          next = prev.filter(k => k !== key);
+          if (next.length === 0) return prev; // Don't allow empty selection
+        } else {
+          next = [...prev, key];
+        }
+        // Update primary/selected keys
+        if (next.length === 1) {
+          setSelectedSceneKey(next[0]);
+          setPrimarySceneKey(null);
+          setActiveEditorKey(null);
+        } else {
+          setPrimarySceneKey(key);
+          setActiveEditorKey(key);
+        }
+        return next;
+      });
+      setLastClickedKey(key);
+      onSceneSelect?.(key);
+    } else if (isShiftClick && lastClickedKey && lastClickedKey !== key) {
+      // Shift+click: range selection
+      const fromIdx = navOrderKeys.indexOf(lastClickedKey);
+      const toIdx = navOrderKeys.indexOf(key);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const start = Math.min(fromIdx, toIdx);
+        const end = Math.max(fromIdx, toIdx);
+        const rangeKeys = navOrderKeys.slice(start, end + 1);
+        setSelectedSceneKeys(rangeKeys);
+        if (rangeKeys.length === 1) {
+          setSelectedSceneKey(rangeKeys[0]);
+          setPrimarySceneKey(null);
+          setActiveEditorKey(null);
+        } else {
+          setPrimarySceneKey(key);
+          setActiveEditorKey(key);
+        }
+      }
+      // Don't update lastClickedKey for shift+click (allows extending range)
+      onSceneSelect?.(key);
+    } else {
+      // Plain click: single selection
+      handleSceneSelect(key);
+    }
   };
 
   // Draft versioning
   const handleSaveDraft = () => {
-    if (!selectedSceneKey || !editor) return;
+    const key = isMultiSelect ? primarySceneKey : selectedSceneKey;
+    const activeEd = isMultiSelect ? (activeEditorKey ? subEditorsRef.current.get(activeEditorKey) : null) : editor;
+    if (!key || !activeEd) return;
     flushPending();
-    onSaveDraft(selectedSceneKey, editor.getHTML());
+    onSaveDraft(key, activeEd.getHTML());
   };
 
   const handleRestoreDraft = (version: number) => {
-    if (!selectedSceneKey || !editor) return;
-    const sceneDrafts = drafts[selectedSceneKey] || [];
+    const key = isMultiSelect ? primarySceneKey : selectedSceneKey;
+    const activeEd = isMultiSelect ? (key ? subEditorsRef.current.get(key) : null) : editor;
+    if (!key || !activeEd) return;
+    const sceneDrafts = drafts[key] || [];
     const draft = sceneDrafts.find(d => d.version === version);
     if (!draft) return;
-    settingContentRef.current = true;
-    editor.commands.setContent(draft.content);
-    settingContentRef.current = false;
-    onDraftChange(selectedSceneKey, draft.content);
+    if (!isMultiSelect) {
+      settingContentRef.current = true;
+      activeEd.commands.setContent(draft.content);
+      settingContentRef.current = false;
+    } else {
+      activeEd.commands.setContent(draft.content);
+    }
+    onDraftChange(key, draft.content);
   };
 
   // Draft editor
@@ -412,20 +505,55 @@ export default function EditorView({
     }
   }, [selectedScene?.id]);
 
-  // Live word count
-  const wordCount = editor ? editor.getText().split(/\s+/).filter(Boolean).length : 0;
+  // Live word count (single-select mode)
+  const singleWordCount = editor ? editor.getText().split(/\s+/).filter(Boolean).length : 0;
 
-  // Auto-sync word count to scene — only when a draft actually exists
+  // Total word count: aggregated in multi-select, single editor count otherwise
+  const totalWordCount = isMultiSelect
+    ? Object.values(subEditorWordCounts).reduce((sum, c) => sum + c, 0)
+    : singleWordCount;
+
+  // The active editor for toolbar commands
+  const activeEditor = isMultiSelect
+    ? (activeEditorKey ? subEditorsRef.current.get(activeEditorKey) || null : null)
+    : editor;
+
+  // Sub-editor callbacks
+  const handleSubEditorFocus = useCallback((sceneKey: string) => {
+    setActiveEditorKey(sceneKey);
+    setPrimarySceneKey(sceneKey);
+    // Update selectedScene to match the focused sub-editor
+    const scene = scenes.find(s => getSceneKey(s) === sceneKey);
+    if (scene) setSelectedScene(scene);
+  }, [scenes]);
+
+  const handleRegisterEditor = useCallback((sceneKey: string, ed: Editor | null) => {
+    if (ed) {
+      subEditorsRef.current.set(sceneKey, ed);
+    } else {
+      subEditorsRef.current.delete(sceneKey);
+    }
+  }, []);
+
+  const handleSubEditorWordCount = useCallback((sceneKey: string, count: number) => {
+    setSubEditorWordCounts(prev => {
+      if (prev[sceneKey] === count) return prev;
+      return { ...prev, [sceneKey]: count };
+    });
+  }, []);
+
+  // Auto-sync word count to scene — only when a draft actually exists (single-select mode)
   useEffect(() => {
+    if (isMultiSelect) return;
     if (!selectedScene || !selectedSceneKey) return;
     const hasDraft = draftContent[selectedSceneKey] && draftContent[selectedSceneKey] !== '<p></p>';
     if (!hasDraft) return;
     if (wordCountDebounceRef.current) clearTimeout(wordCountDebounceRef.current);
     wordCountDebounceRef.current = setTimeout(() => {
-      onWordCountChange(selectedScene.id, wordCount || undefined);
+      onWordCountChange(selectedScene.id, singleWordCount || undefined);
     }, 1500);
     return () => { if (wordCountDebounceRef.current) clearTimeout(wordCountDebounceRef.current); };
-  }, [wordCount, selectedScene?.id]);
+  }, [singleWordCount, selectedScene?.id, isMultiSelect]);
 
   // Tag picker close on outside click
   useEffect(() => {
@@ -656,13 +784,14 @@ export default function EditorView({
                 const char = characters.find(c => c.id === scene.characterId);
                 const hasDraft = !!(draftContent[key] && draftContent[key] !== '<p></p>');
                 const charColor = characterColors[scene.characterId] || '#888';
-                const isActive = selectedSceneKey === key;
+                const isActive = selectedSceneKeys.includes(key);
+                const isPrimary = isMultiSelect ? (primarySceneKey === key || activeEditorKey === key) : (selectedSceneKey === key);
                 return (
                   <div
                     key={key}
-                    className={`editor-nav-item ${isActive ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`}
+                    className={`editor-nav-item ${isPrimary ? 'active' : ''} ${isActive && !isPrimary ? 'multi-selected' : ''} ${hasDraft ? 'has-draft' : ''}`}
                     style={isActive ? { borderLeftColor: charColor, backgroundColor: `${charColor}12` } : undefined}
-                    onClick={() => handleSceneSelect(key)}
+                    onClick={(e) => handleSceneClick(key, e)}
                   >
                     <div className="editor-nav-item-stack">
                       <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
@@ -680,13 +809,14 @@ export default function EditorView({
                     const char = characters.find(c => c.id === scene.characterId);
                     const hasDraft = !!(draftContent[key] && draftContent[key] !== '<p></p>');
                     const charColor = characterColors[scene.characterId] || '#888';
-                    const isActive = selectedSceneKey === key;
+                    const isActive = selectedSceneKeys.includes(key);
+                    const isPrimary = isMultiSelect ? (primarySceneKey === key || activeEditorKey === key) : (selectedSceneKey === key);
                     return (
                       <div
                         key={key}
-                        className={`editor-nav-item ${isActive ? 'active' : ''} ${hasDraft ? 'has-draft' : ''}`}
+                        className={`editor-nav-item ${isPrimary ? 'active' : ''} ${isActive && !isPrimary ? 'multi-selected' : ''} ${hasDraft ? 'has-draft' : ''}`}
                         style={isActive ? { borderLeftColor: charColor, backgroundColor: `${charColor}12` } : undefined}
-                        onClick={() => handleSceneSelect(key)}
+                        onClick={(e) => handleSceneClick(key, e)}
                       >
                         <div className="editor-nav-item-stack">
                           <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
@@ -713,12 +843,12 @@ export default function EditorView({
             </svg>
           </button>
           <div className="editor-toolbar-divider" />
-          <button className="editor-toolbar-btn" onClick={() => editor?.chain().focus().toggleBold().run()} title="Bold">B</button>
-          <button className="editor-toolbar-btn" onClick={() => editor?.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
-          <button className="editor-toolbar-btn" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading">H2</button>
-          <button className="editor-toolbar-btn" onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()} title="Sub-heading">H3</button>
-          <button className="editor-toolbar-btn" onClick={() => editor?.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
-          <button className="editor-toolbar-btn" onClick={() => editor?.chain().focus().setHorizontalRule().run()} title="Horizontal Rule">—</button>
+          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().toggleBold().run()} title="Bold">B</button>
+          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
+          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading">H2</button>
+          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().toggleHeading({ level: 3 }).run()} title="Sub-heading">H3</button>
+          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
+          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().setHorizontalRule().run()} title="Horizontal Rule">—</button>
           <div className="editor-toolbar-spacer" />
           <button className="editor-panel-toggle editor-panel-toggle-meta" onClick={() => setShowMeta(!showMeta)} title={showMeta ? 'Hide properties (Cmd+])' : 'Show properties (Cmd+])'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
@@ -727,72 +857,91 @@ export default function EditorView({
             </svg>
           </button>
         </div>
-        {selectedScene && (
-          <div className="editor-draft-scene-header">
-            {isEditingTitle ? (
-              <textarea
-                ref={titleTextareaRef}
-                className="editor-draft-scene-title-input"
-                value={editTitle}
-                onChange={handleTitleChange}
-                onBlur={handleTitleBlur}
-                onKeyDown={handleTitleKeyDown}
-                placeholder="Scene description..."
-              />
-            ) : (
-              <h2
-                className="editor-draft-scene-title"
-                onClick={handleTitleClick}
-                title="Click to edit"
-              >
-                {cleanContent(selectedScene.content) || 'Untitled scene'}
-              </h2>
-            )}
-            <div className="editor-draft-scene-subtitle">
-              <span>{characters.find(c => c.id === selectedScene.characterId)?.name} · Scene {selectedScene.sceneNumber}</span>
-              <div className="editor-draft-status-pill-wrap" ref={statusPillRef}>
-                <button
-                  className="editor-draft-status-pill"
-                  style={{ '--status-color': (statusOptions.find(s => s.value === (currentMeta['_status'] as string))?.color) || '#9e9e9e' } as React.CSSProperties}
-                  onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                >
-                  {(currentMeta['_status'] as string) || 'No status'}
-                </button>
-                {showStatusDropdown && (
-                  <div className="editor-draft-status-dropdown">
-                    {statusOptions.map(s => (
-                      <button
-                        key={s.value}
-                        className={`editor-meta-status-option ${(currentMeta['_status'] as string) === s.value ? 'active' : ''}`}
-                        onClick={() => { handleMetaChange('_status', s.value); setShowStatusDropdown(false); }}
-                      >
-                        <span className="editor-meta-status-dot" style={{ background: s.color }} />
-                        {s.value}
-                      </button>
-                    ))}
-                  </div>
-                )}
+        {isMultiSelect ? (
+          <>
+            {/* Scrivenings mode: stacked sub-editors */}
+            <div className="scrivenings-container">
+              {selectedScenesOrdered.map((scene, idx) => {
+                const key = getSceneKey(scene);
+                const char = characters.find(c => c.id === scene.characterId);
+                return (
+                  <SceneSubEditor
+                    key={key}
+                    sceneKey={key}
+                    scene={scene}
+                    content={draftContent[key] || ''}
+                    characterName={char?.name || 'Unknown'}
+                    characterColor={characterColors[scene.characterId] || '#888'}
+                    isFirst={idx === 0}
+                    onContentChange={onDraftChange}
+                    onFocus={handleSubEditorFocus}
+                    registerEditor={handleRegisterEditor}
+                    onWordCountChange={handleSubEditorWordCount}
+                  />
+                );
+              })}
+            </div>
+            <div className="editor-draft-footer">
+              <div className="editor-draft-footer-left">
+                <span className="editor-word-count">Word Count: {totalWordCount.toLocaleString()} ({selectedSceneKeys.length} scenes)</span>
+                <span className="editor-reading-time">Reading Time: {Math.max(1, Math.round(totalWordCount / 250))} min</span>
               </div>
             </div>
-          </div>
+          </>
+        ) : (
+          <>
+            {/* Single scene mode: original behavior */}
+            {selectedScene && (
+              <div className="editor-draft-scene-header">
+                {isEditingTitle ? (
+                  <textarea
+                    ref={titleTextareaRef}
+                    className="editor-draft-scene-title-input"
+                    value={editTitle}
+                    onChange={handleTitleChange}
+                    onBlur={handleTitleBlur}
+                    onKeyDown={handleTitleKeyDown}
+                    placeholder="Scene description..."
+                  />
+                ) : (
+                  <h2
+                    className="editor-draft-scene-title"
+                    onClick={handleTitleClick}
+                    title="Click to edit"
+                  >
+                    {cleanContent(selectedScene.content) || 'Untitled scene'}
+                  </h2>
+                )}
+                <div className="editor-draft-scene-subtitle">
+                  <span>{characters.find(c => c.id === selectedScene.characterId)?.name} · Scene {selectedScene.sceneNumber}</span>
+                </div>
+              </div>
+            )}
+            <div className="editor-draft-editor">
+              <EditorContent editor={editor} />
+            </div>
+            <div className="editor-draft-footer">
+              <div className="editor-draft-footer-left">
+                <span className="editor-word-count">Word Count: {singleWordCount.toLocaleString()}</span>
+                <span className="editor-reading-time">Reading Time: {Math.max(1, Math.round(singleWordCount / 250))} min</span>
+              </div>
+              {selectedScene && (
+                <span className="editor-scene-label">Last Saved: {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase()}</span>
+              )}
+            </div>
+          </>
         )}
-        <div className="editor-draft-editor">
-          <EditorContent editor={editor} />
-        </div>
-        <div className="editor-draft-footer">
-          <div className="editor-draft-footer-left">
-            <span className="editor-word-count">Word Count: {wordCount.toLocaleString()}</span>
-            <span className="editor-reading-time">Reading Time: {Math.max(1, Math.round(wordCount / 250))} min</span>
-          </div>
-          {selectedScene && (
-            <span className="editor-scene-label">Last Saved: {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase()}</span>
-          )}
-        </div>
       </div>
 
       {/* Right: Metadata Panel */}
       {showMeta && <div className="editor-resize-handle" onMouseDown={e => handleResizeStart(e, 'meta')} />}
       {showMeta && <div className="editor-meta" style={{ width: metaWidth }}>
+        {/* Multi-select indicator */}
+        {isMultiSelect && selectedScene && (
+          <div className="editor-meta-multi-indicator">
+            Showing: {characters.find(c => c.id === selectedScene.characterId)?.name} Scene {selectedScene.sceneNumber}
+          </div>
+        )}
         {/* Scene Synopsis (formerly Notes) */}
         <div className="editor-meta-section">
           <h4 className="editor-meta-label">Scene Synopsis</h4>
@@ -805,6 +954,37 @@ export default function EditorView({
             </div>
           )}
           <EditorContent editor={notesEditor} className="editor-meta-notes-editor" />
+        </div>
+
+        {/* Status */}
+        <div className="editor-meta-section">
+          <div className="editor-meta-label-row">
+            <h4 className="editor-meta-label">Status</h4>
+            <button className="editor-meta-edit-btn" onClick={openStatusEditor}>Edit</button>
+          </div>
+          <div className="editor-meta-status-pill-wrap">
+            <button
+              className="editor-meta-status-pill"
+              style={{ '--status-color': (statusOptions.find(s => s.value === (currentMeta['_status'] as string))?.color) || '#9e9e9e' } as React.CSSProperties}
+              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+            >
+              {(currentMeta['_status'] as string) || 'No status'}
+            </button>
+            {showStatusDropdown && (
+              <div className="editor-meta-status-dropdown">
+                {statusOptions.map(s => (
+                  <button
+                    key={s.value}
+                    className={`editor-meta-status-option ${(currentMeta['_status'] as string) === s.value ? 'active' : ''}`}
+                    onClick={() => { handleMetaChange('_status', s.value); setShowStatusDropdown(false); }}
+                  >
+                    <span className="editor-meta-status-dot" style={{ background: s.color }} />
+                    {s.value}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Tags */}
@@ -884,37 +1064,6 @@ export default function EditorView({
             <button className="editor-meta-goto-btn" onClick={() => onGoToBraid?.(selectedScene.id)}>Braid</button>
           </div>
         )}
-
-        {/* Status */}
-        <div className="editor-meta-section">
-          <div className="editor-meta-label-row">
-            <h4 className="editor-meta-label">Status</h4>
-            <button className="editor-meta-edit-btn" onClick={openStatusEditor}>Edit</button>
-          </div>
-          <div className="editor-meta-status-pill-wrap">
-            <button
-              className="editor-meta-status-pill"
-              style={{ '--status-color': (statusOptions.find(s => s.value === (currentMeta['_status'] as string))?.color) || '#9e9e9e' } as React.CSSProperties}
-              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-            >
-              {(currentMeta['_status'] as string) || 'No status'}
-            </button>
-            {showStatusDropdown && (
-              <div className="editor-meta-status-dropdown">
-                {statusOptions.map(s => (
-                  <button
-                    key={s.value}
-                    className={`editor-meta-status-option ${(currentMeta['_status'] as string) === s.value ? 'active' : ''}`}
-                    onClick={() => { handleMetaChange('_status', s.value); setShowStatusDropdown(false); }}
-                  >
-                    <span className="editor-meta-status-dot" style={{ background: s.color }} />
-                    {s.value}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* History (formerly Drafts) */}
         {selectedScene && (() => {

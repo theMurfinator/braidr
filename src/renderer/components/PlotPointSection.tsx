@@ -140,7 +140,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
   const handleTitleBlur = () => {
     setIsEditingTitle(false);
     if (editTitle !== plotPoint.title && onPlotPointChange) {
-      onPlotPointChange(plotPoint.id, editTitle, descriptionEditor?.getText() || '', plotPoint.expectedSceneCount);
+      onPlotPointChange(plotPoint.id, editTitle, plotPoint.description || '', plotPoint.expectedSceneCount);
     }
   };
 
@@ -162,7 +162,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
     setIsEditingCount(false);
     const newCount = editCount.trim() === '' ? null : parseInt(editCount, 10);
     if (newCount !== plotPoint.expectedSceneCount && onPlotPointChange) {
-      onPlotPointChange(plotPoint.id, plotPoint.title, descriptionEditor?.getText() || '', isNaN(newCount as number) ? null : newCount);
+      onPlotPointChange(plotPoint.id, plotPoint.title, plotPoint.description || '', isNaN(newCount as number) ? null : newCount);
     }
   };
 

@@ -96,14 +96,7 @@ autoUpdater.on('update-available', (info) => {
 
 autoUpdater.on('update-not-available', () => {
   console.log('No updates available');
-  if (mainWindow) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'No Updates',
-      message: 'You are running the latest version of Braidr.',
-      buttons: ['OK']
-    });
-  }
+  // Dialog disabled - no need to notify user when no updates
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
@@ -132,15 +125,7 @@ autoUpdater.on('update-downloaded', (info) => {
 
 autoUpdater.on('error', (error) => {
   console.error('Auto-updater error:', error);
-  if (mainWindow) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'error',
-      title: 'Update Error',
-      message: 'An error occurred while checking for updates.',
-      detail: error.message,
-      buttons: ['OK']
-    });
-  }
+  // Dialog disabled - silently fail update checks
 });
 
 function createMenu() {

@@ -48,7 +48,6 @@ export default function FloatingEditor({
   const overlayRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const draftDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sceneKey = `${scene.characterId}:${scene.sceneNumber}`;
 
   // Clean content for editing (strip tags and formatting)
@@ -103,26 +102,7 @@ export default function FloatingEditor({
     }
   }, [isEditingTitle]);
 
-  // Draft prose editor
-  const draftEditor = useEditor({
-    editorProps: {
-      attributes: { spellcheck: 'true' },
-    },
-    extensions: [
-      StarterKit,
-      Placeholder.configure({ placeholder: 'Start writing this scene...' }),
-    ],
-    content: draftContent || '',
-    onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      if (draftDebounceRef.current) clearTimeout(draftDebounceRef.current);
-      draftDebounceRef.current = setTimeout(() => {
-        onDraftChange(sceneKey, html);
-      }, 800);
-    },
-  });
-
-  // Notes editor
+  // Notes/Synopsis editor
   const notesEditor = useEditor({
     editorProps: {
       attributes: {
@@ -132,7 +112,7 @@ export default function FloatingEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: 'Add notes...',
+        placeholder: 'Write a synopsis for this scene...',
       }),
     ],
     content: localNotes.join('\n\n'),
@@ -257,10 +237,9 @@ export default function FloatingEditor({
           )}
         </div>
 
-        {/* Draft Content — editable */}
-        <div className="floating-editor-draft">
-          <div className="floating-editor-draft-label">Draft</div>
-          <EditorContent editor={draftEditor} className="floating-editor-draft-editor" />
+        {/* Scene Synopsis — right after title */}
+        <div className="floating-editor-synopsis">
+          <EditorContent editor={notesEditor} className="floating-editor-notes-editor" />
         </div>
 
         {/* Metadata */}
@@ -268,29 +247,22 @@ export default function FloatingEditor({
           {/* Word Count */}
           <div className="floating-editor-word-count">
             <label className="floating-editor-word-count-label">Word Count</label>
-            {draftContent && draftContent !== '<p></p>' ? (
-              <span className="floating-editor-word-count-live">
-                {draftEditor ? draftEditor.getText().split(/\s+/).filter(Boolean).length : 0} words
-                <span className="floating-editor-word-count-auto">(auto)</span>
-              </span>
-            ) : (
-              <input
-                type="number"
-                className="floating-editor-word-count-input"
-                placeholder="e.g. 2500"
-                value={localWordCount}
-                onChange={(e) => setLocalWordCount(e.target.value)}
-                onBlur={() => {
-                  const num = parseInt(localWordCount, 10);
-                  onWordCountChange(scene.id, isNaN(num) ? undefined : num);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    (e.target as HTMLInputElement).blur();
-                  }
-                }}
-              />
-            )}
+            <input
+              type="number"
+              className="floating-editor-word-count-input"
+              placeholder="e.g. 2500"
+              value={localWordCount}
+              onChange={(e) => setLocalWordCount(e.target.value)}
+              onBlur={() => {
+                const num = parseInt(localWordCount, 10);
+                onWordCountChange(scene.id, isNaN(num) ? undefined : num);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+            />
           </div>
 
           {/* Tags Section */}
@@ -405,16 +377,6 @@ export default function FloatingEditor({
               {connectedScenes.length === 0 && (
                 <span className="floating-editor-empty">No connections</span>
               )}
-            </div>
-          </div>
-
-          {/* Scene Synopsis Section */}
-          <div className="floating-editor-section">
-            <div className="floating-editor-section-header">
-              <span className="floating-editor-section-title">Scene Synopsis</span>
-            </div>
-            <div className="floating-editor-notes">
-              <EditorContent editor={notesEditor} className="floating-editor-notes-editor" />
             </div>
           </div>
 

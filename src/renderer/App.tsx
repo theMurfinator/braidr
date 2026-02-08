@@ -59,6 +59,7 @@ function App() {
   const [braidedSubMode, setBraidedSubMode] = useState<BraidedSubMode>('list');
   const [showRailsConnections, setShowRailsConnections] = useState(true);
   const [listFloatingEditor, setListFloatingEditor] = useState<Scene | null>(null);
+  const [listInboxCharFilter, setListInboxCharFilter] = useState<string>('all');
   const [editorInitialSceneKey, setEditorInitialSceneKey] = useState<string | null>(null);
   const lastEditorSceneKeyRef = useRef<string | null>(null);
   const scrollToSceneIdRef = useRef<string | null>(null);
@@ -241,8 +242,6 @@ function App() {
     // Derive project name from folder if not provided
     const name = projectName || folderPath.split('/').pop() || 'Untitled';
 
-    setProjectData({ ...data, projectName: name });
-
     // Convert stored connections (using keys) to scene IDs
     const loadedConnections: Record<string, string[]> = {};
     for (const [sourceKey, targetKeys] of Object.entries(data.connections)) {
@@ -273,19 +272,67 @@ function App() {
     setArchivedScenes(loadedArchived);
     archivedScenesRef.current = loadedArchived;
 
+    // Reconcile: remove scenes from parsed data that still exist in the markdown
+    // but were already archived (can happen if iCloud syncs back old file versions).
+    // Match by content + characterId since scene IDs are regenerated on each parse.
+    if (loadedArchived.length > 0) {
+      const archivedSet = new Set(
+        loadedArchived.map((a: ArchivedScene) => `${a.characterId}::${a.content.trim()}`)
+      );
+      const beforeCount = data.scenes.length;
+      data.scenes = data.scenes.filter(
+        (s: Scene) => !archivedSet.has(`${s.characterId}::${s.content.trim()}`)
+      );
+      if (data.scenes.length < beforeCount) {
+        // Re-renumber scenes per character
+        const byChar: Record<string, Scene[]> = {};
+        for (const s of data.scenes) {
+          if (!byChar[s.characterId]) byChar[s.characterId] = [];
+          byChar[s.characterId].push(s);
+        }
+        for (const charScenes of Object.values(byChar)) {
+          charScenes.sort((a: Scene, b: Scene) => a.sceneNumber - b.sceneNumber);
+          charScenes.forEach((s: Scene, i: number) => { s.sceneNumber = i + 1; });
+        }
+        console.log(`Removed ${beforeCount - data.scenes.length} archived scenes that persisted in markdown`);
+      }
+    }
+
+    setProjectData({ ...data, projectName: name });
+
     // Load editor data
     const loadedDraft = data.draftContent || {};
-    setDraftContent(loadedDraft);
-    draftContentRef.current = loadedDraft;
     const loadedDrafts = data.drafts || {};
-    setDrafts(loadedDrafts);
-    draftsRef.current = loadedDrafts;
     const loadedMetaDefs = data.metadataFieldDefs || [];
     setMetadataFieldDefs(loadedMetaDefs);
     metadataFieldDefsRef.current = loadedMetaDefs;
     const loadedMetaData = data.sceneMetadata || {};
+
+    // Reconcile scene-keyed data: remove orphaned keys that don't match any current scene.
+    // This repairs data from the bug where archiving/reordering changed sceneNumbers
+    // without updating the keys in draftContent/drafts/sceneMetadata.
+    const validKeys = new Set(data.scenes.map((s: Scene) => `${s.characterId}:${s.sceneNumber}`));
+    const allStoredKeys = new Set([
+      ...Object.keys(loadedDraft),
+      ...Object.keys(loadedDrafts),
+      ...Object.keys(loadedMetaData),
+    ]);
+    const orphanedKeys = [...allStoredKeys].filter(k => !validKeys.has(k));
+    if (orphanedKeys.length > 0) {
+      for (const key of orphanedKeys) {
+        delete loadedDraft[key];
+        delete loadedDrafts[key];
+        delete loadedMetaData[key];
+      }
+      console.log('Cleaned up orphaned scene keys:', orphanedKeys);
+    }
+
     setSceneMetadata(loadedMetaData);
     sceneMetadataRef.current = loadedMetaData;
+    setDraftContent(loadedDraft);
+    draftContentRef.current = loadedDraft;
+    setDrafts(loadedDrafts);
+    draftsRef.current = loadedDrafts;
 
     // Select first character by default
     if (data.characters.length > 0) {
@@ -707,6 +754,59 @@ function App() {
     await saveTimelineData(projectData.scenes, sceneConnections, updatedChapters);
   };
 
+  // Remap scene-keyed data (draftContent, sceneMetadata, drafts) when scene numbers change.
+  // Takes a map of oldKey -> newKey and updates both state and refs.
+  // Builds fresh objects to avoid collision when keys shift (e.g., 3->2 while 2->1).
+  const remapSceneKeys = (keyMap: Record<string, string>) => {
+    if (Object.entries(keyMap).every(([oldKey, newKey]) => oldKey === newKey)) return;
+
+    // Helper: remap keys in a Record, preserving entries not in the keyMap
+    const remap = <T,>(source: Record<string, T>): Record<string, T> => {
+      const result: Record<string, T> = {};
+      for (const [key, value] of Object.entries(source)) {
+        if (key in keyMap) {
+          result[keyMap[key]] = value;
+        } else {
+          result[key] = value;
+        }
+      }
+      return result;
+    };
+
+    const newDraftContent = remap(draftContentRef.current);
+    setDraftContent(newDraftContent);
+    draftContentRef.current = newDraftContent;
+
+    const newDrafts = remap(draftsRef.current);
+    setDrafts(newDrafts);
+    draftsRef.current = newDrafts;
+
+    const newSceneMetadata = remap(sceneMetadataRef.current);
+    setSceneMetadata(newSceneMetadata);
+    sceneMetadataRef.current = newSceneMetadata;
+  };
+
+  // Build oldKey->newKey map from scenes before and after renumbering.
+  // Call this BEFORE renumbering to capture old keys, passing the character's scenes.
+  const buildKeyMapBeforeRenumber = (charScenes: Scene[]): Record<string, number> => {
+    const oldNumbers: Record<string, number> = {};
+    for (const scene of charScenes) {
+      oldNumbers[scene.id] = scene.sceneNumber;
+    }
+    return oldNumbers;
+  };
+
+  // After renumbering, use old numbers to build the remap and apply it.
+  const applyKeyRemapAfterRenumber = (charScenes: Scene[], oldNumbers: Record<string, number>) => {
+    const keyMap: Record<string, string> = {};
+    for (const scene of charScenes) {
+      const oldKey = `${scene.characterId}:${oldNumbers[scene.id]}`;
+      const newKey = `${scene.characterId}:${scene.sceneNumber}`;
+      keyMap[oldKey] = newKey;
+    }
+    remapSceneKeys(keyMap);
+  };
+
   const handlePovSceneDrop = async (targetSceneNumber: number, targetPlotPointId: string) => {
     if (!projectData || !draggedPovScene || !selectedCharacterId) return;
 
@@ -749,10 +849,16 @@ function App() {
     // Insert at target position
     charScenes.splice(targetIndex, 0, movedScene);
 
+    // Capture old keys before renumbering
+    const oldNumbers = buildKeyMapBeforeRenumber(charScenes);
+
     // Renumber all scenes
     charScenes.forEach((scene, idx) => {
       scene.sceneNumber = idx + 1;
     });
+
+    // Remap scene-keyed data to match new numbers
+    applyKeyRemapAfterRenumber(charScenes, oldNumbers);
 
     // Update the full scenes array
     const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
@@ -765,6 +871,7 @@ function App() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
     } catch (err) {
       console.error('Failed to save:', err);
     }
@@ -1022,6 +1129,15 @@ function App() {
     return POV_COLORS[index % POV_COLORS.length];
   };
 
+  const DEFAULT_HEX_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#14b8a6', '#f59e0b'];
+
+  const getCharacterHexColor = (characterId: string): string => {
+    if (characterColors[characterId]) return characterColors[characterId];
+    if (!projectData) return DEFAULT_HEX_COLORS[0];
+    const index = projectData.characters.findIndex(c => c.id === characterId);
+    return DEFAULT_HEX_COLORS[index % DEFAULT_HEX_COLORS.length];
+  };
+
   const handleCharacterColorChange = async (characterId: string, color: string) => {
     const newColors = { ...characterColors, [characterId]: color };
     setCharacterColors(newColors);
@@ -1191,10 +1307,16 @@ function App() {
     const newCharScenes = [...charScenes];
     newCharScenes.splice(insertAfterIndex + 1, 0, newScene);
 
+    // Capture old keys before renumbering
+    const oldNumbers = buildKeyMapBeforeRenumber(newCharScenes);
+
     // Renumber all scenes
     newCharScenes.forEach((scene, idx) => {
       scene.sceneNumber = idx + 1;
     });
+
+    // Remap scene-keyed data to match new numbers
+    applyKeyRemapAfterRenumber(newCharScenes, oldNumbers);
 
     // Update the full scenes array
     const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
@@ -1206,6 +1328,7 @@ function App() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
     } catch (err) {
       console.error('Failed to save:', err);
     }
@@ -1479,9 +1602,29 @@ function App() {
       .filter(s => s.characterId === scene.characterId)
       .sort((a, b) => a.sceneNumber - b.sceneNumber);
 
+    // Remove the archived scene's keyed data and capture old keys before renumbering
+    const archivedKey = `${scene.characterId}:${scene.sceneNumber}`;
+    const newDC = { ...draftContentRef.current };
+    delete newDC[archivedKey];
+    draftContentRef.current = newDC;
+    setDraftContent(newDC);
+    const newDr = { ...draftsRef.current };
+    delete newDr[archivedKey];
+    draftsRef.current = newDr;
+    setDrafts(newDr);
+    const newSM = { ...sceneMetadataRef.current };
+    delete newSM[archivedKey];
+    sceneMetadataRef.current = newSM;
+    setSceneMetadata(newSM);
+
+    const oldNumbers = buildKeyMapBeforeRenumber(charScenes);
+
     charScenes.forEach((s, idx) => {
       s.sceneNumber = idx + 1;
     });
+
+    // Remap scene-keyed data to match new numbers
+    applyKeyRemapAfterRenumber(charScenes, oldNumbers);
 
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
@@ -1595,10 +1738,16 @@ function App() {
     // Insert duplicate after original
     charScenes.splice(originalIndex + 1, 0, duplicateScene);
 
+    // Capture old keys before renumbering
+    const oldNumbers = buildKeyMapBeforeRenumber(charScenes);
+
     // Renumber all scenes
     charScenes.forEach((s, idx) => {
       s.sceneNumber = idx + 1;
     });
+
+    // Remap scene-keyed data to match new numbers
+    applyKeyRemapAfterRenumber(charScenes, oldNumbers);
 
     // Update the full scenes array
     const otherScenes = projectData.scenes.filter(s => s.characterId !== scene.characterId);
@@ -1610,6 +1759,7 @@ function App() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
     } catch (err) {
       console.error('Failed to save:', err);
     }
@@ -1689,10 +1839,12 @@ function App() {
           <div className="welcome-screen">
             {!showNewProject ? (
               <>
-                <h2>Your Novels</h2>
+                <h2>Braidr</h2>
+                <div className="welcome-subtitle">Multi-POV Novel Outliner</div>
 
                 {recentProjects.length > 0 ? (
                   <div className="recent-projects">
+                    <div className="recent-projects-label">Recent Novels</div>
                     {recentProjects.map(project => (
                       <button
                         key={project.path}
@@ -2276,8 +2428,8 @@ function App() {
 
                         const distance = Math.abs(targetIndex - index);
                         const curveDepth = 20 + Math.min(distance, 6) * 8;
-                        // Connect to the left edge of the scene card (at x=60 where padding ends)
-                        const cardEdgeX = 58;
+                        // Connect to the left edge of the scene card (at x=40 where padding ends)
+                        const cardEdgeX = 38;
 
                         const isHighlighted =
                           scene.id === hoveredSceneId ||
@@ -2440,7 +2592,7 @@ function App() {
                             onMouseEnter={() => setHoveredSceneId(scene.id)}
                             onMouseLeave={() => setHoveredSceneId(null)}
                             className={`braided-scene-item compact ${draggedScene?.id === scene.id ? 'dragging' : ''} ${selectedSceneId === scene.id ? 'selected' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${(sceneConnections[scene.id]?.length || 0) > 0 ? 'has-connections' : ''}`}
-                            style={showPovColors ? { backgroundColor: getCharacterColor(scene.characterId) } : undefined}
+                            style={showPovColors ? { backgroundColor: getCharacterColor(scene.characterId) } : { borderLeftColor: getCharacterHexColor(scene.characterId), borderLeftWidth: '3px' }}
                           >
                             <span
                               className="braided-drag-handle"
@@ -2545,9 +2697,21 @@ function App() {
                   onDragOver={handleDragOverInbox}
                   onDrop={handleDropOnInbox}
                 >
-                  <h2 className="inbox-title">To Braid</h2>
+                  <div className="inbox-header">
+                    <h2 className="inbox-title">To Braid</h2>
+                    <select
+                      className="inbox-char-filter"
+                      value={listInboxCharFilter}
+                      onChange={(e) => setListInboxCharFilter(e.target.value)}
+                    >
+                      <option value="all">All Characters</option>
+                      {projectData.characters.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="inbox-characters">
-                    {projectData.characters.map(char => {
+                    {projectData.characters.filter(c => listInboxCharFilter === 'all' || c.id === listInboxCharFilter).map(char => {
                       const charPlotPointMap = unbraidedScenesByCharacter.get(char.id);
                       const charPlotPoints = projectData.plotPoints
                         .filter(p => p.characterId === char.id)
@@ -2561,17 +2725,16 @@ function App() {
                         }
                       }
 
+                      const charColor = getCharacterHexColor(char.id);
+
                       return (
                         <div key={char.id} className="inbox-character-group">
                           <div className="inbox-character-header">
+                            <div className="inbox-character-color" style={{ backgroundColor: charColor }} />
                             <h3 className="inbox-character-name">{char.name}</h3>
-                            <input
-                              type="color"
-                              className="character-color-picker"
-                              value={characterColors[char.id] || '#3b82f6'}
-                              onChange={(e) => handleCharacterColorChange(char.id, e.target.value)}
-                              title="Set character color"
-                            />
+                            {totalUnbraided > 0 && (
+                              <span className="inbox-character-count">{totalUnbraided}</span>
+                            )}
                           </div>
                           <div className="inbox-scenes">
                             {totalUnbraided > 0 ? (
@@ -2586,6 +2749,7 @@ function App() {
                                         <div
                                           key={scene.id}
                                           className="inbox-scene"
+                                          style={{ '--char-color': charColor } as React.CSSProperties}
                                           draggable
                                           onDragStart={(e) => handleDragStart(e, scene)}
                                           onDragEnd={handleDragEnd}
@@ -2602,6 +2766,7 @@ function App() {
                                   <div
                                     key={scene.id}
                                     className="inbox-scene"
+                                    style={{ '--char-color': charColor } as React.CSSProperties}
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, scene)}
                                     onDragEnd={handleDragEnd}
@@ -2612,7 +2777,7 @@ function App() {
                                 ))}
                               </>
                             ) : (
-                              <div className="inbox-empty">All scenes braided</div>
+                              <div className="inbox-empty">All braided</div>
                             )}
                           </div>
                         </div>
