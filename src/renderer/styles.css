@@ -5075,6 +5075,9 @@
   padding: 14px 16px;
   border-bottom: 1px solid #F0F0F0;
   background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .editor-nav-filter select {

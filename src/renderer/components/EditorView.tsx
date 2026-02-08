@@ -123,6 +123,7 @@ export default function EditorView({
   onGoToBraid,
 }: EditorViewProps) {
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(null);
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null);
   const [showMetaEditor, setShowMetaEditor] = useState(false);
@@ -174,9 +175,21 @@ export default function EditorView({
   const isMultiSelect = selectedSceneKeys.length > 1;
 
   // Get filtered scenes
-  const filteredScenes = scenes.filter(s =>
-    selectedCharFilter === 'all' || s.characterId === selectedCharFilter
-  );
+  const statusFieldDefForFilter = metadataFieldDefs.find(f => f.id === '_status');
+  const statusOptionsForFilter = statusFieldDefForFilter
+    ? (statusFieldDefForFilter.options || []).map(v => ({ value: v, color: statusFieldDefForFilter.optionColors?.[v] || '#9e9e9e' }))
+    : DEFAULT_STATUSES;
+
+  const filteredScenes = scenes.filter(s => {
+    if (selectedCharFilter !== 'all' && s.characterId !== selectedCharFilter) return false;
+    if (selectedStatusFilter !== 'all') {
+      const sceneKey = getSceneKey(s);
+      const meta = sceneMetadata[sceneKey];
+      const status = meta?.['_status'] as string | undefined;
+      if (status !== selectedStatusFilter) return false;
+    }
+    return true;
+  });
 
   // Group scenes by character for the navigator
   const groupedScenes = characters.reduce<Record<string, Scene[]>>((acc, char) => {
@@ -774,6 +787,12 @@ export default function EditorView({
             <option value="all">All Characters</option>
             {characters.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <select value={selectedStatusFilter} onChange={e => setSelectedStatusFilter(e.target.value)}>
+            <option value="all">All Statuses</option>
+            {statusOptionsForFilter.map(s => (
+              <option key={s.value} value={s.value}>{s.value}</option>
             ))}
           </select>
         </div>

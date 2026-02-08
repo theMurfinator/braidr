@@ -972,6 +972,9 @@ function App() {
     const currentScene = charScenes[currentIndex];
     const prevScene = charScenes[currentIndex - 1];
 
+    // Capture old keys before swapping scene numbers
+    const oldNumbers = buildKeyMapBeforeRenumber([currentScene, prevScene]);
+
     // Check if we're moving to a different plot point
     const movingToNewPlotPoint = currentScene.plotPointId !== prevScene.plotPointId;
 
@@ -992,6 +995,10 @@ function App() {
       return s;
     });
 
+    // Remap scene-keyed data (drafts, metadata) to match new numbers
+    const swappedScenes = updatedScenes.filter(s => s.id === currentScene.id || s.id === prevScene.id);
+    applyKeyRemapAfterRenumber(swappedScenes, oldNumbers);
+
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
 
@@ -1000,6 +1007,7 @@ function App() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === selectedCharacterId);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, updatedCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
     } catch (err) {
       console.error('Failed to save:', err);
     }
@@ -1022,6 +1030,9 @@ function App() {
     const currentScene = charScenes[currentIndex];
     const nextScene = charScenes[currentIndex + 1];
 
+    // Capture old keys before swapping scene numbers
+    const oldNumbers = buildKeyMapBeforeRenumber([currentScene, nextScene]);
+
     // Check if we're moving to a different plot point
     const movingToNewPlotPoint = currentScene.plotPointId !== nextScene.plotPointId;
 
@@ -1042,6 +1053,10 @@ function App() {
       return s;
     });
 
+    // Remap scene-keyed data (drafts, metadata) to match new numbers
+    const swappedScenes = updatedScenes.filter(s => s.id === currentScene.id || s.id === nextScene.id);
+    applyKeyRemapAfterRenumber(swappedScenes, oldNumbers);
+
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
 
@@ -1050,6 +1065,7 @@ function App() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === selectedCharacterId);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, updatedCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
     } catch (err) {
       console.error('Failed to save:', err);
     }
