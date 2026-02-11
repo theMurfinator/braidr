@@ -112,7 +112,7 @@ export default function FloatingEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: 'Write a synopsis for this scene...',
+        placeholder: '',
       }),
     ],
     content: localNotes.join('\n\n'),

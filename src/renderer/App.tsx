@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, ArchivedScene, MetadataFieldDef, DraftVersion } from '../shared/types';
-import EditorView from './components/EditorView';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, MetadataFieldDef, DraftVersion, NoteMetadata } from '../shared/types';
+import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
 import SceneCard from './components/SceneCard';
@@ -10,14 +10,25 @@ import TagManager from './components/TagManager';
 import SceneDetailPanel from './components/SceneDetailPanel';
 import CharacterManager from './components/CharacterManager';
 import RailsView from './components/RailsView';
+import TableView from './components/TableView';
 import FloatingEditor from './components/FloatingEditor';
 import FontPicker from './components/FontPicker';
+import NotesView from './components/notes/NotesView';
+import WordCountDashboard from './components/WordCountDashboard';
+import SearchOverlay from './components/SearchOverlay';
 import { useHistory } from './hooks/useHistory';
+import { useToast } from './components/ToastContext';
+import { extractTodosFromNotes } from './utils/parseTodoWidgets';
+import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker } from './services/sessionTracker';
+import { AnalyticsData, loadAnalytics, saveAnalytics } from './utils/analyticsStore';
+import braidrIcon from './assets/braidr-icon.png';
+import braidrLogo from './assets/braidr-logo.png';
 
-type ViewMode = 'pov' | 'braided' | 'editor';
-type BraidedSubMode = 'list' | 'rails';
+type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'analytics';
+type BraidedSubMode = 'list' | 'table' | 'rails';
 
 function App() {
+  const { addToast } = useToast();
   const {
     state: projectData,
     set: setProjectData,
@@ -27,7 +38,11 @@ function App() {
     canRedo,
   } = useHistory<ProjectData | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('pov');
+  const [viewMode, _setViewMode] = useState<ViewMode>('pov');
+  const setViewMode = (mode: ViewMode) => {
+    _setViewMode(mode);
+    localStorage.setItem('braidr-last-view-mode', mode);
+  };
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +60,7 @@ function App() {
   const [braidedChapters, setBraidedChapters] = useState<BraidedChapter[]>([]);
   const [characterColors, setCharacterColors] = useState<Record<string, string>>({});
   const characterColorsRef = useRef<Record<string, string>>({});
-  const fontSettingsRef = useRef<FontSettings>({});
+  const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
   const [canDragScene, setCanDragScene] = useState(false);
   const [isAddingChapter, setIsAddingChapter] = useState(false);
@@ -55,13 +70,18 @@ function App() {
   const [draggedPovScene, setDraggedPovScene] = useState<Scene | null>(null);
   const [showCharacterManager, setShowCharacterManager] = useState(false);
   const [showFontPicker, setShowFontPicker] = useState(false);
-  const [fontSettings, setFontSettings] = useState<FontSettings>({});
+  const [allFontSettings, setAllFontSettings] = useState<AllFontSettings>({ global: {} });
+  const sceneListRef = useRef<HTMLDivElement>(null);
+  const [contentPadding, setContentPadding] = useState(() => {
+    const saved = localStorage.getItem('braidr-content-padding');
+    return saved ? parseInt(saved, 10) : 220;
+  });
   const [braidedSubMode, setBraidedSubMode] = useState<BraidedSubMode>('list');
   const [showRailsConnections, setShowRailsConnections] = useState(true);
   const [listFloatingEditor, setListFloatingEditor] = useState<Scene | null>(null);
   const [listInboxCharFilter, setListInboxCharFilter] = useState<string>('all');
   const [editorInitialSceneKey, setEditorInitialSceneKey] = useState<string | null>(null);
-  const lastEditorSceneKeyRef = useRef<string | null>(null);
+  const lastEditorSceneKeyRef = useRef<string | null>(localStorage.getItem('braidr-last-editor-scene'));
   const scrollToSceneIdRef = useRef<string | null>(null);
   const [archivedScenes, setArchivedScenes] = useState<ArchivedScene[]>([]);
   const archivedScenesRef = useRef<ArchivedScene[]>([]);
@@ -75,7 +95,30 @@ function App() {
   const [sceneMetadata, setSceneMetadata] = useState<Record<string, Record<string, string | string[]>>>({});
   const sceneMetadataRef = useRef<Record<string, Record<string, string | string[]>>>({});
   const [showCompileModal, setShowCompileModal] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
+  const [wordCountGoal, setWordCountGoal] = useState(0);
+  const wordCountGoalRef = useRef(0);
+  const [searchNotesIndex, setSearchNotesIndex] = useState<NoteMetadata[]>([]);
+  const [noteContentCache, setNoteContentCache] = useState<Record<string, string>>({});
+  const [pendingNoteId, setPendingNoteId] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const editorViewRef = useRef<EditorViewHandle>(null);
+  const isDirtyRef = useRef(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Session tracker for time tracking
+  const sessionTrackerRef = useRef<SessionTracker | null>(null);
+  const analyticsRef = useRef<AnalyticsData | null>(null);
+  // sessionTrackerRef and analyticsRef drive background analytics recording
+
+  // Extract todo items from notes for display in editor sidebar
+  const sceneTodos = useMemo(() => {
+    if (searchNotesIndex.length === 0 || Object.keys(noteContentCache).length === 0) return [];
+    return extractTodosFromNotes(noteContentCache, searchNotesIndex);
+  }, [noteContentCache, searchNotesIndex]);
 
   // Welcome screen state
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
@@ -92,6 +135,17 @@ function App() {
     };
     loadRecent();
   }, []);
+
+  // Close settings menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showSettingsMenu && settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node)) {
+        setShowSettingsMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showSettingsMenu]);
 
   // Keyboard shortcuts for undo/redo
   useEffect(() => {
@@ -114,11 +168,88 @@ function App() {
           undoProjectData();
         }
       }
+
+      // Cmd+K / Ctrl+K: Open search
+      if (modifier && e.key === 'k') {
+        e.preventDefault();
+        setShowSearch(prev => !prev);
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [undoProjectData, redoProjectData]);
+
+  // Initialize session tracker when project loads
+  useEffect(() => {
+    if (!projectData) return;
+
+    // Create the tracker
+    const tracker = createSessionTracker();
+    sessionTrackerRef.current = tracker;
+
+    // Load analytics data for the project
+    loadAnalytics(projectData.projectPath).then(data => {
+      analyticsRef.current = data;
+    });
+
+    // When a session ends, merge it into analytics and persist
+    tracker.setOnSessionEnd((summary) => {
+      if (!analyticsRef.current || !projectData) return;
+
+      // Calculate total project words from draftContent
+      let totalWords = 0;
+      for (const html of Object.values(draftContentRef.current)) {
+        if (html && html !== '<p></p>') {
+          const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+          if (text) totalWords += text.split(/\s+/).length;
+        }
+      }
+
+      const updated = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords);
+      analyticsRef.current = updated;
+      saveAnalytics(projectData.projectPath, updated);
+    });
+
+    return () => {
+      tracker.destroy();
+      sessionTrackerRef.current = null;
+    };
+  }, [projectData?.projectPath]);
+
+  // End session when switching away from editor view
+  useEffect(() => {
+    if (viewMode !== 'editor' && sessionTrackerRef.current?.isActive()) {
+      // Get current word count for the scene being tracked
+      const session = sessionTrackerRef.current.getCurrentSession();
+      if (session) {
+        const html = draftContentRef.current[session.sceneKey] || '';
+        const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        const wordCount = text ? text.split(/\s+/).length : 0;
+        sessionTrackerRef.current.endSession(wordCount);
+      }
+    }
+  }, [viewMode]);
+
+  // Lazy-load notes data when search opens or editor view needs todo items
+  useEffect(() => {
+    if ((showSearch || viewMode === 'editor') && projectData) {
+      (async () => {
+        try {
+          const index = await dataService.loadNotesIndex(projectData.projectPath);
+          setSearchNotesIndex(index.notes || []);
+          const cache: Record<string, string> = {};
+          for (const note of (index.notes || [])) {
+            try {
+              const content = await dataService.readNote(projectData.projectPath, note.fileName);
+              cache[note.id] = content;
+            } catch {}
+          }
+          setNoteContentCache(cache);
+        } catch {}
+      })();
+    }
+  }, [showSearch, viewMode]);
 
   // Scroll to scene after navigating from editor via POV/Braid buttons
   useEffect(() => {
@@ -202,7 +333,10 @@ function App() {
   }, [projectData, selectedCharacterId, viewMode]);
 
   // Track custom rail order (character IDs in display order)
-  const [railOrder, setRailOrder] = useState<string[]>([]);
+  const [railOrder, setRailOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem('rails-character-order');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Get all characters for rails view (up to 4), respecting custom order
   const railsDisplayCharacters = useMemo(() => {
@@ -235,6 +369,11 @@ function App() {
     setRailOrder(newOrder);
   };
 
+  // Persist rail order to localStorage
+  useEffect(() => {
+    localStorage.setItem('rails-character-order', JSON.stringify(railOrder));
+  }, [railOrder]);
+
   // Helper to load a project from a path
   const loadProjectFromPath = async (folderPath: string, projectName?: string) => {
     const data = await dataService.loadProject(folderPath);
@@ -261,16 +400,28 @@ function App() {
     setCharacterColors(loadedColors);
     characterColorsRef.current = loadedColors;
 
-    // Load font settings
-    const loadedFonts = data.fontSettings || {};
-    setFontSettings(loadedFonts);
-    fontSettingsRef.current = loadedFonts;
-    applyFontSettings(loadedFonts);
+    // Load font settings (with backward compat migration)
+    let loadedAllFonts: AllFontSettings;
+    if (data.allFontSettings) {
+      loadedAllFonts = data.allFontSettings;
+    } else if (data.fontSettings && Object.keys(data.fontSettings).length > 0) {
+      loadedAllFonts = { global: data.fontSettings };
+    } else {
+      loadedAllFonts = { global: {} };
+    }
+    setAllFontSettings(loadedAllFonts);
+    allFontSettingsRef.current = loadedAllFonts;
+    applyFontSettings(loadedAllFonts.global);
 
     // Load archived scenes
     const loadedArchived = data.archivedScenes || [];
     setArchivedScenes(loadedArchived);
     archivedScenesRef.current = loadedArchived;
+
+    // Load word count goal
+    const loadedGoal = data.wordCountGoal || 0;
+    setWordCountGoal(loadedGoal);
+    wordCountGoalRef.current = loadedGoal;
 
     // Reconcile: remove scenes from parsed data that still exist in the markdown
     // but were already archived (can happen if iCloud syncs back old file versions).
@@ -339,11 +490,26 @@ function App() {
       setSelectedCharacterId(data.characters[0].id);
     }
 
-    // Add to recent projects
+    // Restore last view mode
+    const savedViewMode = localStorage.getItem('braidr-last-view-mode') as ViewMode | null;
+    if (savedViewMode && ['pov', 'braided', 'editor', 'notes', 'analytics'].includes(savedViewMode)) {
+      _setViewMode(savedViewMode);
+    }
+
+    // Add to recent projects with summary stats
+    const totalWordCount = data.wordCounts
+      ? Object.values(data.wordCounts as Record<string, number>).reduce((sum: number, wc: number) => sum + wc, 0)
+      : 0;
     await dataService.addRecentProject({
       name,
       path: folderPath,
       lastOpened: Date.now(),
+      characterCount: data.characters.length,
+      sceneCount: data.scenes.length,
+      totalWordCount,
+      characterNames: data.characters.map((c: Character) => c.name),
+      characterIds: data.characters.map((c: Character) => c.id),
+      characterColors: data.characterColors || {},
     });
 
     // Refresh recent projects list
@@ -454,7 +620,7 @@ function App() {
         charScenes
       );
     } catch (err) {
-      console.error('Failed to save character:', err);
+      addToast('Couldn\u2019t save character rename');
     }
   };
 
@@ -463,6 +629,12 @@ function App() {
 
     const character = projectData.characters.find(c => c.id === characterId);
     if (!character) return;
+
+    const sceneCount = projectData.scenes.filter(s => s.characterId === characterId).length;
+    const confirmed = window.confirm(
+      `Delete "${character.name}" and all ${sceneCount} of their scenes? This cannot be undone.`
+    );
+    if (!confirmed) return;
 
     try {
       await dataService.deleteFile(character.filePath);
@@ -549,46 +721,71 @@ function App() {
     return character?.name || 'Unknown';
   };
 
-  // Apply font settings to CSS variables
+  // Apply global font settings to CSS variables on :root
   const applyFontSettings = (settings: FontSettings) => {
     const root = document.documentElement;
-    if (settings.sectionTitle) {
-      root.style.setProperty('--font-section-title', settings.sectionTitle);
-    } else {
-      root.style.removeProperty('--font-section-title');
-    }
-    if (settings.sectionTitleSize) {
-      root.style.setProperty('--font-section-title-size', `${settings.sectionTitleSize}px`);
-    } else {
-      root.style.removeProperty('--font-section-title-size');
-    }
-    if (settings.sceneTitle) {
-      root.style.setProperty('--font-scene-title', settings.sceneTitle);
-    } else {
-      root.style.removeProperty('--font-scene-title');
-    }
-    if (settings.sceneTitleSize) {
-      root.style.setProperty('--font-scene-title-size', `${settings.sceneTitleSize}px`);
-    } else {
-      root.style.removeProperty('--font-scene-title-size');
-    }
-    if (settings.body) {
-      root.style.setProperty('--font-body', settings.body);
-    } else {
-      root.style.removeProperty('--font-body');
-    }
-    if (settings.bodySize) {
-      root.style.setProperty('--font-body-size', `${settings.bodySize}px`);
-    } else {
-      root.style.removeProperty('--font-body-size');
+    const vars: Array<[keyof FontSettings, string, string?]> = [
+      ['sectionTitle', '--font-section-title'],
+      ['sectionTitleSize', '--font-section-title-size', 'px'],
+      ['sceneTitle', '--font-scene-title'],
+      ['sceneTitleSize', '--font-scene-title-size', 'px'],
+      ['body', '--font-body'],
+      ['bodySize', '--font-body-size', 'px'],
+    ];
+    for (const [key, varName, suffix] of vars) {
+      const val = settings[key];
+      if (val !== undefined && val !== null) {
+        root.style.setProperty(varName, suffix ? `${val}${suffix}` : String(val));
+      } else {
+        root.style.removeProperty(varName);
+      }
     }
   };
 
-  // Handle font settings change
-  const handleFontSettingsChange = async (settings: FontSettings) => {
-    setFontSettings(settings);
-    fontSettingsRef.current = settings;
-    applyFontSettings(settings);
+  // Apply per-screen font overrides on .scene-list (overrides :root when set)
+  const applyScreenFontOverrides = (screen: ScreenKey | string, all: AllFontSettings) => {
+    const el = sceneListRef.current;
+    if (!el) return;
+    const screenSettings = (all.screens as Record<string, FontSettings> | undefined)?.[screen];
+    const vars: Array<[keyof FontSettings, string, string?]> = [
+      ['sectionTitle', '--font-section-title'],
+      ['sectionTitleSize', '--font-section-title-size', 'px'],
+      ['sceneTitle', '--font-scene-title'],
+      ['sceneTitleSize', '--font-scene-title-size', 'px'],
+      ['body', '--font-body'],
+      ['bodySize', '--font-body-size', 'px'],
+    ];
+    for (const [key, varName, suffix] of vars) {
+      const val = screenSettings?.[key];
+      if (val !== undefined && val !== null) {
+        el.style.setProperty(varName, suffix ? `${val}${suffix}` : String(val));
+      } else {
+        el.style.removeProperty(varName);
+      }
+    }
+  };
+
+  // Reapply per-screen overrides when view changes
+  useEffect(() => {
+    applyScreenFontOverrides(viewMode, allFontSettingsRef.current);
+  }, [viewMode]);
+
+  // Content padding
+  useEffect(() => {
+    localStorage.setItem('braidr-content-padding', contentPadding.toString());
+    document.documentElement.style.setProperty('--content-padding', `${420 - contentPadding}px`);
+  }, [contentPadding]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--content-padding', `${420 - contentPadding}px`);
+  }, []);
+
+  // Handle font settings change (now receives AllFontSettings)
+  const handleFontSettingsChange = async (settings: AllFontSettings) => {
+    setAllFontSettings(settings);
+    allFontSettingsRef.current = settings;
+    applyFontSettings(settings.global);
+    applyScreenFontOverrides(viewMode, settings);
 
     // Save to timeline data
     if (projectData) {
@@ -622,7 +819,7 @@ function App() {
         }
       });
 
-      await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, sceneMetadataRef.current);
+      await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, sceneMetadataRef.current, draftsRef.current, wordCountGoalRef.current, settings);
     }
   };
 
@@ -873,7 +1070,7 @@ function App() {
       await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
       await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
     } catch (err) {
-      console.error('Failed to save:', err);
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -911,7 +1108,7 @@ function App() {
       try {
         await dataService.saveCharacterOutline(character, charPPs, charScenes);
       } catch (err) {
-        console.error('Failed to save:', err);
+        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
       }
     }
   };
@@ -950,7 +1147,7 @@ function App() {
       try {
         await dataService.saveCharacterOutline(character, charPPs, charScenes);
       } catch (err) {
-        console.error('Failed to save:', err);
+        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
       }
     }
   };
@@ -1009,7 +1206,7 @@ function App() {
       await dataService.saveCharacterOutline(character, charPlotPoints, updatedCharScenes);
       await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
     } catch (err) {
-      console.error('Failed to save:', err);
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -1067,7 +1264,7 @@ function App() {
       await dataService.saveCharacterOutline(character, charPlotPoints, updatedCharScenes);
       await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
     } catch (err) {
-      console.error('Failed to save:', err);
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -1186,7 +1383,7 @@ function App() {
         try {
           await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
         } catch (err) {
-          console.error('Failed to save:', err);
+          addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
         }
       }
     }
@@ -1215,7 +1412,7 @@ function App() {
         try {
           await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
         } catch (err) {
-          console.error('Failed to save:', err);
+          addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
         }
       }
     }
@@ -1252,7 +1449,7 @@ function App() {
     try {
       await dataService.saveCharacterOutline(character, allCharPlotPoints, charScenes);
     } catch (err) {
-      console.error('Failed to save:', err);
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -1346,7 +1543,7 @@ function App() {
       await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
       await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
     } catch (err) {
-      console.error('Failed to save:', err);
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -1389,12 +1586,68 @@ function App() {
     }
 
     try {
+      setSaveStatus('saving');
       // Always use the current characterColors from ref
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, fontSettingsRef.current, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, sceneMetadataRef.current, draftsRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, sceneMetadataRef.current, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current);
+      isDirtyRef.current = false;
+      setSaveStatus('saved');
+      if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
+      saveStatusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (err) {
-      console.error('Failed to save timeline:', err);
+      addToast('Couldn\u2019t save timeline data');
+      setSaveStatus('idle');
     }
   }, []);
+
+  // Auto-save every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (projectData && isDirtyRef.current) {
+        // Flush any pending editor content first
+        editorViewRef.current?.flush();
+        saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+
+  // Flush and save on window close / beforeunload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      editorViewRef.current?.flush();
+      // Trigger a save (best-effort since beforeunload doesn't wait for async)
+      if (projectData) {
+        saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+
+  // Listen for app-closing IPC from main process (graceful quit)
+  useEffect(() => {
+    const api = (window as any).electronAPI;
+    if (api?.onAppClosing) {
+      const cleanup = api.onAppClosing(async () => {
+        editorViewRef.current?.flush();
+        // End current writing session before closing
+        if (sessionTrackerRef.current?.isActive()) {
+          const session = sessionTrackerRef.current.getCurrentSession();
+          if (session) {
+            const html = draftContentRef.current[session.sceneKey] || '';
+            const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+            const wordCount = text ? text.split(/\s+/).length : 0;
+            sessionTrackerRef.current.endSession(wordCount);
+          }
+        }
+        if (projectData) {
+          await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+        }
+        api.safeToClose();
+      });
+      return cleanup;
+    }
+  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
 
   // Drag handlers
   const handleDragStart = (e: React.DragEvent, scene: Scene) => {
@@ -1542,9 +1795,18 @@ function App() {
   };
 
   const handleDraftChange = async (sceneKey: string, html: string) => {
+    isDirtyRef.current = true;
     const updated = { ...draftContent, [sceneKey]: html };
     setDraftContent(updated);
     draftContentRef.current = updated;
+
+    // Notify session tracker of editing activity
+    if (sessionTrackerRef.current) {
+      const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+      const wordCount = text ? text.split(/\s+/).length : 0;
+      sessionTrackerRef.current.recordActivity(sceneKey, wordCount);
+    }
+
     if (projectData) {
       await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
     }
@@ -1666,7 +1928,7 @@ function App() {
         await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
         await saveTimelineData(updatedScenes, newConnections, braidedChapters);
       } catch (err) {
-        console.error('Failed to save:', err);
+        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
       }
     }
   };
@@ -1714,7 +1976,7 @@ function App() {
         await dataService.saveCharacterOutline(character, updatedCharPlotPoints, updatedCharScenes);
         await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
       } catch (err) {
-        console.error('Failed to save:', err);
+        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
       }
     }
   };
@@ -1777,7 +2039,7 @@ function App() {
       await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
       await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
     } catch (err) {
-      console.error('Failed to save:', err);
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -1831,7 +2093,7 @@ function App() {
         try {
           await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
         } catch (err) {
-          console.error('Failed to save:', err);
+          addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
         }
       }
     }
@@ -1848,51 +2110,105 @@ function App() {
 
     return (
       <div className="app">
-        <div className="app-header">
-          <h1>Braidr</h1>
-        </div>
-        <div className="main-content">
+        <div className="main-content welcome-main-content">
           <div className="welcome-screen">
             {!showNewProject ? (
               <>
-                <h2>Braidr</h2>
-                <div className="welcome-subtitle">Multi-POV Novel Outliner</div>
+                <div className="welcome-header">
+                  <img src={braidrLogo} alt="Braidr" className="welcome-logo" />
+                </div>
 
-                {recentProjects.length > 0 ? (
-                  <div className="recent-projects">
-                    <div className="recent-projects-label">Recent Novels</div>
-                    {recentProjects.map(project => (
-                      <button
-                        key={project.path}
-                        className="recent-project-card"
-                        onClick={() => handleOpenRecentProject(project)}
-                        disabled={loading}
-                      >
-                        <span className="project-name">{project.name}</span>
-                        <span className="project-date">
-                          {new Date(project.lastOpened).toLocaleDateString()}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="empty-state">
-                    Create your first novel to get started.
-                  </p>
-                )}
-
-                <div className="welcome-actions">
+                <div className="welcome-grid">
+                  {/* New Novel card */}
                   <button
-                    className="btn btn-primary"
+                    className="welcome-new-card"
                     onClick={() => setShowNewProject(true)}
                     disabled={loading}
                   >
-                    + New Novel
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <circle cx="16" cy="16" r="15" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M16 10v12M10 16h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    <span className="welcome-new-label">New Novel</span>
                   </button>
+
+                  {/* Project cards */}
+                  {recentProjects.map(project => {
+                    const charNames = project.characterNames || [];
+                    const charIds = project.characterIds || [];
+                    const colors = project.characterColors || {};
+                    const defaultColors = ['#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#14b8a6', '#f59e0b'];
+                    // Map each character to their color using ID lookup with fallback
+                    const charColors = charNames.map((_, i) => {
+                      const id = charIds[i];
+                      return (id && colors[id]) || defaultColors[i % defaultColors.length];
+                    });
+                    const initials = charNames.slice(0, 4).map(name => {
+                      const parts = name.trim().split(/\s+/);
+                      return parts.length >= 2
+                        ? (parts[0][0] + parts[1][0]).toUpperCase()
+                        : name.substring(0, 2).toUpperCase();
+                    });
+                    const extraCount = charNames.length > 4 ? charNames.length - 4 : 0;
+
+                    return (
+                      <button
+                        key={project.path}
+                        className="welcome-project-card"
+                        onClick={() => handleOpenRecentProject(project)}
+                        disabled={loading}
+                      >
+                        <div className="welcome-card-color-bar">
+                          {charColors.slice(0, 5).map((color, i) => (
+                            <span key={i} className="welcome-card-color-segment" style={{ background: color }} />
+                          ))}
+                        </div>
+                        <div className="welcome-card-body">
+                          <div className="welcome-card-title">{project.name}</div>
+                          <div className="welcome-card-stats">
+                            {(project.characterCount || 0) > 0 || (project.sceneCount || 0) > 0 ? (
+                              <>
+                                {(project.characterCount || 0) > 0 && (
+                                  <>{project.characterCount} Perspective{(project.characterCount || 0) !== 1 ? 's' : ''}</>
+                                )}
+                                {(project.sceneCount || 0) > 0 && (
+                                  <>{(project.characterCount || 0) > 0 ? ' · ' : ''}{project.sceneCount} Scene{(project.sceneCount || 0) !== 1 ? 's' : ''}</>
+                                )}
+                                {(project.totalWordCount ?? 0) > 0 && (
+                                  <>{' · '}{((project.totalWordCount || 0) / 1000).toFixed(1)}k words</>
+                                )}
+                              </>
+                            ) : (
+                              <>Opened {new Date(project.lastOpened).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
+                            )}
+                          </div>
+                          <div className="welcome-card-bottom">
+                            <div className="welcome-card-avatars">
+                              {initials.map((ini, i) => (
+                                <span
+                                  key={i}
+                                  className="welcome-card-avatar"
+                                  style={{ background: charColors[i] || '#9CA3AF' }}
+                                >
+                                  {ini}
+                                </span>
+                              ))}
+                              {extraCount > 0 && (
+                                <span className="welcome-card-avatar welcome-card-avatar-extra">+{extraCount}</span>
+                              )}
+                            </div>
+                            <svg className="welcome-card-arrow" width="18" height="18" viewBox="0 0 20 20" fill="none">
+                              <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <button
-                  className="link-btn"
+                  className="welcome-import-btn"
                   onClick={handleSelectFolder}
                   disabled={loading}
                 >
@@ -1979,229 +2295,340 @@ function App() {
     );
   }
 
+  // Word count goal change handler
+  const handleWordCountGoalChange = async (goal: number) => {
+    setWordCountGoal(goal);
+    wordCountGoalRef.current = goal;
+    if (projectData) {
+      await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+    }
+  };
+
   return (
     <div className="app">
-      {/* Primary Toolbar - Navigation */}
+      {/* Left sidebar navigation */}
+      <nav className="app-sidebar">
+        <img src={braidrIcon} alt="Braidr" className="app-sidebar-logo" />
+        <button
+          className={`app-sidebar-btn ${viewMode === 'pov' ? 'active' : ''}`}
+          onClick={() => setViewMode('pov')}
+          title="POV Outline"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M4 6h16M4 12h10M4 18h13"/>
+          </svg>
+          <span className="app-sidebar-label">Outline</span>
+        </button>
+        <button
+          className={`app-sidebar-btn ${viewMode === 'braided' ? 'active' : ''}`}
+          onClick={() => setViewMode('braided')}
+          title="Braided Timeline"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M8 3v18M16 3v18M3 8h18M3 16h18"/>
+          </svg>
+          <span className="app-sidebar-label">Timeline</span>
+        </button>
+        <button
+          className={`app-sidebar-btn ${viewMode === 'editor' ? 'active' : ''}`}
+          onClick={() => { setEditorInitialSceneKey(null); setViewMode('editor'); }}
+          title="Editor"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+          </svg>
+          <span className="app-sidebar-label">Editor</span>
+        </button>
+        <button
+          className={`app-sidebar-btn ${viewMode === 'notes' ? 'active' : ''}`}
+          onClick={() => setViewMode('notes')}
+          title="Notes"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="9" y1="13" x2="15" y2="13"/>
+            <line x1="9" y1="17" x2="13" y2="17"/>
+          </svg>
+          <span className="app-sidebar-label">Notes</span>
+        </button>
+        <button
+          className={`app-sidebar-btn ${viewMode === 'analytics' ? 'active' : ''}`}
+          onClick={() => setViewMode('analytics')}
+          title="Analytics"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <rect x="3" y="12" width="4" height="9"/>
+            <rect x="10" y="6" width="4" height="15"/>
+            <rect x="17" y="2" width="4" height="19"/>
+          </svg>
+          <span className="app-sidebar-label">Analytics</span>
+        </button>
+        <div className="app-sidebar-spacer" />
+        <button
+          className="app-sidebar-btn"
+          onClick={() => setShowSearch(true)}
+          title="Search (Cmd+K)"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span className="app-sidebar-label">Search</span>
+        </button>
+      </nav>
+
+      <div className="app-body">
+      {/* Unified Toolbar */}
       <div className="app-toolbar">
         <div className="toolbar-left">
-          <h1>{projectData.projectName || 'Braidr'}</h1>
-        </div>
-
-        <div className="toolbar-center">
-          <div className="view-toggle">
-            <button
-              className={viewMode === 'pov' ? 'active' : ''}
-              onClick={() => setViewMode('pov')}
-            >
-              POV
-            </button>
-            <button
-              className={viewMode === 'braided' ? 'active' : ''}
-              onClick={() => setViewMode('braided')}
-            >
-              Braided
-            </button>
-            <button
-              className={viewMode === 'editor' ? 'active' : ''}
-              onClick={() => { setEditorInitialSceneKey(null); setViewMode('editor'); }}
-            >
-              Editor
-            </button>
-          </div>
+          {viewMode === 'pov' ? (
+            <div className="character-selector">
+              <select
+                value={selectedCharacterId || ''}
+                onChange={(e) => setSelectedCharacterId(e.target.value)}
+              >
+                {projectData.characters.map(char => (
+                  <option key={char.id} value={char.id}>
+                    {char.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : viewMode === 'braided' ? (
+            <div className="sub-view-toggle">
+              <button
+                className={braidedSubMode === 'list' ? 'active' : ''}
+                onClick={() => setBraidedSubMode('list')}
+              >
+                List
+              </button>
+              <button
+                className={braidedSubMode === 'table' ? 'active' : ''}
+                onClick={() => setBraidedSubMode('table')}
+              >
+                Table
+              </button>
+              <button
+                className={braidedSubMode === 'rails' ? 'active' : ''}
+                onClick={() => setBraidedSubMode('rails')}
+              >
+                Rails
+              </button>
+            </div>
+          ) : (
+            <h1>{projectData.projectName || 'Braidr'}</h1>
+          )}
+          {viewMode === 'pov' && (
+            <>
+              <div className="toolbar-divider" />
+              <button
+                className={`toolbar-btn ${allNotesExpanded !== false ? 'active' : ''}`}
+                onClick={() => setAllNotesExpanded(prev => prev === null ? false : !prev)}
+                title={allNotesExpanded === false ? 'Expand Notes' : 'Collapse Notes'}
+              >
+                Notes
+              </button>
+              <button
+                className={`toolbar-btn ${!hideSectionHeaders ? 'active' : ''}`}
+                onClick={() => setHideSectionHeaders(!hideSectionHeaders)}
+                title={hideSectionHeaders ? 'Show Sections' : 'Hide Sections'}
+              >
+                Sections
+              </button>
+            </>
+          )}
+          {viewMode === 'braided' && (
+            <>
+              <div className="toolbar-divider" />
+              <button
+                className={`toolbar-btn ${showPovColors ? 'active' : ''}`}
+                onClick={() => setShowPovColors(!showPovColors)}
+                title="Toggle Colors"
+              >
+                Colors
+              </button>
+              {braidedSubMode === 'rails' && (
+                <button
+                  className={`toolbar-btn ${showRailsConnections ? 'active' : ''}`}
+                  onClick={() => setShowRailsConnections(!showRailsConnections)}
+                  title="Toggle Connections"
+                >
+                  Links
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         <div className="toolbar-right">
+          {saveStatus !== 'idle' && (
+            <span className={`save-indicator ${saveStatus}`}>
+              {saveStatus === 'saving' ? 'Saving...' : 'Saved'}
+            </span>
+          )}
+          {viewMode !== 'editor' && viewMode !== 'notes' && projectData.tags.length > 0 && (
+            <FilterBar
+              tags={projectData.tags}
+              activeFilters={activeFilters}
+              onToggleFilter={handleToggleFilter}
+            />
+          )}
           <button
-            className="toolbar-compile-btn"
-            onClick={() => setShowCompileModal(true)}
-            title="Compile Manuscript"
+            className="icon-btn"
+            onClick={() => setShowSearch(true)}
+            title="Search (Cmd+K)"
           >
-            Compile
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+          <button
+            className={`icon-btn ${!canUndo ? 'disabled' : ''}`}
+            onClick={undoProjectData}
+            disabled={!canUndo}
+            title="Undo (Cmd+Z)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 7v6h6"/>
+              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.4 2.6L3 13"/>
+            </svg>
+          </button>
+          <button
+            className={`icon-btn ${!canRedo ? 'disabled' : ''}`}
+            onClick={redoProjectData}
+            disabled={!canRedo}
+            title="Redo (Cmd+Shift+Z)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 7v6h-6"/>
+              <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.4 2.6L21 13"/>
+            </svg>
           </button>
           <div className="toolbar-divider" />
-          <button
-            className="icon-btn"
-            onClick={() => setShowCharacterManager(true)}
-            title="Manage Characters"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          </button>
-          <button
-            className="icon-btn"
-            onClick={() => setShowTagManager(true)}
-            title="Manage Tags"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-              <line x1="7" y1="7" x2="7.01" y2="7"/>
-            </svg>
-          </button>
-          <button
-            className="icon-btn"
-            onClick={() => setShowFontPicker(true)}
-            title="Font Settings"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="4 7 4 4 20 4 20 7"/>
-              <line x1="9" y1="20" x2="15" y2="20"/>
-              <line x1="12" y1="4" x2="12" y2="20"/>
-            </svg>
-          </button>
-          <button
-            className="icon-btn"
-            onClick={() => setShowArchivePanel(true)}
-            title={`Archive${archivedScenes.length > 0 ? ` (${archivedScenes.length})` : ''}`}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="21 8 21 21 3 21 3 8"/>
-              <rect x="1" y="3" width="22" height="5"/>
-              <line x1="10" y1="12" x2="14" y2="12"/>
-            </svg>
-          </button>
-          <button
-            className="icon-btn"
-            onClick={handleBackupProject}
-            title="Backup Project"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-              <polyline points="17 21 17 13 7 13 7 21"/>
-              <polyline points="7 3 15 3 15 7"/>
-            </svg>
-          </button>
-          <button
-            className="icon-btn"
-            onClick={() => setProjectData(null)}
-            title="Switch Project"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-              <polyline points="9 22 9 12 15 12 15 22"/>
-            </svg>
-          </button>
+          <div className="settings-menu-container" ref={settingsMenuRef}>
+            <button
+              className={`icon-btn ${showSettingsMenu ? 'active' : ''}`}
+              onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+              title="Settings & Tools"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="1"/>
+                <circle cx="12" cy="5" r="1"/>
+                <circle cx="12" cy="19" r="1"/>
+              </svg>
+            </button>
+            {showSettingsMenu && (
+              <div className="settings-dropdown">
+                <button onClick={() => { setShowCompileModal(true); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  Compile
+                </button>
+                <button onClick={() => { setViewMode('analytics'); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="12" width="4" height="9"/>
+                    <rect x="10" y="6" width="4" height="15"/>
+                    <rect x="17" y="2" width="4" height="19"/>
+                  </svg>
+                  Goals & Analytics
+                </button>
+                <div className="settings-dropdown-divider" />
+                <button onClick={() => { setShowCharacterManager(true); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                  Characters
+                </button>
+                <button onClick={() => { setShowTagManager(true); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                    <line x1="7" y1="7" x2="7.01" y2="7"/>
+                  </svg>
+                  Tags
+                </button>
+                <button onClick={() => { setShowFontPicker(true); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="4 7 4 4 20 4 20 7"/>
+                    <line x1="9" y1="20" x2="15" y2="20"/>
+                    <line x1="12" y1="4" x2="12" y2="20"/>
+                  </svg>
+                  Fonts
+                </button>
+                <button onClick={() => { setShowArchivePanel(true); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="21 8 21 21 3 21 3 8"/>
+                    <rect x="1" y="3" width="22" height="5"/>
+                    <line x1="10" y1="12" x2="14" y2="12"/>
+                  </svg>
+                  Archive{archivedScenes.length > 0 ? ` (${archivedScenes.length})` : ''}
+                </button>
+                <div className="settings-dropdown-divider" />
+                <button onClick={() => { handleBackupProject(); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 15 3 15 7"/>
+                  </svg>
+                  Backup
+                </button>
+                <button onClick={async () => {
+                  if (isDirtyRef.current) {
+                    editorViewRef.current?.flush();
+                    if (projectData) {
+                      await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+                    }
+                  }
+                  setProjectData(null);
+                  setShowSettingsMenu(false);
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                  </svg>
+                  Switch Project
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Secondary Toolbar - Context & Filters */}
-      {viewMode !== 'editor' && (
-        <div className="secondary-toolbar">
-          <div className="toolbar-left">
-            {viewMode === 'pov' ? (
-              <div className="character-selector">
-                <select
-                  value={selectedCharacterId || ''}
-                  onChange={(e) => setSelectedCharacterId(e.target.value)}
-                >
-                  {projectData.characters.map(char => (
-                    <option key={char.id} value={char.id}>
-                      {char.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="sub-view-toggle">
-                <button
-                  className={braidedSubMode === 'list' ? 'active' : ''}
-                  onClick={() => setBraidedSubMode('list')}
-                >
-                  List
-                </button>
-                <button
-                  className={braidedSubMode === 'rails' ? 'active' : ''}
-                  onClick={() => setBraidedSubMode('rails')}
-                >
-                  Rails
-                </button>
-              </div>
-            )}
-            <div className="toolbar-divider" />
-            {viewMode === 'pov' ? (
-              <>
-                <button
-                  className={`toolbar-btn ${allNotesExpanded !== false ? 'active' : ''}`}
-                  onClick={() => setAllNotesExpanded(prev => prev === null ? false : !prev)}
-                  title={allNotesExpanded === false ? 'Expand Notes' : 'Collapse Notes'}
-                >
-                  Notes
-                </button>
-                <button
-                  className={`toolbar-btn ${!hideSectionHeaders ? 'active' : ''}`}
-                  onClick={() => setHideSectionHeaders(!hideSectionHeaders)}
-                  title={hideSectionHeaders ? 'Show Sections' : 'Hide Sections'}
-                >
-                  Sections
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  className={`toolbar-btn ${showPovColors ? 'active' : ''}`}
-                  onClick={() => setShowPovColors(!showPovColors)}
-                  title="Toggle Colors"
-                >
-                  Colors
-                </button>
-                {braidedSubMode === 'rails' && (
-                  <button
-                    className={`toolbar-btn ${showRailsConnections ? 'active' : ''}`}
-                    onClick={() => setShowRailsConnections(!showRailsConnections)}
-                    title="Toggle Connections"
-                  >
-                    Links
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="toolbar-right">
-            {projectData.tags.length > 0 && (
-              <FilterBar
-                tags={projectData.tags}
-                activeFilters={activeFilters}
-                onToggleFilter={handleToggleFilter}
-              />
-            )}
-            <div className="toolbar-divider" />
-            <button
-              className={`icon-btn ${!canUndo ? 'disabled' : ''}`}
-              onClick={undoProjectData}
-              disabled={!canUndo}
-              title="Undo (Cmd+Z)"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 7v6h6"/>
-                <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.4 2.6L3 13"/>
-              </svg>
-            </button>
-            <button
-              className={`icon-btn ${!canRedo ? 'disabled' : ''}`}
-              onClick={redoProjectData}
-              disabled={!canRedo}
-              title="Redo (Cmd+Shift+Z)"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 7v6h-6"/>
-                <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.4 2.6L21 13"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="main-content">
         {loading ? (
           <div className="loading">Loading...</div>
         ) : (
-          <div className="scene-list">
-            {viewMode === 'editor' ? (
+          <div className="scene-list" ref={sceneListRef}>
+            {viewMode === 'analytics' ? (
+              <WordCountDashboard
+                scenes={projectData.scenes}
+                characters={projectData.characters}
+                plotPoints={projectData.plotPoints}
+                characterColors={characterColors}
+                draftContent={draftContent}
+                sceneMetadata={sceneMetadata}
+                wordCountGoal={wordCountGoal}
+                projectPath={projectData.projectPath}
+                onGoalChange={handleWordCountGoalChange}
+              />
+            ) : viewMode === 'notes' ? (
+              <NotesView
+                projectPath={projectData.projectPath}
+                scenes={projectData.scenes}
+                characters={projectData.characters}
+                tags={projectData.tags}
+                initialNoteId={pendingNoteId}
+                onNoteNavigated={() => setPendingNoteId(null)}
+              />
+            ) : viewMode === 'editor' ? (
               <EditorView
+                ref={editorViewRef}
                 scenes={projectData.scenes}
                 characters={projectData.characters}
                 plotPoints={projectData.plotPoints}
@@ -2227,9 +2654,10 @@ function App() {
                 onCreateTag={handleCreateTag}
                 onWordCountChange={handleWordCountChange}
                 initialSceneKey={editorInitialSceneKey || lastEditorSceneKeyRef.current}
-                onSceneSelect={(key) => { lastEditorSceneKeyRef.current = key; }}
+                onSceneSelect={(key) => { lastEditorSceneKeyRef.current = key; localStorage.setItem('braidr-last-editor-scene', key); }}
                 onGoToPov={handleGoToPov}
                 onGoToBraid={handleGoToBraid}
+                sceneTodos={sceneTodos}
               />
             ) : viewMode === 'pov' ? (
               // POV View with plot points and table of contents
@@ -2367,6 +2795,58 @@ function App() {
                   </div>
                 )}
               </div>
+            ) : braidedSubMode === 'table' ? (
+              // Table View
+              <>
+                <TableView
+                  scenes={projectData.scenes}
+                  characters={projectData.characters}
+                  metadataFieldDefs={metadataFieldDefs}
+                  sceneMetadata={sceneMetadata}
+                  tags={projectData.tags}
+                  tableViews={[]}
+                  plotPoints={projectData.plotPoints}
+                  characterColors={characterColors}
+                  onSceneClick={(sceneKey) => {
+                    // Open floating editor for this scene
+                    const [characterId, sceneNumberStr] = sceneKey.split(':');
+                    const sceneNumber = parseInt(sceneNumberStr, 10);
+                    const scene = projectData.scenes.find(
+                      s => s.characterId === characterId && s.sceneNumber === sceneNumber
+                    );
+                    if (scene) {
+                      setListFloatingEditor(scene);
+                    }
+                  }}
+                  onMetadataChange={handleMetadataChange}
+                  onWordCountChange={handleWordCountChange}
+                  onTableViewsChange={() => {}}
+                  onSceneChange={handleSceneChange}
+                />
+                {/* Floating Editor for table view */}
+                {listFloatingEditor && (
+                  <FloatingEditor
+                    scene={listFloatingEditor}
+                    draftContent={draftContent[`${listFloatingEditor.characterId}:${listFloatingEditor.sceneNumber}`] || ''}
+                    characterName={getCharacterName(listFloatingEditor.characterId)}
+                    tags={projectData.tags}
+                    connectedScenes={getConnectedScenes(listFloatingEditor.id)}
+                    onClose={() => setListFloatingEditor(null)}
+                    onSceneChange={handleSceneChange}
+                    onTagsChange={handleTagsChange}
+                    onCreateTag={handleCreateTag}
+                    onStartConnection={() => {
+                      setConnectionSource(listFloatingEditor.id);
+                      setIsConnecting(true);
+                      setListFloatingEditor(null);
+                    }}
+                    onRemoveConnection={(targetId) => handleRemoveConnection(listFloatingEditor.id, targetId)}
+                    onWordCountChange={handleWordCountChange}
+                    onDraftChange={handleDraftChange}
+                    onOpenInEditor={handleOpenInEditor}
+                  />
+                )}
+              </>
             ) : braidedSubMode === 'rails' ? (
               // Rails View
               <RailsView
@@ -2836,6 +3316,7 @@ function App() {
           </div>
         )}
       </div>
+      </div>{/* close .app-body */}
 
       {/* Tag Manager Modal */}
       {showTagManager && (
@@ -2864,8 +3345,10 @@ function App() {
       {/* Font Picker Modal */}
       {showFontPicker && (
         <FontPicker
-          fontSettings={fontSettings}
+          allFontSettings={allFontSettings}
           onFontSettingsChange={handleFontSettingsChange}
+          contentPadding={contentPadding}
+          onContentPaddingChange={setContentPadding}
           onClose={() => setShowFontPicker(false)}
         />
       )}
@@ -2878,7 +3361,39 @@ function App() {
           plotPoints={projectData.plotPoints}
           chapters={braidedChapters}
           draftContent={draftContent}
+          sceneMetadata={sceneMetadata}
+          metadataFieldDefs={metadataFieldDefs}
+          characterColors={characterColors}
           onClose={() => setShowCompileModal(false)}
+        />
+      )}
+
+      {/* Word Count Dashboard - kept for settings menu access */}
+
+      {/* Search Overlay */}
+      {showSearch && projectData && (
+        <SearchOverlay
+          scenes={projectData.scenes}
+          characters={projectData.characters}
+          tags={projectData.tags}
+          draftContent={draftContent}
+          notesIndex={searchNotesIndex}
+          noteContentCache={noteContentCache}
+          onNavigateToScene={(sceneId, characterId) => {
+            handleGoToPov(sceneId, characterId);
+          }}
+          onNavigateToDraft={(sceneKey) => {
+            handleOpenInEditor(sceneKey);
+          }}
+          onNavigateToNote={(noteId) => {
+            setPendingNoteId(noteId);
+            setViewMode('notes');
+          }}
+          onNavigateToCharacter={(characterId) => {
+            setSelectedCharacterId(characterId);
+            setViewMode('pov');
+          }}
+          onClose={() => setShowSearch(false)}
         />
       )}
 

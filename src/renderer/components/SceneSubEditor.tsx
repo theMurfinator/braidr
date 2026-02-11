@@ -53,7 +53,7 @@ export default function SceneSubEditor({
       StarterKit,
       Heading.configure({ levels: [2, 3] }),
       HorizontalRule,
-      Placeholder.configure({ placeholder: 'Start writing this scene...' }),
+      Placeholder.configure({ placeholder: '' }),
     ],
     content: content || '',
     onUpdate: ({ editor }) => {

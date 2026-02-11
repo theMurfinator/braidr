@@ -89,7 +89,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: 'Click to add description...',
+        placeholder: '',
       }),
     ],
     content: plotPoint.description ? `<p>${plotPoint.description.replace(/\n/g, '</p><p>')}</p>` : '',

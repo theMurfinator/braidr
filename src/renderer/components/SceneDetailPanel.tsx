@@ -61,7 +61,7 @@ function SceneDetailPanel({
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: 'Add notes about this scene...',
+        placeholder: '',
       }),
     ],
     content: notesToHtml(scene.notes),

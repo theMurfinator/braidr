@@ -30,6 +30,13 @@ export interface FontSettings {
   bodySize?: number;
 }
 
+export type ScreenKey = 'pov' | 'braided' | 'editor' | 'notes';
+
+export interface AllFontSettings {
+  global: FontSettings;
+  screens?: Partial<Record<ScreenKey, FontSettings>>;
+}
+
 export interface ArchivedScene {
   id: string;
   characterId: string;
@@ -58,6 +65,17 @@ export interface DraftVersion {
   savedAt: number; // timestamp
 }
 
+export interface TableViewConfig {
+  id: string;
+  name: string;
+  visibleColumns: string[];
+  sortField: string;
+  sortDirection: 'asc' | 'desc';
+  filterCharacter: string; // 'all' or characterId
+  filterTags: string[]; // array of tag IDs
+  createdAt: number; // timestamp
+}
+
 export interface TimelineData {
   // Maps "characterId:sceneNumber" to timeline position
   positions: Record<string, number>;
@@ -69,8 +87,10 @@ export interface TimelineData {
   characterColors?: Record<string, string>;
   // Word counts for scenes (characterId:sceneNumber -> count)
   wordCounts?: Record<string, number>;
-  // Font settings for POV view
+  // Font settings (global — kept for backward compat)
   fontSettings?: FontSettings;
+  // Per-screen font settings (new format)
+  allFontSettings?: AllFontSettings;
   // Archived (soft-deleted) scenes
   archivedScenes?: ArchivedScene[];
   // Draft prose content keyed by "characterId:sceneNumber"
@@ -81,6 +101,10 @@ export interface TimelineData {
   sceneMetadata?: Record<string, Record<string, string | string[]>>;
   // Saved draft versions keyed by "characterId:sceneNumber"
   drafts?: Record<string, DraftVersion[]>;
+  // Saved table view configurations
+  tableViews?: TableViewConfig[];
+  // Word count goal for the project
+  wordCountGoal?: number;
 }
 
 export interface BraidedChapter {
@@ -127,9 +151,36 @@ export interface RecentProject {
   name: string;
   path: string;
   lastOpened: number; // timestamp
+  characterCount?: number;
+  sceneCount?: number;
+  totalWordCount?: number;
+  characterNames?: string[];
+  characterIds?: string[];
+  characterColors?: Record<string, string>;
 }
 
 export type ProjectTemplate = 'blank' | 'three-act' | 'save-the-cat' | 'heros-journey';
+
+// Notes types
+export interface NoteMetadata {
+  id: string;
+  title: string;
+  fileName: string;       // Flat file in notes/ directory (e.g., "abc123.html")
+  parentId: string | null; // null = root note; otherwise parent note's id
+  order: number;           // Sort order among siblings
+  createdAt: number;
+  modifiedAt: number;
+  outgoingLinks: string[];  // Note IDs this note links to
+  sceneLinks: string[];     // Scene keys ("characterId:sceneNumber") this note references
+  tags?: string[];          // Tag names applied to this note
+  // Deprecated — kept for migration from folder-based layout
+  folderPath?: string;
+}
+
+export interface NotesIndex {
+  notes: NoteMetadata[];
+  version?: number;        // 2 = nested notes; absent/1 = legacy folder-based
+}
 
 // IPC channel names
 export const IPC_CHANNELS = {
@@ -145,4 +196,19 @@ export const IPC_CHANNELS = {
   SELECT_SAVE_LOCATION: 'select-save-location',
   DELETE_FILE: 'delete-file',
   BACKUP_PROJECT: 'backup-project',
+  // Notes
+  LOAD_NOTES_INDEX: 'load-notes-index',
+  SAVE_NOTES_INDEX: 'save-notes-index',
+  READ_NOTE: 'read-note',
+  SAVE_NOTE: 'save-note',
+  CREATE_NOTE: 'create-note',
+  DELETE_NOTE: 'delete-note',
+  RENAME_NOTE: 'rename-note',
+  SAVE_NOTE_IMAGE: 'save-note-image',
+  SELECT_NOTE_IMAGE: 'select-note-image',
+  // PDF export
+  PRINT_TO_PDF: 'print-to-pdf',
+  // Analytics
+  READ_ANALYTICS: 'read-analytics',
+  SAVE_ANALYTICS: 'save-analytics',
 } as const;

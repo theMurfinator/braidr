@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -7,6 +7,7 @@ import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion } from '../../shared/types';
+import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
 import SceneSubEditor from './SceneSubEditor';
 
 interface EditorViewProps {
@@ -32,6 +33,11 @@ interface EditorViewProps {
   onSceneSelect?: (sceneKey: string) => void;
   onGoToPov?: (sceneId: string, characterId: string) => void;
   onGoToBraid?: (sceneId: string) => void;
+  sceneTodos?: SceneTodo[];
+}
+
+export interface EditorViewHandle {
+  flush: () => void;
 }
 
 const DEFAULT_STATUSES = [
@@ -98,7 +104,7 @@ function computeWordDiff(oldText: string, newText: string): DiffChunk[] {
   return chunks;
 }
 
-export default function EditorView({
+const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function EditorView({
   scenes,
   characters,
   plotPoints,
@@ -121,7 +127,8 @@ export default function EditorView({
   onSceneSelect,
   onGoToPov,
   onGoToBraid,
-}: EditorViewProps) {
+  sceneTodos = [],
+}, ref) {
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
   const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(null);
@@ -155,6 +162,44 @@ export default function EditorView({
   const draggingRef = useRef<{ panel: 'nav' | 'meta'; startX: number; initialWidth: number } | null>(null);
   const pendingContentRef = useRef<{ key: string; html: string } | null>(null);
   const settingContentRef = useRef(false);
+
+  // Manual writing timer
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerElapsed, setTimerElapsed] = useState(0); // seconds
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (timerRunning) {
+      timerIntervalRef.current = setInterval(() => {
+        setTimerElapsed(prev => prev + 1);
+      }, 1000);
+    } else if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    return () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    };
+  }, [timerRunning]);
+
+  const formatTimer = (totalSec: number) => {
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  };
+
+  // Expose flush method so parent can force-save pending content
+  useImperativeHandle(ref, () => ({
+    flush: () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (pendingContentRef.current) {
+        onDraftChange(pendingContentRef.current.key, pendingContentRef.current.html);
+        pendingContentRef.current = null;
+      }
+    },
+  }), [onDraftChange]);
   const wordCountDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showDiffModal, setShowDiffModal] = useState(false);
   const [diffVersionA, setDiffVersionA] = useState<number | null>(null);
@@ -163,6 +208,10 @@ export default function EditorView({
   const [editingStatuses, setEditingStatuses] = useState<{ value: string; color: string }[]>([]);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const statusPillRef = useRef<HTMLDivElement>(null);
+  const [showToolbar, setShowToolbar] = useState(() => {
+    const saved = localStorage.getItem('editor-show-toolbar');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
 
   // Multi-select state (Scrivenings mode)
   const [selectedSceneKeys, setSelectedSceneKeys] = useState<string[]>([]);
@@ -186,7 +235,9 @@ export default function EditorView({
       const sceneKey = getSceneKey(s);
       const meta = sceneMetadata[sceneKey];
       const status = meta?.['_status'] as string | undefined;
-      if (status !== selectedStatusFilter) return false;
+      if (selectedStatusFilter === '__none__') {
+        if (status) return false;
+      } else if (status !== selectedStatusFilter) return false;
     }
     return true;
   });
@@ -265,6 +316,10 @@ export default function EditorView({
   useEffect(() => {
     localStorage.setItem('editor-meta-width', metaWidth.toString());
   }, [metaWidth]);
+
+  useEffect(() => {
+    localStorage.setItem('editor-show-toolbar', JSON.stringify(showToolbar));
+  }, [showToolbar]);
 
   // Draggable panel resize
   useEffect(() => {
@@ -411,7 +466,7 @@ export default function EditorView({
       StarterKit,
       Heading.configure({ levels: [2, 3] }),
       HorizontalRule,
-      Placeholder.configure({ placeholder: 'Start writing this scene...' }),
+      Placeholder.configure({ placeholder: '' }),
     ],
     content: selectedSceneKey ? (draftContent[selectedSceneKey] || '') : '',
     onUpdate: ({ editor }) => {
@@ -445,6 +500,7 @@ export default function EditorView({
   const onNotesChangeRef = useRef(onNotesChange);
   onNotesChangeRef.current = onNotesChange;
   const [notesEditorFocused, setNotesEditorFocused] = useState(false);
+  const [scratchpadEditorFocused, setScratchpadEditorFocused] = useState(false);
 
   const notesToHtml = (notes: string[]): string => {
     if (notes.length === 0) return '';
@@ -495,7 +551,7 @@ export default function EditorView({
       StarterKit,
       TaskList,
       TaskItem.configure({ nested: false }),
-      Placeholder.configure({ placeholder: 'Add notes...' }),
+      Placeholder.configure({ placeholder: '' }),
     ],
     content: notesToHtml(selectedScene?.notes || []),
     onFocus: () => setNotesEditorFocused(true),
@@ -517,6 +573,37 @@ export default function EditorView({
       }
     }
   }, [selectedScene?.id]);
+
+  // Scratchpad editor (per-scene rich text notes)
+  const scratchpadEditor = useEditor({
+    editorProps: {
+      attributes: { spellcheck: 'true' },
+    },
+    extensions: [
+      StarterKit,
+      TaskList,
+      TaskItem.configure({ nested: false }),
+      Placeholder.configure({ placeholder: '' }),
+    ],
+    content: selectedSceneKey ? (scratchpad[selectedSceneKey] || '') : '',
+    onFocus: () => setScratchpadEditorFocused(true),
+    onBlur: () => {
+      setScratchpadEditorFocused(false);
+      if (scratchpadEditor && selectedSceneKey) {
+        setScratchpad(prev => ({ ...prev, [selectedSceneKey]: scratchpadEditor.getHTML() }));
+      }
+    },
+  });
+
+  // Sync scratchpad editor when selected scene changes
+  useEffect(() => {
+    if (scratchpadEditor && selectedSceneKey) {
+      const newHtml = scratchpad[selectedSceneKey] || '';
+      if (!scratchpadEditor.isFocused) {
+        scratchpadEditor.commands.setContent(newHtml);
+      }
+    }
+  }, [selectedSceneKey]);
 
   // Live word count (single-select mode)
   const singleWordCount = editor ? editor.getText().split(/\s+/).filter(Boolean).length : 0;
@@ -791,6 +878,7 @@ export default function EditorView({
           </select>
           <select value={selectedStatusFilter} onChange={e => setSelectedStatusFilter(e.target.value)}>
             <option value="all">All Statuses</option>
+            <option value="__none__">No Status</option>
             {statusOptionsForFilter.map(s => (
               <option key={s.value} value={s.value}>{s.value}</option>
             ))}
@@ -861,13 +949,6 @@ export default function EditorView({
               <line x1="5.5" y1="0.75" x2="5.5" y2="13.25" stroke="currentColor" strokeWidth="1.5"/>
             </svg>
           </button>
-          <div className="editor-toolbar-divider" />
-          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().toggleBold().run()} title="Bold">B</button>
-          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
-          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading">H2</button>
-          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().toggleHeading({ level: 3 }).run()} title="Sub-heading">H3</button>
-          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
-          <button className="editor-toolbar-btn" onClick={() => activeEditor?.chain().focus().setHorizontalRule().run()} title="Horizontal Rule">—</button>
           <div className="editor-toolbar-spacer" />
           <button className="editor-panel-toggle editor-panel-toggle-meta" onClick={() => setShowMeta(!showMeta)} title={showMeta ? 'Hide properties (Cmd+])' : 'Show properties (Cmd+])'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
@@ -961,6 +1042,29 @@ export default function EditorView({
             Showing: {characters.find(c => c.id === selectedScene.characterId)?.name} Scene {selectedScene.sceneNumber}
           </div>
         )}
+        {/* Writing Timer */}
+        <div className="editor-meta-section editor-timer-section">
+          <div className="editor-timer">
+            <div className="editor-timer-display">{formatTimer(timerElapsed)}</div>
+            <div className="editor-timer-controls">
+              <button
+                className={`editor-timer-btn ${timerRunning ? 'stop' : 'start'}`}
+                onClick={() => setTimerRunning(!timerRunning)}
+              >
+                {timerRunning ? 'Stop' : 'Start'}
+              </button>
+              {timerElapsed > 0 && !timerRunning && (
+                <button
+                  className="editor-timer-btn reset"
+                  onClick={() => setTimerElapsed(0)}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Scene Synopsis (formerly Notes) */}
         <div className="editor-meta-section">
           <h4 className="editor-meta-label">Scene Synopsis</h4>
@@ -1064,17 +1168,37 @@ export default function EditorView({
         {/* Scratchpad */}
         <div className="editor-meta-section">
           <h4 className="editor-meta-label">Scratchpad</h4>
-          <textarea
-            className="editor-meta-scratchpad"
-            placeholder="Jot down quick notes, ideas, reminders..."
-            value={selectedSceneKey ? (scratchpad[selectedSceneKey] || '') : ''}
-            onChange={e => {
-              if (selectedSceneKey) {
-                setScratchpad(prev => ({ ...prev, [selectedSceneKey]: e.target.value }));
-              }
-            }}
-          />
+          {scratchpadEditorFocused && scratchpadEditor && (
+            <div className="editor-meta-notes-toolbar">
+              <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
+              <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
+              <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
+              <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
+            </div>
+          )}
+          <EditorContent editor={scratchpadEditor} className="editor-meta-scratchpad-editor" />
         </div>
+
+        {/* Changes Needed from Notes todo widgets */}
+        {selectedScene && (() => {
+          const charName = characters.find(c => c.id === selectedScene.characterId)?.name || '';
+          const matchingTodos = getTodosForScene(sceneTodos, charName, selectedScene.sceneNumber);
+          if (matchingTodos.length === 0) return null;
+          return (
+            <div className="editor-meta-section">
+              <h4 className="editor-meta-label">Changes Needed</h4>
+              <div className="editor-meta-todos-list">
+                {matchingTodos.map((todo, i) => (
+                  <div key={i} className={`editor-meta-todo-item ${todo.done ? 'done' : ''}`}>
+                    <span className={`editor-meta-todo-dot ${todo.done ? 'done' : ''}`} />
+                    <span className="editor-meta-todo-text">{todo.description || '(no description)'}</span>
+                    <span className="editor-meta-todo-source" title={`From note: ${todo.noteTitle}`}>{todo.noteTitle}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Go-to buttons */}
         {selectedScene && (
@@ -1253,6 +1377,32 @@ export default function EditorView({
                       />
                     ))}
                   </div>
+                  <div className="status-editor-reorder">
+                    <button
+                      className="status-editor-move-btn"
+                      onClick={() => {
+                        if (i > 0) {
+                          const updated = [...editingStatuses];
+                          [updated[i - 1], updated[i]] = [updated[i], updated[i - 1]];
+                          setEditingStatuses(updated);
+                        }
+                      }}
+                      disabled={i === 0}
+                      title="Move up"
+                    >↑</button>
+                    <button
+                      className="status-editor-move-btn"
+                      onClick={() => {
+                        if (i < editingStatuses.length - 1) {
+                          const updated = [...editingStatuses];
+                          [updated[i], updated[i + 1]] = [updated[i + 1], updated[i]];
+                          setEditingStatuses(updated);
+                        }
+                      }}
+                      disabled={i === editingStatuses.length - 1}
+                      title="Move down"
+                    >↓</button>
+                  </div>
                   <button className="status-editor-remove" onClick={() => setEditingStatuses(editingStatuses.filter((_, j) => j !== i))}>×</button>
                 </div>
               ))}
@@ -1309,4 +1459,6 @@ export default function EditorView({
       })()}
     </div>
   );
-}
+});
+
+export default EditorView;

@@ -1,10 +1,16 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, net } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { autoUpdater } from 'electron-updater';
-import { IPC_CHANNELS, RecentProject, ProjectTemplate } from '../shared/types';
+import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
 
 let mainWindow: BrowserWindow | null = null;
+
+// Register braidr-img:// as a privileged scheme (must happen before app.whenReady())
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'braidr-img', privileges: { standard: false, secure: true, supportFetchAPI: true, stream: true } },
+]);
 
 // Path to store recent projects
 const getConfigPath = () => path.join(app.getPath('userData'), 'recent-projects.json');
@@ -238,13 +244,15 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    icon: path.join(__dirname, '..', 'src', 'renderer', 'assets', 'braidr-icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      spellcheck: true,
     },
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 15, y: 15 },
+    trafficLightPosition: { x: 10, y: 14 },
   });
 
   if (isDev) {
@@ -254,6 +262,53 @@ function createWindow() {
     // In packaged app: __dirname is dist-electron/main/, dist is at ../../dist/
     mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
+
+  // Spellcheck context menu: show suggestions on right-click
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    if (params.misspelledWord) {
+      const menuItems: Electron.MenuItemConstructorOptions[] = [];
+      for (const suggestion of params.dictionarySuggestions.slice(0, 5)) {
+        menuItems.push({
+          label: suggestion,
+          click: () => mainWindow?.webContents.replaceMisspelling(suggestion),
+        });
+      }
+      if (menuItems.length > 0) {
+        menuItems.push({ type: 'separator' });
+      }
+      menuItems.push({
+        label: 'Add to Dictionary',
+        click: () => mainWindow?.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
+      });
+      Menu.buildFromTemplate(menuItems).popup();
+    }
+  });
+
+  // Graceful quit: ask renderer to flush saves before closing
+  let isReadyToClose = false;
+
+  mainWindow.on('close', (e) => {
+    if (!isReadyToClose && mainWindow) {
+      e.preventDefault();
+      mainWindow.webContents.send('app-closing');
+      // Safety timeout: if renderer doesn't respond within 3s, close anyway
+      setTimeout(() => {
+        isReadyToClose = true;
+        if (mainWindow) {
+          mainWindow.close();
+        }
+        app.quit();
+      }, 3000);
+    }
+  });
+
+  ipcMain.once('safe-to-close', () => {
+    isReadyToClose = true;
+    if (mainWindow) {
+      mainWindow.close();
+    }
+    app.quit();
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -268,6 +323,14 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Register custom protocol for serving note images
+  // URL format: braidr-img:///path/to/project/notes/images/filename.png
+  protocol.handle('braidr-img', (request) => {
+    // Strip the scheme to get the file path
+    const filePath = decodeURIComponent(request.url.replace('braidr-img://', ''));
+    return net.fetch(`file://${filePath}`);
+  });
+
   createWindow();
   createMenu();
 });
@@ -346,13 +409,22 @@ ipcMain.handle(IPC_CHANNELS.BACKUP_PROJECT, async (_event, projectPath: string) 
 
     fs.mkdirSync(backupDir, { recursive: true });
 
-    const files = fs.readdirSync(projectPath);
-    for (const file of files) {
-      const srcPath = path.join(projectPath, file);
-      if (fs.statSync(srcPath).isFile()) {
-        fs.copyFileSync(srcPath, path.join(backupDir, file));
+    // Recursively copy all files and subdirectories (including notes/)
+    const copyRecursive = (src: string, dest: string) => {
+      const entries = fs.readdirSync(src);
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry);
+        const destPath = path.join(dest, entry);
+        const stat = fs.statSync(srcPath);
+        if (stat.isFile()) {
+          fs.copyFileSync(srcPath, destPath);
+        } else if (stat.isDirectory() && !entry.startsWith('.') && entry !== 'node_modules') {
+          fs.mkdirSync(destPath, { recursive: true });
+          copyRecursive(srcPath, destPath);
+        }
       }
-    }
+    };
+    copyRecursive(projectPath, backupDir);
 
     return { success: true, backupPath: backupDir };
   } catch (error) {
@@ -413,6 +485,18 @@ ipcMain.handle(IPC_CHANNELS.SAVE_TIMELINE, async (_event, folderPath: string, da
   }
 });
 
+// Stable character ID from name (must match renderer's parser.ts stableId)
+function stableCharId(str: string): string {
+  const s = str.toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    hash = ((hash << 5) - hash) + c;
+    hash = hash & hash;
+  }
+  return 'c' + Math.abs(hash).toString(36);
+}
+
 // Recent Projects
 ipcMain.handle(IPC_CHANNELS.GET_RECENT_PROJECTS, async () => {
   try {
@@ -422,6 +506,66 @@ ipcMain.handle(IPC_CHANNELS.GET_RECENT_PROJECTS, async () => {
       const projects: RecentProject[] = JSON.parse(content);
       // Filter out projects that no longer exist
       const validProjects = projects.filter(p => fs.existsSync(p.path));
+
+      // Enrich projects that are missing stats (from before stats were added)
+      let needsSave = false;
+      for (const project of validProjects) {
+        if (project.characterNames && project.characterNames.length > 0 && (project.totalWordCount ?? 0) > 0) continue; // already enriched
+        try {
+          // Read .md files to get character names and scene counts
+          const files = fs.readdirSync(project.path);
+          const mdFiles = files.filter(f => f.endsWith('.md') && !f.startsWith('CLAUDE') && !f.startsWith('README'));
+          const characterNames: string[] = [];
+          const characterIds: string[] = [];
+          let sceneCount = 0;
+
+          for (const file of mdFiles) {
+            const filePath = path.join(project.path, file);
+            const fileContent = fs.readFileSync(filePath, 'utf-8');
+            // Extract character name from frontmatter
+            const fmMatch = fileContent.match(/^---\s*\n[\s\S]*?character:\s*(.+?)\s*\n[\s\S]*?---/m);
+            if (fmMatch) {
+              const charName = fmMatch[1];
+              characterNames.push(charName);
+              characterIds.push(stableCharId(charName));
+              // Count numbered scenes (lines starting with digits followed by a period)
+              const sceneMatches = fileContent.match(/^\d+\.\s+/gm);
+              if (sceneMatches) sceneCount += sceneMatches.length;
+            }
+          }
+
+          // Read timeline.json for colors and word counts
+          let characterColors: Record<string, string> = {};
+          let totalWordCount = 0;
+          const timelinePath = path.join(project.path, 'timeline.json');
+          if (fs.existsSync(timelinePath)) {
+            try {
+              const timelineContent = fs.readFileSync(timelinePath, 'utf-8');
+              const timeline = JSON.parse(timelineContent);
+              characterColors = timeline.characterColors || {};
+              if (timeline.wordCounts) {
+                totalWordCount = Object.values(timeline.wordCounts as Record<string, number>).reduce((sum: number, wc: number) => sum + wc, 0);
+              }
+            } catch { /* ignore parse errors */ }
+          }
+
+          if (characterNames.length > 0) {
+            project.characterCount = characterNames.length;
+            project.sceneCount = sceneCount;
+            project.totalWordCount = totalWordCount;
+            project.characterNames = characterNames;
+            project.characterIds = characterIds;
+            project.characterColors = characterColors;
+            needsSave = true;
+          }
+        } catch { /* skip projects that can't be read */ }
+      }
+
+      // Persist enriched data so we don't re-scan next time
+      if (needsSave) {
+        fs.writeFileSync(configPath, JSON.stringify(validProjects, null, 2), 'utf-8');
+      }
+
       return { success: true, projects: validProjects };
     }
     return { success: true, projects: [] };
@@ -513,5 +657,230 @@ character: ${templateData.characterName}
     return { success: true, projectPath };
   } catch (error) {
     return { success: false, error: String(error) };
+  }
+});
+
+// ─── Notes IPC Handlers ──────────────────────────────────────────────────────
+
+ipcMain.handle(IPC_CHANNELS.LOAD_NOTES_INDEX, async (_event, projectPath: string) => {
+  try {
+    const notesDir = path.join(projectPath, 'notes');
+    if (!fs.existsSync(notesDir)) {
+      fs.mkdirSync(notesDir, { recursive: true });
+    }
+    const indexPath = path.join(notesDir, 'notes-index.json');
+    if (fs.existsSync(indexPath)) {
+      const content = fs.readFileSync(indexPath, 'utf-8');
+      return { success: true, data: JSON.parse(content) };
+    }
+    return { success: true, data: { notes: [], folders: [] } };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.SAVE_NOTES_INDEX, async (_event, projectPath: string, data: NotesIndex) => {
+  try {
+    const notesDir = path.join(projectPath, 'notes');
+    if (!fs.existsSync(notesDir)) {
+      fs.mkdirSync(notesDir, { recursive: true });
+    }
+    const indexPath = path.join(notesDir, 'notes-index.json');
+    fs.writeFileSync(indexPath, JSON.stringify(data, null, 2), 'utf-8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.READ_NOTE, async (_event, projectPath: string, fileName: string) => {
+  try {
+    const filePath = path.join(projectPath, 'notes', fileName);
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'Note file not found' };
+    }
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return { success: true, data: content };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.SAVE_NOTE, async (_event, projectPath: string, fileName: string, content: string) => {
+  try {
+    const filePath = path.join(projectPath, 'notes', fileName);
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.CREATE_NOTE, async (_event, projectPath: string, fileName: string) => {
+  try {
+    const filePath = path.join(projectPath, 'notes', fileName);
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(filePath, '<p></p>', 'utf-8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.DELETE_NOTE, async (_event, projectPath: string, fileName: string) => {
+  try {
+    const filePath = path.join(projectPath, 'notes', fileName);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.RENAME_NOTE, async (_event, projectPath: string, oldFileName: string, newFileName: string) => {
+  try {
+    const oldPath = path.join(projectPath, 'notes', oldFileName);
+    const newPath = path.join(projectPath, 'notes', newFileName);
+    const newDir = path.dirname(newPath);
+    if (!fs.existsSync(newDir)) {
+      fs.mkdirSync(newDir, { recursive: true });
+    }
+    fs.renameSync(oldPath, newPath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// ─── Note Images ────────────────────────────────────────────────────────────
+
+ipcMain.handle(IPC_CHANNELS.SAVE_NOTE_IMAGE, async (_event, projectPath: string, imageData: string, originalName: string) => {
+  try {
+    const imagesDir = path.join(projectPath, 'notes', 'images');
+    if (!fs.existsSync(imagesDir)) {
+      fs.mkdirSync(imagesDir, { recursive: true });
+    }
+
+    // imageData is base64 (with or without data URI prefix)
+    let base64 = imageData;
+    let ext = path.extname(originalName).toLowerCase() || '.png';
+
+    if (imageData.startsWith('data:')) {
+      const match = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
+      if (match) {
+        ext = '.' + match[1].replace('jpeg', 'jpg');
+        base64 = match[2];
+      }
+    }
+
+    // Generate unique filename: timestamp + short hash
+    const hash = crypto.createHash('md5').update(base64.substring(0, 200)).digest('hex').substring(0, 8);
+    const fileName = `img_${Date.now()}_${hash}${ext}`;
+    const filePath = path.join(imagesDir, fileName);
+
+    fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
+
+    // Return relative path from notes dir for embedding in HTML
+    return { success: true, data: `images/${fileName}` };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.SELECT_NOTE_IMAGE, async (_event, projectPath: string) => {
+  try {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [
+        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] },
+      ],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, error: 'cancelled' };
+    }
+
+    const sourcePath = result.filePaths[0];
+    const imagesDir = path.join(projectPath, 'notes', 'images');
+    if (!fs.existsSync(imagesDir)) {
+      fs.mkdirSync(imagesDir, { recursive: true });
+    }
+
+    const ext = path.extname(sourcePath).toLowerCase();
+    const hash = crypto.createHash('md5').update(sourcePath).digest('hex').substring(0, 8);
+    const fileName = `img_${Date.now()}_${hash}${ext}`;
+    const destPath = path.join(imagesDir, fileName);
+
+    fs.copyFileSync(sourcePath, destPath);
+
+    return { success: true, data: `images/${fileName}` };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Analytics data (separate from timeline for clean separation)
+ipcMain.handle(IPC_CHANNELS.READ_ANALYTICS, async (_event, projectPath: string) => {
+  try {
+    const analyticsPath = path.join(projectPath, 'analytics.json');
+    if (fs.existsSync(analyticsPath)) {
+      const content = fs.readFileSync(analyticsPath, 'utf-8');
+      return { success: true, data: JSON.parse(content) };
+    }
+    return { success: true, data: null };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.SAVE_ANALYTICS, async (_event, projectPath: string, data: any) => {
+  try {
+    const analyticsPath = path.join(projectPath, 'analytics.json');
+    fs.writeFileSync(analyticsPath, JSON.stringify(data, null, 2), 'utf-8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// PDF Export via hidden BrowserWindow
+ipcMain.handle(IPC_CHANNELS.PRINT_TO_PDF, async (_event, html: string) => {
+  let pdfWindow: BrowserWindow | null = null;
+  try {
+    pdfWindow = new BrowserWindow({
+      width: 800,
+      height: 600,
+      show: false,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    // Load HTML via data URL
+    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+    await pdfWindow.loadURL(dataUrl);
+
+    // Wait for content to render
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const pdfBuffer = await pdfWindow.webContents.printToPDF({
+      printBackground: true,
+      margins: { marginType: 'default' },
+    });
+
+    return { success: true, data: Array.from(new Uint8Array(pdfBuffer)) };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  } finally {
+    if (pdfWindow) {
+      pdfWindow.destroy();
+    }
   }
 });

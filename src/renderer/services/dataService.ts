@@ -1,18 +1,29 @@
-import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, ArchivedScene, MetadataFieldDef, DraftVersion } from '../../shared/types';
+import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex } from '../../shared/types';
 import { parseOutlineFile, serializeOutline, createTagsFromStrings, extractTags } from './parser';
 
 // Data service interface - this abstraction allows swapping to a web API later
 export interface DataService {
   selectProjectFolder(): Promise<string | null>;
-  loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]> }>;
+  loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number }>;
   saveCharacterOutline(character: Character, plotPoints: PlotPoint[], scenes: Scene[]): Promise<void>;
   createCharacter(folderPath: string, name: string): Promise<Character>;
-  saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], draftContent?: Record<string, string>, metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, drafts?: Record<string, DraftVersion[]>): Promise<void>;
+  saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], draftContent?: Record<string, string>, metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, drafts?: Record<string, DraftVersion[]>, wordCountGoal?: number, allFontSettings?: AllFontSettings): Promise<void>;
   getRecentProjects(): Promise<RecentProject[]>;
   addRecentProject(project: RecentProject): Promise<void>;
   selectSaveLocation(): Promise<string | null>;
   createProject(parentPath: string, projectName: string, template: ProjectTemplate): Promise<string | null>;
   deleteFile(filePath: string): Promise<void>;
+  // Notes
+  loadNotesIndex(projectPath: string): Promise<NotesIndex>;
+  saveNotesIndex(projectPath: string, data: NotesIndex): Promise<void>;
+  readNote(projectPath: string, fileName: string): Promise<string>;
+  saveNote(projectPath: string, fileName: string, content: string): Promise<void>;
+  createNote(projectPath: string, fileName: string): Promise<void>;
+  deleteNote(projectPath: string, fileName: string): Promise<void>;
+  renameNote(projectPath: string, oldFileName: string, newFileName: string): Promise<void>;
+  // Note images
+  saveNoteImage(projectPath: string, imageData: string, fileName: string): Promise<string>;
+  selectNoteImage(projectPath: string): Promise<string | null>;
 }
 
 // Local file system implementation (Electron)
@@ -28,7 +39,7 @@ class ElectronDataService implements DataService {
     return path;
   }
 
-  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]> }> {
+  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number }> {
     this.projectPath = folderPath;
     const result = await window.electronAPI.readProject(folderPath);
 
@@ -91,11 +102,13 @@ class ElectronDataService implements DataService {
       chapters: timelineData.chapters || [],
       characterColors: timelineData.characterColors || {},
       fontSettings: timelineData.fontSettings || {},
+      allFontSettings: timelineData.allFontSettings,
       archivedScenes: timelineData.archivedScenes || [],
       draftContent: timelineData.draftContent || {},
       metadataFieldDefs: timelineData.metadataFieldDefs || [],
       sceneMetadata: timelineData.sceneMetadata || {},
       drafts: timelineData.drafts || {},
+      wordCountGoal: timelineData.wordCountGoal || 0,
     };
   }
 
@@ -164,12 +177,12 @@ class ElectronDataService implements DataService {
     return character;
   }
 
-  async saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], draftContent?: Record<string, string>, metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, drafts?: Record<string, DraftVersion[]>): Promise<void> {
+  async saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], draftContent?: Record<string, string>, metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, drafts?: Record<string, DraftVersion[]>, wordCountGoal?: number, allFontSettings?: AllFontSettings): Promise<void> {
     if (!this.projectPath) {
       throw new Error('No project loaded');
     }
 
-    const result = await window.electronAPI.saveTimeline(this.projectPath, { positions, connections, chapters, characterColors, wordCounts, fontSettings, archivedScenes, draftContent, metadataFieldDefs, sceneMetadata, drafts });
+    const result = await window.electronAPI.saveTimeline(this.projectPath, { positions, connections, chapters, characterColors, wordCounts, fontSettings, archivedScenes, draftContent, metadataFieldDefs, sceneMetadata, drafts, wordCountGoal, allFontSettings });
     if (!result.success) {
       throw new Error(result.error || 'Failed to save timeline');
     }
@@ -201,6 +214,76 @@ class ElectronDataService implements DataService {
     if (!result.success) {
       throw new Error(result.error || 'Failed to delete file');
     }
+  }
+
+  // Notes
+  async loadNotesIndex(projectPath: string): Promise<NotesIndex> {
+    const result = await window.electronAPI.loadNotesIndex(projectPath);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to load notes index');
+    }
+    return result.data;
+  }
+
+  async saveNotesIndex(projectPath: string, data: NotesIndex): Promise<void> {
+    const result = await window.electronAPI.saveNotesIndex(projectPath, data);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to save notes index');
+    }
+  }
+
+  async readNote(projectPath: string, fileName: string): Promise<string> {
+    const result = await window.electronAPI.readNote(projectPath, fileName);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to read note');
+    }
+    return result.data;
+  }
+
+  async saveNote(projectPath: string, fileName: string, content: string): Promise<void> {
+    const result = await window.electronAPI.saveNote(projectPath, fileName, content);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to save note');
+    }
+  }
+
+  async createNote(projectPath: string, fileName: string): Promise<void> {
+    const result = await window.electronAPI.createNote(projectPath, fileName);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to create note');
+    }
+  }
+
+  async deleteNote(projectPath: string, fileName: string): Promise<void> {
+    const result = await window.electronAPI.deleteNote(projectPath, fileName);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to delete note');
+    }
+  }
+
+  async renameNote(projectPath: string, oldFileName: string, newFileName: string): Promise<void> {
+    const result = await window.electronAPI.renameNote(projectPath, oldFileName, newFileName);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to rename note');
+    }
+  }
+
+  // Note images
+  async saveNoteImage(projectPath: string, imageData: string, fileName: string): Promise<string> {
+    const result = await window.electronAPI.saveNoteImage(projectPath, imageData, fileName);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to save image');
+    }
+    return result.data!;
+  }
+
+  async selectNoteImage(projectPath: string): Promise<string | null> {
+    const result = await window.electronAPI.selectNoteImage(projectPath);
+    if (!result.success) {
+      if (result.error === 'cancelled') return null;
+      throw new Error(result.error || 'Failed to select image');
+    }
+    return result.data!;
   }
 }
 

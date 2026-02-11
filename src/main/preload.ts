@@ -14,6 +14,20 @@ const IPC_CHANNELS = {
   SELECT_SAVE_LOCATION: 'select-save-location',
   DELETE_FILE: 'delete-file',
   BACKUP_PROJECT: 'backup-project',
+  LOAD_NOTES_INDEX: 'load-notes-index',
+  SAVE_NOTES_INDEX: 'save-notes-index',
+  READ_NOTE: 'read-note',
+  SAVE_NOTE: 'save-note',
+  CREATE_NOTE: 'create-note',
+  DELETE_NOTE: 'delete-note',
+  RENAME_NOTE: 'rename-note',
+  SAVE_NOTE_IMAGE: 'save-note-image',
+  SELECT_NOTE_IMAGE: 'select-note-image',
+  PRINT_TO_PDF: 'print-to-pdf',
+  READ_ANALYTICS: 'read-analytics',
+  SAVE_ANALYTICS: 'save-analytics',
+  APP_CLOSING: 'app-closing',
+  SAFE_TO_CLOSE: 'safe-to-close',
 } as const;
 
 // Types for preload
@@ -39,4 +53,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createProject: (parentPath: string, projectName: string, template: ProjectTemplate) => ipcRenderer.invoke(IPC_CHANNELS.CREATE_PROJECT, parentPath, projectName, template),
   deleteFile: (filePath: string) => ipcRenderer.invoke(IPC_CHANNELS.DELETE_FILE, filePath),
   backupProject: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_PROJECT, projectPath),
+  // Notes
+  loadNotesIndex: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.LOAD_NOTES_INDEX, projectPath),
+  saveNotesIndex: (projectPath: string, data: any) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_NOTES_INDEX, projectPath, data),
+  readNote: (projectPath: string, fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.READ_NOTE, projectPath, fileName),
+  saveNote: (projectPath: string, fileName: string, content: string) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_NOTE, projectPath, fileName, content),
+  createNote: (projectPath: string, fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.CREATE_NOTE, projectPath, fileName),
+  deleteNote: (projectPath: string, fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.DELETE_NOTE, projectPath, fileName),
+  renameNote: (projectPath: string, oldFileName: string, newFileName: string) => ipcRenderer.invoke(IPC_CHANNELS.RENAME_NOTE, projectPath, oldFileName, newFileName),
+  saveNoteImage: (projectPath: string, imageData: string, fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_NOTE_IMAGE, projectPath, imageData, fileName),
+  selectNoteImage: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.SELECT_NOTE_IMAGE, projectPath),
+  printToPDF: (html: string) => ipcRenderer.invoke(IPC_CHANNELS.PRINT_TO_PDF, html),
+  // Analytics
+  readAnalytics: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.READ_ANALYTICS, projectPath),
+  saveAnalytics: (projectPath: string, data: any) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_ANALYTICS, projectPath, data),
+  // Graceful quit handshake
+  onAppClosing: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC_CHANNELS.APP_CLOSING, listener);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.APP_CLOSING, listener);
+    };
+  },
+  safeToClose: () => ipcRenderer.send(IPC_CHANNELS.SAFE_TO_CLOSE),
 });

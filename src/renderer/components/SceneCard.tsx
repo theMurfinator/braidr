@@ -192,7 +192,7 @@ function SceneCard({
       TaskList,
       TaskItem.configure({ nested: false }),
       Placeholder.configure({
-        placeholder: 'Add notes...',
+        placeholder: '',
       }),
     ],
     content: notesToHtml(scene.notes),
@@ -746,6 +746,20 @@ function SceneCard({
                         )}
                       </div>
                     )}
+                    {/* Status indicator */}
+                    {(() => {
+                      const statusField = metadataFieldDefs.find(f => f.id === '_status');
+                      const status = sceneMetadata['_status'] as string | undefined;
+                      if (status && statusField) {
+                        const color = statusField.optionColors?.[status] || '#9e9e9e';
+                        return (
+                          <span className="scene-status-pill" style={{ '--status-color': color } as React.CSSProperties}>
+                            {status}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
               )}
