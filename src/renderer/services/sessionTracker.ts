@@ -8,7 +8,7 @@
  * - Records duration (excluding idle time), word count delta, and scene key
  */
 
-import { AnalyticsData, recordSession } from '../utils/analyticsStore';
+import { AnalyticsData, SceneSession, recordSession, appendSceneSession, getTodayStr } from '../utils/analyticsStore';
 
 const IDLE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
@@ -203,14 +203,31 @@ export type SessionTracker = ReturnType<typeof createSessionTracker>;
 
 /**
  * Helper: merge a completed session into analytics data.
- * Updates the daily session entry and persists to disk.
+ * Updates both the daily aggregate entry AND appends a granular SceneSession.
  */
 export function mergeSessionIntoAnalytics(
   analytics: AnalyticsData,
   summary: SessionSummary,
   totalProjectWords: number,
+  checkin?: { energy: number; focus: number; mood: number } | null,
 ): AnalyticsData {
   const minutes = Math.max(1, Math.round(summary.durationMs / 60000));
   const wordsWritten = Math.max(0, summary.wordsNet); // only count net positive
-  return recordSession(analytics, totalProjectWords, wordsWritten, minutes);
+
+  // 1. Update daily aggregates (existing behavior)
+  const withDaily = recordSession(analytics, totalProjectWords, wordsWritten, minutes);
+
+  // 2. Append granular scene session
+  const sceneSession: SceneSession = {
+    id: `ss-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    sceneKey: summary.sceneKey,
+    date: getTodayStr(),
+    startTime: summary.startTime,
+    endTime: summary.endTime,
+    durationMs: summary.durationMs,
+    wordsNet: summary.wordsNet,
+    checkin: checkin ?? null,
+  };
+
+  return appendSceneSession(withDaily, sceneSession);
 }

@@ -8,6 +8,7 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion } from '../../shared/types';
 import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
+import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
 
 interface EditorViewProps {
@@ -34,6 +35,10 @@ interface EditorViewProps {
   onGoToPov?: (sceneId: string, characterId: string) => void;
   onGoToBraid?: (sceneId: string) => void;
   sceneTodos?: SceneTodo[];
+  sceneSessions?: SceneSession[];
+  onTodoToggle?: (todo: SceneTodo) => void;
+  onAddInlineTodo?: (sceneKey: string, description: string) => void;
+  onRemoveInlineTodo?: (sceneKey: string, todoId: string) => void;
 }
 
 export interface EditorViewHandle {
@@ -128,6 +133,10 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   onGoToPov,
   onGoToBraid,
   sceneTodos = [],
+  sceneSessions = [],
+  onTodoToggle,
+  onAddInlineTodo,
+  onRemoveInlineTodo,
 }, ref) {
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
@@ -1063,6 +1072,21 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               )}
             </div>
           </div>
+          {/* Auto-tracked total time for this scene */}
+          {selectedScene && sceneSessions.length > 0 && (() => {
+            const key = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
+            const totals = getSceneSessionTotals(sceneSessions, key);
+            if (totals.sessionCount === 0) return null;
+            const hrs = Math.floor(totals.totalMs / 3600000);
+            const mins = Math.floor((totals.totalMs % 3600000) / 60000);
+            const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+            return (
+              <div className="editor-scene-time-total">
+                <span className="editor-scene-time-value">{timeStr} total</span>
+                <span className="editor-scene-time-sessions">{totals.sessionCount} session{totals.sessionCount !== 1 ? 's' : ''}</span>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Scene Synopsis (formerly Notes) */}
@@ -1179,23 +1203,55 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
           <EditorContent editor={scratchpadEditor} className="editor-meta-scratchpad-editor" />
         </div>
 
-        {/* Changes Needed from Notes todo widgets */}
+        {/* Changes Needed from Notes todo widgets + inline todos */}
         {selectedScene && (() => {
           const charName = characters.find(c => c.id === selectedScene.characterId)?.name || '';
-          const matchingTodos = getTodosForScene(sceneTodos, charName, selectedScene.sceneNumber);
-          if (matchingTodos.length === 0) return null;
+          const sceneKey = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
+          const matchingTodos = getTodosForScene(sceneTodos, selectedScene.characterId, charName, selectedScene.sceneNumber);
           return (
             <div className="editor-meta-section">
               <h4 className="editor-meta-label">Changes Needed</h4>
               <div className="editor-meta-todos-list">
-                {matchingTodos.map((todo, i) => (
-                  <div key={i} className={`editor-meta-todo-item ${todo.done ? 'done' : ''}`}>
-                    <span className={`editor-meta-todo-dot ${todo.done ? 'done' : ''}`} />
+                {matchingTodos.map((todo) => (
+                  <div key={todo.todoId} className={`editor-meta-todo-item ${todo.done ? 'done' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={todo.done}
+                      onChange={() => onTodoToggle?.(todo)}
+                      className="editor-meta-todo-checkbox"
+                    />
                     <span className="editor-meta-todo-text">{todo.description || '(no description)'}</span>
-                    <span className="editor-meta-todo-source" title={`From note: ${todo.noteTitle}`}>{todo.noteTitle}</span>
+                    {todo.isInline ? (
+                      <button
+                        className="editor-meta-todo-remove"
+                        onClick={() => onRemoveInlineTodo?.(sceneKey, todo.todoId)}
+                        title="Remove"
+                      >×</button>
+                    ) : (
+                      <span className="editor-meta-todo-source" title={`From note: ${todo.noteTitle}`}>{todo.noteTitle}</span>
+                    )}
                   </div>
                 ))}
               </div>
+              <form
+                className="editor-meta-todo-add"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const input = (e.target as HTMLFormElement).elements.namedItem('todoInput') as HTMLInputElement;
+                  const val = input.value.trim();
+                  if (val && onAddInlineTodo) {
+                    onAddInlineTodo(sceneKey, val);
+                    input.value = '';
+                  }
+                }}
+              >
+                <input
+                  name="todoInput"
+                  className="editor-meta-todo-input"
+                  placeholder="Add a change…"
+                  autoComplete="off"
+                />
+              </form>
             </div>
           );
         })()}

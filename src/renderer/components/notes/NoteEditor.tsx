@@ -370,6 +370,14 @@ export default function NoteEditor({
     editorRef.current = editor;
   }, [editor]);
 
+  // Keep TodoWidget storage in sync with scenes and characters
+  useEffect(() => {
+    if (editor) {
+      editor.storage.todoWidget.scenes = scenes;
+      editor.storage.todoWidget.characters = characters;
+    }
+  }, [editor, scenes, characters]);
+
   // Update editor content when noteId or content changes (content loads async)
   useEffect(() => {
     if (editor && content !== undefined) {

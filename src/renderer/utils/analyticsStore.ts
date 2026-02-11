@@ -9,9 +9,26 @@ export interface WritingSession {
   duration: number; // minutes spent writing
 }
 
+export interface SceneSession {
+  id: string;              // unique ID
+  sceneKey: string;        // "characterId:sceneNumber"
+  date: string;            // ISO date
+  startTime: number;       // epoch ms
+  endTime: number;         // epoch ms
+  durationMs: number;      // active writing time
+  wordsNet: number;        // net word delta
+  checkin?: { energy: number; focus: number; mood: number } | null;
+}
+
 export interface DailyGoal {
   enabled: boolean;
   target: number; // words per day
+}
+
+export interface DeadlineGoal {
+  enabled: boolean;
+  targetWords: number;
+  deadlineDate: string; // ISO date "2026-05-31"
 }
 
 export interface Milestone {
@@ -24,7 +41,9 @@ export interface Milestone {
 
 export interface AnalyticsData {
   sessions: WritingSession[];
+  sceneSessions: SceneSession[];
   dailyGoal: DailyGoal;
+  deadlineGoal: DeadlineGoal;
   milestones: Milestone[];
   currentStreak: number;
   longestStreak: number;
@@ -33,7 +52,9 @@ export interface AnalyticsData {
 
 const DEFAULT_ANALYTICS: AnalyticsData = {
   sessions: [],
+  sceneSessions: [],
   dailyGoal: { enabled: false, target: 500 },
+  deadlineGoal: { enabled: false, targetWords: 0, deadlineDate: '' },
   milestones: [],
   currentStreak: 0,
   longestStreak: 0,
@@ -180,4 +201,49 @@ export function getThisWeekWords(sessions: WritingSession[]): number {
   return sessions
     .filter(s => s.date >= mondayStr)
     .reduce((sum, s) => sum + s.wordsWritten, 0);
+}
+
+/**
+ * Append a granular scene session to the analytics data.
+ */
+export function appendSceneSession(
+  analytics: AnalyticsData,
+  session: SceneSession,
+): AnalyticsData {
+  return {
+    ...analytics,
+    sceneSessions: [...(analytics.sceneSessions || []), session],
+  };
+}
+
+/**
+ * Get total time and session count for a specific scene.
+ */
+export function getSceneSessionTotals(
+  sceneSessions: SceneSession[],
+  sceneKey: string,
+): { totalMs: number; sessionCount: number; totalWords: number } {
+  const matching = sceneSessions.filter(s => s.sceneKey === sceneKey);
+  return {
+    totalMs: matching.reduce((sum, s) => sum + s.durationMs, 0),
+    sessionCount: matching.length,
+    totalWords: matching.reduce((sum, s) => sum + s.wordsNet, 0),
+  };
+}
+
+/**
+ * Get average check-in scores across all sessions with check-in data.
+ */
+export function getCheckinAverages(
+  sceneSessions: SceneSession[],
+): { energy: number; focus: number; mood: number; count: number } | null {
+  const withCheckins = sceneSessions.filter(s => s.checkin);
+  if (withCheckins.length === 0) return null;
+  const count = withCheckins.length;
+  return {
+    energy: withCheckins.reduce((s, x) => s + x.checkin!.energy, 0) / count,
+    focus: withCheckins.reduce((s, x) => s + x.checkin!.focus, 0) / count,
+    mood: withCheckins.reduce((s, x) => s + x.checkin!.mood, 0) / count,
+    count,
+  };
 }

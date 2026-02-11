@@ -18,9 +18,10 @@ import WordCountDashboard from './components/WordCountDashboard';
 import SearchOverlay from './components/SearchOverlay';
 import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
-import { extractTodosFromNotes } from './utils/parseTodoWidgets';
-import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker } from './services/sessionTracker';
-import { AnalyticsData, loadAnalytics, saveAnalytics } from './utils/analyticsStore';
+import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
+import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
+import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics } from './utils/analyticsStore';
+import CheckinModal from './components/CheckinModal';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 
@@ -112,13 +113,93 @@ function App() {
   // Session tracker for time tracking
   const sessionTrackerRef = useRef<SessionTracker | null>(null);
   const analyticsRef = useRef<AnalyticsData | null>(null);
-  // sessionTrackerRef and analyticsRef drive background analytics recording
+  const [sceneSessions, setSceneSessions] = useState<SceneSession[]>([]);
+  const [pendingSession, setPendingSession] = useState<SessionSummary | null>(null);
+  const pendingSessionRef = useRef<SessionSummary | null>(null);
+  const pendingTotalWordsRef = useRef<number>(0);
+  const isClosingRef = useRef(false);
 
   // Extract todo items from notes for display in editor sidebar
   const sceneTodos = useMemo(() => {
     if (searchNotesIndex.length === 0 || Object.keys(noteContentCache).length === 0) return [];
     return extractTodosFromNotes(noteContentCache, searchNotesIndex);
   }, [noteContentCache, searchNotesIndex]);
+
+  // Inline todos (not linked to notes, per-scene)
+  const [inlineTodos, setInlineTodos] = useState<Record<string, SceneTodo[]>>({});
+  const inlineTodosRef = useRef<Record<string, SceneTodo[]>>({});
+
+  // Combined todos: note-linked + inline
+  const allSceneTodos = useMemo(() => {
+    const inline = Object.values(inlineTodos).flat();
+    return [...sceneTodos, ...inline];
+  }, [sceneTodos, inlineTodos]);
+
+  // Toggle a todo's done state (works for both note-linked and inline)
+  const handleTodoToggle = useCallback(async (todo: SceneTodo) => {
+    const newDone = !todo.done;
+
+    if (todo.isInline) {
+      // Update inline todo
+      setInlineTodos(prev => {
+        const updated = { ...prev };
+        const list = (updated[todo.sceneKey] || []).map(t =>
+          t.todoId === todo.todoId ? { ...t, done: newDone } : t
+        );
+        updated[todo.sceneKey] = list;
+        inlineTodosRef.current = updated;
+        isDirtyRef.current = true;
+        return updated;
+      });
+    } else if (todo.noteFileName && projectData) {
+      // Update note-linked todo: modify note HTML on disk
+      try {
+        const html = noteContentCache[todo.noteId];
+        if (!html) return;
+        const updatedHtml = toggleTodoInNoteHtml(html, todo.todoId, newDone);
+        if (!updatedHtml) return;
+        await dataService.saveNote(projectData.projectPath, todo.noteFileName, updatedHtml);
+        // Update cache to reflect the change immediately
+        setNoteContentCache(prev => ({ ...prev, [todo.noteId]: updatedHtml }));
+      } catch (err) {
+        console.error('Failed to toggle todo in note:', err);
+      }
+    }
+  }, [noteContentCache, projectData]);
+
+  // Add an inline todo for a scene
+  const handleAddInlineTodo = useCallback((sceneKey: string, description: string) => {
+    const newTodo: SceneTodo = {
+      todoId: `inline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      noteTitle: '',
+      noteId: '',
+      noteFileName: '',
+      description,
+      done: false,
+      sceneLabel: '',
+      sceneKey,
+      isInline: true,
+    };
+    setInlineTodos(prev => {
+      const updated = { ...prev };
+      updated[sceneKey] = [...(updated[sceneKey] || []), newTodo];
+      inlineTodosRef.current = updated;
+      isDirtyRef.current = true;
+      return updated;
+    });
+  }, []);
+
+  // Remove an inline todo
+  const handleRemoveInlineTodo = useCallback((sceneKey: string, todoId: string) => {
+    setInlineTodos(prev => {
+      const updated = { ...prev };
+      updated[sceneKey] = (updated[sceneKey] || []).filter(t => t.todoId !== todoId);
+      if (updated[sceneKey].length === 0) delete updated[sceneKey];
+      inlineTodosRef.current = updated;
+      isDirtyRef.current = true;
+      return updated;
+    });
+  }, []);
 
   // Welcome screen state
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
@@ -191,9 +272,11 @@ function App() {
     // Load analytics data for the project
     loadAnalytics(projectData.projectPath).then(data => {
       analyticsRef.current = data;
+      setSceneSessions(data.sceneSessions || []);
     });
 
     // When a session ends, merge it into analytics and persist
+    const CHECKIN_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
     tracker.setOnSessionEnd((summary) => {
       if (!analyticsRef.current || !projectData) return;
 
@@ -206,9 +289,18 @@ function App() {
         }
       }
 
-      const updated = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords);
-      analyticsRef.current = updated;
-      saveAnalytics(projectData.projectPath, updated);
+      if (summary.durationMs >= CHECKIN_THRESHOLD_MS && !isClosingRef.current) {
+        // Defer save — show check-in modal
+        pendingSessionRef.current = summary;
+        pendingTotalWordsRef.current = totalWords;
+        setPendingSession(summary);
+      } else {
+        // Short session or app closing — save immediately without check-in
+        const updated = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords, null);
+        analyticsRef.current = updated;
+        setSceneSessions(updated.sceneSessions || []);
+        saveAnalytics(projectData.projectPath, updated);
+      }
     });
 
     return () => {
@@ -216,6 +308,37 @@ function App() {
       sessionTrackerRef.current = null;
     };
   }, [projectData?.projectPath]);
+
+  // Check-in modal handlers
+  const handleCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number }) => {
+    const summary = pendingSessionRef.current;
+    if (!summary || !analyticsRef.current || !projectData) return;
+
+    const updated = mergeSessionIntoAnalytics(
+      analyticsRef.current, summary, pendingTotalWordsRef.current, checkin
+    );
+    analyticsRef.current = updated;
+    setSceneSessions(updated.sceneSessions || []);
+    saveAnalytics(projectData.projectPath, updated);
+
+    pendingSessionRef.current = null;
+    setPendingSession(null);
+  }, [projectData]);
+
+  const handleCheckinSkip = useCallback(() => {
+    const summary = pendingSessionRef.current;
+    if (!summary || !analyticsRef.current || !projectData) return;
+
+    const updated = mergeSessionIntoAnalytics(
+      analyticsRef.current, summary, pendingTotalWordsRef.current, null
+    );
+    analyticsRef.current = updated;
+    setSceneSessions(updated.sceneSessions || []);
+    saveAnalytics(projectData.projectPath, updated);
+
+    pendingSessionRef.current = null;
+    setPendingSession(null);
+  }, [projectData]);
 
   // End session when switching away from editor view
   useEffect(() => {
@@ -484,6 +607,18 @@ function App() {
     draftContentRef.current = loadedDraft;
     setDrafts(loadedDrafts);
     draftsRef.current = loadedDrafts;
+
+    // Load inline todos from sceneMetadata
+    const loadedInlineTodos: Record<string, SceneTodo[]> = {};
+    for (const [key, meta] of Object.entries(loadedMetaData)) {
+      if (meta._inlineTodos && typeof meta._inlineTodos === 'string') {
+        try {
+          loadedInlineTodos[key] = JSON.parse(meta._inlineTodos);
+        } catch {}
+      }
+    }
+    setInlineTodos(loadedInlineTodos);
+    inlineTodosRef.current = loadedInlineTodos;
 
     // Select first character by default
     if (data.characters.length > 0) {
@@ -819,7 +954,21 @@ function App() {
         }
       });
 
-      await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, sceneMetadataRef.current, draftsRef.current, wordCountGoalRef.current, settings);
+      // Merge inline todos into sceneMetadata for persistence
+      const metaWithTodos = { ...sceneMetadataRef.current };
+      for (const [sceneKey, todos] of Object.entries(inlineTodosRef.current)) {
+        if (!metaWithTodos[sceneKey]) metaWithTodos[sceneKey] = {};
+        metaWithTodos[sceneKey] = { ...metaWithTodos[sceneKey], _inlineTodos: JSON.stringify(todos) };
+      }
+      // Clean up empty inline todo entries
+      for (const key of Object.keys(metaWithTodos)) {
+        if (!inlineTodosRef.current[key] && metaWithTodos[key]?._inlineTodos) {
+          const { _inlineTodos, ...rest } = metaWithTodos[key];
+          metaWithTodos[key] = rest;
+        }
+      }
+
+      await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings);
     }
   };
 
@@ -1588,7 +1737,19 @@ function App() {
     try {
       setSaveStatus('saving');
       // Always use the current characterColors from ref
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, sceneMetadataRef.current, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current);
+      // Merge inline todos into sceneMetadata for persistence
+      const metaForSave = { ...sceneMetadataRef.current };
+      for (const [sk, todos] of Object.entries(inlineTodosRef.current)) {
+        if (!metaForSave[sk]) metaForSave[sk] = {};
+        metaForSave[sk] = { ...metaForSave[sk], _inlineTodos: JSON.stringify(todos) };
+      }
+      for (const key of Object.keys(metaForSave)) {
+        if (!inlineTodosRef.current[key] && metaForSave[key]?._inlineTodos) {
+          const { _inlineTodos, ...rest } = metaForSave[key];
+          metaForSave[key] = rest;
+        }
+      }
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -1629,6 +1790,7 @@ function App() {
     const api = (window as any).electronAPI;
     if (api?.onAppClosing) {
       const cleanup = api.onAppClosing(async () => {
+        isClosingRef.current = true;
         editorViewRef.current?.flush();
         // End current writing session before closing
         if (sessionTrackerRef.current?.isActive()) {
@@ -2616,6 +2778,7 @@ function App() {
                 wordCountGoal={wordCountGoal}
                 projectPath={projectData.projectPath}
                 onGoalChange={handleWordCountGoalChange}
+                sceneSessions={sceneSessions}
               />
             ) : viewMode === 'notes' ? (
               <NotesView
@@ -2638,6 +2801,7 @@ function App() {
                 sceneMetadata={sceneMetadata}
                 metadataFieldDefs={metadataFieldDefs}
                 drafts={drafts}
+                sceneSessions={sceneSessions}
                 onDraftChange={handleDraftChange}
                 onSaveDraft={handleSaveDraft}
                 onMetadataChange={handleMetadataChange}
@@ -2657,7 +2821,10 @@ function App() {
                 onSceneSelect={(key) => { lastEditorSceneKeyRef.current = key; localStorage.setItem('braidr-last-editor-scene', key); }}
                 onGoToPov={handleGoToPov}
                 onGoToBraid={handleGoToBraid}
-                sceneTodos={sceneTodos}
+                sceneTodos={allSceneTodos}
+                onTodoToggle={handleTodoToggle}
+                onAddInlineTodo={handleAddInlineTodo}
+                onRemoveInlineTodo={handleRemoveInlineTodo}
               />
             ) : viewMode === 'pov' ? (
               // POV View with plot points and table of contents
@@ -3396,6 +3563,24 @@ function App() {
           onClose={() => setShowSearch(false)}
         />
       )}
+
+      {/* Check-in Modal */}
+      {pendingSession && projectData && (() => {
+        const [charId, sceneNumStr] = pendingSession.sceneKey.split(':');
+        const charName = projectData.characters.find(c => c.id === charId)?.name || 'Unknown';
+        const scene = projectData.scenes.find(s => s.characterId === charId && String(s.sceneNumber) === sceneNumStr);
+        const sceneTitle = scene?.title ? ` — ${scene.title}` : '';
+        const sceneLabel = `${charName} — ${sceneNumStr}${sceneTitle}`;
+        return (
+          <CheckinModal
+            sceneLabel={sceneLabel}
+            durationMs={pendingSession.durationMs}
+            wordsNet={pendingSession.wordsNet}
+            onSubmit={handleCheckinSubmit}
+            onSkip={handleCheckinSkip}
+          />
+        );
+      })()}
 
       {/* Archive Panel Modal */}
       {showArchivePanel && (

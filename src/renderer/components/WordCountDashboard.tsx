@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Scene, Character, PlotPoint } from '../../shared/types';
-import { AnalyticsData, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr } from '../utils/analyticsStore';
+import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages } from '../utils/analyticsStore';
 
 interface WordCountDashboardProps {
   scenes: Scene[];
@@ -13,6 +13,7 @@ interface WordCountDashboardProps {
   projectPath: string;
   onGoalChange: (goal: number) => void;
   onClose?: () => void; // optional — unused when inline
+  sceneSessions?: SceneSession[];
 }
 
 function countWords(html: string): number {
@@ -26,7 +27,7 @@ function getSceneKey(scene: Scene): string {
   return `${scene.characterId}:${scene.sceneNumber}`;
 }
 
-export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, wordCountGoal, projectPath, onGoalChange }: WordCountDashboardProps) {
+export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, wordCountGoal, projectPath, onGoalChange, sceneSessions = [] }: WordCountDashboardProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(wordCountGoal || ''));
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -36,6 +37,9 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
+  const [editingDeadline, setEditingDeadline] = useState(false);
+  const [deadlineTargetInput, setDeadlineTargetInput] = useState('');
+  const [deadlineDateInput, setDeadlineDateInput] = useState('');
 
   // Load analytics on mount
   useEffect(() => {
@@ -195,6 +199,79 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
   const goalRingR = 50;
   const goalRingC = 2 * Math.PI * goalRingR; // ~314.16
   const goalRingOffset = goalRingC - goalRingC * goalProgress;
+
+  // Deadline goal computed values
+  const deadlineGoal = analytics?.deadlineGoal;
+  const deadlineStats = useMemo(() => {
+    if (!deadlineGoal?.enabled || !deadlineGoal.deadlineDate) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deadline = new Date(deadlineGoal.deadlineDate + 'T00:00:00');
+    // Include today as a remaining day (if deadline is today, that's 1 day left to write)
+    const daysRemaining = Math.max(0, Math.ceil((deadline.getTime() - today.getTime()) / 86400000) + 1);
+    const wordsRemaining = Math.max(0, deadlineGoal.targetWords - stats.totalWords);
+    const requiredPerDay = daysRemaining > 0 ? Math.ceil(wordsRemaining / daysRemaining) : wordsRemaining;
+    // Current pace: avg words per calendar day over the last 14 calendar days
+    const sessions = analytics?.sessions || [];
+    const fourteenDaysAgo = new Date(today);
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13); // 14-day window including today
+    const cutoff = fourteenDaysAgo.toISOString().split('T')[0];
+    const recentTotal = sessions
+      .filter(s => s.date >= cutoff)
+      .reduce((s, x) => s + x.wordsWritten, 0);
+    const currentPace = Math.round(recentTotal / 14);
+    const onTrack = currentPace >= requiredPerDay;
+    const progress = deadlineGoal.targetWords > 0 ? Math.min(stats.totalWords / deadlineGoal.targetWords, 1) : 0;
+    return { daysRemaining, wordsRemaining, requiredPerDay, currentPace, onTrack, progress };
+  }, [deadlineGoal, stats.totalWords, analytics?.sessions]);
+
+  const handleDeadlineSave = () => {
+    if (!analytics || !projectPath) return;
+    const target = parseInt(deadlineTargetInput, 10);
+    const date = deadlineDateInput;
+    if (!isNaN(target) && target > 0 && date) {
+      const updated = {
+        ...analytics,
+        deadlineGoal: { enabled: true, targetWords: target, deadlineDate: date },
+      };
+      setAnalytics(updated);
+      saveAnalytics(projectPath, updated);
+    }
+    setEditingDeadline(false);
+  };
+
+  const handleDeadlineClear = () => {
+    if (!analytics || !projectPath) return;
+    const updated = {
+      ...analytics,
+      deadlineGoal: { enabled: false, targetWords: 0, deadlineDate: '' },
+    };
+    setAnalytics(updated);
+    saveAnalytics(projectPath, updated);
+    setEditingDeadline(false);
+  };
+
+  // Check-in averages
+  const checkinAvgs = useMemo(() => getCheckinAverages(sceneSessions), [sceneSessions]);
+
+  // Top scenes by time
+  const topScenesByTime = useMemo(() => {
+    if (sceneSessions.length === 0) return [];
+    const byScene: Record<string, number> = {};
+    for (const s of sceneSessions) {
+      byScene[s.sceneKey] = (byScene[s.sceneKey] || 0) + s.durationMs;
+    }
+    return Object.entries(byScene)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([key, ms]) => {
+        const [charId, sceneNum] = key.split(':');
+        const charName = characters.find(c => c.id === charId)?.name || 'Unknown';
+        const scene = scenes.find(s => s.characterId === charId && String(s.sceneNumber) === sceneNum);
+        const sceneTitle = scene?.title ? ` — ${scene.title}` : '';
+        return { sceneKey: key, label: `${charName} — ${sceneNum}${sceneTitle}`, totalMs: ms };
+      });
+  }, [sceneSessions, characters, scenes]);
 
   return (
     <div className="analytics-dashboard">
@@ -392,6 +469,77 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
                 )}
                 <div className="analytics-daily-today">{todayWords.toLocaleString()} words today</div>
               </div>
+
+              {/* Deadline Goal */}
+              <div className="analytics-deadline-section">
+                <div className="analytics-deadline-header">
+                  <span className="analytics-deadline-label">Deadline Goal</span>
+                  {!editingDeadline && (
+                    <button
+                      className="analytics-goal-edit-btn"
+                      onClick={() => {
+                        setDeadlineTargetInput(String(deadlineGoal?.targetWords || ''));
+                        setDeadlineDateInput(deadlineGoal?.deadlineDate || '');
+                        setEditingDeadline(true);
+                      }}
+                    >
+                      {deadlineGoal?.enabled ? 'Edit' : 'Set'}
+                    </button>
+                  )}
+                </div>
+
+                {editingDeadline ? (
+                  <div className="analytics-deadline-edit">
+                    <div className="analytics-deadline-edit-row">
+                      <label>Target words</label>
+                      <input
+                        type="number"
+                        value={deadlineTargetInput}
+                        onChange={e => setDeadlineTargetInput(e.target.value)}
+                        placeholder="e.g. 120000"
+                        min={0}
+                        step={1000}
+                        autoFocus
+                      />
+                    </div>
+                    <div className="analytics-deadline-edit-row">
+                      <label>Deadline</label>
+                      <input
+                        type="date"
+                        value={deadlineDateInput}
+                        onChange={e => setDeadlineDateInput(e.target.value)}
+                      />
+                    </div>
+                    <div className="analytics-deadline-edit-row" style={{ flexDirection: 'row', gap: '8px' }}>
+                      <button className="analytics-goal-edit-btn" onClick={handleDeadlineSave}>Save</button>
+                      {deadlineGoal?.enabled && (
+                        <button className="analytics-goal-edit-btn" onClick={handleDeadlineClear} style={{ opacity: 0.6 }}>Clear</button>
+                      )}
+                      <button className="analytics-goal-edit-btn" onClick={() => setEditingDeadline(false)} style={{ opacity: 0.6 }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : deadlineStats ? (
+                  <>
+                    <div className="analytics-deadline-stats">
+                      <div className="analytics-deadline-stat">
+                        <strong>{deadlineStats.daysRemaining}</strong> days left
+                      </div>
+                      <div className="analytics-deadline-stat">
+                        <strong>{deadlineStats.wordsRemaining.toLocaleString()}</strong> words to go
+                      </div>
+                    </div>
+                    <div className="analytics-goal-bar-track">
+                      <div className="analytics-goal-bar-fill" style={{ width: `${deadlineStats.progress * 100}%` }} />
+                    </div>
+                    <div className="analytics-deadline-pace">
+                      Need <strong>{deadlineStats.requiredPerDay.toLocaleString()}</strong>/day · Pace: <strong>{deadlineStats.currentPace.toLocaleString()}</strong>/day
+                      <span className={`analytics-deadline-pill ${deadlineStats.onTrack ? 'on-track' : 'behind'}`}>
+                        {deadlineStats.onTrack ? '✓ On track' : '⚠ Behind pace'}
+                      </span>
+                    </div>
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
@@ -488,6 +636,76 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
           </div>
         </div>
 
+        {/* Check-in Averages */}
+        {checkinAvgs && (
+          <div className="analytics-card">
+            <div className="analytics-card-header">
+              <span className="analytics-card-title">Check-in Averages</span>
+              <span className="analytics-card-subtitle">{checkinAvgs.count} session{checkinAvgs.count !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="analytics-checkin-averages">
+              {([
+                { key: 'energy', label: 'Energy', lowLabel: 'Low', highLabel: 'High', value: checkinAvgs.energy },
+                { key: 'focus', label: 'Focus', lowLabel: 'Scattered', highLabel: 'Locked in', value: checkinAvgs.focus },
+                { key: 'mood', label: 'Mood', lowLabel: 'Rough', highLabel: 'Great', value: checkinAvgs.mood },
+              ] as const).map(row => (
+                <div key={row.key} className="analytics-checkin-row">
+                  <div className="analytics-checkin-label">
+                    <span className="analytics-checkin-name">{row.label}</span>
+                    <span className="analytics-checkin-score">{row.value.toFixed(1)}</span>
+                  </div>
+                  <div className="analytics-checkin-bar-track">
+                    <div
+                      className={`analytics-checkin-bar-fill ${row.key}`}
+                      style={{ width: `${(row.value / 5) * 100}%` }}
+                    />
+                  </div>
+                  <div className="analytics-checkin-range">
+                    <span>{row.lowLabel}</span>
+                    <span>{row.highLabel}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Top Scenes by Time */}
+        {topScenesByTime.length > 0 && (
+          <div className="analytics-card">
+            <div className="analytics-card-header">
+              <span className="analytics-card-title">Time by Scene</span>
+              <span className="analytics-card-subtitle">Top {topScenesByTime.length}</span>
+            </div>
+            <div className="analytics-scene-time-list">
+              {topScenesByTime.map((scene, i) => {
+                const maxMs = topScenesByTime[0].totalMs;
+                const barWidth = maxMs > 0 ? (scene.totalMs / maxMs) * 100 : 0;
+                const hrs = Math.floor(scene.totalMs / 3600000);
+                const mins = Math.floor((scene.totalMs % 3600000) / 60000);
+                const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+                // Get character color
+                const charId = scene.sceneKey.split(':')[0];
+                const color = characterColors[charId] || '#3b82f6';
+                return (
+                  <div key={scene.sceneKey} className="analytics-scene-time-row">
+                    <div className="analytics-scene-time-info">
+                      <span className="analytics-scene-time-name">{scene.label}</span>
+                      <span className="analytics-scene-time-duration">{timeStr}</span>
+                    </div>
+                    <div className="analytics-scene-time-bar-track">
+                      <div
+                        className="analytics-scene-time-bar-fill"
+                        style={{ width: `${barWidth}%`, backgroundColor: color }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Writing Log — full width */}
         <div className="analytics-card full">
           <div className="analytics-card-header">
@@ -498,27 +716,54 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Scene</th>
                 <th>Words</th>
                 <th>Time</th>
                 <th>Words/hr</th>
               </tr>
             </thead>
             <tbody>
-              {analytics && [...analytics.sessions].reverse().slice(0, 20).map((session, i) => {
-                const dateObj = new Date(session.date + 'T12:00:00');
-                const wph = session.duration > 0 ? Math.round(session.wordsWritten / (session.duration / 60)) : 0;
-                return (
-                  <tr key={`${session.date}-${i}`}>
-                    <td>{dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}</td>
-                    <td className="analytics-log-words">+{session.wordsWritten.toLocaleString()}</td>
-                    <td className="analytics-log-time">{session.duration < 60 ? `${session.duration}m` : `${Math.round(session.duration / 60 * 10) / 10}h`}</td>
-                    <td className="analytics-log-wph">{wph > 0 ? wph.toLocaleString() : '—'}</td>
-                  </tr>
-                );
-              })}
+              {/* Show granular scene sessions if available, otherwise daily aggregates */}
+              {sceneSessions.length > 0
+                ? [...sceneSessions].reverse().slice(0, 30).map((ss) => {
+                    const dateObj = new Date(ss.date + 'T12:00:00');
+                    const mins = Math.round(ss.durationMs / 60000);
+                    const hrs = ss.durationMs / 3600000;
+                    const wph = hrs > 0 ? Math.round(ss.wordsNet / hrs) : 0;
+                    const [charId, sceneNum] = ss.sceneKey.split(':');
+                    const charName = characters.find(c => c.id === charId)?.name || '?';
+                    const scene = scenes.find(s => s.characterId === charId && String(s.sceneNumber) === sceneNum);
+                    const sceneTitle = scene?.title || '';
+                    const sceneLabel = sceneTitle
+                      ? `${charName} — ${sceneNum} — ${sceneTitle}`
+                      : `${charName} — ${sceneNum}`;
+                    return (
+                      <tr key={ss.id}>
+                        <td>{dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}</td>
+                        <td className="analytics-log-scene" title={sceneLabel}>{sceneLabel}</td>
+                        <td className="analytics-log-words">{ss.wordsNet >= 0 ? '+' : ''}{ss.wordsNet.toLocaleString()}</td>
+                        <td className="analytics-log-time">{mins < 60 ? `${mins}m` : `${Math.round(hrs * 10) / 10}h`}</td>
+                        <td className="analytics-log-wph">{wph > 0 ? wph.toLocaleString() : '—'}</td>
+                      </tr>
+                    );
+                  })
+                : analytics && [...analytics.sessions].reverse().slice(0, 20).map((session, i) => {
+                    const dateObj = new Date(session.date + 'T12:00:00');
+                    const wph = session.duration > 0 ? Math.round(session.wordsWritten / (session.duration / 60)) : 0;
+                    return (
+                      <tr key={`${session.date}-${i}`}>
+                        <td>{dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}</td>
+                        <td className="analytics-log-scene">—</td>
+                        <td className="analytics-log-words">+{session.wordsWritten.toLocaleString()}</td>
+                        <td className="analytics-log-time">{session.duration < 60 ? `${session.duration}m` : `${Math.round(session.duration / 60 * 10) / 10}h`}</td>
+                        <td className="analytics-log-wph">{wph > 0 ? wph.toLocaleString() : '—'}</td>
+                      </tr>
+                    );
+                  })
+              }
             </tbody>
           </table>
-          {(!analytics || analytics.sessions.length === 0) && (
+          {(!analytics || analytics.sessions.length === 0) && sceneSessions.length === 0 && (
             <div className="analytics-empty">No writing sessions recorded yet. Start writing to track your progress!</div>
           )}
         </div>
