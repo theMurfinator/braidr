@@ -377,12 +377,6 @@
 
 .toolbar-timer-dot.running {
   background: #e74c3c;
-  animation: toolbar-timer-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes toolbar-timer-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
 }
 
 .toolbar-timer-time {
