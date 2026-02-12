@@ -20,7 +20,7 @@ import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
-import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate } from './utils/analyticsStore';
+import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate, deleteSceneSession, getSceneSessionsList } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
@@ -167,6 +167,14 @@ function App() {
     if (!analyticsRef.current || !projectData) return;
     const durationMs = minutes * 60 * 1000;
     const updated = addManualTime(analyticsRef.current, sceneKey, durationMs);
+    analyticsRef.current = updated;
+    setSceneSessions(updated.sceneSessions || []);
+    saveAnalytics(projectData.projectPath, updated);
+  }, [projectData]);
+
+  const handleDeleteSession = useCallback((sessionId: string) => {
+    if (!analyticsRef.current || !projectData) return;
+    const updated = deleteSceneSession(analyticsRef.current, sessionId);
     analyticsRef.current = updated;
     setSceneSessions(updated.sceneSessions || []);
     saveAnalytics(projectData.projectPath, updated);
@@ -2908,7 +2916,9 @@ function App() {
                 onStopTimer={handleStopTimer}
                 onResetTimer={handleResetTimer}
                 onAddManualTime={handleAddManualTime}
+                onDeleteSession={handleDeleteSession}
                 sceneSessionsByDate={(sceneKey: string) => getSceneSessionsByDate(sceneSessions, sceneKey)}
+                sceneSessionsList={(sceneKey: string) => getSceneSessionsList(sceneSessions, sceneKey)}
               />
             ) : viewMode === 'pov' ? (
               // POV View with plot points and table of contents

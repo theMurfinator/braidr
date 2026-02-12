@@ -277,6 +277,31 @@ export function getSceneSessionsByDate(
 }
 
 /**
+ * Delete a specific scene session by ID.
+ */
+export function deleteSceneSession(
+  analytics: AnalyticsData,
+  sessionId: string,
+): AnalyticsData {
+  return {
+    ...analytics,
+    sceneSessions: (analytics.sceneSessions || []).filter(s => s.id !== sessionId),
+  };
+}
+
+/**
+ * Get individual sessions for a scene, sorted most recent first.
+ */
+export function getSceneSessionsList(
+  sceneSessions: SceneSession[],
+  sceneKey: string,
+): SceneSession[] {
+  return sceneSessions
+    .filter(s => s.sceneKey === sceneKey)
+    .sort((a, b) => b.startTime - a.startTime);
+}
+
+/**
  * Get average check-in scores across all sessions with check-in data.
  */
 export function getCheckinAverages(
