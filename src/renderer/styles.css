@@ -340,6 +340,148 @@
   color: var(--text-secondary);
 }
 
+/* Toolbar Timer Pill */
+.toolbar-timer-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.toolbar-timer-pill:hover {
+  background: var(--bg-tertiary, #e8e8e8);
+  border-color: var(--text-muted);
+}
+
+.toolbar-timer-pill.running {
+  border-color: var(--accent);
+  background: rgba(74, 144, 217, 0.08);
+}
+
+.toolbar-timer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.toolbar-timer-dot.running {
+  background: #e74c3c;
+  animation: toolbar-timer-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes toolbar-timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.toolbar-timer-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.toolbar-timer-scene {
+  color: var(--text-muted);
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Manual time entry (editor meta) */
+.editor-manual-time {
+  margin-top: 6px;
+}
+
+.editor-manual-time-toggle {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.editor-manual-time-toggle:hover {
+  color: var(--accent);
+}
+
+.editor-manual-time-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.editor-manual-time-input {
+  width: 36px;
+  padding: 3px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  text-align: center;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.editor-manual-time-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.editor-manual-time-label {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Per-day time breakdown */
+.editor-time-by-day {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.editor-time-by-day-label {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 4px;
+}
+
+.editor-time-day-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  font-family: var(--font-ui);
+  font-size: 11px;
+}
+
+.editor-time-day-date {
+  color: var(--text-muted);
+}
+
+.editor-time-day-value {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Secondary Toolbar */
 .secondary-toolbar {
   display: flex;

@@ -20,7 +20,7 @@ import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
-import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics } from './utils/analyticsStore';
+import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
@@ -118,6 +118,59 @@ function App() {
   const pendingSessionRef = useRef<SessionSummary | null>(null);
   const pendingTotalWordsRef = useRef<number>(0);
   const isClosingRef = useRef(false);
+
+  // Global writing timer (persists across view changes)
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerElapsed, setTimerElapsed] = useState(0); // seconds
+  const [timerSceneKey, setTimerSceneKey] = useState<string | null>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (timerRunning) {
+      timerIntervalRef.current = setInterval(() => {
+        setTimerElapsed(prev => prev + 1);
+      }, 1000);
+    } else if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    return () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    };
+  }, [timerRunning]);
+
+  const formatTimer = (totalSec: number) => {
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const handleStartTimer = useCallback((sceneKey: string) => {
+    setTimerSceneKey(sceneKey);
+    setTimerElapsed(0);
+    setTimerRunning(true);
+  }, []);
+
+  const handleStopTimer = useCallback(() => {
+    setTimerRunning(false);
+  }, []);
+
+  const handleResetTimer = useCallback(() => {
+    setTimerRunning(false);
+    setTimerElapsed(0);
+    setTimerSceneKey(null);
+  }, []);
+
+  const handleAddManualTime = useCallback((sceneKey: string, minutes: number) => {
+    if (!analyticsRef.current || !projectData) return;
+    const durationMs = minutes * 60 * 1000;
+    const updated = addManualTime(analyticsRef.current, sceneKey, durationMs);
+    analyticsRef.current = updated;
+    setSceneSessions(updated.sceneSessions || []);
+    saveAnalytics(projectData.projectPath, updated);
+  }, [projectData]);
 
   // Extract todo items from notes for display in editor sidebar
   const sceneTodos = useMemo(() => {
@@ -2636,6 +2689,29 @@ function App() {
               onToggleFilter={handleToggleFilter}
             />
           )}
+          {/* Global writing timer indicator */}
+          {timerSceneKey && (() => {
+            const [charId, sceneNumStr] = timerSceneKey.split(':');
+            const char = projectData?.characters.find(c => c.id === charId);
+            const label = char ? `${char.name} #${sceneNumStr}` : `Scene ${sceneNumStr}`;
+            return (
+              <button
+                className={`toolbar-timer-pill ${timerRunning ? 'running' : 'paused'}`}
+                onClick={() => {
+                  if (timerRunning) {
+                    handleStopTimer();
+                  } else {
+                    setTimerRunning(true);
+                  }
+                }}
+                title={timerRunning ? 'Pause timer' : 'Resume timer'}
+              >
+                <span className={`toolbar-timer-dot ${timerRunning ? 'running' : ''}`} />
+                <span className="toolbar-timer-time">{formatTimer(timerElapsed)}</span>
+                <span className="toolbar-timer-scene">{label}</span>
+              </button>
+            );
+          })()}
           <button
             className="icon-btn"
             onClick={() => setShowSearch(true)}
@@ -2825,6 +2901,14 @@ function App() {
                 onTodoToggle={handleTodoToggle}
                 onAddInlineTodo={handleAddInlineTodo}
                 onRemoveInlineTodo={handleRemoveInlineTodo}
+                timerRunning={timerRunning}
+                timerElapsed={timerElapsed}
+                timerSceneKey={timerSceneKey}
+                onStartTimer={handleStartTimer}
+                onStopTimer={handleStopTimer}
+                onResetTimer={handleResetTimer}
+                onAddManualTime={handleAddManualTime}
+                sceneSessionsByDate={(sceneKey: string) => getSceneSessionsByDate(sceneSessions, sceneKey)}
               />
             ) : viewMode === 'pov' ? (
               // POV View with plot points and table of contents
