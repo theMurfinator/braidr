@@ -177,6 +177,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         break;
       }
 
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subId = typeof invoice.subscription === 'string'
+          ? invoice.subscription
+          : invoice.subscription?.id;
+
+        if (subId) {
+          console.log(`Payment failed for subscription: ${subId}`);
+          await suspendKeygenLicense(subId);
+        }
+        break;
+      }
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
