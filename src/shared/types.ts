@@ -182,6 +182,22 @@ export interface NotesIndex {
   version?: number;        // 2 = nested notes; absent/1 = legacy folder-based
 }
 
+// License types
+export interface LicenseStatus {
+  state: 'trial' | 'licensed' | 'expired' | 'invalid';
+  trialDaysRemaining?: number;
+  licenseKey?: string;
+  expiresAt?: string; // ISO date string
+  customerEmail?: string;
+}
+
+export interface LicenseData {
+  trialStartDate: string; // ISO date string
+  licenseKey?: string;
+  lastValidation?: string; // ISO date string
+  cachedStatus?: LicenseStatus;
+}
+
 // IPC channel names
 export const IPC_CHANNELS = {
   SELECT_FOLDER: 'select-folder',
@@ -211,4 +227,9 @@ export const IPC_CHANNELS = {
   // Analytics
   READ_ANALYTICS: 'read-analytics',
   SAVE_ANALYTICS: 'save-analytics',
+  // License
+  GET_LICENSE_STATUS: 'get-license-status',
+  ACTIVATE_LICENSE: 'activate-license',
+  DEACTIVATE_LICENSE: 'deactivate-license',
+  OPEN_PURCHASE_URL: 'open-purchase-url',
 } as const;

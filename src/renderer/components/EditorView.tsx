@@ -39,6 +39,17 @@ interface EditorViewProps {
   onTodoToggle?: (todo: SceneTodo) => void;
   onAddInlineTodo?: (sceneKey: string, description: string) => void;
   onRemoveInlineTodo?: (sceneKey: string, todoId: string) => void;
+  // Global timer (lifted from EditorView)
+  timerRunning?: boolean;
+  timerElapsed?: number;
+  timerSceneKey?: string | null;
+  onStartTimer?: (sceneKey: string) => void;
+  onStopTimer?: () => void;
+  onResetTimer?: () => void;
+  onAddManualTime?: (sceneKey: string, minutes: number) => void;
+  onDeleteSession?: (sessionId: string) => void;
+  sceneSessionsByDate?: (sceneKey: string) => { date: string; totalMs: number; sessionCount: number }[];
+  sceneSessionsList?: (sceneKey: string) => SceneSession[];
 }
 
 export interface EditorViewHandle {
@@ -137,6 +148,16 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   onTodoToggle,
   onAddInlineTodo,
   onRemoveInlineTodo,
+  timerRunning: timerRunningProp = false,
+  timerElapsed: timerElapsedProp = 0,
+  timerSceneKey: timerSceneKeyProp = null,
+  onStartTimer,
+  onStopTimer,
+  onResetTimer,
+  onAddManualTime,
+  onDeleteSession,
+  sceneSessionsByDate,
+  sceneSessionsList,
 }, ref) {
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
@@ -172,24 +193,13 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const pendingContentRef = useRef<{ key: string; html: string } | null>(null);
   const settingContentRef = useRef(false);
 
-  // Manual writing timer
-  const [timerRunning, setTimerRunning] = useState(false);
-  const [timerElapsed, setTimerElapsed] = useState(0); // seconds
-  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Timer state is now lifted to App — use props
+  const isTimerForThisScene = timerSceneKeyProp !== null && selectedSceneKey !== null && timerSceneKeyProp === selectedSceneKey;
+  const timerActive = timerRunningProp && timerSceneKeyProp !== null;
 
-  useEffect(() => {
-    if (timerRunning) {
-      timerIntervalRef.current = setInterval(() => {
-        setTimerElapsed(prev => prev + 1);
-      }, 1000);
-    } else if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-    return () => {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    };
-  }, [timerRunning]);
+  const [showManualTimeInput, setShowManualTimeInput] = useState(false);
+  const [manualHours, setManualHours] = useState('');
+  const [manualMinutes, setManualMinutes] = useState('');
 
   const formatTimer = (totalSec: number) => {
     const hrs = Math.floor(totalSec / 3600);
@@ -1051,40 +1061,139 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
             Showing: {characters.find(c => c.id === selectedScene.characterId)?.name} Scene {selectedScene.sceneNumber}
           </div>
         )}
-        {/* Writing Timer */}
+        {/* Time Tracking */}
         <div className="editor-meta-section editor-timer-section">
-          <div className="editor-timer">
-            <div className="editor-timer-display">{formatTimer(timerElapsed)}</div>
-            <div className="editor-timer-controls">
-              <button
-                className={`editor-timer-btn ${timerRunning ? 'stop' : 'start'}`}
-                onClick={() => setTimerRunning(!timerRunning)}
-              >
-                {timerRunning ? 'Stop' : 'Start'}
-              </button>
-              {timerElapsed > 0 && !timerRunning && (
-                <button
-                  className="editor-timer-btn reset"
-                  onClick={() => setTimerElapsed(0)}
-                >
-                  Reset
-                </button>
-              )}
-            </div>
-          </div>
-          {/* Auto-tracked total time for this scene */}
-          {selectedScene && sceneSessions.length > 0 && (() => {
+          {selectedScene && (() => {
             const key = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
             const totals = getSceneSessionTotals(sceneSessions, key);
-            if (totals.sessionCount === 0) return null;
-            const hrs = Math.floor(totals.totalMs / 3600000);
-            const mins = Math.floor((totals.totalMs % 3600000) / 60000);
-            const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+            const totalHrs = Math.floor(totals.totalMs / 3600000);
+            const totalMins = Math.floor((totals.totalMs % 3600000) / 60000);
+            const totalStr = totals.totalMs > 0 ? (totalHrs > 0 ? `${totalHrs}h ${totalMins}m` : `${totalMins}m`) : '0m';
+            const sessions = sceneSessionsList ? sceneSessionsList(key) : [];
             return (
-              <div className="editor-scene-time-total">
-                <span className="editor-scene-time-value">{timeStr} total</span>
-                <span className="editor-scene-time-sessions">{totals.sessionCount} session{totals.sessionCount !== 1 ? 's' : ''}</span>
-              </div>
+              <>
+                {/* Total time header */}
+                <div className="time-track-header">
+                  <span className="time-track-total">{totalStr}</span>
+                  <span className="time-track-total-label">total tracked</span>
+                </div>
+
+                {/* Timer + manual add row */}
+                <div className="time-track-actions">
+                  <div className="time-track-timer-row">
+                    <div className="editor-timer-display">
+                      {isTimerForThisScene ? formatTimer(timerElapsedProp) : '0:00'}
+                    </div>
+                    <div className="editor-timer-controls">
+                      {isTimerForThisScene && timerRunningProp ? (
+                        <button className="editor-timer-btn stop" onClick={onStopTimer}>Stop</button>
+                      ) : (
+                        <button
+                          className="editor-timer-btn start"
+                          onClick={() => selectedSceneKey && onStartTimer?.(selectedSceneKey)}
+                        >
+                          {timerActive && !isTimerForThisScene ? 'Switch' : 'Start'}
+                        </button>
+                      )}
+                      {isTimerForThisScene && timerElapsedProp > 0 && !timerRunningProp && (
+                        <button className="editor-timer-btn reset" onClick={onResetTimer}>Reset</button>
+                      )}
+                    </div>
+                  </div>
+                  {/* Manual time entry */}
+                  {!showManualTimeInput ? (
+                    <button className="editor-manual-time-toggle" onClick={() => setShowManualTimeInput(true)}>
+                      + Add time
+                    </button>
+                  ) : (
+                    <div className="editor-manual-time-form">
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="h"
+                        value={manualHours}
+                        onChange={e => setManualHours(e.target.value)}
+                        className="editor-manual-time-input"
+                      />
+                      <span className="editor-manual-time-label">h</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        placeholder="m"
+                        value={manualMinutes}
+                        onChange={e => setManualMinutes(e.target.value)}
+                        className="editor-manual-time-input"
+                      />
+                      <span className="editor-manual-time-label">m</span>
+                      <button
+                        className="editor-timer-btn start"
+                        onClick={() => {
+                          const totalMinsVal = (parseInt(manualHours) || 0) * 60 + (parseInt(manualMinutes) || 0);
+                          if (totalMinsVal > 0) {
+                            onAddManualTime?.(key, totalMinsVal);
+                            setManualHours('');
+                            setManualMinutes('');
+                            setShowManualTimeInput(false);
+                          }
+                        }}
+                      >
+                        Add
+                      </button>
+                      <button className="editor-timer-btn reset" onClick={() => { setShowManualTimeInput(false); setManualHours(''); setManualMinutes(''); }}>
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Session list (scrollable) */}
+                {sessions.length > 0 && (
+                  <div className="time-track-sessions">
+                    <div className="time-track-sessions-header">
+                      <span>Sessions</span>
+                      <span className="time-track-sessions-count">{sessions.length}</span>
+                    </div>
+                    <div className="time-track-sessions-list">
+                      {sessions.map(s => {
+                        const sHrs = Math.floor(s.durationMs / 3600000);
+                        const sMins = Math.floor((s.durationMs % 3600000) / 60000);
+                        const sSecs = Math.floor((s.durationMs % 60000) / 1000);
+                        const durStr = sHrs > 0
+                          ? `${sHrs}h ${sMins}m`
+                          : sMins > 0
+                            ? `${sMins}m ${sSecs}s`
+                            : `${sSecs}s`;
+                        const isManual = s.id.startsWith('manual-');
+                        const dateObj = new Date(s.startTime);
+                        const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        return (
+                          <div key={s.id} className="time-track-session-row">
+                            <div className="time-track-session-info">
+                              <span className="time-track-session-date">{s.date}</span>
+                              <span className="time-track-session-time">
+                                {isManual ? 'Manual entry' : timeStr}
+                              </span>
+                            </div>
+                            <div className="time-track-session-right">
+                              <span className="time-track-session-dur">{durStr}</span>
+                              <button
+                                className="time-track-session-delete"
+                                onClick={() => onDeleteSession?.(s.id)}
+                                title="Delete entry"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             );
           })()}
         </div>

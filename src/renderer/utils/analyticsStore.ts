@@ -232,6 +232,76 @@ export function getSceneSessionTotals(
 }
 
 /**
+ * Add a manual time entry for a scene.
+ */
+export function addManualTime(
+  analytics: AnalyticsData,
+  sceneKey: string,
+  durationMs: number,
+  date?: string,
+): AnalyticsData {
+  const now = Date.now();
+  const session: SceneSession = {
+    id: `manual-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    sceneKey,
+    date: date || getTodayStr(),
+    startTime: now,
+    endTime: now,
+    durationMs,
+    wordsNet: 0,
+    checkin: null,
+  };
+  return {
+    ...analytics,
+    sceneSessions: [...(analytics.sceneSessions || []), session],
+  };
+}
+
+/**
+ * Get sessions for a scene grouped by date, sorted most recent first.
+ */
+export function getSceneSessionsByDate(
+  sceneSessions: SceneSession[],
+  sceneKey: string,
+): { date: string; totalMs: number; sessionCount: number }[] {
+  const matching = sceneSessions.filter(s => s.sceneKey === sceneKey);
+  const byDate: Record<string, { totalMs: number; sessionCount: number }> = {};
+  for (const s of matching) {
+    if (!byDate[s.date]) byDate[s.date] = { totalMs: 0, sessionCount: 0 };
+    byDate[s.date].totalMs += s.durationMs;
+    byDate[s.date].sessionCount += 1;
+  }
+  return Object.entries(byDate)
+    .map(([date, data]) => ({ date, ...data }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/**
+ * Delete a specific scene session by ID.
+ */
+export function deleteSceneSession(
+  analytics: AnalyticsData,
+  sessionId: string,
+): AnalyticsData {
+  return {
+    ...analytics,
+    sceneSessions: (analytics.sceneSessions || []).filter(s => s.id !== sessionId),
+  };
+}
+
+/**
+ * Get individual sessions for a scene, sorted most recent first.
+ */
+export function getSceneSessionsList(
+  sceneSessions: SceneSession[],
+  sceneKey: string,
+): SceneSession[] {
+  return sceneSessions
+    .filter(s => s.sceneKey === sceneKey)
+    .sort((a, b) => b.startTime - a.startTime);
+}
+
+/**
  * Get average check-in scores across all sessions with check-in data.
  */
 export function getCheckinAverages(

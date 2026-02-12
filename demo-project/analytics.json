@@ -1,0 +1,96 @@
+{
+  "sessions": [
+    {
+      "id": "s1",
+      "startTime": 1707580800000,
+      "endTime": 1707588000000,
+      "wordsWritten": 3200,
+      "scenesWorked": ["c1m65ta:1", "c1m65ta:2"],
+      "checkinNote": "Got the opening party scene drafted. Bilbo's speech feels right."
+    },
+    {
+      "id": "s2",
+      "startTime": 1707667200000,
+      "endTime": 1707676200000,
+      "wordsWritten": 4100,
+      "scenesWorked": ["cceiiks:1", "cceiiks:2", "cceiiks:3"],
+      "checkinNote": "Aragorn's introduction and Weathertop. Need to revisit the pacing of the Nazgul attack."
+    },
+    {
+      "id": "s3",
+      "startTime": 1707753600000,
+      "endTime": 1707760800000,
+      "wordsWritten": 2800,
+      "scenesWorked": ["c37xbp1:1", "c37xbp1:2"],
+      "checkinNote": "Gandalf's research scene and the Isengard imprisonment. Saruman's dialogue needs more menace."
+    },
+    {
+      "id": "s4",
+      "startTime": 1707840000000,
+      "endTime": 1707850800000,
+      "wordsWritten": 5200,
+      "scenesWorked": ["c1m65ta:7", "c1m65ta:8", "c1m65ta:9"],
+      "checkinNote": "Council of Elrond through Moria. The Balrog scene is the best thing I've written so far."
+    },
+    {
+      "id": "s5",
+      "startTime": 1707926400000,
+      "endTime": 1707933600000,
+      "wordsWritten": 3600,
+      "scenesWorked": ["c2fof:6", "c2fof:7"],
+      "checkinNote": "Sam and Gollum dynamic. The stew scene is comic relief but also foreshadowing."
+    },
+    {
+      "id": "s6",
+      "startTime": 1708012800000,
+      "endTime": 1708023600000,
+      "wordsWritten": 4800,
+      "scenesWorked": ["cceiiks:10", "c37xbp1:8"],
+      "checkinNote": "Helm's Deep from both Aragorn and Gandalf POVs. The dawn charge is cinematic."
+    },
+    {
+      "id": "s7",
+      "startTime": 1708099200000,
+      "endTime": 1708106400000,
+      "wordsWritten": 3900,
+      "scenesWorked": ["c1m65ta:15", "c2fof:9"],
+      "checkinNote": "Shelob's lair from both Frodo and Sam. Sam's choice to take the Ring is gut-wrenching."
+    },
+    {
+      "id": "s8",
+      "startTime": 1708185600000,
+      "endTime": 1708196400000,
+      "wordsWritten": 5500,
+      "scenesWorked": ["c1m65ta:17", "c2fof:11", "c37xbp1:11"],
+      "checkinNote": "Mount Doom, Sam carrying Frodo, and the Black Gate. The climax. Three POVs converging."
+    },
+    {
+      "id": "s9",
+      "startTime": 1708272000000,
+      "endTime": 1708279200000,
+      "wordsWritten": 2400,
+      "scenesWorked": ["cceiiks:14", "c2fof:12"],
+      "checkinNote": "The coronation and Scouring of the Shire. Bittersweet endings."
+    },
+    {
+      "id": "s10",
+      "startTime": 1708358400000,
+      "endTime": 1708365600000,
+      "wordsWritten": 1800,
+      "scenesWorked": ["c1m65ta:4", "c1m65ta:5"],
+      "checkinNote": "Revising Bree and Weathertop. Tightened the pacing, added more sensory detail."
+    }
+  ],
+  "dailyWordCounts": {
+    "2024-02-11": 3200,
+    "2024-02-12": 4100,
+    "2024-02-13": 2800,
+    "2024-02-14": 5200,
+    "2024-02-15": 3600,
+    "2024-02-16": 4800,
+    "2024-02-17": 3900,
+    "2024-02-18": 5500,
+    "2024-02-19": 2400,
+    "2024-02-20": 1800
+  }
+}

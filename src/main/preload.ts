@@ -26,6 +26,10 @@ const IPC_CHANNELS = {
   PRINT_TO_PDF: 'print-to-pdf',
   READ_ANALYTICS: 'read-analytics',
   SAVE_ANALYTICS: 'save-analytics',
+  GET_LICENSE_STATUS: 'get-license-status',
+  ACTIVATE_LICENSE: 'activate-license',
+  DEACTIVATE_LICENSE: 'deactivate-license',
+  OPEN_PURCHASE_URL: 'open-purchase-url',
   APP_CLOSING: 'app-closing',
   SAFE_TO_CLOSE: 'safe-to-close',
 } as const;
@@ -67,6 +71,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Analytics
   readAnalytics: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.READ_ANALYTICS, projectPath),
   saveAnalytics: (projectPath: string, data: any) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_ANALYTICS, projectPath, data),
+  // License
+  getLicenseStatus: () => ipcRenderer.invoke(IPC_CHANNELS.GET_LICENSE_STATUS),
+  activateLicense: (licenseKey: string) => ipcRenderer.invoke(IPC_CHANNELS.ACTIVATE_LICENSE, licenseKey),
+  deactivateLicense: () => ipcRenderer.invoke(IPC_CHANNELS.DEACTIVATE_LICENSE),
+  openPurchaseUrl: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_PURCHASE_URL),
+  // License dialog (triggered from menu)
+  onShowLicenseDialog: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('show-license-dialog', listener);
+    return () => {
+      ipcRenderer.removeListener('show-license-dialog', listener);
+    };
+  },
   // Graceful quit handshake
   onAppClosing: (callback: () => void) => {
     const listener = () => callback();

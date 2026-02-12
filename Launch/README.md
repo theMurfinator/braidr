@@ -12,8 +12,8 @@
 Writers working on multi-POV novels (fantasy, sci-fi, romance, literary fiction)
 
 ### Pricing Model
-- **7-day free trial** → **$49 one-time purchase**
-- No subscription, you own it forever
+- **14-day free trial** → **$39/year subscription**
+- Payments via Stripe, license keys via Keygen
 
 ---
 
@@ -36,7 +36,7 @@ Writers working on multi-POV novels (fantasy, sci-fi, romance, literary fiction)
 - [ ] Apple Developer account ($99/year)
 - [ ] Code signing + notarization setup
 - [ ] Auto-update system (electron-updater)
-- [ ] License key system (Gumroad integration)
+- [x] License key system (Stripe + Keygen integration)
 - [ ] Professional app icon
 
 **Important (Should-have):**
