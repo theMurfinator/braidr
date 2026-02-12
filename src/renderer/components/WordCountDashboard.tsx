@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Scene, Character, PlotPoint } from '../../shared/types';
-import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages, getRecentDailyCheckins } from '../utils/analyticsStore';
+import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getRecentDailyCheckins } from '../utils/analyticsStore';
 
 interface WordCountDashboardProps {
   scenes: Scene[];
@@ -250,9 +250,6 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     saveAnalytics(projectPath, updated);
     setEditingDeadline(false);
   };
-
-  // Check-in averages
-  const checkinAvgs = useMemo(() => getCheckinAverages(sceneSessions), [sceneSessions]);
 
   // Recent daily check-ins (last 14 days)
   const recentDailyCheckins = useMemo(
@@ -606,40 +603,6 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
             })}
           </div>
         </div>
-
-        {/* Check-in Averages */}
-        {checkinAvgs && (
-          <div className="analytics-card">
-            <div className="analytics-card-header">
-              <span className="analytics-card-title">Check-in Averages</span>
-              <span className="analytics-card-subtitle">{checkinAvgs.count} session{checkinAvgs.count !== 1 ? 's' : ''}</span>
-            </div>
-            <div className="analytics-checkin-averages">
-              {([
-                { key: 'energy', label: 'Energy', lowLabel: 'Low', highLabel: 'High', value: checkinAvgs.energy },
-                { key: 'focus', label: 'Focus', lowLabel: 'Scattered', highLabel: 'Locked in', value: checkinAvgs.focus },
-                { key: 'mood', label: 'Mood', lowLabel: 'Rough', highLabel: 'Great', value: checkinAvgs.mood },
-              ] as const).map(row => (
-                <div key={row.key} className="analytics-checkin-row">
-                  <div className="analytics-checkin-label">
-                    <span className="analytics-checkin-name">{row.label}</span>
-                    <span className="analytics-checkin-score">{row.value.toFixed(1)}</span>
-                  </div>
-                  <div className="analytics-checkin-bar-track">
-                    <div
-                      className={`analytics-checkin-bar-fill ${row.key}`}
-                      style={{ width: `${(row.value / 5) * 100}%` }}
-                    />
-                  </div>
-                  <div className="analytics-checkin-range">
-                    <span>{row.lowLabel}</span>
-                    <span>{row.highLabel}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Daily Mood Check-ins */}
         {recentDailyCheckins.length > 0 && (

@@ -19,9 +19,8 @@ import SearchOverlay from './components/SearchOverlay';
 import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
-import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
+import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker } from './services/sessionTracker';
 import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, hasDailyCheckinToday, recordDailyCheckin } from './utils/analyticsStore';
-import CheckinModal from './components/CheckinModal';
 import DailyCheckinModal from './components/DailyCheckinModal';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
@@ -115,9 +114,6 @@ function App() {
   const sessionTrackerRef = useRef<SessionTracker | null>(null);
   const analyticsRef = useRef<AnalyticsData | null>(null);
   const [sceneSessions, setSceneSessions] = useState<SceneSession[]>([]);
-  const [pendingSession, setPendingSession] = useState<SessionSummary | null>(null);
-  const pendingSessionRef = useRef<SessionSummary | null>(null);
-  const pendingTotalWordsRef = useRef<number>(0);
   const isClosingRef = useRef(false);
   const [showDailyCheckin, setShowDailyCheckin] = useState(false);
   const dailyCheckinShownRef = useRef(false);
@@ -285,7 +281,6 @@ function App() {
     });
 
     // When a session ends, merge it into analytics and persist
-    const CHECKIN_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
     tracker.setOnSessionEnd((summary) => {
       if (!analyticsRef.current || !projectData) return;
 
@@ -298,18 +293,10 @@ function App() {
         }
       }
 
-      if (summary.durationMs >= CHECKIN_THRESHOLD_MS && !isClosingRef.current) {
-        // Defer save — show check-in modal
-        pendingSessionRef.current = summary;
-        pendingTotalWordsRef.current = totalWords;
-        setPendingSession(summary);
-      } else {
-        // Short session or app closing — save immediately without check-in
-        const updated = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords, null);
-        analyticsRef.current = updated;
-        setSceneSessions(updated.sceneSessions || []);
-        saveAnalytics(projectData.projectPath, updated);
-      }
+      const updated = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords, null);
+      analyticsRef.current = updated;
+      setSceneSessions(updated.sceneSessions || []);
+      saveAnalytics(projectData.projectPath, updated);
     });
 
     return () => {
@@ -317,37 +304,6 @@ function App() {
       sessionTrackerRef.current = null;
     };
   }, [projectData?.projectPath]);
-
-  // Check-in modal handlers
-  const handleCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number }) => {
-    const summary = pendingSessionRef.current;
-    if (!summary || !analyticsRef.current || !projectData) return;
-
-    const updated = mergeSessionIntoAnalytics(
-      analyticsRef.current, summary, pendingTotalWordsRef.current, checkin
-    );
-    analyticsRef.current = updated;
-    setSceneSessions(updated.sceneSessions || []);
-    saveAnalytics(projectData.projectPath, updated);
-
-    pendingSessionRef.current = null;
-    setPendingSession(null);
-  }, [projectData]);
-
-  const handleCheckinSkip = useCallback(() => {
-    const summary = pendingSessionRef.current;
-    if (!summary || !analyticsRef.current || !projectData) return;
-
-    const updated = mergeSessionIntoAnalytics(
-      analyticsRef.current, summary, pendingTotalWordsRef.current, null
-    );
-    analyticsRef.current = updated;
-    setSceneSessions(updated.sceneSessions || []);
-    saveAnalytics(projectData.projectPath, updated);
-
-    pendingSessionRef.current = null;
-    setPendingSession(null);
-  }, [projectData]);
 
   // Daily check-in handlers
   const handleDailyCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number }) => {
@@ -3585,24 +3541,6 @@ function App() {
           onClose={() => setShowSearch(false)}
         />
       )}
-
-      {/* Check-in Modal */}
-      {pendingSession && projectData && (() => {
-        const [charId, sceneNumStr] = pendingSession.sceneKey.split(':');
-        const charName = projectData.characters.find(c => c.id === charId)?.name || 'Unknown';
-        const scene = projectData.scenes.find(s => s.characterId === charId && String(s.sceneNumber) === sceneNumStr);
-        const sceneTitle = scene?.title ? ` — ${scene.title}` : '';
-        const sceneLabel = `${charName} — ${sceneNumStr}${sceneTitle}`;
-        return (
-          <CheckinModal
-            sceneLabel={sceneLabel}
-            durationMs={pendingSession.durationMs}
-            wordsNet={pendingSession.wordsNet}
-            onSubmit={handleCheckinSubmit}
-            onSkip={handleCheckinSkip}
-          />
-        );
-      })()}
 
       {/* Daily Check-in Modal */}
       {showDailyCheckin && (
