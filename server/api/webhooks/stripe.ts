@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
+import { sendEmail, licenseKeyEmail } from '../_lib/email';
 
 // ─── Environment Variables ──────────────────────────────────────────────────
 // Set these in Vercel dashboard → Settings → Environment Variables
@@ -151,6 +152,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await stripe.subscriptions.update(subscriptionId, {
           metadata: { keygen_license_key: licenseKey },
         });
+
+        // Email the license key to the customer
+        if (email) {
+          try {
+            await sendEmail({
+              to: email,
+              subject: 'Your Braidr License Key',
+              html: licenseKeyEmail(licenseKey),
+            });
+            console.log(`License key emailed to ${email}`);
+          } catch (emailErr: any) {
+            console.error(`Failed to email license key: ${emailErr.message}`);
+          }
+        }
 
         break;
       }
