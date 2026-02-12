@@ -8,19 +8,26 @@ const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
  */
 export async function verifySession(authHeader: string | undefined): Promise<string | null> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.error('Auth: missing or malformed Authorization header');
     return null;
   }
 
   const token = authHeader.replace('Bearer ', '');
 
   try {
-    const { sub: userId } = await clerk.verifyToken(token);
-    const user = await clerk.users.getUser(userId);
+    const payload = await clerk.verifyToken(token, {
+      authorizedParties: [
+        'https://braidr-api.vercel.app',
+        'http://localhost:3000',
+      ],
+    });
+    const user = await clerk.users.getUser(payload.sub);
     const email = user.emailAddresses.find(
       (e) => e.id === user.primaryEmailAddressId
     );
     return email?.emailAddress?.toLowerCase() || null;
-  } catch {
+  } catch (err: any) {
+    console.error('Auth: Clerk token verification failed:', err.message);
     return null;
   }
 }

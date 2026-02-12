@@ -186,16 +186,20 @@
         const headers = await getAuthHeaders();
         const res = await fetch('/api/portal/me', { headers });
 
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+
         if (!res.ok) {
-          window.location.href = '/portal';
+          console.error('API /me returned', res.status);
+          document.getElementById('licenseContent').innerHTML = `
+            <div class="no-license">
+              <p>Could not load your account. Please try again later.</p>
+            </div>
+          `;
           return;
         }
 
         const data = await res.json();
-
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
-
         const content = document.getElementById('licenseContent');
 
         if (data.hasLicense && data.license) {
@@ -224,7 +228,13 @@
         }
       } catch (err) {
         console.error(err);
-        window.location.href = '/portal';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        document.getElementById('licenseContent').innerHTML = `
+          <div class="no-license">
+            <p>Could not load your account. Please try again later.</p>
+          </div>
+        `;
       }
     }
 
