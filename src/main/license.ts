@@ -10,7 +10,7 @@ const KEYGEN_ACCOUNT_ID = process.env.KEYGEN_ACCOUNT_ID || '8abb6c6d-bb7d-4f57-b
 const KEYGEN_PRODUCT_ID = process.env.KEYGEN_PRODUCT_ID || 'fe8d919b-5b04-41bf-a7ef-ef487ca1d30e';
 
 const TRIAL_DAYS = 14;
-const PURCHASE_URL = 'https://getbraider.com/buy';
+const PURCHASE_URL = 'https://buy.stripe.com/eVq00k3m761132Z13pa3u00';
 const LICENSE_FILE = 'license.json';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
