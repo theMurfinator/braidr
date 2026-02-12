@@ -8246,12 +8246,13 @@
   width: 3px;
   flex-shrink: 0;
   cursor: col-resize;
-  background: transparent;
+  background: var(--border);
   transition: background 0.2s;
 }
 
-.notes-resize-handle:hover {
-  background: var(--border);
+.notes-resize-handle:hover,
+.notes-resize-handle:active {
+  background: var(--text-muted);
 }
 
 /* Panel toggle buttons (matches editor view) */
