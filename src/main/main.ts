@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { autoUpdater } from 'electron-updater';
 import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
+import { getLicenseStatus, activateLicense, deactivateLicense, openPurchaseUrl } from './license';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -221,7 +222,22 @@ function createMenu() {
           label: 'Learn More',
           click: async () => {
             const { shell } = require('electron');
-            await shell.openExternal('https://braidr.app');
+            await shell.openExternal('https://getbraider.com');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Manage License...',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('show-license-dialog');
+            }
+          }
+        },
+        {
+          label: 'Purchase License',
+          click: () => {
+            openPurchaseUrl();
           }
         },
         ...(!isMac ? [{
@@ -846,6 +862,44 @@ ipcMain.handle(IPC_CHANNELS.SAVE_ANALYTICS, async (_event, projectPath: string, 
   try {
     const analyticsPath = path.join(projectPath, 'analytics.json');
     fs.writeFileSync(analyticsPath, JSON.stringify(data, null, 2), 'utf-8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// ─── License IPC Handlers ─────────────────────────────────────────────────
+
+ipcMain.handle(IPC_CHANNELS.GET_LICENSE_STATUS, async () => {
+  try {
+    const status = await getLicenseStatus();
+    return { success: true, data: status };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.ACTIVATE_LICENSE, async (_event, licenseKey: string) => {
+  try {
+    const status = await activateLicense(licenseKey);
+    return { success: true, data: status };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.DEACTIVATE_LICENSE, async () => {
+  try {
+    const status = deactivateLicense();
+    return { success: true, data: status };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.OPEN_PURCHASE_URL, async () => {
+  try {
+    openPurchaseUrl();
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
