@@ -1,5 +1,9 @@
 {
   "framework": null,
   "buildCommand": "",
-  "outputDirectory": ""
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/portal", "destination": "/portal/index.html" },
+    { "source": "/portal/dashboard", "destination": "/portal/dashboard.html" }
+  ]
 }

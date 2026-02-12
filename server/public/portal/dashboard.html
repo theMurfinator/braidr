@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Braidr - Your Account</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fafafa;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    .container { max-width: 640px; margin: 0 auto; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+    h1 { font-size: 24px; }
+    .email-badge {
+      font-size: 14px;
+      color: #71717a;
+      background: #f4f4f5;
+      padding: 6px 12px;
+      border-radius: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 32px;
+      margin-bottom: 20px;
+    }
+    .card h2 { font-size: 16px; color: #71717a; font-weight: 500; margin-bottom: 16px; }
+    .license-key {
+      background: #f4f4f5;
+      border-radius: 8px;
+      padding: 16px 20px;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      word-break: break-all;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .license-key:hover { background: #e4e4e7; }
+    .license-key .copy-hint {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: #a1a1aa;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 12px;
+    }
+    .status.active { background: #dcfce7; color: #166534; }
+    .status.expired { background: #fef2f2; color: #991b1b; }
+    .status.suspended { background: #fef9c3; color: #854d0e; }
+    .expiry { font-size: 14px; color: #71717a; margin-top: 8px; }
+    .downloads-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .download-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px;
+      border: 1px solid #d4d4d8;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #1a1a1a;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .download-btn:hover { background: #f4f4f5; border-color: #a1a1aa; }
+    .download-btn .icon { font-size: 20px; }
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn.outline {
+      background: #fff;
+      color: #1a1a1a;
+      border: 1px solid #d4d4d8;
+    }
+    .btn.outline:hover { background: #f4f4f5; }
+    .no-license {
+      text-align: center;
+      padding: 24px;
+      color: #71717a;
+    }
+    .loading { text-align: center; padding: 80px 0; color: #71717a; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="loading" class="loading">Loading your account...</div>
+
+    <div id="dashboard" style="display: none;">
+      <div class="header">
+        <h1>Braidr</h1>
+        <span class="email-badge" id="userEmail"></span>
+      </div>
+
+      <!-- License Section -->
+      <div class="card" id="licenseCard">
+        <h2>License Key</h2>
+        <div id="licenseContent"></div>
+      </div>
+
+      <!-- Downloads Section -->
+      <div class="card">
+        <h2>Downloads</h2>
+        <div class="downloads-grid">
+          <a href="https://github.com/theMurfinator/braidr/releases/latest" class="download-btn">
+            <span class="icon">&#63743;</span> macOS
+          </a>
+          <a href="https://github.com/theMurfinator/braidr/releases/latest" class="download-btn">
+            <span class="icon">&#8862;</span> Windows
+          </a>
+          <a href="https://github.com/theMurfinator/braidr/releases/latest" class="download-btn">
+            <span class="icon">&#9881;</span> Linux
+          </a>
+        </div>
+      </div>
+
+      <!-- Billing Section -->
+      <div class="card">
+        <h2>Subscription</h2>
+        <p style="font-size: 14px; color: #71717a; margin-bottom: 16px;">
+          Manage your payment method, view invoices, or cancel your subscription.
+        </p>
+        <button class="btn outline" id="billingBtn">Manage Billing</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const session = params.get('session');
+
+    if (!session) {
+      window.location.href = '/portal';
+    }
+
+    async function loadDashboard() {
+      try {
+        const res = await fetch(`/api/portal/me?session=${encodeURIComponent(session)}`);
+        if (!res.ok) {
+          window.location.href = '/portal?error=invalid_token';
+          return;
+        }
+
+        const data = await res.json();
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        document.getElementById('userEmail').textContent = data.email;
+
+        const content = document.getElementById('licenseContent');
+
+        if (data.hasLicense && data.license) {
+          const statusClass = data.license.status === 'ACTIVE' ? 'active'
+            : data.license.status === 'SUSPENDED' ? 'suspended' : 'expired';
+          const statusLabel = data.license.status === 'ACTIVE' ? 'Active'
+            : data.license.status === 'SUSPENDED' ? 'Suspended' : data.license.status;
+
+          content.innerHTML = `
+            <div class="license-key" onclick="copyKey(this)" title="Click to copy">
+              ${data.license.key}
+              <span class="copy-hint">Click to copy</span>
+            </div>
+            <span class="status ${statusClass}">${statusLabel}</span>
+            ${data.license.expiry
+              ? `<p class="expiry">Renews ${new Date(data.license.expiry).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>`
+              : ''}
+          `;
+        } else {
+          content.innerHTML = `
+            <div class="no-license">
+              <p>No active license found.</p>
+              <a href="https://buy.stripe.com/eVq00k3m761132Z13pa3u00" class="btn" style="margin-top: 16px; display: inline-block;">Purchase Braidr</a>
+            </div>
+          `;
+        }
+      } catch (err) {
+        console.error(err);
+        window.location.href = '/portal?error=invalid_token';
+      }
+    }
+
+    function copyKey(el) {
+      const key = el.childNodes[0].textContent.trim();
+      navigator.clipboard.writeText(key).then(() => {
+        const hint = el.querySelector('.copy-hint');
+        hint.textContent = 'Copied!';
+        setTimeout(() => { hint.textContent = 'Click to copy'; }, 2000);
+      });
+    }
+
+    document.getElementById('billingBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('billingBtn');
+      btn.disabled = true;
+      btn.textContent = 'Redirecting...';
+
+      try {
+        const res = await fetch('/api/portal/billing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          window.location.href = data.url;
+        } else {
+          alert('Could not open billing portal. Please try again.');
+          btn.disabled = false;
+          btn.textContent = 'Manage Billing';
+        }
+      } catch {
+        alert('Something went wrong. Please try again.');
+        btn.disabled = false;
+        btn.textContent = 'Manage Billing';
+      }
+    });
+
+    loadDashboard();
+  </script>
+</body>
+</html>
