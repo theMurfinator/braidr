@@ -260,7 +260,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    icon: path.join(__dirname, '..', 'src', 'renderer', 'assets', 'braidr-icon.png'),
+    icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
