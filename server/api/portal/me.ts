@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { verifyMagicToken } from '../_lib/auth';
+import { verifySession } from '../_lib/auth';
 
 const KEYGEN_ACCOUNT_ID = process.env.KEYGEN_ACCOUNT_ID!;
 const KEYGEN_PRODUCT_TOKEN = process.env.KEYGEN_PRODUCT_TOKEN!;
@@ -9,14 +9,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const session = req.query.session as string;
-  if (!session) {
-    return res.status(401).json({ error: 'No session token' });
-  }
-
-  const email = verifyMagicToken(session);
+  const email = await verifySession(req.headers.authorization);
   if (!email) {
-    return res.status(401).json({ error: 'Invalid or expired session' });
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   // Look up license in Keygen by email metadata

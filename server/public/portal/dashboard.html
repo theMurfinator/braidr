@@ -21,13 +21,7 @@
       margin-bottom: 32px;
     }
     h1 { font-size: 24px; }
-    .email-badge {
-      font-size: 14px;
-      color: #71717a;
-      background: #f4f4f5;
-      padding: 6px 12px;
-      border-radius: 20px;
-    }
+    #user-button { display: flex; align-items: center; }
     .card {
       background: #fff;
       border-radius: 12px;
@@ -126,7 +120,7 @@
     <div id="dashboard" style="display: none;">
       <div class="header">
         <h1>Braidr</h1>
-        <span class="email-badge" id="userEmail"></span>
+        <div id="user-button"></div>
       </div>
 
       <!-- License Section -->
@@ -162,19 +156,38 @@
     </div>
   </div>
 
+  <script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="pk_test_YWNlLW9jZWxvdC0zMC5jbGVyay5hY2NvdW50cy5kZXYk"
+    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+    type="text/javascript"
+  ></script>
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const session = params.get('session');
+    window.addEventListener('load', async () => {
+      await window.Clerk.load();
 
-    if (!session) {
-      window.location.href = '/portal';
+      if (!window.Clerk.user) {
+        window.location.href = '/portal';
+        return;
+      }
+
+      window.Clerk.mountUserButton(document.getElementById('user-button'));
+      await loadDashboard();
+    });
+
+    async function getAuthHeaders() {
+      const token = await window.Clerk.session.getToken();
+      return { 'Authorization': 'Bearer ' + token };
     }
 
     async function loadDashboard() {
       try {
-        const res = await fetch(`/api/portal/me?session=${encodeURIComponent(session)}`);
+        const headers = await getAuthHeaders();
+        const res = await fetch('/api/portal/me', { headers });
+
         if (!res.ok) {
-          window.location.href = '/portal?error=invalid_token';
+          window.location.href = '/portal';
           return;
         }
 
@@ -182,7 +195,6 @@
 
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
-        document.getElementById('userEmail').textContent = data.email;
 
         const content = document.getElementById('licenseContent');
 
@@ -212,7 +224,7 @@
         }
       } catch (err) {
         console.error(err);
-        window.location.href = '/portal?error=invalid_token';
+        window.location.href = '/portal';
       }
     }
 
@@ -231,10 +243,12 @@
       btn.textContent = 'Redirecting...';
 
       try {
+        const headers = await getAuthHeaders();
+        headers['Content-Type'] = 'application/json';
+
         const res = await fetch('/api/portal/billing', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session }),
+          headers,
         });
 
         if (res.ok) {
@@ -251,8 +265,6 @@
         btn.textContent = 'Manage Billing';
       }
     });
-
-    loadDashboard();
   </script>
 </body>
 </html>

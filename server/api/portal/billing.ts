@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
-import { verifyMagicToken } from '../_lib/auth';
+import { verifySession } from '../_lib/auth';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY!;
 const BASE_URL = process.env.BASE_URL || 'https://braidr-api.vercel.app';
@@ -12,14 +12,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { session: sessionToken } = req.body || {};
-  if (!sessionToken) {
-    return res.status(401).json({ error: 'No session token' });
-  }
-
-  const email = verifyMagicToken(sessionToken);
+  const email = await verifySession(req.headers.authorization);
   if (!email) {
-    return res.status(401).json({ error: 'Invalid or expired session' });
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {

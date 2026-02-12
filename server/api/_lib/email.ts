@@ -45,21 +45,3 @@ export function licenseKeyEmail(licenseKey: string): string {
   `;
 }
 
-export function magicLinkEmail(magicLink: string): string {
-  return `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-      <h1 style="font-size: 24px; color: #1a1a1a;">Sign in to Braidr</h1>
-      <p style="font-size: 16px; color: #4a4a4a; line-height: 1.6;">
-        Click the button below to access your customer portal.
-      </p>
-      <div style="text-align: center; margin: 32px 0;">
-        <a href="${magicLink}" style="display: inline-block; background: #1a1a1a; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: 500;">
-          Access Portal
-        </a>
-      </div>
-      <p style="font-size: 14px; color: #71717a; line-height: 1.6;">
-        This link expires in 60 minutes. If you didn't request this, you can safely ignore this email.
-      </p>
-    </div>
-  `;
-}

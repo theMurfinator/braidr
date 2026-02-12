@@ -1,32 +1,25 @@
-import * as crypto from 'crypto';
+import { createClerkClient } from '@clerk/backend';
 
-const MAGIC_LINK_SECRET = process.env.MAGIC_LINK_SECRET || 'change-me-in-production';
-const TOKEN_EXPIRY_MINUTES = 60;
+const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
-export function generateMagicToken(email: string): string {
-  const payload = JSON.stringify({
-    email: email.toLowerCase().trim(),
-    exp: Date.now() + TOKEN_EXPIRY_MINUTES * 60 * 1000,
-  });
-  const iv = crypto.randomBytes(16);
-  const key = crypto.scryptSync(MAGIC_LINK_SECRET, 'salt', 32);
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  let encrypted = cipher.update(payload, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
-}
+/**
+ * Verify a Clerk session token from a Bearer header and return the user's email.
+ * Returns null if the token is invalid or missing.
+ */
+export async function verifySession(authHeader: string | undefined): Promise<string | null> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
 
-export function verifyMagicToken(token: string): string | null {
+  const token = authHeader.replace('Bearer ', '');
+
   try {
-    const [ivHex, encrypted] = token.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
-    const key = crypto.scryptSync(MAGIC_LINK_SECRET, 'salt', 32);
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    const payload = JSON.parse(decrypted);
-    if (payload.exp < Date.now()) return null;
-    return payload.email;
+    const { sub: userId } = await clerk.verifyToken(token);
+    const user = await clerk.users.getUser(userId);
+    const email = user.emailAddresses.find(
+      (e) => e.id === user.primaryEmailAddressId
+    );
+    return email?.emailAddress?.toLowerCase() || null;
   } catch {
     return null;
   }
