@@ -251,8 +251,10 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       spellcheck: true,
     },
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 10, y: 14 },
+    ...(process.platform === 'darwin' ? {
+      titleBarStyle: 'hiddenInset' as const,
+      trafficLightPosition: { x: 10, y: 14 },
+    } : {}),
   });
 
   if (isDev) {
@@ -328,7 +330,9 @@ app.whenReady().then(() => {
   protocol.handle('braidr-img', (request) => {
     // Strip the scheme to get the file path
     const filePath = decodeURIComponent(request.url.replace('braidr-img://', ''));
-    return net.fetch(`file://${filePath}`);
+    // On Windows, file URLs need three slashes and forward slashes: file:///C:/path/to/file
+    const fileUrl = `file:///${filePath.replace(/\\/g, '/').replace(/^\/+/, '')}`;
+    return net.fetch(fileUrl);
   });
 
   createWindow();

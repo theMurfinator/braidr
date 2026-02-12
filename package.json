@@ -68,11 +68,18 @@
         "dmg",
         "zip"
       ],
-      "icon": "build/icon.icns"
+      "icon": "build/icon.png"
     },
     "win": {
       "target": "nsis",
-      "icon": "build/icon.png"
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
     },
     "linux": {
       "icon": "build/icon.png",

@@ -17,6 +17,13 @@ Thumbs.db
 *.dmg
 *.zip
 *.pkg
+*.exe
+*.msi
+*.nsis
+*.blockmap
+*.AppImage
+*.deb
+*.rpm
 
 # Logs
 *.log
