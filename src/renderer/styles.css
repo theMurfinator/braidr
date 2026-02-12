@@ -10346,80 +10346,6 @@
   transition: width 0.5s ease;
 }
 
-/* Milestones */
-.analytics-milestones {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.analytics-milestone {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  transition: background 0.15s;
-}
-.analytics-milestone:hover { background: var(--bg-primary); }
-.analytics-milestone.achieved { opacity: 0.65; }
-.analytics-milestone-icon {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-.analytics-milestone.achieved .analytics-milestone-icon { color: #22c55e; font-weight: 700; }
-.analytics-milestone-info { flex: 1; min-width: 0; }
-.analytics-milestone-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  font-family: var(--font-ui);
-  display: block;
-}
-.analytics-milestone.achieved .analytics-milestone-label {
-  text-decoration: line-through;
-  color: var(--text-muted);
-}
-.analytics-milestone-date {
-  font-size: 11px;
-  color: #22c55e;
-  font-family: var(--font-ui);
-}
-.analytics-milestone-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 120px;
-}
-.analytics-milestone-bar-track {
-  flex: 1;
-  height: 6px;
-  background: var(--bg-tertiary);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.analytics-milestone-bar-fill {
-  height: 100%;
-  background: #3b82f6;
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-.analytics-milestone-pct {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-family: var(--font-ui);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-  width: 30px;
-  text-align: right;
-}
-
 /* Sessions table */
 .analytics-sessions-table {
   width: 100%;
@@ -11410,6 +11336,80 @@
   font-size: 10px;
   color: var(--text-tertiary);
 }
+
+/* Daily Mood Check-in Card */
+.analytics-daily-mood {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.analytics-daily-mood-legend {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.analytics-daily-mood-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.analytics-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.analytics-dot.energy { background: #ffb74d; }
+.analytics-dot.focus { background: #42a5f5; }
+.analytics-dot.mood { background: #66bb6a; }
+
+.analytics-daily-mood-grid {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  overflow-x: auto;
+}
+
+.analytics-daily-mood-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 36px;
+}
+
+.analytics-daily-mood-date {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.analytics-daily-mood-bars {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 60px;
+  width: 100%;
+  justify-content: center;
+}
+
+.analytics-daily-mood-bar {
+  width: 6px;
+  border-radius: 3px;
+  min-height: 4px;
+  transition: height 0.3s ease;
+}
+
+.analytics-daily-mood-bar.energy { background: #ffb74d; }
+.analytics-daily-mood-bar.focus { background: #42a5f5; }
+.analytics-daily-mood-bar.mood { background: #66bb6a; }
 
 /* Top Scenes by Time Card */
 .analytics-scene-time-list {

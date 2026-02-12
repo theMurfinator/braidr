@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Scene, Character, PlotPoint } from '../../shared/types';
-import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages } from '../utils/analyticsStore';
+import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages, getRecentDailyCheckins } from '../utils/analyticsStore';
 
 interface WordCountDashboardProps {
   scenes: Scene[];
@@ -253,6 +253,12 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
 
   // Check-in averages
   const checkinAvgs = useMemo(() => getCheckinAverages(sceneSessions), [sceneSessions]);
+
+  // Recent daily check-ins (last 14 days)
+  const recentDailyCheckins = useMemo(
+    () => analytics ? getRecentDailyCheckins(analytics, 14) : [],
+    [analytics],
+  );
 
   // Top scenes by time
   const topScenesByTime = useMemo(() => {
@@ -601,41 +607,6 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
           </div>
         </div>
 
-        {/* Milestones */}
-        <div className="analytics-card">
-          <div className="analytics-card-header">
-            <span className="analytics-card-title">Milestones</span>
-          </div>
-          <div className="analytics-milestones">
-            {analytics?.milestones.map(ms => {
-              const progress = Math.min(stats.totalWords / ms.targetWords, 1);
-              return (
-                <div key={ms.id} className={`analytics-milestone ${ms.achieved ? 'achieved' : ''}`}>
-                  <div className="analytics-milestone-icon">
-                    {ms.achieved ? '✓' : '○'}
-                  </div>
-                  <div className="analytics-milestone-info">
-                    <span className="analytics-milestone-label">{ms.label}</span>
-                    {ms.achieved && ms.achievedDate && (
-                      <span className="analytics-milestone-date">
-                        {new Date(ms.achievedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                    )}
-                  </div>
-                  {!ms.achieved && (
-                    <div className="analytics-milestone-progress">
-                      <div className="analytics-milestone-bar-track">
-                        <div className="analytics-milestone-bar-fill" style={{ width: `${progress * 100}%` }} />
-                      </div>
-                      <span className="analytics-milestone-pct">{Math.round(progress * 100)}%</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Check-in Averages */}
         {checkinAvgs && (
           <div className="analytics-card">
@@ -666,6 +637,38 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Daily Mood Check-ins */}
+        {recentDailyCheckins.length > 0 && (
+          <div className="analytics-card">
+            <div className="analytics-card-header">
+              <span className="analytics-card-title">Daily Mood</span>
+              <span className="analytics-card-subtitle">Last {recentDailyCheckins.length} day{recentDailyCheckins.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="analytics-daily-mood">
+              <div className="analytics-daily-mood-legend">
+                <span className="analytics-daily-mood-legend-item"><span className="analytics-dot energy" /> Energy</span>
+                <span className="analytics-daily-mood-legend-item"><span className="analytics-dot focus" /> Focus</span>
+                <span className="analytics-daily-mood-legend-item"><span className="analytics-dot mood" /> Mood</span>
+              </div>
+              <div className="analytics-daily-mood-grid">
+                {recentDailyCheckins.map(c => {
+                  const dateLabel = new Date(c.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  return (
+                    <div key={c.date} className="analytics-daily-mood-day">
+                      <span className="analytics-daily-mood-date">{dateLabel}</span>
+                      <div className="analytics-daily-mood-bars">
+                        <div className="analytics-daily-mood-bar energy" style={{ height: `${(c.energy / 5) * 100}%` }} title={`Energy: ${c.energy}/5`} />
+                        <div className="analytics-daily-mood-bar focus" style={{ height: `${(c.focus / 5) * 100}%` }} title={`Focus: ${c.focus}/5`} />
+                        <div className="analytics-daily-mood-bar mood" style={{ height: `${(c.mood / 5) * 100}%` }} title={`Mood: ${c.mood}/5`} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

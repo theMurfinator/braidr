@@ -39,12 +39,20 @@ export interface Milestone {
   achievedDate?: string;
 }
 
+export interface DailyCheckin {
+  date: string; // ISO date "2026-02-11"
+  energy: number; // 1-5
+  focus: number;  // 1-5
+  mood: number;   // 1-5
+}
+
 export interface AnalyticsData {
   sessions: WritingSession[];
   sceneSessions: SceneSession[];
   dailyGoal: DailyGoal;
   deadlineGoal: DeadlineGoal;
   milestones: Milestone[];
+  dailyCheckins: DailyCheckin[];
   currentStreak: number;
   longestStreak: number;
   lastWritingDate: string | null;
@@ -56,6 +64,7 @@ const DEFAULT_ANALYTICS: AnalyticsData = {
   dailyGoal: { enabled: false, target: 500 },
   deadlineGoal: { enabled: false, targetWords: 0, deadlineDate: '' },
   milestones: [],
+  dailyCheckins: [],
   currentStreak: 0,
   longestStreak: 0,
   lastWritingDate: null,
@@ -246,4 +255,44 @@ export function getCheckinAverages(
     mood: withCheckins.reduce((s, x) => s + x.checkin!.mood, 0) / count,
     count,
   };
+}
+
+/**
+ * Check if a daily check-in has already been recorded today.
+ */
+export function hasDailyCheckinToday(analytics: AnalyticsData): boolean {
+  const today = getTodayStr();
+  return (analytics.dailyCheckins || []).some(c => c.date === today);
+}
+
+/**
+ * Record a daily mood check-in.
+ */
+export function recordDailyCheckin(
+  analytics: AnalyticsData,
+  checkin: { energy: number; focus: number; mood: number },
+): AnalyticsData {
+  const today = getTodayStr();
+  const existing = (analytics.dailyCheckins || []).filter(c => c.date !== today);
+  return {
+    ...analytics,
+    dailyCheckins: [...existing, { date: today, ...checkin }],
+  };
+}
+
+/**
+ * Get recent daily check-ins for display (last N days).
+ */
+export function getRecentDailyCheckins(
+  analytics: AnalyticsData,
+  days: number,
+): DailyCheckin[] {
+  const checkins = analytics.dailyCheckins || [];
+  const today = new Date();
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+  return checkins
+    .filter(c => c.date >= cutoffStr)
+    .sort((a, b) => a.date.localeCompare(b.date));
 }

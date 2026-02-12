@@ -20,8 +20,9 @@ import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
-import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics } from './utils/analyticsStore';
+import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, hasDailyCheckinToday, recordDailyCheckin } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
+import DailyCheckinModal from './components/DailyCheckinModal';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 
@@ -118,6 +119,8 @@ function App() {
   const pendingSessionRef = useRef<SessionSummary | null>(null);
   const pendingTotalWordsRef = useRef<number>(0);
   const isClosingRef = useRef(false);
+  const [showDailyCheckin, setShowDailyCheckin] = useState(false);
+  const dailyCheckinShownRef = useRef(false);
 
   // Extract todo items from notes for display in editor sidebar
   const sceneTodos = useMemo(() => {
@@ -273,6 +276,12 @@ function App() {
     loadAnalytics(projectData.projectPath).then(data => {
       analyticsRef.current = data;
       setSceneSessions(data.sceneSessions || []);
+
+      // Show daily check-in if not already recorded today
+      if (!dailyCheckinShownRef.current && !hasDailyCheckinToday(data)) {
+        dailyCheckinShownRef.current = true;
+        setShowDailyCheckin(true);
+      }
     });
 
     // When a session ends, merge it into analytics and persist
@@ -339,6 +348,19 @@ function App() {
     pendingSessionRef.current = null;
     setPendingSession(null);
   }, [projectData]);
+
+  // Daily check-in handlers
+  const handleDailyCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number }) => {
+    if (!analyticsRef.current || !projectData) return;
+    const updated = recordDailyCheckin(analyticsRef.current, checkin);
+    analyticsRef.current = updated;
+    saveAnalytics(projectData.projectPath, updated);
+    setShowDailyCheckin(false);
+  }, [projectData]);
+
+  const handleDailyCheckinSkip = useCallback(() => {
+    setShowDailyCheckin(false);
+  }, []);
 
   // End session when switching away from editor view
   useEffect(() => {
@@ -3581,6 +3603,14 @@ function App() {
           />
         );
       })()}
+
+      {/* Daily Check-in Modal */}
+      {showDailyCheckin && (
+        <DailyCheckinModal
+          onSubmit={handleDailyCheckinSubmit}
+          onSkip={handleDailyCheckinSkip}
+        />
+      )}
 
       {/* Archive Panel Modal */}
       {showArchivePanel && (
