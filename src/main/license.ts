@@ -6,8 +6,8 @@ import { LicenseData, LicenseStatus } from '../shared/types';
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 // Set these via environment variables or replace with your actual values
-const KEYGEN_ACCOUNT_ID = process.env.KEYGEN_ACCOUNT_ID || 'YOUR_KEYGEN_ACCOUNT_ID';
-const KEYGEN_PRODUCT_ID = process.env.KEYGEN_PRODUCT_ID || 'YOUR_KEYGEN_PRODUCT_ID';
+const KEYGEN_ACCOUNT_ID = process.env.KEYGEN_ACCOUNT_ID || '8abb6c6d-bb7d-4f57-bbe9-e9a18060f28d';
+const KEYGEN_PRODUCT_ID = process.env.KEYGEN_PRODUCT_ID || 'fe8d919b-5b04-41bf-a7ef-ef487ca1d30e';
 
 const TRIAL_DAYS = 14;
 const PURCHASE_URL = 'https://getbraider.com/buy';
