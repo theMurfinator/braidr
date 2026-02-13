@@ -4828,7 +4828,7 @@
 .diff-modal {
   background: var(--bg-primary);
   border-radius: 10px;
-  width: 700px;
+  width: 800px;
   max-width: 90vw;
   max-height: 80vh;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
@@ -4840,10 +4840,11 @@
 
 .diff-modal-selectors {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-tertiary);
+  align-items: center;
 }
 
 .diff-modal-selector {
@@ -4870,6 +4871,54 @@
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
+}
+
+.diff-modal-layout-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.diff-modal-layout-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.diff-modal-layout-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.diff-modal-stats {
+  display: flex;
+  gap: 16px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-wrap: wrap;
+}
+
+.diff-stat-item {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.diff-stat-added {
+  color: #1a7a44;
+  font-weight: 600;
+}
+
+.diff-stat-removed {
+  color: #c0392b;
+  font-weight: 600;
 }
 
 .diff-modal-legend {
@@ -4906,6 +4955,48 @@
   color: var(--text-secondary);
 }
 
+/* Side-by-side diff layout */
+.diff-modal-side-by-side {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.diff-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.diff-side-from {
+  border-right: 1px solid var(--border);
+}
+
+.diff-side-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 16px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diff-side-content {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.7;
+  font-family: var(--font-body);
+  color: var(--text-secondary);
+}
+
 .diff-chunk {
   /* inline by default */
 }
@@ -4927,6 +5018,23 @@
   text-decoration: line-through;
   border-radius: 2px;
   padding: 1px 2px;
+}
+
+/* Draft compare button in history list */
+.editor-meta-draft-compare {
+  font-size: 11px;
+  padding: 1px 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.editor-meta-draft-compare:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
 }
 
 .floating-editor-header {

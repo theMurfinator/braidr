@@ -221,8 +221,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   }), [onDraftChange]);
   const wordCountDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showDiffModal, setShowDiffModal] = useState(false);
-  const [diffVersionA, setDiffVersionA] = useState<number | null>(null);
-  const [diffVersionB, setDiffVersionB] = useState<number | null>(null);
+  const [diffVersionA, setDiffVersionA] = useState<number | null>(null); // 0 = "Current (unsaved)"
+  const [diffVersionB, setDiffVersionB] = useState<number | null>(null); // 0 = "Current (unsaved)"
+  const [diffSideBySide, setDiffSideBySide] = useState(false);
   const [showStatusEditor, setShowStatusEditor] = useState(false);
   const [editingStatuses, setEditingStatuses] = useState<{ value: string; color: string }[]>([]);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
@@ -448,6 +449,21 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       // Plain click: single selection
       handleSceneSelect(key);
     }
+  };
+
+  // Get current editor content for draft comparison
+  const getCurrentEditorContent = (): string => {
+    const activeEd = isMultiSelect ? (activeEditorKey ? subEditorsRef.current.get(activeEditorKey) : null) : editor;
+    if (activeEd) return activeEd.getHTML();
+    // Fall back to draftContent
+    const key = isMultiSelect ? primarySceneKey : selectedSceneKey;
+    return key ? (draftContent[key] || '') : '';
+  };
+
+  const openDiffModal = (versionA: number, versionB: number) => {
+    setDiffVersionA(versionA);
+    setDiffVersionB(versionB);
+    setShowDiffModal(true);
   };
 
   // Draft versioning
@@ -1382,8 +1398,14 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               <div className="editor-meta-label-row">
                 <h4 className="editor-meta-label">History</h4>
                 <div className="editor-meta-label-row-actions">
-                  {sceneDrafts.length >= 2 && (
-                    <button className="editor-meta-edit-btn" onClick={() => { setDiffVersionA(sceneDrafts[sceneDrafts.length - 2].version); setDiffVersionB(sceneDrafts[sceneDrafts.length - 1].version); setShowDiffModal(true); }}>Compare</button>
+                  {sceneDrafts.length >= 1 && (
+                    <button className="editor-meta-edit-btn" onClick={() => {
+                      if (sceneDrafts.length >= 2) {
+                        openDiffModal(sceneDrafts[sceneDrafts.length - 2].version, sceneDrafts[sceneDrafts.length - 1].version);
+                      } else {
+                        openDiffModal(sceneDrafts[sceneDrafts.length - 1].version, 0);
+                      }
+                    }}>Compare</button>
                   )}
                   <button className="editor-meta-save-draft-btn" onClick={handleSaveDraft}>Save Draft</button>
                 </div>
@@ -1393,7 +1415,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                   {[...sceneDrafts].reverse().map(draft => (
                     <div key={draft.version} className="editor-meta-draft-item">
                       <span className="editor-meta-draft-version">V{draft.version}</span>
-                      <span className="editor-meta-draft-date">{new Date(draft.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      <span className="editor-meta-draft-date">{new Date(draft.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+                      <button className="editor-meta-draft-compare" title="Compare to current" onClick={() => openDiffModal(draft.version, 0)}>Diff</button>
                       <button className="editor-meta-draft-restore" onClick={() => handleRestoreDraft(draft.version)}>Restore</button>
                     </div>
                   ))}
@@ -1585,9 +1608,25 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       {showDiffModal && selectedScene && (() => {
         const key = getSceneKey(selectedScene);
         const sceneDrafts = drafts[key] || [];
-        const vA = sceneDrafts.find(d => d.version === diffVersionA);
-        const vB = sceneDrafts.find(d => d.version === diffVersionB);
-        const chunks = vA && vB ? computeWordDiff(stripHtml(vA.content), stripHtml(vB.content)) : [];
+        const currentContent = getCurrentEditorContent();
+        const getContentForVersion = (v: number | null): string => {
+          if (v === 0) return currentContent;
+          const draft = sceneDrafts.find(d => d.version === v);
+          return draft ? draft.content : '';
+        };
+        const textA = stripHtml(getContentForVersion(diffVersionA));
+        const textB = stripHtml(getContentForVersion(diffVersionB));
+        const chunks = (diffVersionA !== null && diffVersionB !== null && textA && textB)
+          ? computeWordDiff(textA, textB) : [];
+        const wordsAdded = chunks.filter(c => c.type === 'added').length;
+        const wordsRemoved = chunks.filter(c => c.type === 'removed').length;
+        const wordCountA = textA.split(/\s+/).filter(Boolean).length;
+        const wordCountB = textB.split(/\s+/).filter(Boolean).length;
+        const formatVersionLabel = (v: number) => {
+          if (v === 0) return 'Current (unsaved)';
+          const d = sceneDrafts.find(dr => dr.version === v);
+          return d ? `V${d.version} — ${new Date(d.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : `V${v}`;
+        };
         return (
           <div className="modal-overlay" onClick={() => setShowDiffModal(false)}>
             <div className="diff-modal" onClick={e => e.stopPropagation()}>
@@ -1598,26 +1637,63 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               <div className="diff-modal-selectors">
                 <div className="diff-modal-selector">
                   <label>From</label>
-                  <select value={diffVersionA || ''} onChange={e => setDiffVersionA(Number(e.target.value))}>
-                    {sceneDrafts.map(d => <option key={d.version} value={d.version}>V{d.version} — {new Date(d.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</option>)}
+                  <select value={diffVersionA ?? ''} onChange={e => setDiffVersionA(Number(e.target.value))}>
+                    {sceneDrafts.map(d => <option key={d.version} value={d.version}>{formatVersionLabel(d.version)}</option>)}
+                    <option value={0}>Current (unsaved)</option>
                   </select>
                 </div>
                 <div className="diff-modal-selector">
                   <label>To</label>
-                  <select value={diffVersionB || ''} onChange={e => setDiffVersionB(Number(e.target.value))}>
-                    {sceneDrafts.map(d => <option key={d.version} value={d.version}>V{d.version} — {new Date(d.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</option>)}
+                  <select value={diffVersionB ?? ''} onChange={e => setDiffVersionB(Number(e.target.value))}>
+                    {sceneDrafts.map(d => <option key={d.version} value={d.version}>{formatVersionLabel(d.version)}</option>)}
+                    <option value={0}>Current (unsaved)</option>
                   </select>
                 </div>
+                <button
+                  className={`diff-modal-layout-btn${diffSideBySide ? ' active' : ''}`}
+                  onClick={() => setDiffSideBySide(!diffSideBySide)}
+                  title={diffSideBySide ? 'Switch to inline view' : 'Switch to side-by-side view'}
+                >
+                  {diffSideBySide ? '≡' : '∥'}
+                </button>
+              </div>
+              <div className="diff-modal-stats">
+                <span className="diff-stat-item">From: {wordCountA} words</span>
+                <span className="diff-stat-item">To: {wordCountB} words</span>
+                <span className="diff-stat-item diff-stat-added">+{wordsAdded} added</span>
+                <span className="diff-stat-item diff-stat-removed">−{wordsRemoved} removed</span>
+                <span className="diff-stat-item">Net: {wordCountB - wordCountA >= 0 ? '+' : ''}{wordCountB - wordCountA}</span>
               </div>
               <div className="diff-modal-legend">
                 <span className="diff-legend-added">+ Added</span>
                 <span className="diff-legend-removed">− Removed</span>
               </div>
-              <div className="diff-modal-body">
-                {chunks.map((chunk, i) => (
-                  <span key={i} className={`diff-chunk diff-${chunk.type}`}>{chunk.text} </span>
-                ))}
-              </div>
+              {diffSideBySide ? (
+                <div className="diff-modal-side-by-side">
+                  <div className="diff-side diff-side-from">
+                    <div className="diff-side-label">From: {formatVersionLabel(diffVersionA ?? 0)}</div>
+                    <div className="diff-side-content">
+                      {chunks.filter(c => c.type !== 'added').map((chunk, i) => (
+                        <span key={i} className={`diff-chunk diff-${chunk.type}`}>{chunk.text} </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="diff-side diff-side-to">
+                    <div className="diff-side-label">To: {formatVersionLabel(diffVersionB ?? 0)}</div>
+                    <div className="diff-side-content">
+                      {chunks.filter(c => c.type !== 'removed').map((chunk, i) => (
+                        <span key={i} className={`diff-chunk diff-${chunk.type}`}>{chunk.text} </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="diff-modal-body">
+                  {chunks.map((chunk, i) => (
+                    <span key={i} className={`diff-chunk diff-${chunk.type}`}>{chunk.text} </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         );
