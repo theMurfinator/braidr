@@ -6545,6 +6545,39 @@
   background: var(--bg-primary);
 }
 
+/* Meta panel tab switcher */
+.editor-meta-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-meta-tab {
+  flex: 1;
+  padding: 6px 0 8px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.editor-meta-tab:hover {
+  color: var(--text-primary);
+}
+
+.editor-meta-tab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
+}
+
 .editor-meta-section {
   margin-bottom: 16px;
   padding-bottom: 16px;
@@ -6925,7 +6958,10 @@
 .editor-meta-goto-row {
   display: flex;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 0;
 }
 
 .editor-meta-goto-btn {
