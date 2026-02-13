@@ -3,55 +3,37 @@
 ## Phase 1: Technical Foundation (Week 1)
 
 ### Apple Developer Setup
-- [ ] Sign up for Apple Developer account ($99/year)
-  - URL: https://developer.apple.com/programs/enroll/
-  - Wait time: ~24-48 hours for approval
-- [ ] Generate code signing certificate
-- [ ] Set up notarization workflow
+- [x] Sign up for Apple Developer account ($99/year)
+- [x] Generate code signing certificate
+- [x] Set up notarization workflow
 - [ ] Test: DMG should install without "unidentified developer" warning
 
 ### Auto-Update System
-- [ ] Install electron-updater package
-  ```bash
-  npm install electron-updater
-  ```
-- [ ] Configure auto-update in main.js
-- [ ] Set up update server (GitHub Releases or custom)
+- [x] Install electron-updater package
+- [x] Configure auto-update in main.ts
+- [x] Set up update server (GitHub Releases)
 - [ ] Test: App should check for updates on launch
 - [ ] Add "Check for Updates" menu item
 
 ### License Key System
-- [ ] Sign up for Gumroad
-  - Product: "Braidr - Multi-POV Writing Tool"
-  - Price: $49 one-time
-  - Enable license keys
+- [x] Sign up for Keygen (replaced Gumroad)
+- [x] Stripe integration for payments
+- [x] Stripe webhook -> Keygen license creation -> email delivery
+- [x] Implement license key validation in Electron
+- [x] Customer portal at /portal (view license, manage billing)
 - [ ] Implement trial logic (7 days from first launch)
-- [ ] Add license key validation
-- [ ] Create "Enter License Key" dialog
-- [ ] Test: Trial expires after 7 days, license key unlocks
-- [ ] Add "Purchase License" link (opens Gumroad)
+- [ ] Add "Purchase License" link in app (opens Stripe payment link)
 
 ### App Icon
-- [ ] Commission professional icon on Fiverr/Upwork
-  - Budget: $50-100
-  - Requirements:
-    - 512x512 PNG
-    - 1024x1024 PNG (for marketing)
-    - .icns file for macOS
-  - Style: Clean, modern, evokes "braiding" or "weaving"
-- [ ] Replace Electron default icon
-- [ ] Update build configuration with new icon
-- [ ] Test: New icon shows in Dock, Finder, App Switcher
+- [x] Professional icon created
+- [x] Replace Electron default icon
+- [x] Update build configuration with new icon
+- [x] macOS dock icon works correctly
 
 ### Data Safety
-- [ ] Implement auto-backup system
-  - Save to: `~/Library/Application Support/Braidr/backups/`
-  - Frequency: Every save (keep last 10 versions)
-  - Format: Timestamped folder copies
-- [ ] Add "Restore from Backup" feature
-  - Menu: File → Restore from Backup
-  - Show list of backup dates
-  - Preview before restore
+- [x] Implement backup system (manual backup to user-selected location)
+- [ ] Implement auto-backup system (every save, keep last 10 versions)
+- [ ] Add "Restore from Backup" UI (menu -> show backup list -> preview -> restore)
 - [ ] Test: Corrupt a file, restore from backup
 
 ---
@@ -59,74 +41,64 @@
 ## Phase 2: Product Polish (Week 1-2)
 
 ### First-Run Experience
-- [ ] Create welcome screen
-  - "Welcome to Braidr"
-  - "Create your first project" button
-  - "See a demo project" option (pre-loaded 3-character example)
+- [ ] Create welcome screen ("Welcome to Braidr" + create/demo buttons)
+- [x] Demo project included (LOTR characters)
 - [ ] Add quick start tooltips (optional)
 - [ ] Test: New user can get started in <60 seconds
 
 ### Export Functionality
-- [ ] Add "Export Project" menu item
-  - File → Export → Export to Folder
-- [ ] Export all markdown files to user-selected folder
+- [x] Compile/export to PDF and DOCX
+- [x] Export from braided view and editor
 - [ ] Include timeline.json for re-import
-- [ ] Test: Export → import should preserve everything
+- [ ] Test: Export -> import should preserve everything
 
 ### Error Handling
-- [ ] Add user-friendly error messages
+- [ ] Add user-friendly error messages for common failures
 - [ ] Graceful handling of corrupted files
-- [ ] "Something went wrong" dialog with support email
 - [ ] Log errors to file for debugging
+- [ ] Set up Sentry for crash reporting (PostHog covers basic errors)
 
 ### Privacy Policy
-- [ ] Use template (e.g., getterms.io)
-- [ ] Customize for Braidr:
-  - Data stored locally
-  - No cloud sync (yet)
-  - Analytics via PostHog (if added)
+- [ ] Draft privacy policy (data stored locally, PostHog analytics, no cloud sync)
 - [ ] Add to landing page footer
-- [ ] Add Help → Privacy Policy menu item
+- [ ] Add Help -> Privacy Policy menu item
 
 ---
 
 ## Phase 3: Marketing Foundation (Week 2)
 
 ### Landing Page
-- [ ] Set up Next.js project
-- [ ] Deploy to Vercel
-- [ ] Connect domain (braidr.app)
+- [x] Landing page project on Vercel (getbraider.com)
 - [ ] Pages:
   - [ ] Home (hero + features + demo video + CTA)
   - [ ] Privacy Policy
   - [ ] Terms of Service (simple)
 - [ ] Email capture (ConvertKit integration)
-- [ ] Analytics setup (PostHog + GA4)
-- [ ] Test: Visitors → signups tracked correctly
+- [x] Analytics setup (PostHog)
+- [ ] Test: Visitors -> signups tracked correctly
 
 ### Demo Videos
 - [ ] Script 1: "The Problem with Scrivener" (30s)
-  - Hook: "If you write multiple POV characters..."
-  - Problem: Current tools don't understand braided timelines
-  - Solution: Show POV → Braided views
 - [ ] Script 2: "Feature Demo" (60s)
-  - Show full workflow: Create character → Add scenes → Braid → Editor
 - [ ] Script 3: "Local Files, Your Data" (30s)
-  - Emphasize markdown files, no lock-in, git compatible
-- [ ] Record videos (iPhone is fine)
+- [ ] Record videos
 - [ ] Basic editing (CapCut/iMovie)
 - [ ] Upload to Vimeo/YouTube
 
-### Analytics Infrastructure
-- [ ] PostHog setup
-  - Track: page views, signups, button clicks
-  - Session recordings
-  - Heatmaps
-- [ ] Google Analytics 4
-  - Track: conversions, user flow
-- [ ] Data export endpoint
-  - `/api/analytics` returns JSON for me to read
-  - Weekly automated export
+### Analytics & Admin Infrastructure
+- [x] PostHog integrated in Electron app (22 tracked events)
+- [x] Super properties: total_scenes, total_words, character_count on every event
+- [x] Admin dashboard at /admin with Clerk auth
+- [x] Revenue stats from Stripe (MRR, subscribers, total revenue, balance)
+- [x] Monthly revenue bar chart (12 months)
+- [x] Cumulative subscriber line chart (12 months)
+- [x] Feedback inbox from Vercel Blob
+- [x] PostHog website pageviews + unique visitors charts (when configured)
+- [ ] **Deploy**: Merge branch to main and redeploy to Vercel
+- [ ] **Env vars**: Set up ADMIN_EMAILS, Blob store, POSTHOG_PROJECT_ID, POSTHOG_PERSONAL_API_KEY
+- [ ] **Routing**: Add /admin rewrite to getbraider.com project
+- [ ] Test: Submit feedback from app -> shows on dashboard
+- [ ] Test: PostHog events flowing in PostHog Activity view
 
 ---
 
@@ -152,23 +124,26 @@
 - [ ] Test for 7 days
 
 ### Feedback Collection
-- [ ] Set up email workflow (ConvertKit)
+- [x] In-app feedback modal (Bug Report / Feature Request / General)
+- [x] Feedback stored in Vercel Blob (works without Resend)
+- [x] Feedback visible in admin dashboard
+- [ ] Optional: Set up Resend for email backup (RESEND_API_KEY)
+- [ ] Set up email drip workflow (ConvertKit)
   - Day 1: Welcome + quick start guide
-  - Day 3: "How's it going?" (ask for feedback)
-  - Day 5: "Trial ending soon" (upgrade CTA)
-  - Day 8: "Thanks for trying" (discount code)
-- [ ] Create feedback form (Typeform or Google Form)
-- [ ] Respond to every email personally
+  - Day 3: "How's it going?"
+  - Day 5: "Trial ending soon"
+  - Day 8: "Thanks for trying" + discount code
+- [ ] Respond to every feedback personally
 
 ---
 
 ## Phase 5: Iterate & Scale (Week 4+)
 
 ### Data Analysis
-- [ ] Weekly performance review
+- [ ] Weekly performance review using admin dashboard
   - Ad metrics: CPM, CPC, CTR, conversion rate
   - Landing page: bounce rate, time on page, signup rate
-  - Product: trial starts, trial→paid conversion, feature usage
+  - Product: trial starts, trial->paid conversion, feature usage (PostHog)
 - [ ] Kill losing ads, double down on winners
 - [ ] A/B test landing page variations
 - [ ] Iterate messaging based on data
@@ -190,21 +165,22 @@
 
 ## Success Checkpoints
 
-### ✅ Ready for Soft Launch
-- Code signing works
-- Auto-updates work
-- License keys work
-- Professional icon
-- Landing page live
-- At least 1 demo video
+### Ready for Soft Launch
+- [x] Code signing works
+- [ ] Auto-updates tested end-to-end
+- [x] License key system works
+- [x] Professional icon
+- [ ] Landing page live with content
+- [ ] At least 1 demo video
+- [ ] Trial logic implemented
 
-### ✅ Ready for Scale
+### Ready for Scale
 - 100+ waitlist signups
 - <$10 cost per signup
-- 15%+ trial→paid conversion
+- 15%+ trial->paid conversion
 - No critical bugs
 
-### ✅ Product-Market Fit
+### Product-Market Fit
 - Consistent daily signups
 - Positive qualitative feedback
 - Users recommending to others
@@ -220,7 +196,6 @@
 - Collaboration features
 - Timeline visualization
 - Scrivener import
-- Word/PDF compile
 - Mobile companion app
 
 ### Marketing Channels to Explore
@@ -233,5 +208,5 @@
 ### Pricing Experiments
 - A/B test: $39 vs $49 vs $59
 - Launch discount: $35 for first 100 customers
-- Bundle pricing: Braidr + something else
-- Subscription option: $9/month or $49/year
+- Bundle pricing
+- Subscription option: $9/month or $49/year (currently subscription via Stripe)
