@@ -906,6 +906,28 @@ ipcMain.handle(IPC_CHANNELS.OPEN_PURCHASE_URL, async () => {
   }
 });
 
+ipcMain.handle(IPC_CHANNELS.OPEN_FEEDBACK_EMAIL, async (_event, category: string, message: string) => {
+  try {
+    const response = await net.fetch('https://getbraider.com/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category,
+        message,
+        appVersion: app.getVersion(),
+        platform: process.platform,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+    if (!response.ok) {
+      return { success: false, error: `Server responded with ${response.status}` };
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
 // PDF Export via hidden BrowserWindow
 ipcMain.handle(IPC_CHANNELS.PRINT_TO_PDF, async (_event, html: string) => {
   let pdfWindow: BrowserWindow | null = null;

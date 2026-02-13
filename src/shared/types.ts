@@ -232,4 +232,5 @@ export const IPC_CHANNELS = {
   ACTIVATE_LICENSE: 'activate-license',
   DEACTIVATE_LICENSE: 'deactivate-license',
   OPEN_PURCHASE_URL: 'open-purchase-url',
+  OPEN_FEEDBACK_EMAIL: 'open-feedback-email',
 } as const;

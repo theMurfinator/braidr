@@ -168,6 +168,10 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     const saved = localStorage.getItem('editor-show-meta');
     return saved !== null ? JSON.parse(saved) : true;
   });
+  const [metaTab, setMetaTab] = useState<'scene' | 'meta'>(() => {
+    const saved = localStorage.getItem('editor-meta-tab');
+    return (saved === 'scene' || saved === 'meta') ? saved : 'scene';
+  });
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -221,8 +225,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   }), [onDraftChange]);
   const wordCountDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showDiffModal, setShowDiffModal] = useState(false);
-  const [diffVersionA, setDiffVersionA] = useState<number | null>(null);
-  const [diffVersionB, setDiffVersionB] = useState<number | null>(null);
+  const [diffVersionA, setDiffVersionA] = useState<number | null>(null); // 0 = "Current (unsaved)"
+  const [diffVersionB, setDiffVersionB] = useState<number | null>(null); // 0 = "Current (unsaved)"
+  const [diffSideBySide, setDiffSideBySide] = useState(false);
   const [showStatusEditor, setShowStatusEditor] = useState(false);
   const [editingStatuses, setEditingStatuses] = useState<{ value: string; color: string }[]>([]);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
@@ -337,6 +342,10 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   }, [metaWidth]);
 
   useEffect(() => {
+    localStorage.setItem('editor-meta-tab', metaTab);
+  }, [metaTab]);
+
+  useEffect(() => {
     localStorage.setItem('editor-show-toolbar', JSON.stringify(showToolbar));
   }, [showToolbar]);
 
@@ -448,6 +457,21 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       // Plain click: single selection
       handleSceneSelect(key);
     }
+  };
+
+  // Get current editor content for draft comparison
+  const getCurrentEditorContent = (): string => {
+    const activeEd = isMultiSelect ? (activeEditorKey ? subEditorsRef.current.get(activeEditorKey) : null) : editor;
+    if (activeEd) return activeEd.getHTML();
+    // Fall back to draftContent
+    const key = isMultiSelect ? primarySceneKey : selectedSceneKey;
+    return key ? (draftContent[key] || '') : '';
+  };
+
+  const openDiffModal = (versionA: number, versionB: number) => {
+    setDiffVersionA(versionA);
+    setDiffVersionB(versionB);
+    setShowDiffModal(true);
   };
 
   // Draft versioning
@@ -1055,419 +1079,449 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       {/* Right: Metadata Panel */}
       {showMeta && <div className="editor-resize-handle" onMouseDown={e => handleResizeStart(e, 'meta')} />}
       {showMeta && <div className="editor-meta" style={{ width: metaWidth }}>
+        {/* Tab switcher */}
+        <div className="editor-meta-tabs">
+          <button
+            className={`editor-meta-tab ${metaTab === 'scene' ? 'active' : ''}`}
+            onClick={() => setMetaTab('scene')}
+          >Scene</button>
+          <button
+            className={`editor-meta-tab ${metaTab === 'meta' ? 'active' : ''}`}
+            onClick={() => setMetaTab('meta')}
+          >Meta</button>
+        </div>
+
         {/* Multi-select indicator */}
         {isMultiSelect && selectedScene && (
           <div className="editor-meta-multi-indicator">
             Showing: {characters.find(c => c.id === selectedScene.characterId)?.name} Scene {selectedScene.sceneNumber}
           </div>
         )}
-        {/* Time Tracking */}
-        <div className="editor-meta-section editor-timer-section">
-          {selectedScene && (() => {
-            const key = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
-            const totals = getSceneSessionTotals(sceneSessions, key);
-            const totalHrs = Math.floor(totals.totalMs / 3600000);
-            const totalMins = Math.floor((totals.totalMs % 3600000) / 60000);
-            const totalStr = totals.totalMs > 0 ? (totalHrs > 0 ? `${totalHrs}h ${totalMins}m` : `${totalMins}m`) : '0m';
-            const sessions = sceneSessionsList ? sceneSessionsList(key) : [];
-            return (
-              <>
-                {/* Total time header */}
-                <div className="time-track-header">
-                  <span className="time-track-total">{totalStr}</span>
-                  <span className="time-track-total-label">total tracked</span>
-                </div>
 
-                {/* Timer + manual add row */}
-                <div className="time-track-actions">
-                  <div className="time-track-timer-row">
-                    <div className="editor-timer-display">
-                      {isTimerForThisScene ? formatTimer(timerElapsedProp) : '0:00'}
-                    </div>
-                    <div className="editor-timer-controls">
-                      {isTimerForThisScene && timerRunningProp ? (
-                        <button className="editor-timer-btn stop" onClick={onStopTimer}>Stop</button>
-                      ) : (
-                        <button
-                          className="editor-timer-btn start"
-                          onClick={() => selectedSceneKey && onStartTimer?.(selectedSceneKey)}
-                        >
-                          {timerActive && !isTimerForThisScene ? 'Switch' : 'Start'}
-                        </button>
-                      )}
-                      {isTimerForThisScene && timerElapsedProp > 0 && !timerRunningProp && (
-                        <button className="editor-timer-btn reset" onClick={onResetTimer}>Reset</button>
-                      )}
-                    </div>
-                  </div>
-                  {/* Manual time entry */}
-                  {!showManualTimeInput ? (
-                    <button className="editor-manual-time-toggle" onClick={() => setShowManualTimeInput(true)}>
-                      + Add time
-                    </button>
-                  ) : (
-                    <div className="editor-manual-time-form">
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="h"
-                        value={manualHours}
-                        onChange={e => setManualHours(e.target.value)}
-                        className="editor-manual-time-input"
-                      />
-                      <span className="editor-manual-time-label">h</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="59"
-                        placeholder="m"
-                        value={manualMinutes}
-                        onChange={e => setManualMinutes(e.target.value)}
-                        className="editor-manual-time-input"
-                      />
-                      <span className="editor-manual-time-label">m</span>
+        {/* ===== SCENE TAB ===== */}
+        {metaTab === 'scene' && (
+          <>
+            {/* Status */}
+            <div className="editor-meta-section">
+              <div className="editor-meta-label-row">
+                <h4 className="editor-meta-label">Status</h4>
+                <button className="editor-meta-edit-btn" onClick={openStatusEditor}>Edit</button>
+              </div>
+              <div className="editor-meta-status-pill-wrap">
+                <button
+                  className="editor-meta-status-pill"
+                  style={{ '--status-color': (statusOptions.find(s => s.value === (currentMeta['_status'] as string))?.color) || '#9e9e9e' } as React.CSSProperties}
+                  onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                >
+                  {(currentMeta['_status'] as string) || 'No status'}
+                </button>
+                {showStatusDropdown && (
+                  <div className="editor-meta-status-dropdown">
+                    {statusOptions.map(s => (
                       <button
-                        className="editor-timer-btn start"
-                        onClick={() => {
-                          const totalMinsVal = (parseInt(manualHours) || 0) * 60 + (parseInt(manualMinutes) || 0);
-                          if (totalMinsVal > 0) {
-                            onAddManualTime?.(key, totalMinsVal);
-                            setManualHours('');
-                            setManualMinutes('');
-                            setShowManualTimeInput(false);
-                          }
-                        }}
+                        key={s.value}
+                        className={`editor-meta-status-option ${(currentMeta['_status'] as string) === s.value ? 'active' : ''}`}
+                        onClick={() => { handleMetaChange('_status', s.value); setShowStatusDropdown(false); }}
                       >
-                        Add
+                        <span className="editor-meta-status-dot" style={{ background: s.color }} />
+                        {s.value}
                       </button>
-                      <button className="editor-timer-btn reset" onClick={() => { setShowManualTimeInput(false); setManualHours(''); setManualMinutes(''); }}>
-                        Cancel
-                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="editor-meta-section">
+              <h4 className="editor-meta-label">Tags</h4>
+              <div className="editor-meta-tags">
+                {selectedScene && selectedScene.tags.map(tagName => (
+                  <span
+                    key={tagName}
+                    className={`tag ${getTagCategory(tagName)} clickable`}
+                    onClick={() => handleToggleTag(tagName)}
+                    title="Click to remove"
+                  >
+                    #{tagName}
+                  </span>
+                ))}
+                <div className="tag-picker-container" ref={tagPickerRef}>
+                  <button className="add-tag-btn" onClick={() => setShowTagPicker(!showTagPicker)}>+</button>
+                  {showTagPicker && (
+                    <div className="tag-picker-dropdown">
+                      <div className="tag-picker-create">
+                        <input
+                          type="text"
+                          placeholder="Search or create..."
+                          value={newTagName}
+                          onChange={e => setNewTagName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateNewTag(); } }}
+                          autoFocus
+                        />
+                        <select
+                          className="tag-picker-category"
+                          value={newTagCategory}
+                          onChange={e => setNewTagCategory(e.target.value as typeof newTagCategory)}
+                          title="Tag category"
+                        >
+                          <option value="people">Person</option>
+                          <option value="locations">Location</option>
+                          <option value="arcs">Arc</option>
+                          <option value="things">Thing</option>
+                          <option value="time">Time</option>
+                        </select>
+                        <button onClick={handleCreateNewTag} disabled={!newTagName.trim()}>Add</button>
+                      </div>
+                      {tags
+                        .filter(t => !(selectedScene?.tags || []).includes(t.name))
+                        .filter(t => !newTagName.trim() || t.name.toLowerCase().includes(newTagName.trim().toLowerCase()))
+                        .map(tag => (
+                          <div key={tag.id} className={`tag-picker-item ${tag.category}`} onClick={() => { handleToggleTag(tag.name); setShowTagPicker(false); setNewTagName(''); }}>
+                            #{tag.name}
+                          </div>
+                        ))}
                     </div>
                   )}
                 </div>
-
-                {/* Session list (scrollable) */}
-                {sessions.length > 0 && (
-                  <div className="time-track-sessions">
-                    <div className="time-track-sessions-header">
-                      <span>Sessions</span>
-                      <span className="time-track-sessions-count">{sessions.length}</span>
-                    </div>
-                    <div className="time-track-sessions-list">
-                      {sessions.map(s => {
-                        const sHrs = Math.floor(s.durationMs / 3600000);
-                        const sMins = Math.floor((s.durationMs % 3600000) / 60000);
-                        const sSecs = Math.floor((s.durationMs % 60000) / 1000);
-                        const durStr = sHrs > 0
-                          ? `${sHrs}h ${sMins}m`
-                          : sMins > 0
-                            ? `${sMins}m ${sSecs}s`
-                            : `${sSecs}s`;
-                        const isManual = s.id.startsWith('manual-');
-                        const dateObj = new Date(s.startTime);
-                        const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        return (
-                          <div key={s.id} className="time-track-session-row">
-                            <div className="time-track-session-info">
-                              <span className="time-track-session-date">{s.date}</span>
-                              <span className="time-track-session-time">
-                                {isManual ? 'Manual entry' : timeStr}
-                              </span>
-                            </div>
-                            <div className="time-track-session-right">
-                              <span className="time-track-session-dur">{durStr}</span>
-                              <button
-                                className="time-track-session-delete"
-                                onClick={() => onDeleteSession?.(s.id)}
-                                title="Delete entry"
-                              >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </div>
-
-        {/* Scene Synopsis (formerly Notes) */}
-        <div className="editor-meta-section">
-          <h4 className="editor-meta-label">Scene Synopsis</h4>
-          {notesEditorFocused && notesEditor && (
-            <div className="editor-meta-notes-toolbar">
-              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
-              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
-              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
-              <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
-            </div>
-          )}
-          <EditorContent editor={notesEditor} className="editor-meta-notes-editor" />
-        </div>
-
-        {/* Status */}
-        <div className="editor-meta-section">
-          <div className="editor-meta-label-row">
-            <h4 className="editor-meta-label">Status</h4>
-            <button className="editor-meta-edit-btn" onClick={openStatusEditor}>Edit</button>
-          </div>
-          <div className="editor-meta-status-pill-wrap">
-            <button
-              className="editor-meta-status-pill"
-              style={{ '--status-color': (statusOptions.find(s => s.value === (currentMeta['_status'] as string))?.color) || '#9e9e9e' } as React.CSSProperties}
-              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-            >
-              {(currentMeta['_status'] as string) || 'No status'}
-            </button>
-            {showStatusDropdown && (
-              <div className="editor-meta-status-dropdown">
-                {statusOptions.map(s => (
-                  <button
-                    key={s.value}
-                    className={`editor-meta-status-option ${(currentMeta['_status'] as string) === s.value ? 'active' : ''}`}
-                    onClick={() => { handleMetaChange('_status', s.value); setShowStatusDropdown(false); }}
-                  >
-                    <span className="editor-meta-status-dot" style={{ background: s.color }} />
-                    {s.value}
-                  </button>
-                ))}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* Tags */}
-        <div className="editor-meta-section">
-          <h4 className="editor-meta-label">Tags</h4>
-          <div className="editor-meta-tags">
-            {selectedScene && selectedScene.tags.map(tagName => (
-              <span
-                key={tagName}
-                className={`tag ${getTagCategory(tagName)} clickable`}
-                onClick={() => handleToggleTag(tagName)}
-                title="Click to remove"
-              >
-                #{tagName}
-              </span>
-            ))}
-            <div className="tag-picker-container" ref={tagPickerRef}>
-              <button className="add-tag-btn" onClick={() => setShowTagPicker(!showTagPicker)}>+</button>
-              {showTagPicker && (
-                <div className="tag-picker-dropdown">
-                  <div className="tag-picker-create">
-                    <input
-                      type="text"
-                      placeholder="Search or create..."
-                      value={newTagName}
-                      onChange={e => setNewTagName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateNewTag(); } }}
-                      autoFocus
-                    />
-                    <select
-                      className="tag-picker-category"
-                      value={newTagCategory}
-                      onChange={e => setNewTagCategory(e.target.value as typeof newTagCategory)}
-                      title="Tag category"
-                    >
-                      <option value="people">Person</option>
-                      <option value="locations">Location</option>
-                      <option value="arcs">Arc</option>
-                      <option value="things">Thing</option>
-                      <option value="time">Time</option>
-                    </select>
-                    <button onClick={handleCreateNewTag} disabled={!newTagName.trim()}>Add</button>
-                  </div>
-                  {tags
-                    .filter(t => !(selectedScene?.tags || []).includes(t.name))
-                    .filter(t => !newTagName.trim() || t.name.toLowerCase().includes(newTagName.trim().toLowerCase()))
-                    .map(tag => (
-                      <div key={tag.id} className={`tag-picker-item ${tag.category}`} onClick={() => { handleToggleTag(tag.name); setShowTagPicker(false); setNewTagName(''); }}>
-                        #{tag.name}
-                      </div>
-                    ))}
+            {/* Scene Synopsis */}
+            <div className="editor-meta-section">
+              <h4 className="editor-meta-label">Scene Synopsis</h4>
+              {notesEditorFocused && notesEditor && (
+                <div className="editor-meta-notes-toolbar">
+                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
+                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
+                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
+                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
                 </div>
               )}
+              <EditorContent editor={notesEditor} className="editor-meta-notes-editor" />
             </div>
-          </div>
-        </div>
 
-        {/* Scratchpad */}
-        <div className="editor-meta-section">
-          <h4 className="editor-meta-label">Scratchpad</h4>
-          {scratchpadEditorFocused && scratchpadEditor && (
-            <div className="editor-meta-notes-toolbar">
-              <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
-              <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
-              <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
-              <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
-            </div>
-          )}
-          <EditorContent editor={scratchpadEditor} className="editor-meta-scratchpad-editor" />
-        </div>
-
-        {/* Changes Needed from Notes todo widgets + inline todos */}
-        {selectedScene && (() => {
-          const charName = characters.find(c => c.id === selectedScene.characterId)?.name || '';
-          const sceneKey = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
-          const matchingTodos = getTodosForScene(sceneTodos, selectedScene.characterId, charName, selectedScene.sceneNumber);
-          return (
+            {/* Scratchpad */}
             <div className="editor-meta-section">
-              <h4 className="editor-meta-label">Changes Needed</h4>
-              <div className="editor-meta-todos-list">
-                {matchingTodos.map((todo) => (
-                  <div key={todo.todoId} className={`editor-meta-todo-item ${todo.done ? 'done' : ''}`}>
+              <h4 className="editor-meta-label">Scratchpad</h4>
+              {scratchpadEditorFocused && scratchpadEditor && (
+                <div className="editor-meta-notes-toolbar">
+                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
+                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
+                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
+                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
+                </div>
+              )}
+              <EditorContent editor={scratchpadEditor} className="editor-meta-scratchpad-editor" />
+            </div>
+
+            {/* Changes Needed */}
+            {selectedScene && (() => {
+              const charName = characters.find(c => c.id === selectedScene.characterId)?.name || '';
+              const sceneKey = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
+              const matchingTodos = getTodosForScene(sceneTodos, selectedScene.characterId, charName, selectedScene.sceneNumber);
+              return (
+                <div className="editor-meta-section">
+                  <h4 className="editor-meta-label">Changes Needed</h4>
+                  <div className="editor-meta-todos-list">
+                    {matchingTodos.map((todo) => (
+                      <div key={todo.todoId} className={`editor-meta-todo-item ${todo.done ? 'done' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={todo.done}
+                          onChange={() => onTodoToggle?.(todo)}
+                          className="editor-meta-todo-checkbox"
+                        />
+                        <span className="editor-meta-todo-text">{todo.description || '(no description)'}</span>
+                        {todo.isInline ? (
+                          <button
+                            className="editor-meta-todo-remove"
+                            onClick={() => onRemoveInlineTodo?.(sceneKey, todo.todoId)}
+                            title="Remove"
+                          >×</button>
+                        ) : (
+                          <span className="editor-meta-todo-source" title={`From note: ${todo.noteTitle}`}>{todo.noteTitle}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <form
+                    className="editor-meta-todo-add"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const input = (e.target as HTMLFormElement).elements.namedItem('todoInput') as HTMLInputElement;
+                      const val = input.value.trim();
+                      if (val && onAddInlineTodo) {
+                        onAddInlineTodo(sceneKey, val);
+                        input.value = '';
+                      }
+                    }}
+                  >
                     <input
-                      type="checkbox"
-                      checked={todo.done}
-                      onChange={() => onTodoToggle?.(todo)}
-                      className="editor-meta-todo-checkbox"
+                      name="todoInput"
+                      className="editor-meta-todo-input"
+                      placeholder="Add a change…"
+                      autoComplete="off"
                     />
-                    <span className="editor-meta-todo-text">{todo.description || '(no description)'}</span>
-                    {todo.isInline ? (
-                      <button
-                        className="editor-meta-todo-remove"
-                        onClick={() => onRemoveInlineTodo?.(sceneKey, todo.todoId)}
-                        title="Remove"
-                      >×</button>
-                    ) : (
-                      <span className="editor-meta-todo-source" title={`From note: ${todo.noteTitle}`}>{todo.noteTitle}</span>
+                  </form>
+                </div>
+              );
+            })()}
+
+            {/* Time Tracking */}
+            <div className="editor-meta-section editor-timer-section">
+              {selectedScene && (() => {
+                const key = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
+                const totals = getSceneSessionTotals(sceneSessions, key);
+                const totalHrs = Math.floor(totals.totalMs / 3600000);
+                const totalMins = Math.floor((totals.totalMs % 3600000) / 60000);
+                const totalStr = totals.totalMs > 0 ? (totalHrs > 0 ? `${totalHrs}h ${totalMins}m` : `${totalMins}m`) : '0m';
+                const sessions = sceneSessionsList ? sceneSessionsList(key) : [];
+                return (
+                  <>
+                    {/* Total time header */}
+                    <div className="time-track-header">
+                      <span className="time-track-total">{totalStr}</span>
+                      <span className="time-track-total-label">total tracked</span>
+                    </div>
+
+                    {/* Timer + manual add row */}
+                    <div className="time-track-actions">
+                      <div className="time-track-timer-row">
+                        <div className="editor-timer-display">
+                          {isTimerForThisScene ? formatTimer(timerElapsedProp) : '0:00'}
+                        </div>
+                        <div className="editor-timer-controls">
+                          {isTimerForThisScene && timerRunningProp ? (
+                            <button className="editor-timer-btn stop" onClick={onStopTimer}>Stop</button>
+                          ) : (
+                            <button
+                              className="editor-timer-btn start"
+                              onClick={() => selectedSceneKey && onStartTimer?.(selectedSceneKey)}
+                            >
+                              {timerActive && !isTimerForThisScene ? 'Switch' : 'Start'}
+                            </button>
+                          )}
+                          {isTimerForThisScene && timerElapsedProp > 0 && !timerRunningProp && (
+                            <button className="editor-timer-btn reset" onClick={onResetTimer}>Reset</button>
+                          )}
+                        </div>
+                      </div>
+                      {/* Manual time entry */}
+                      {!showManualTimeInput ? (
+                        <button className="editor-manual-time-toggle" onClick={() => setShowManualTimeInput(true)}>
+                          + Add time
+                        </button>
+                      ) : (
+                        <div className="editor-manual-time-form">
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="h"
+                            value={manualHours}
+                            onChange={e => setManualHours(e.target.value)}
+                            className="editor-manual-time-input"
+                          />
+                          <span className="editor-manual-time-label">h</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="59"
+                            placeholder="m"
+                            value={manualMinutes}
+                            onChange={e => setManualMinutes(e.target.value)}
+                            className="editor-manual-time-input"
+                          />
+                          <span className="editor-manual-time-label">m</span>
+                          <button
+                            className="editor-timer-btn start"
+                            onClick={() => {
+                              const totalMinsVal = (parseInt(manualHours) || 0) * 60 + (parseInt(manualMinutes) || 0);
+                              if (totalMinsVal > 0) {
+                                onAddManualTime?.(key, totalMinsVal);
+                                setManualHours('');
+                                setManualMinutes('');
+                                setShowManualTimeInput(false);
+                              }
+                            }}
+                          >
+                            Add
+                          </button>
+                          <button className="editor-timer-btn reset" onClick={() => { setShowManualTimeInput(false); setManualHours(''); setManualMinutes(''); }}>
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Session list (scrollable) */}
+                    {sessions.length > 0 && (
+                      <div className="time-track-sessions">
+                        <div className="time-track-sessions-header">
+                          <span>Sessions</span>
+                          <span className="time-track-sessions-count">{sessions.length}</span>
+                        </div>
+                        <div className="time-track-sessions-list">
+                          {sessions.map(s => {
+                            const sHrs = Math.floor(s.durationMs / 3600000);
+                            const sMins = Math.floor((s.durationMs % 3600000) / 60000);
+                            const sSecs = Math.floor((s.durationMs % 60000) / 1000);
+                            const durStr = sHrs > 0
+                              ? `${sHrs}h ${sMins}m`
+                              : sMins > 0
+                                ? `${sMins}m ${sSecs}s`
+                                : `${sSecs}s`;
+                            const isManual = s.id.startsWith('manual-');
+                            const dateObj = new Date(s.startTime);
+                            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            return (
+                              <div key={s.id} className="time-track-session-row">
+                                <div className="time-track-session-info">
+                                  <span className="time-track-session-date">{s.date}</span>
+                                  <span className="time-track-session-time">
+                                    {isManual ? 'Manual entry' : timeStr}
+                                  </span>
+                                </div>
+                                <div className="time-track-session-right">
+                                  <span className="time-track-session-dur">{durStr}</span>
+                                  <button
+                                    className="time-track-session-delete"
+                                    onClick={() => onDeleteSession?.(s.id)}
+                                    title="Delete entry"
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </>
+        )}
+
+        {/* ===== META TAB ===== */}
+        {metaTab === 'meta' && (
+          <>
+            {/* Metadata Fields */}
+            <div className="editor-meta-section">
+              <div className="editor-meta-label-row">
+                <h4 className="editor-meta-label">Properties</h4>
+                <button className="editor-meta-edit-btn" onClick={openMetaEditor}>Edit...</button>
+              </div>
+              <div className="editor-meta-fields">
+                {metadataFieldDefs.filter(f => f.id !== '_status').sort((a, b) => a.order - b.order).map(field => (
+                  <div
+                    key={field.id}
+                    className="editor-meta-field"
+                    draggable
+                    onDragStart={e => handleFieldDragStart(e, field.id)}
+                    onDragOver={handleFieldDragOver}
+                    onDrop={e => handleFieldDrop(e, field.id)}
+                  >
+                    <div className="editor-meta-field-header">
+                      <span className="editor-meta-field-drag-handle">⋮⋮</span>
+                      <label className="editor-meta-field-label">{field.label}</label>
+                    </div>
+                    {field.type === 'text' && (
+                      <input
+                        type="text"
+                        className="editor-meta-field-input"
+                        value={(currentMeta[field.id] as string) || ''}
+                        onChange={e => handleMetaChange(field.id, e.target.value)}
+                      />
+                    )}
+                    {field.type === 'dropdown' && (
+                      <select
+                        className="editor-meta-field-select"
+                        value={(currentMeta[field.id] as string) || ''}
+                        onChange={e => handleMetaChange(field.id, e.target.value)}
+                      >
+                        <option value="">—</option>
+                        {(field.options || []).map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    )}
+                    {field.type === 'multiselect' && (
+                      <div className="editor-meta-multiselect">
+                        {(field.options || []).map(opt => {
+                          const selected = ((currentMeta[field.id] as string[]) || []).includes(opt);
+                          return (
+                            <span
+                              key={opt}
+                              className={`editor-meta-chip ${selected ? 'selected' : ''}`}
+                              onClick={() => toggleMultiselect(field.id, opt)}
+                            >
+                              {opt}
+                            </span>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 ))}
+                {metadataFieldDefs.filter(f => f.id !== '_status').length === 0 && (
+                  <p className="editor-meta-empty">No properties yet. Click "Edit..." to add some.</p>
+                )}
               </div>
-              <form
-                className="editor-meta-todo-add"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const input = (e.target as HTMLFormElement).elements.namedItem('todoInput') as HTMLInputElement;
-                  const val = input.value.trim();
-                  if (val && onAddInlineTodo) {
-                    onAddInlineTodo(sceneKey, val);
-                    input.value = '';
-                  }
-                }}
-              >
-                <input
-                  name="todoInput"
-                  className="editor-meta-todo-input"
-                  placeholder="Add a change…"
-                  autoComplete="off"
-                />
-              </form>
             </div>
-          );
-        })()}
 
-        {/* Go-to buttons */}
+            {/* History (formerly Drafts) */}
+            {selectedScene && (() => {
+              const key = getSceneKey(selectedScene);
+              const sceneDrafts = drafts[key] || [];
+              return (
+                <div className="editor-meta-section">
+                  <div className="editor-meta-label-row">
+                    <h4 className="editor-meta-label">History</h4>
+                    <div className="editor-meta-label-row-actions">
+                      {sceneDrafts.length >= 1 && (
+                        <button className="editor-meta-edit-btn" onClick={() => {
+                          if (sceneDrafts.length >= 2) {
+                            openDiffModal(sceneDrafts[sceneDrafts.length - 2].version, sceneDrafts[sceneDrafts.length - 1].version);
+                          } else {
+                            openDiffModal(sceneDrafts[sceneDrafts.length - 1].version, 0);
+                          }
+                        }}>Compare</button>
+                      )}
+                      <button className="editor-meta-save-draft-btn" onClick={handleSaveDraft}>Save Draft</button>
+                    </div>
+                  </div>
+                  {sceneDrafts.length > 0 ? (
+                    <div className="editor-meta-drafts-list">
+                      {[...sceneDrafts].reverse().map(draft => (
+                        <div key={draft.version} className="editor-meta-draft-item">
+                          <span className="editor-meta-draft-version">V{draft.version}</span>
+                          <span className="editor-meta-draft-date">{new Date(draft.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+                          <button className="editor-meta-draft-compare" title="Compare to current" onClick={() => openDiffModal(draft.version, 0)}>Diff</button>
+                          <button className="editor-meta-draft-restore" onClick={() => handleRestoreDraft(draft.version)}>Restore</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="editor-meta-drafts-empty">No saved drafts yet</span>
+                  )}
+                </div>
+              );
+            })()}
+          </>
+        )}
+
+        {/* Go-to buttons (always visible) */}
         {selectedScene && (
           <div className="editor-meta-goto-row">
             <button className="editor-meta-goto-btn" onClick={() => onGoToPov?.(selectedScene.id, selectedScene.characterId)}>POV</button>
             <button className="editor-meta-goto-btn" onClick={() => onGoToBraid?.(selectedScene.id)}>Braid</button>
           </div>
         )}
-
-        {/* History (formerly Drafts) */}
-        {selectedScene && (() => {
-          const key = getSceneKey(selectedScene);
-          const sceneDrafts = drafts[key] || [];
-          return (
-            <div className="editor-meta-section">
-              <div className="editor-meta-label-row">
-                <h4 className="editor-meta-label">History</h4>
-                <div className="editor-meta-label-row-actions">
-                  {sceneDrafts.length >= 2 && (
-                    <button className="editor-meta-edit-btn" onClick={() => { setDiffVersionA(sceneDrafts[sceneDrafts.length - 2].version); setDiffVersionB(sceneDrafts[sceneDrafts.length - 1].version); setShowDiffModal(true); }}>Compare</button>
-                  )}
-                  <button className="editor-meta-save-draft-btn" onClick={handleSaveDraft}>Save Draft</button>
-                </div>
-              </div>
-              {sceneDrafts.length > 0 ? (
-                <div className="editor-meta-drafts-list">
-                  {[...sceneDrafts].reverse().map(draft => (
-                    <div key={draft.version} className="editor-meta-draft-item">
-                      <span className="editor-meta-draft-version">V{draft.version}</span>
-                      <span className="editor-meta-draft-date">{new Date(draft.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                      <button className="editor-meta-draft-restore" onClick={() => handleRestoreDraft(draft.version)}>Restore</button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <span className="editor-meta-drafts-empty">No saved drafts yet</span>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* Metadata Fields */}
-        <div className="editor-meta-section">
-          <div className="editor-meta-label-row">
-            <h4 className="editor-meta-label">Properties</h4>
-            <button className="editor-meta-edit-btn" onClick={openMetaEditor}>Edit...</button>
-          </div>
-          <div className="editor-meta-fields">
-            {metadataFieldDefs.filter(f => f.id !== '_status').sort((a, b) => a.order - b.order).map(field => (
-              <div
-                key={field.id}
-                className="editor-meta-field"
-                draggable
-                onDragStart={e => handleFieldDragStart(e, field.id)}
-                onDragOver={handleFieldDragOver}
-                onDrop={e => handleFieldDrop(e, field.id)}
-              >
-                <div className="editor-meta-field-header">
-                  <span className="editor-meta-field-drag-handle">⋮⋮</span>
-                  <label className="editor-meta-field-label">{field.label}</label>
-                </div>
-                {field.type === 'text' && (
-                  <input
-                    type="text"
-                    className="editor-meta-field-input"
-                    value={(currentMeta[field.id] as string) || ''}
-                    onChange={e => handleMetaChange(field.id, e.target.value)}
-                  />
-                )}
-                {field.type === 'dropdown' && (
-                  <select
-                    className="editor-meta-field-select"
-                    value={(currentMeta[field.id] as string) || ''}
-                    onChange={e => handleMetaChange(field.id, e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {(field.options || []).map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                )}
-                {field.type === 'multiselect' && (
-                  <div className="editor-meta-multiselect">
-                    {(field.options || []).map(opt => {
-                      const selected = ((currentMeta[field.id] as string[]) || []).includes(opt);
-                      return (
-                        <span
-                          key={opt}
-                          className={`editor-meta-chip ${selected ? 'selected' : ''}`}
-                          onClick={() => toggleMultiselect(field.id, opt)}
-                        >
-                          {opt}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
-            {metadataFieldDefs.filter(f => f.id !== '_status').length === 0 && (
-              <p className="editor-meta-empty">No properties yet. Click "Edit..." to add some.</p>
-            )}
-          </div>
-        </div>
       </div>}
 
       {/* Metadata Field Editor Modal */}
@@ -1585,9 +1639,25 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       {showDiffModal && selectedScene && (() => {
         const key = getSceneKey(selectedScene);
         const sceneDrafts = drafts[key] || [];
-        const vA = sceneDrafts.find(d => d.version === diffVersionA);
-        const vB = sceneDrafts.find(d => d.version === diffVersionB);
-        const chunks = vA && vB ? computeWordDiff(stripHtml(vA.content), stripHtml(vB.content)) : [];
+        const currentContent = getCurrentEditorContent();
+        const getContentForVersion = (v: number | null): string => {
+          if (v === 0) return currentContent;
+          const draft = sceneDrafts.find(d => d.version === v);
+          return draft ? draft.content : '';
+        };
+        const textA = stripHtml(getContentForVersion(diffVersionA));
+        const textB = stripHtml(getContentForVersion(diffVersionB));
+        const chunks = (diffVersionA !== null && diffVersionB !== null && textA && textB)
+          ? computeWordDiff(textA, textB) : [];
+        const wordsAdded = chunks.filter(c => c.type === 'added').length;
+        const wordsRemoved = chunks.filter(c => c.type === 'removed').length;
+        const wordCountA = textA.split(/\s+/).filter(Boolean).length;
+        const wordCountB = textB.split(/\s+/).filter(Boolean).length;
+        const formatVersionLabel = (v: number) => {
+          if (v === 0) return 'Current (unsaved)';
+          const d = sceneDrafts.find(dr => dr.version === v);
+          return d ? `V${d.version} — ${new Date(d.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : `V${v}`;
+        };
         return (
           <div className="modal-overlay" onClick={() => setShowDiffModal(false)}>
             <div className="diff-modal" onClick={e => e.stopPropagation()}>
@@ -1598,26 +1668,63 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               <div className="diff-modal-selectors">
                 <div className="diff-modal-selector">
                   <label>From</label>
-                  <select value={diffVersionA || ''} onChange={e => setDiffVersionA(Number(e.target.value))}>
-                    {sceneDrafts.map(d => <option key={d.version} value={d.version}>V{d.version} — {new Date(d.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</option>)}
+                  <select value={diffVersionA ?? ''} onChange={e => setDiffVersionA(Number(e.target.value))}>
+                    {sceneDrafts.map(d => <option key={d.version} value={d.version}>{formatVersionLabel(d.version)}</option>)}
+                    <option value={0}>Current (unsaved)</option>
                   </select>
                 </div>
                 <div className="diff-modal-selector">
                   <label>To</label>
-                  <select value={diffVersionB || ''} onChange={e => setDiffVersionB(Number(e.target.value))}>
-                    {sceneDrafts.map(d => <option key={d.version} value={d.version}>V{d.version} — {new Date(d.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</option>)}
+                  <select value={diffVersionB ?? ''} onChange={e => setDiffVersionB(Number(e.target.value))}>
+                    {sceneDrafts.map(d => <option key={d.version} value={d.version}>{formatVersionLabel(d.version)}</option>)}
+                    <option value={0}>Current (unsaved)</option>
                   </select>
                 </div>
+                <button
+                  className={`diff-modal-layout-btn${diffSideBySide ? ' active' : ''}`}
+                  onClick={() => setDiffSideBySide(!diffSideBySide)}
+                  title={diffSideBySide ? 'Switch to inline view' : 'Switch to side-by-side view'}
+                >
+                  {diffSideBySide ? '≡' : '∥'}
+                </button>
+              </div>
+              <div className="diff-modal-stats">
+                <span className="diff-stat-item">From: {wordCountA} words</span>
+                <span className="diff-stat-item">To: {wordCountB} words</span>
+                <span className="diff-stat-item diff-stat-added">+{wordsAdded} added</span>
+                <span className="diff-stat-item diff-stat-removed">−{wordsRemoved} removed</span>
+                <span className="diff-stat-item">Net: {wordCountB - wordCountA >= 0 ? '+' : ''}{wordCountB - wordCountA}</span>
               </div>
               <div className="diff-modal-legend">
                 <span className="diff-legend-added">+ Added</span>
                 <span className="diff-legend-removed">− Removed</span>
               </div>
-              <div className="diff-modal-body">
-                {chunks.map((chunk, i) => (
-                  <span key={i} className={`diff-chunk diff-${chunk.type}`}>{chunk.text} </span>
-                ))}
-              </div>
+              {diffSideBySide ? (
+                <div className="diff-modal-side-by-side">
+                  <div className="diff-side diff-side-from">
+                    <div className="diff-side-label">From: {formatVersionLabel(diffVersionA ?? 0)}</div>
+                    <div className="diff-side-content">
+                      {chunks.filter(c => c.type !== 'added').map((chunk, i) => (
+                        <span key={i} className={`diff-chunk diff-${chunk.type}`}>{chunk.text} </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="diff-side diff-side-to">
+                    <div className="diff-side-label">To: {formatVersionLabel(diffVersionB ?? 0)}</div>
+                    <div className="diff-side-content">
+                      {chunks.filter(c => c.type !== 'removed').map((chunk, i) => (
+                        <span key={i} className={`diff-chunk diff-${chunk.type}`}>{chunk.text} </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="diff-modal-body">
+                  {chunks.map((chunk, i) => (
+                    <span key={i} className={`diff-chunk diff-${chunk.type}`}>{chunk.text} </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         );

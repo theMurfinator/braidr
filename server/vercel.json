@@ -4,7 +4,9 @@
   "outputDirectory": "public",
   "rewrites": [
     { "source": "/portal", "destination": "/portal/index.html" },
-    { "source": "/portal/dashboard", "destination": "/portal/dashboard.html" }
+    { "source": "/portal/dashboard", "destination": "/portal/dashboard.html" },
+    { "source": "/admin", "destination": "/admin/dashboard.html" },
+    { "source": "/admin/dashboard", "destination": "/admin/dashboard.html" }
   ],
   "headers": [
     {
