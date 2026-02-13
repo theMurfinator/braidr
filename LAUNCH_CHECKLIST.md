@@ -21,19 +21,18 @@
 - [ ] Test purchase with Stripe test card end-to-end
 
 ## Apple Code Signing & Notarization
-- [ ] Enroll in Apple Developer Program
-- [ ] Create Developer ID Application certificate
-- [ ] Export certificate as `.p12` file
-- [ ] Create app-specific password at appleid.apple.com
-- [ ] Add GitHub repository secrets:
-  - [ ] `CSC_LINK` (base64-encoded .p12: `base64 -i cert.p12 | pbcopy`)
-  - [ ] `CSC_KEY_PASSWORD` (.p12 export password)
-  - [ ] `APPLE_ID` (your Apple ID email)
-  - [ ] `APPLE_ID_PASSWORD` (app-specific password, NOT your Apple password)
+- [x] Enroll in Apple Developer Program
+- [x] Create Developer ID Application certificate
+- [x] Export certificate as `.p12` file
+- [x] Create app-specific password at appleid.apple.com
+- [x] Add GitHub repository secrets:
+  - [x] `CSC_LINK` (base64-encoded .p12: `base64 -i cert.p12 | pbcopy`)
+  - [x] `CSC_KEY_PASSWORD` (.p12 export password)
+  - [x] `APPLE_ID` (your Apple ID email)
+  - [x] `APPLE_ID_PASSWORD` (app-specific password, NOT your Apple password)
 
 ## First Release
-- [ ] Bump version in `package.json` if needed
-- [ ] Tag and push: `git tag v1.4.0 && git push origin v1.4.0`
+- [x] Tag and push: `git tag v1.3.0 && git push origin v1.3.0`
 - [ ] Verify GitHub Actions builds complete for macOS, Windows, Linux
 - [ ] Verify release artifacts appear at github.com/theMurfinator/braidr/releases
 - [ ] Download and test each platform build
