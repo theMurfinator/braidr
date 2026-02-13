@@ -6,6 +6,7 @@
 - [x] Sign up for Apple Developer account ($99/year)
 - [x] Generate code signing certificate
 - [x] Set up notarization workflow
+- [ ] Run `npm run package` with APPLE_ID and APPLE_ID_PASSWORD set
 - [ ] Test: DMG should install without "unidentified developer" warning
 
 ### Auto-Update System
