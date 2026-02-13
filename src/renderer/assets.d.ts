@@ -41,5 +41,6 @@ interface Window {
     printToPDF: (html: string) => Promise<{ success: boolean; data?: number[]; error?: string }>;
     readAnalytics: (projectPath: string) => Promise<{ success: boolean; data?: any; error?: string }>;
     saveAnalytics: (projectPath: string, data: any) => Promise<{ success: boolean; error?: string }>;
+    openFeedbackEmail: (subject: string, body: string) => Promise<{ success: boolean; error?: string }>;
   };
 }

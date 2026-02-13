@@ -22,6 +22,7 @@ import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
 import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate, deleteSceneSession, getSceneSessionsList } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
+import FeedbackModal from './components/FeedbackModal';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 
@@ -98,6 +99,7 @@ function App() {
   const [showCompileModal, setShowCompileModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const [wordCountGoal, setWordCountGoal] = useState(0);
   const wordCountGoalRef = useRef(0);
@@ -2840,6 +2842,13 @@ function App() {
                   </svg>
                   Switch Project
                 </button>
+                <div className="settings-dropdown-divider" />
+                <button onClick={() => { setShowFeedbackModal(true); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  Send Feedback
+                </button>
               </div>
             )}
           </div>
@@ -3717,6 +3726,19 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <FeedbackModal
+          onClose={() => setShowFeedbackModal(false)}
+          onSubmit={(category, message) => {
+            const categoryLabel = category === 'bug' ? 'Bug Report' : category === 'feature' ? 'Feature Request' : 'General Feedback';
+            const subject = `[Braidr Feedback] ${categoryLabel}`;
+            (window as any).electronAPI.openFeedbackEmail(subject, message);
+            setShowFeedbackModal(false);
+          }}
+        />
       )}
     </div>
   );

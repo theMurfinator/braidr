@@ -30,6 +30,7 @@ const IPC_CHANNELS = {
   ACTIVATE_LICENSE: 'activate-license',
   DEACTIVATE_LICENSE: 'deactivate-license',
   OPEN_PURCHASE_URL: 'open-purchase-url',
+  OPEN_FEEDBACK_EMAIL: 'open-feedback-email',
   APP_CLOSING: 'app-closing',
   SAFE_TO_CLOSE: 'safe-to-close',
 } as const;
@@ -76,6 +77,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   activateLicense: (licenseKey: string) => ipcRenderer.invoke(IPC_CHANNELS.ACTIVATE_LICENSE, licenseKey),
   deactivateLicense: () => ipcRenderer.invoke(IPC_CHANNELS.DEACTIVATE_LICENSE),
   openPurchaseUrl: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_PURCHASE_URL),
+  openFeedbackEmail: (subject: string, body: string) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_FEEDBACK_EMAIL, subject, body),
   // License dialog (triggered from menu)
   onShowLicenseDialog: (callback: () => void) => {
     const listener = () => callback();
