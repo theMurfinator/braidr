@@ -3732,11 +3732,20 @@ function App() {
       {showFeedbackModal && (
         <FeedbackModal
           onClose={() => setShowFeedbackModal(false)}
-          onSubmit={(category, message) => {
-            const categoryLabel = category === 'bug' ? 'Bug Report' : category === 'feature' ? 'Feature Request' : 'General Feedback';
-            const subject = `[Braidr Feedback] ${categoryLabel}`;
-            (window as any).electronAPI.openFeedbackEmail(subject, message);
-            setShowFeedbackModal(false);
+          onSubmit={async (category, message) => {
+            try {
+              const result = await (window as any).electronAPI.openFeedbackEmail(category, message);
+              if (result.success) {
+                addToast('Feedback sent — thank you!');
+                setShowFeedbackModal(false);
+                return true;
+              }
+              addToast('Couldn\u2019t send feedback — please try again');
+              return false;
+            } catch {
+              addToast('Couldn\u2019t send feedback — please try again');
+              return false;
+            }
           }}
         />
       )}
