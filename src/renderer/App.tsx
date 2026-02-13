@@ -25,11 +25,15 @@ import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
+import { initAnalytics, track, setProjectContext } from './utils/analytics';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'analytics';
 type BraidedSubMode = 'list' | 'table' | 'rails';
 
 function App() {
+  // Initialize PostHog analytics once on mount
+  useEffect(() => { initAnalytics(); track('app_opened'); }, []);
+
   const { addToast } = useToast();
   const {
     state: projectData,
@@ -44,6 +48,7 @@ function App() {
   const setViewMode = (mode: ViewMode) => {
     _setViewMode(mode);
     localStorage.setItem('braidr-last-view-mode', mode);
+    track('view_switched', { view_mode: mode });
   };
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -153,10 +158,12 @@ function App() {
     setTimerSceneKey(sceneKey);
     setTimerElapsed(0);
     setTimerRunning(true);
+    track('timer_started');
   }, []);
 
   const handleStopTimer = useCallback(() => {
     setTimerRunning(false);
+    track('timer_stopped');
   }, []);
 
   const handleResetTimer = useCallback(() => {
@@ -384,6 +391,7 @@ function App() {
     setSceneSessions(updated.sceneSessions || []);
     saveAnalytics(projectData.projectPath, updated);
 
+    track('writing_checkin', { energy: checkin.energy, focus: checkin.focus, mood: checkin.mood });
     pendingSessionRef.current = null;
     setPendingSession(null);
   }, [projectData]);
@@ -713,6 +721,9 @@ function App() {
     // Refresh recent projects list
     const projects = await dataService.getRecentProjects();
     setRecentProjects(projects);
+
+    track('project_opened', { character_count: data.characters.length, scene_count: data.scenes.length, total_word_count: totalWordCount });
+    setProjectContext({ total_scenes: data.scenes.length, total_words: totalWordCount, character_count: data.characters.length });
   };
 
   const handleSelectFolder = async () => {
@@ -761,6 +772,7 @@ function App() {
 
       if (projectPath) {
         await loadProjectFromPath(projectPath, newProjectName.trim());
+        track('project_created', { template: newProjectTemplate });
         setShowNewProject(false);
         setNewProjectName('');
         setNewProjectLocation(null);
@@ -789,6 +801,7 @@ function App() {
         characters: [...projectData.characters, character],
       });
       setSelectedCharacterId(character.id);
+      track('character_created');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create character');
     }
@@ -833,6 +846,7 @@ function App() {
       `Delete "${character.name}" and all ${sceneCount} of their scenes? This cannot be undone.`
     );
     if (!confirmed) return;
+    track('character_deleted', { scene_count: sceneCount });
 
     try {
       await dataService.deleteFile(character.filePath);
@@ -912,6 +926,7 @@ function App() {
       newFilters.add(tagName);
     }
     setActiveFilters(newFilters);
+    track('tag_filter_toggled', { tag: tagName, active: newFilters.has(tagName) });
   };
 
   const getCharacterName = (characterId: string): string => {
@@ -1114,6 +1129,7 @@ function App() {
         [targetId]: [...targetConnections, sourceId],
       };
       setSceneConnections(newConnections);
+      track('connection_created');
       await saveTimelineData(projectData.scenes, newConnections, braidedChapters);
     }
   };
@@ -1151,6 +1167,7 @@ function App() {
     setBraidedChapters(updatedChapters);
     setIsAddingChapter(false);
     setNewChapterTitle('');
+    track('chapter_created');
     await saveTimelineData(projectData.scenes, sceneConnections, updatedChapters);
   };
 
@@ -1654,6 +1671,7 @@ function App() {
     const updatedPlotPoints = [...projectData.plotPoints, newPlotPoint];
     const updatedData = { ...projectData, plotPoints: updatedPlotPoints };
     setProjectData(updatedData);
+    track('plot_point_created');
 
     // Save to file
     const charScenes = projectData.scenes.filter(s => s.characterId === character.id);
@@ -1748,6 +1766,8 @@ function App() {
     const updatedScenes = [...otherScenes, ...newCharScenes];
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
+
+    track('scene_created', { scene_number: newSceneNumber });
 
     // Save to file
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
@@ -1926,6 +1946,7 @@ function App() {
     setProjectData({ ...projectData, scenes: finalScenes });
     setDraggedScene(null);
     setDropTargetIndex(null);
+    track('scene_timeline_reordered');
 
     await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
   };
@@ -1984,6 +2005,7 @@ function App() {
       category,
     };
     setProjectData({ ...projectData, tags: [...projectData.tags, newTag] });
+    track('tag_created', { category });
   };
 
   const handleDeleteTag = (tagId: string) => {
@@ -2006,6 +2028,7 @@ function App() {
   const handleOpenInEditor = (sceneKey: string) => {
     setEditorInitialSceneKey(sceneKey);
     setViewMode('editor');
+    track('scene_opened_in_editor');
   };
 
   const handleGoToPov = (sceneId: string, characterId: string) => {
@@ -2048,6 +2071,7 @@ function App() {
     const updated = { ...draftsRef.current, [sceneKey]: [...existing, newVersion] };
     setDrafts(updated);
     draftsRef.current = updated;
+    track('draft_saved', { version: newVersion.version });
     if (projectData) {
       await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
     }
@@ -2096,6 +2120,7 @@ function App() {
     const updatedArchived = [...archivedScenes, archived];
     setArchivedScenes(updatedArchived);
     archivedScenesRef.current = updatedArchived;
+    track('scene_archived');
 
     // Remove scene from active state
     const updatedScenes = projectData.scenes.filter(s => s.id !== sceneId);
@@ -2592,7 +2617,7 @@ function App() {
         <div className="app-sidebar-spacer" />
         <button
           className="app-sidebar-btn"
-          onClick={() => setShowSearch(true)}
+          onClick={() => { setShowSearch(true); track('search_opened'); }}
           title="Search (Cmd+K)"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2769,7 +2794,7 @@ function App() {
             </button>
             {showSettingsMenu && (
               <div className="settings-dropdown">
-                <button onClick={() => { setShowCompileModal(true); setShowSettingsMenu(false); }}>
+                <button onClick={() => { setShowCompileModal(true); setShowSettingsMenu(false); track('export_opened'); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>

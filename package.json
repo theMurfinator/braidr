@@ -54,6 +54,7 @@
     "docx": "^9.5.1",
     "electron-updater": "^6.7.3",
     "file-saver": "^2.0.5",
+    "posthog-js": "^1.347.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",

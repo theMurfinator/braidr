@@ -8,6 +8,7 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion } from '../../shared/types';
 import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
+import { track } from '../utils/analytics';
 import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
 
@@ -472,6 +473,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     setDiffVersionA(versionA);
     setDiffVersionB(versionB);
     setShowDiffModal(true);
+    track('draft_compared');
   };
 
   // Draft versioning

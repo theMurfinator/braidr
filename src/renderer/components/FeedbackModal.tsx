@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { track } from '../utils/analytics';
 
 interface FeedbackModalProps {
   onClose: () => void;
@@ -21,7 +22,11 @@ export default function FeedbackModal({ onClose, onSubmit }: FeedbackModalProps)
   const handleSend = async () => {
     setSending(true);
     const ok = await onSubmit(category, message.trim());
-    if (!ok) setSending(false);
+    if (ok) {
+      track('feedback_submitted', { category, message_length: message.trim().length });
+    } else {
+      setSending(false);
+    }
   };
 
   return (
