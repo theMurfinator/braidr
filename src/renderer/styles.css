@@ -10640,7 +10640,6 @@
 }
 .analytics-calendar-cell {
   aspect-ratio: 1;
-  max-width: 56px;
   border-radius: 6px;
   background: var(--bg-tertiary);
   display: flex;
