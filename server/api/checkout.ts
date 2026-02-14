@@ -26,6 +26,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           quantity: 1,
         },
       ],
+      subscription_data: {
+        trial_period_days: 14,
+      },
       success_url: `${BASE_URL}/portal/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${BASE_URL}/checkout-cancelled`,
       allow_promotion_codes: true,
