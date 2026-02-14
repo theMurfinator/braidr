@@ -158,7 +158,30 @@ function App() {
 
   const handleStopTimer = useCallback(() => {
     setTimerRunning(false);
-  }, []);
+    // Save elapsed time as a session when stopping the timer
+    setTimerElapsed(prev => {
+      if (prev >= 1 && timerSceneKey && analyticsRef.current && projectData) {
+        const durationMs = prev * 1000;
+        const now = Date.now();
+        const session: SceneSession = {
+          id: `timer-${now}-${Math.random().toString(36).slice(2, 8)}`,
+          sceneKey: timerSceneKey,
+          date: getTodayStr(),
+          startTime: now - durationMs,
+          endTime: now,
+          durationMs,
+          wordsNet: 0,
+          checkin: null,
+        };
+        const updated = appendSceneSession(analyticsRef.current, session);
+        analyticsRef.current = updated;
+        setSceneSessions(updated.sceneSessions || []);
+        saveAnalytics(projectData.projectPath, updated);
+      }
+      return 0; // reset elapsed
+    });
+    setTimerSceneKey(null);
+  }, [timerSceneKey, projectData]);
 
   const handleResetTimer = useCallback(() => {
     setTimerRunning(false);
