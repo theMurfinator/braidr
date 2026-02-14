@@ -982,6 +982,20 @@ function App() {
         root.style.removeProperty(varName);
       }
     }
+    // Bold weight variables
+    const boldVars: Array<[keyof FontSettings, string, boolean]> = [
+      ['sectionTitleBold', '--font-section-title-weight', true],
+      ['sceneTitleBold', '--font-scene-title-weight', true],
+      ['bodyBold', '--font-body-weight', false],
+    ];
+    for (const [key, varName, defaultBold] of boldVars) {
+      const val = settings[key];
+      if (val !== undefined && val !== null) {
+        root.style.setProperty(varName, val ? '700' : '400');
+      } else {
+        root.style.setProperty(varName, defaultBold ? '700' : '400');
+      }
+    }
   };
 
   // Apply per-screen font overrides on .scene-list (overrides :root when set)
@@ -1001,6 +1015,20 @@ function App() {
       const val = screenSettings?.[key];
       if (val !== undefined && val !== null) {
         el.style.setProperty(varName, suffix ? `${val}${suffix}` : String(val));
+      } else {
+        el.style.removeProperty(varName);
+      }
+    }
+    // Bold weight overrides
+    const boldVars: Array<[keyof FontSettings, string]> = [
+      ['sectionTitleBold', '--font-section-title-weight'],
+      ['sceneTitleBold', '--font-scene-title-weight'],
+      ['bodyBold', '--font-body-weight'],
+    ];
+    for (const [key, varName] of boldVars) {
+      const val = screenSettings?.[key];
+      if (val !== undefined && val !== null) {
+        el.style.setProperty(varName, val ? '700' : '400');
       } else {
         el.style.removeProperty(varName);
       }

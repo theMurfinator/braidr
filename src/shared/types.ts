@@ -24,10 +24,13 @@ export interface Scene {
 export interface FontSettings {
   sectionTitle?: string;
   sectionTitleSize?: number;
+  sectionTitleBold?: boolean;
   sceneTitle?: string;
   sceneTitleSize?: number;
+  sceneTitleBold?: boolean;
   body?: string;
   bodySize?: number;
+  bodyBold?: boolean;
 }
 
 export type ScreenKey = 'pov' | 'braided' | 'editor' | 'notes';
