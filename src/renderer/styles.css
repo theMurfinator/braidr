@@ -6461,7 +6461,6 @@
 /* Scene title header in draft pane */
 .editor-draft-scene-header {
   padding: 10px 0 10px;
-  flex-shrink: 0;
   background: var(--bg-primary);
   border-bottom: 1px solid var(--bg-tertiary);
   width: 100%;

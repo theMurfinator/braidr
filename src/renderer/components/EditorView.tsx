@@ -1075,33 +1075,33 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
         ) : (
           <>
             {/* Single scene mode: original behavior */}
-            {selectedScene && (
-              <div className="editor-draft-scene-header">
-                {isEditingTitle ? (
-                  <textarea
-                    ref={titleTextareaRef}
-                    className="editor-draft-scene-title-input"
-                    value={editTitle}
-                    onChange={handleTitleChange}
-                    onBlur={handleTitleBlur}
-                    onKeyDown={handleTitleKeyDown}
-                    placeholder="Scene description..."
-                  />
-                ) : (
-                  <h2
-                    className="editor-draft-scene-title"
-                    onClick={handleTitleClick}
-                    title="Click to edit"
-                  >
-                    {cleanContent(selectedScene.content) || 'Untitled scene'}
-                  </h2>
-                )}
-                <div className="editor-draft-scene-subtitle">
-                  <span>{characters.find(c => c.id === selectedScene.characterId)?.name} · Scene {selectedScene.sceneNumber}</span>
-                </div>
-              </div>
-            )}
             <div className="editor-draft-editor">
+              {selectedScene && (
+                <div className="editor-draft-scene-header">
+                  {isEditingTitle ? (
+                    <textarea
+                      ref={titleTextareaRef}
+                      className="editor-draft-scene-title-input"
+                      value={editTitle}
+                      onChange={handleTitleChange}
+                      onBlur={handleTitleBlur}
+                      onKeyDown={handleTitleKeyDown}
+                      placeholder="Scene description..."
+                    />
+                  ) : (
+                    <h2
+                      className="editor-draft-scene-title"
+                      onClick={handleTitleClick}
+                      title="Click to edit"
+                    >
+                      {cleanContent(selectedScene.content) || 'Untitled scene'}
+                    </h2>
+                  )}
+                  <div className="editor-draft-scene-subtitle">
+                    <span>{characters.find(c => c.id === selectedScene.characterId)?.name} · Scene {selectedScene.sceneNumber}</span>
+                  </div>
+                </div>
+              )}
               <EditorContent editor={editor} />
             </div>
           </>
