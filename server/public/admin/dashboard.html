@@ -30,7 +30,34 @@
       padding: 2px 8px;
       border-radius: 10px;
     }
-    #user-button { display: flex; align-items: center; }
+
+    /* Auth prompt */
+    .auth-prompt {
+      text-align: center;
+      padding: 80px 20px;
+    }
+    .auth-prompt input {
+      display: block;
+      width: 100%;
+      max-width: 320px;
+      margin: 16px auto;
+      padding: 10px 16px;
+      border: 1px solid #d4d4d8;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+    .auth-prompt button {
+      padding: 10px 24px;
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .auth-prompt button:hover { opacity: 0.9; }
+    .auth-error { color: #991b1b; font-size: 13px; margin-top: 8px; display: none; }
 
     /* Stats grid */
     .stats-grid {
@@ -123,7 +150,15 @@
 </head>
 <body>
   <div class="container">
-    <div id="loading" class="loading">Loading dashboard...</div>
+    <!-- API key prompt -->
+    <div id="auth" class="auth-prompt">
+      <h1>Braidr Admin</h1>
+      <input type="password" id="apiKeyInput" placeholder="Enter admin API key" />
+      <button onclick="authenticate()">Sign In</button>
+      <p class="auth-error" id="authError">Invalid API key. Please try again.</p>
+    </div>
+
+    <div id="loading" class="loading" style="display: none;">Loading dashboard...</div>
 
     <div id="dashboard" style="display: none;">
       <div class="header">
@@ -131,7 +166,6 @@
           <h1>Braidr</h1>
           <span class="admin-badge">Admin</span>
         </div>
-        <div id="user-button"></div>
       </div>
 
       <!-- Stats -->
@@ -167,51 +201,57 @@
     </div>
   </div>
 
-  <script
-    async
-    crossorigin="anonymous"
-    data-clerk-publishable-key="pk_test_YWNlLW9jZWxvdC0zMC5jbGVyay5hY2NvdW50cy5kZXYk"
-    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-    type="text/javascript"
-  ></script>
   <script>
-    window.addEventListener('load', async () => {
-      await window.Clerk.load();
+    let adminKey = sessionStorage.getItem('braidr_admin_key') || '';
 
-      if (!window.Clerk.user) {
-        window.location.href = '/portal';
-        return;
-      }
+    // If we have a stored key, try loading immediately
+    if (adminKey) {
+      document.getElementById('auth').style.display = 'none';
+      document.getElementById('loading').style.display = 'block';
+      loadDashboard();
+    }
 
-      window.Clerk.mountUserButton(document.getElementById('user-button'));
-      await loadDashboard();
+    document.getElementById('apiKeyInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') authenticate();
     });
 
-    async function getAuthHeaders() {
-      const token = await window.Clerk.session.getToken();
-      return { 'Authorization': 'Bearer ' + token };
+    async function authenticate() {
+      adminKey = document.getElementById('apiKeyInput').value.trim();
+      if (!adminKey) return;
+
+      document.getElementById('auth').style.display = 'none';
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('authError').style.display = 'none';
+
+      const ok = await loadDashboard();
+      if (!ok) {
+        adminKey = '';
+        sessionStorage.removeItem('braidr_admin_key');
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('auth').style.display = 'block';
+        document.getElementById('authError').style.display = 'block';
+      }
     }
 
     async function loadDashboard() {
       try {
-        const headers = await getAuthHeaders();
-        const res = await fetch('/api/admin/overview', { headers });
-
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
+        const res = await fetch('/api/admin/overview', {
+          headers: { 'X-Admin-Key': adminKey },
+        });
 
         if (res.status === 403) {
-          document.getElementById('dashboard').innerHTML = `
-            <div class="error-state">
-              <p>You don't have admin access.</p>
-            </div>
-          `;
-          return;
+          return false;
         }
 
         if (!res.ok) {
           throw new Error('API returned ' + res.status);
         }
+
+        // Store the valid key for this session
+        sessionStorage.setItem('braidr_admin_key', adminKey);
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
 
         const data = await res.json();
 
@@ -225,7 +265,7 @@
         const feedback = data.feedback || [];
         document.getElementById('feedbackCount').textContent = feedback.length;
 
-        if (feedback.length === 0) return;
+        if (feedback.length === 0) return true;
 
         const list = document.createElement('ul');
         list.className = 'feedback-list';
@@ -243,18 +283,20 @@
               <span class="feedback-time">${timeAgo(entry.receivedAt)}</span>
             </div>
             <div class="feedback-message">${escapeHtml(entry.message)}</div>
-            <div class="feedback-footer">v${escapeHtml(entry.appVersion)} · ${escapeHtml(entry.platform)}</div>
+            <div class="feedback-footer">v${escapeHtml(entry.appVersion)} &middot; ${escapeHtml(entry.platform)}</div>
           `;
           list.appendChild(li);
         }
 
         document.getElementById('feedbackContent').innerHTML = '';
         document.getElementById('feedbackContent').appendChild(list);
+        return true;
 
       } catch (err) {
         console.error(err);
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
+        return true; // non-auth error, still show dashboard
       }
     }
 

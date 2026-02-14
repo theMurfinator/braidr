@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Braidr - Your Account</title>
+  <title>Braidr - Welcome</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -11,270 +11,115 @@
       background: #fafafa;
       color: #1a1a1a;
       min-height: 100vh;
-      padding: 40px 20px;
-    }
-    .container { max-width: 640px; margin: 0 auto; }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 32px;
-    }
-    h1 { font-size: 24px; }
-    #user-button { display: flex; align-items: center; }
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      padding: 32px;
-      margin-bottom: 20px;
-    }
-    .card h2 { font-size: 16px; color: #71717a; font-weight: 500; margin-bottom: 16px; }
-    .license-key {
-      background: #f4f4f5;
-      border-radius: 8px;
-      padding: 16px 20px;
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-      font-size: 16px;
-      letter-spacing: 0.5px;
-      word-break: break-all;
-      position: relative;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .license-key:hover { background: #e4e4e7; }
-    .license-key .copy-hint {
-      position: absolute;
-      right: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 12px;
-      color: #a1a1aa;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-    .status {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 500;
-      margin-top: 12px;
-    }
-    .status.active { background: #dcfce7; color: #166534; }
-    .status.expired { background: #fef2f2; color: #991b1b; }
-    .status.suspended { background: #fef9c3; color: #854d0e; }
-    .expiry { font-size: 14px; color: #71717a; margin-top: 8px; }
-    .downloads-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px;
-    }
-    .download-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      padding: 14px;
-      border: 1px solid #d4d4d8;
-      border-radius: 8px;
-      text-decoration: none;
-      color: #1a1a1a;
-      font-size: 14px;
-      font-weight: 500;
-      transition: background 0.15s, border-color 0.15s;
     }
-    .download-btn:hover { background: #f4f4f5; border-color: #a1a1aa; }
-    .download-btn .icon { font-size: 20px; }
+    .container {
+      text-align: center;
+      padding: 40px 20px;
+      max-width: 520px;
+    }
+    .checkmark {
+      width: 64px;
+      height: 64px;
+      background: #dcfce7;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 32px;
+    }
+    h1 { font-size: 24px; margin-bottom: 12px; }
+    p { font-size: 15px; color: #71717a; line-height: 1.6; margin-bottom: 8px; }
+    .steps {
+      text-align: left;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 24px 28px;
+      margin: 24px 0;
+    }
+    .steps h2 { font-size: 14px; color: #71717a; font-weight: 500; margin-bottom: 16px; }
+    .steps ol {
+      list-style: none;
+      counter-reset: step;
+    }
+    .steps li {
+      counter-increment: step;
+      padding: 8px 0;
+      font-size: 15px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .steps li::before {
+      content: counter(step);
+      min-width: 24px;
+      height: 24px;
+      background: #f4f4f5;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #71717a;
+    }
     .btn {
       display: inline-block;
-      padding: 10px 20px;
+      padding: 12px 24px;
       background: #1a1a1a;
       color: #fff;
       border: none;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 500;
-      cursor: pointer;
       text-decoration: none;
       transition: opacity 0.15s;
     }
     .btn:hover { opacity: 0.9; }
-    .btn.outline {
-      background: #fff;
-      color: #1a1a1a;
-      border: 1px solid #d4d4d8;
-    }
-    .btn.outline:hover { background: #f4f4f5; }
-    .no-license {
-      text-align: center;
-      padding: 24px;
-      color: #71717a;
-    }
-    .loading { text-align: center; padding: 80px 0; color: #71717a; }
+    .default-msg { display: none; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div id="loading" class="loading">Loading your account...</div>
+    <!-- Shown after successful checkout -->
+    <div id="success" class="default-msg">
+      <div class="checkmark">&#10003;</div>
+      <h1>Welcome to Braidr!</h1>
+      <p>Your license key is on its way to your email.</p>
 
-    <div id="dashboard" style="display: none;">
-      <div class="header">
-        <h1>Braidr</h1>
-        <div id="user-button"></div>
+      <div class="steps">
+        <h2>Next steps</h2>
+        <ol>
+          <li>Check your email for your license key</li>
+          <li>Open Braidr and go to Help &rarr; Manage License</li>
+          <li>Paste your license key and click Activate</li>
+        </ol>
       </div>
 
-      <!-- License Section -->
-      <div class="card" id="licenseCard">
-        <h2>License Key</h2>
-        <div id="licenseContent"></div>
-      </div>
+      <p style="font-size: 13px; color: #a1a1aa;">
+        To manage your subscription later, use the "Manage Subscription" option in the app's settings menu.
+      </p>
+    </div>
 
-      <!-- Downloads Section -->
-      <div class="card">
-        <h2>Downloads</h2>
-        <div class="downloads-grid">
-          <a href="https://github.com/theMurfinator/braidr/releases/latest" class="download-btn">
-            <span class="icon">&#63743;</span> macOS
-          </a>
-          <a href="https://github.com/theMurfinator/braidr/releases/latest" class="download-btn">
-            <span class="icon">&#8862;</span> Windows
-          </a>
-          <a href="https://github.com/theMurfinator/braidr/releases/latest" class="download-btn">
-            <span class="icon">&#9881;</span> Linux
-          </a>
-        </div>
-      </div>
-
-      <!-- Billing Section -->
-      <div class="card">
-        <h2>Subscription</h2>
-        <p style="font-size: 14px; color: #71717a; margin-bottom: 16px;">
-          Manage your payment method, view invoices, or cancel your subscription.
-        </p>
-        <button class="btn outline" id="billingBtn">Manage Billing</button>
-      </div>
+    <!-- Default state (no checkout param) -->
+    <div id="default" class="default-msg">
+      <h1>Braidr</h1>
+      <p style="margin-bottom: 24px;">Manage your subscription directly from the Braidr app. Open the settings menu and click "Manage Subscription."</p>
+      <a href="https://getbraider.com" class="btn">Visit getbraider.com</a>
     </div>
   </div>
 
-  <script
-    async
-    crossorigin="anonymous"
-    data-clerk-publishable-key="pk_test_YWNlLW9jZWxvdC0zMC5jbGVyay5hY2NvdW50cy5kZXYk"
-    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-    type="text/javascript"
-  ></script>
   <script>
-    window.addEventListener('load', async () => {
-      await window.Clerk.load();
-
-      if (!window.Clerk.user) {
-        window.location.href = '/portal';
-        return;
-      }
-
-      window.Clerk.mountUserButton(document.getElementById('user-button'));
-      await loadDashboard();
-    });
-
-    async function getAuthHeaders() {
-      const token = await window.Clerk.session.getToken();
-      return { 'Authorization': 'Bearer ' + token };
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('checkout') === 'success') {
+      document.getElementById('success').style.display = 'block';
+    } else {
+      document.getElementById('default').style.display = 'block';
     }
-
-    async function loadDashboard() {
-      try {
-        const headers = await getAuthHeaders();
-        const res = await fetch('/api/portal/me', { headers });
-
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
-
-        if (!res.ok) {
-          console.error('API /me returned', res.status);
-          document.getElementById('licenseContent').innerHTML = `
-            <div class="no-license">
-              <p>Could not load your account. Please try again later.</p>
-            </div>
-          `;
-          return;
-        }
-
-        const data = await res.json();
-        const content = document.getElementById('licenseContent');
-
-        if (data.hasLicense && data.license) {
-          const statusClass = data.license.status === 'ACTIVE' ? 'active'
-            : data.license.status === 'SUSPENDED' ? 'suspended' : 'expired';
-          const statusLabel = data.license.status === 'ACTIVE' ? 'Active'
-            : data.license.status === 'SUSPENDED' ? 'Suspended' : data.license.status;
-
-          content.innerHTML = `
-            <div class="license-key" onclick="copyKey(this)" title="Click to copy">
-              ${data.license.key}
-              <span class="copy-hint">Click to copy</span>
-            </div>
-            <span class="status ${statusClass}">${statusLabel}</span>
-            ${data.license.expiry
-              ? `<p class="expiry">Renews ${new Date(data.license.expiry).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>`
-              : ''}
-          `;
-        } else {
-          content.innerHTML = `
-            <div class="no-license">
-              <p>No active license found.</p>
-              <a href="https://buy.stripe.com/eVq00k3m761132Z13pa3u00" class="btn" style="margin-top: 16px; display: inline-block;">Purchase Braidr</a>
-            </div>
-          `;
-        }
-      } catch (err) {
-        console.error(err);
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'block';
-        document.getElementById('licenseContent').innerHTML = `
-          <div class="no-license">
-            <p>Could not load your account. Please try again later.</p>
-          </div>
-        `;
-      }
-    }
-
-    function copyKey(el) {
-      const key = el.childNodes[0].textContent.trim();
-      navigator.clipboard.writeText(key).then(() => {
-        const hint = el.querySelector('.copy-hint');
-        hint.textContent = 'Copied!';
-        setTimeout(() => { hint.textContent = 'Click to copy'; }, 2000);
-      });
-    }
-
-    document.getElementById('billingBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('billingBtn');
-      btn.disabled = true;
-      btn.textContent = 'Redirecting...';
-
-      try {
-        const headers = await getAuthHeaders();
-        headers['Content-Type'] = 'application/json';
-
-        const res = await fetch('/api/portal/billing', {
-          method: 'POST',
-          headers,
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          window.location.href = data.url;
-        } else {
-          alert('Could not open billing portal. Please try again.');
-          btn.disabled = false;
-          btn.textContent = 'Manage Billing';
-        }
-      } catch {
-        alert('Something went wrong. Please try again.');
-        btn.disabled = false;
-        btn.textContent = 'Manage Billing';
-      }
-    });
   </script>
 </body>
 </html>
