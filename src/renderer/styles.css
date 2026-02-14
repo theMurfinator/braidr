@@ -1266,6 +1266,11 @@
 }
 
 /* When in braided view, fill the container */
+.main-content:has(.braided-layout) {
+  overflow: hidden;
+  padding: 0;
+}
+
 .scene-list:has(.braided-layout) {
   max-width: none;
   padding: 0;
