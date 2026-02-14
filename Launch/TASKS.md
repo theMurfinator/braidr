@@ -3,22 +3,17 @@
 ## Phase 1: Technical Foundation (Week 1)
 
 ### Apple Developer Setup
-- [ ] Sign up for Apple Developer account ($99/year)
-  - URL: https://developer.apple.com/programs/enroll/
-  - Wait time: ~24-48 hours for approval
-- [ ] Generate code signing certificate
-- [ ] Set up notarization workflow
+- [x] Sign up for Apple Developer account ($99/year)
+- [x] Generate code signing certificate
+- [x] Set up notarization workflow
 - [ ] Test: DMG should install without "unidentified developer" warning
 
 ### Auto-Update System
-- [ ] Install electron-updater package
-  ```bash
-  npm install electron-updater
-  ```
-- [ ] Configure auto-update in main.js
-- [ ] Set up update server (GitHub Releases or custom)
-- [ ] Test: App should check for updates on launch
-- [ ] Add "Check for Updates" menu item
+- [x] Install electron-updater package
+- [x] Configure auto-update in main.ts (autoDownload: false, checks on launch after 3s)
+- [x] Set up update server (GitHub Releases)
+- [x] App checks for updates on launch
+- [x] "Check for Updates..." menu item
 
 ### Payment & License System (Stripe + Keygen)
 - [x] Stripe checkout flow (creates subscription → triggers webhook)
@@ -50,15 +45,9 @@
 - [ ] Restrict CORS from wildcard (*) to production domain before launch
 
 ### App Icon
-- [ ] Commission professional icon on Fiverr/Upwork
-  - Budget: $50-100
-  - Requirements:
-    - 512x512 PNG
-    - 1024x1024 PNG (for marketing)
-    - .icns file for macOS
-  - Style: Clean, modern, evokes "braiding" or "weaving"
-- [ ] Replace Electron default icon
-- [ ] Update build configuration with new icon
+- [x] Custom icon created (build/icon.png)
+- [x] Replace Electron default icon
+- [x] Update build configuration with new icon
 - [ ] Test: New icon shows in Dock, Finder, App Switcher
 
 ### Data Safety

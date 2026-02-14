@@ -33,14 +33,14 @@ Writers working on multi-POV novels (fantasy, sci-fi, romance, literary fiction)
 ### What's Missing for Launch
 
 **Critical (Blockers):**
-- [ ] Apple Developer account ($99/year)
-- [ ] Code signing + notarization setup
-- [ ] Auto-update system (electron-updater)
+- [x] Apple Developer account ($99/year)
+- [x] Code signing + notarization setup
+- [x] Auto-update system (electron-updater)
 - [x] License key system (Stripe + Keygen integration)
 - [x] Server/API deployed to Vercel (Stripe webhooks, customer portal, admin dashboard)
 - [x] Verify Stripe webhook + env vars configured in dashboards
 - [ ] End-to-end purchase test
-- [ ] Professional app icon
+- [x] Professional app icon
 
 **Important (Should-have):**
 - [ ] Backup system (auto-save to ~/Library/Application Support/Braidr/backups/)
