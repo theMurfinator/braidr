@@ -855,6 +855,14 @@
   background: var(--bg-primary);
 }
 
+/* Full-width views: no padding, no scroll on main-content */
+.main-content--editor,
+.main-content--braided,
+.main-content--notes {
+  overflow: hidden;
+  padding: 0;
+}
+
 /* Don't scroll main-content when rails view is active */
 .main-content:has(.rails-view) {
   overflow: hidden;
@@ -1263,6 +1271,15 @@
   margin: 0 auto;
   background: var(--bg-primary);
   padding: 12px 52px;
+}
+
+/* Full-width views: scene-list fills container */
+.scene-list--editor,
+.scene-list--braided,
+.scene-list--notes {
+  max-width: none;
+  padding: 0;
+  height: 100%;
 }
 
 /* When in braided view, fill the container */

@@ -2908,11 +2908,11 @@ function App() {
         </div>
       </div>
 
-      <div className="main-content">
+      <div className={`main-content main-content--${viewMode}`}>
         {loading ? (
           <div className="loading">Loading...</div>
         ) : (
-          <div className="scene-list" ref={sceneListRef}>
+          <div className={`scene-list scene-list--${viewMode}`} ref={sceneListRef}>
             {viewMode === 'analytics' ? (
               <WordCountDashboard
                 scenes={projectData.scenes}
