@@ -20,6 +20,17 @@ export default function LicenseGate({ children }: LicenseGateProps) {
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState<string | null>(null);
 
+  // Toggle body class for trial banner offset
+  // NOTE: This useEffect MUST be before any conditional returns to respect Rules of Hooks
+  useEffect(() => {
+    if (status?.state === 'trial') {
+      document.body.classList.add('has-trial-banner');
+    } else {
+      document.body.classList.remove('has-trial-banner');
+    }
+    return () => document.body.classList.remove('has-trial-banner');
+  }, [status?.state]);
+
   useEffect(() => {
     checkLicense();
     // Listen for menu-triggered license dialog
@@ -232,16 +243,6 @@ export default function LicenseGate({ children }: LicenseGateProps) {
       </div>
     );
   }
-
-  // Toggle body class for trial banner offset
-  useEffect(() => {
-    if (status?.state === 'trial') {
-      document.body.classList.add('has-trial-banner');
-    } else {
-      document.body.classList.remove('has-trial-banner');
-    }
-    return () => document.body.classList.remove('has-trial-banner');
-  }, [status?.state]);
 
   // Active trial or licensed — render the app
   return (
