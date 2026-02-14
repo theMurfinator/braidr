@@ -82,7 +82,10 @@
     },
     "linux": {
       "icon": "build/icon.png",
-      "category": "Utility"
+      "category": "Utility",
+      "target": [
+        "AppImage"
+      ]
     },
     "files": [
       "dist/**/*",
