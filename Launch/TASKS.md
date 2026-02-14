@@ -44,7 +44,7 @@
 - [x] Clerk auth integration for portal/admin routes
 - [x] Feedback system with Vercel Blob storage
 - [x] Verify server is deployed and accessible at braidr-api.vercel.app
-- [ ] Verify all environment variables set in Vercel dashboard
+- [x] Verify all environment variables set in Vercel dashboard
 - [ ] Register Stripe webhook URL in Stripe dashboard (https://braidr-api.vercel.app/api/webhooks/stripe)
 - [ ] Enable 3 webhook events in Stripe (checkout.session.completed, customer.subscription.deleted, invoice.payment_failed)
 - [ ] Restrict CORS from wildcard (*) to production domain before launch
