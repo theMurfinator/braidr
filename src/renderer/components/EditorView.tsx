@@ -1031,7 +1031,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       {showNav && <div className="editor-resize-handle" onMouseDown={e => handleResizeStart(e, 'nav')} />}
 
       {/* Center: Draft Editor */}
-      <div className="editor-draft">
+      <div className={`editor-draft ${showNav && showMeta ? 'both-panels' : !showNav && !showMeta ? 'no-panels' : 'one-panel'}`}>
         <div className="editor-draft-toolbar">
           <button className="editor-panel-toggle editor-panel-toggle-nav" onClick={() => setShowNav(!showNav)} title={showNav ? 'Hide navigator (Cmd+[)' : 'Show navigator (Cmd+[)'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">

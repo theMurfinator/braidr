@@ -6291,10 +6291,28 @@
 .editor-draft-editor {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 40px 160px;
+  padding: 20px 0 160px;
   width: 100%;
   box-sizing: border-box;
   background: var(--bg-primary);
+}
+
+/* Both panels open: minimal breathing room */
+.editor-draft.both-panels .editor-draft-editor {
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+/* One panel open: use content-padding slider */
+.editor-draft.one-panel .editor-draft-editor {
+  padding-left: var(--content-padding, 40px);
+  padding-right: var(--content-padding, 40px);
+}
+
+/* No panels: use content-padding slider */
+.editor-draft.no-panels .editor-draft-editor {
+  padding-left: var(--content-padding, 200px);
+  padding-right: var(--content-padding, 200px);
 }
 
 .editor-draft-editor .tiptap {
@@ -6395,12 +6413,27 @@
 
 /* Scene title header in draft pane */
 .editor-draft-scene-header {
-  padding: 20px 40px 12px;
+  padding: 20px 0 12px;
   flex-shrink: 0;
   background: var(--bg-primary);
   border-bottom: 1px solid var(--bg-tertiary);
   width: 100%;
   box-sizing: border-box;
+}
+
+.editor-draft.both-panels .editor-draft-scene-header {
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.editor-draft.one-panel .editor-draft-scene-header {
+  padding-left: var(--content-padding, 40px);
+  padding-right: var(--content-padding, 40px);
+}
+
+.editor-draft.no-panels .editor-draft-scene-header {
+  padding-left: var(--content-padding, 200px);
+  padding-right: var(--content-padding, 200px);
 }
 
 .editor-draft-scene-title {
@@ -7855,7 +7888,7 @@
 
 /* Dashed divider between scenes */
 .scrivenings-divider {
-  padding: 0 40px;
+  padding: 0 15px;
 }
 
 .scrivenings-divider-line {
