@@ -7084,20 +7084,42 @@
 .editor-meta-field-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   margin-bottom: 4px;
 }
 
-.editor-meta-field-drag-handle {
-  color: var(--text-muted);
-  font-size: 12px;
-  cursor: grab;
-  user-select: none;
-  line-height: 1;
+.editor-meta-field-reorder {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 
-.editor-meta-field-drag-handle:active {
-  cursor: grabbing;
+.editor-meta-field:hover .editor-meta-field-reorder {
+  opacity: 1;
+}
+
+.editor-meta-field-move-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 8px;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.editor-meta-field-move-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.editor-meta-field-move-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .editor-meta-field-label {

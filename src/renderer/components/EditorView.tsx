@@ -888,28 +888,15 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     setShowMetaEditor(false);
   };
 
-  // Draggable field reorder
-  const draggedFieldRef = useRef<string | null>(null);
-  const handleFieldDragStart = (e: React.DragEvent, fieldId: string) => {
-    draggedFieldRef.current = fieldId;
-    e.dataTransfer.effectAllowed = 'move';
-  };
-  const handleFieldDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-  const handleFieldDrop = (e: React.DragEvent, targetFieldId: string) => {
-    e.preventDefault();
-    const draggedId = draggedFieldRef.current;
-    if (!draggedId || draggedId === targetFieldId) return;
-    draggedFieldRef.current = null;
+  // Field reorder via up/down buttons
+  const moveField = (fieldId: string, direction: 'up' | 'down') => {
     const userFields = metadataFieldDefs.filter(f => f.id !== '_status').sort((a, b) => a.order - b.order);
-    const fromIdx = userFields.findIndex(f => f.id === draggedId);
-    const toIdx = userFields.findIndex(f => f.id === targetFieldId);
-    if (fromIdx === -1 || toIdx === -1) return;
+    const idx = userFields.findIndex(f => f.id === fieldId);
+    if (idx === -1) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= userFields.length) return;
     const reordered = [...userFields];
-    const [moved] = reordered.splice(fromIdx, 1);
-    reordered.splice(toIdx, 0, moved);
+    [reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]];
     const updated = reordered.map((f, i) => ({ ...f, order: i }));
     const statusDef = metadataFieldDefs.find(f => f.id === '_status');
     onMetadataFieldDefsChange(statusDef ? [statusDef, ...updated] : updated);
@@ -1477,18 +1464,29 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                 <button className="editor-meta-edit-btn" onClick={openMetaEditor}>Edit...</button>
               </div>
               <div className="editor-meta-fields">
-                {metadataFieldDefs.filter(f => f.id !== '_status').sort((a, b) => a.order - b.order).map(field => (
+                {(() => {
+                  const sortedFields = metadataFieldDefs.filter(f => f.id !== '_status').sort((a, b) => a.order - b.order);
+                  return sortedFields.map((field, idx) => (
                   <div
                     key={field.id}
                     className="editor-meta-field"
-                    draggable
-                    onDragStart={e => handleFieldDragStart(e, field.id)}
-                    onDragOver={handleFieldDragOver}
-                    onDrop={e => handleFieldDrop(e, field.id)}
                   >
                     <div className="editor-meta-field-header">
-                      <span className="editor-meta-field-drag-handle">⋮⋮</span>
                       <label className="editor-meta-field-label">{field.label}</label>
+                      <div className="editor-meta-field-reorder">
+                        <button
+                          className="editor-meta-field-move-btn"
+                          onClick={() => moveField(field.id, 'up')}
+                          disabled={idx === 0}
+                          title="Move up"
+                        >&#x25B2;</button>
+                        <button
+                          className="editor-meta-field-move-btn"
+                          onClick={() => moveField(field.id, 'down')}
+                          disabled={idx === sortedFields.length - 1}
+                          title="Move down"
+                        >&#x25BC;</button>
+                      </div>
                     </div>
                     {field.type === 'text' && (
                       <input
@@ -1527,7 +1525,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                       </div>
                     )}
                   </div>
-                ))}
+                ));
+                })()}
                 {metadataFieldDefs.filter(f => f.id !== '_status').length === 0 && (
                   <p className="editor-meta-empty">No properties yet. Click "Edit..." to add some.</p>
                 )}
@@ -1578,8 +1577,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
         {/* Go-to buttons (always visible) */}
         {selectedScene && (
           <div className="editor-meta-goto-row">
-            <button className="editor-meta-goto-btn" onClick={() => onGoToPov?.(selectedScene.id, selectedScene.characterId)}>POV</button>
-            <button className="editor-meta-goto-btn" onClick={() => onGoToBraid?.(selectedScene.id)}>Braid</button>
+            <button className="editor-meta-goto-btn" onClick={() => onGoToPov?.(selectedScene.id, selectedScene.characterId)}>Jump to POV</button>
+            <button className="editor-meta-goto-btn" onClick={() => onGoToBraid?.(selectedScene.id)}>Jump to Braid</button>
           </div>
         )}
       </div>}
