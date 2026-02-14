@@ -9,7 +9,6 @@ import { LicenseData, LicenseStatus } from '../shared/types';
 const KEYGEN_ACCOUNT_ID = process.env.KEYGEN_ACCOUNT_ID || '8abb6c6d-bb7d-4f57-bbe9-e9a18060f28d';
 const KEYGEN_PRODUCT_ID = process.env.KEYGEN_PRODUCT_ID || 'fe8d919b-5b04-41bf-a7ef-ef487ca1d30e';
 
-const TRIAL_DAYS = 14;
 const PURCHASE_URL = 'https://buy.stripe.com/eVq00k3m761132Z13pa3u00';
 const PORTAL_URL = process.env.PORTAL_URL || 'https://braidr-api.vercel.app/portal/dashboard';
 const LICENSE_FILE = 'license.json';
@@ -26,13 +25,10 @@ function readLicenseData(): LicenseData {
     try {
       return JSON.parse(fs.readFileSync(licensePath, 'utf-8'));
     } catch {
-      // Corrupted file — start fresh trial
+      // Corrupted file — start fresh
     }
   }
-  // First launch: start trial
-  const data: LicenseData = {
-    trialStartDate: new Date().toISOString(),
-  };
+  const data: LicenseData = {};
   writeLicenseData(data);
   return data;
 }
@@ -40,13 +36,6 @@ function readLicenseData(): LicenseData {
 function writeLicenseData(data: LicenseData): void {
   const licensePath = getLicensePath();
   fs.writeFileSync(licensePath, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-function trialDaysRemaining(trialStartDate: string): number {
-  const start = new Date(trialStartDate).getTime();
-  const now = Date.now();
-  const elapsed = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-  return Math.max(0, TRIAL_DAYS - elapsed);
 }
 
 // ─── Keygen API ─────────────────────────────────────────────────────────────
@@ -188,19 +177,8 @@ export async function getLicenseStatus(): Promise<LicenseStatus> {
     return status;
   }
 
-  // No license key — check trial
-  const remaining = trialDaysRemaining(data.trialStartDate);
-  if (remaining > 0) {
-    return {
-      state: 'trial',
-      trialDaysRemaining: remaining,
-    };
-  }
-
-  return {
-    state: 'expired',
-    trialDaysRemaining: 0,
-  };
+  // No license key — must sign up through Stripe
+  return { state: 'unlicensed' };
 }
 
 export async function activateLicense(licenseKey: string): Promise<LicenseStatus> {
@@ -250,11 +228,7 @@ export function deactivateLicense(): LicenseStatus {
   delete data.cachedStatus;
   writeLicenseData(data);
 
-  const remaining = trialDaysRemaining(data.trialStartDate);
-  if (remaining > 0) {
-    return { state: 'trial', trialDaysRemaining: remaining };
-  }
-  return { state: 'expired', trialDaysRemaining: 0 };
+  return { state: 'unlicensed' };
 }
 
 export function openPurchaseUrl(): void {

@@ -187,15 +187,13 @@ export interface NotesIndex {
 
 // License types
 export interface LicenseStatus {
-  state: 'trial' | 'licensed' | 'expired' | 'invalid';
-  trialDaysRemaining?: number;
+  state: 'unlicensed' | 'licensed' | 'expired' | 'invalid';
   licenseKey?: string;
   expiresAt?: string; // ISO date string
   customerEmail?: string;
 }
 
 export interface LicenseData {
-  trialStartDate: string; // ISO date string
   licenseKey?: string;
   lastValidation?: string; // ISO date string
   cachedStatus?: LicenseStatus;
