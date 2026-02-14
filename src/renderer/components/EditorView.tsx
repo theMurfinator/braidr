@@ -1071,12 +1071,6 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                 );
               })}
             </div>
-            <div className="editor-draft-footer">
-              <div className="editor-draft-footer-left">
-                <span className="editor-word-count">Word Count: {totalWordCount.toLocaleString()} ({selectedSceneKeys.length} scenes)</span>
-                <span className="editor-reading-time">Reading Time: {Math.max(1, Math.round(totalWordCount / 250))} min</span>
-              </div>
-            </div>
           </>
         ) : (
           <>
@@ -1109,15 +1103,6 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
             )}
             <div className="editor-draft-editor">
               <EditorContent editor={editor} />
-            </div>
-            <div className="editor-draft-footer">
-              <div className="editor-draft-footer-left">
-                <span className="editor-word-count">Word Count: {singleWordCount.toLocaleString()}</span>
-                <span className="editor-reading-time">Reading Time: {Math.max(1, Math.round(singleWordCount / 250))} min</span>
-              </div>
-              {selectedScene && (
-                <span className="editor-scene-label">Last Saved: {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase()}</span>
-              )}
             </div>
           </>
         )}
@@ -1176,6 +1161,22 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Word Count & Reading Time */}
+            <div className="editor-meta-section editor-meta-stats">
+              <div className="editor-meta-stat-row">
+                <span className="editor-meta-stat-label">Words</span>
+                <span className="editor-meta-stat-value">
+                  {isMultiSelect
+                    ? `${totalWordCount.toLocaleString()} (${selectedSceneKeys.length} scenes)`
+                    : singleWordCount.toLocaleString()}
+                </span>
+              </div>
+              <div className="editor-meta-stat-row">
+                <span className="editor-meta-stat-label">Reading Time</span>
+                <span className="editor-meta-stat-value">{Math.max(1, Math.round((isMultiSelect ? totalWordCount : singleWordCount) / 250))} min</span>
               </div>
             </div>
 
