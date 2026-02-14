@@ -254,11 +254,12 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
   // Check-in averages
   const checkinAvgs = useMemo(() => getCheckinAverages(sceneSessions), [sceneSessions]);
 
-  // Top scenes by time
+  // Top scenes by time (exclude manual check-ins)
   const topScenesByTime = useMemo(() => {
     if (sceneSessions.length === 0) return [];
     const byScene: Record<string, number> = {};
     for (const s of sceneSessions) {
+      if (s.sceneKey === 'manual:checkin') continue;
       byScene[s.sceneKey] = (byScene[s.sceneKey] || 0) + s.durationMs;
     }
     return Object.entries(byScene)
@@ -601,41 +602,6 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
           </div>
         </div>
 
-        {/* Milestones */}
-        <div className="analytics-card">
-          <div className="analytics-card-header">
-            <span className="analytics-card-title">Milestones</span>
-          </div>
-          <div className="analytics-milestones">
-            {analytics?.milestones.map(ms => {
-              const progress = Math.min(stats.totalWords / ms.targetWords, 1);
-              return (
-                <div key={ms.id} className={`analytics-milestone ${ms.achieved ? 'achieved' : ''}`}>
-                  <div className="analytics-milestone-icon">
-                    {ms.achieved ? '✓' : '○'}
-                  </div>
-                  <div className="analytics-milestone-info">
-                    <span className="analytics-milestone-label">{ms.label}</span>
-                    {ms.achieved && ms.achievedDate && (
-                      <span className="analytics-milestone-date">
-                        {new Date(ms.achievedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                    )}
-                  </div>
-                  {!ms.achieved && (
-                    <div className="analytics-milestone-progress">
-                      <div className="analytics-milestone-bar-track">
-                        <div className="analytics-milestone-bar-fill" style={{ width: `${progress * 100}%` }} />
-                      </div>
-                      <span className="analytics-milestone-pct">{Math.round(progress * 100)}%</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Check-in Averages */}
         {checkinAvgs && (
           <div className="analytics-card">
@@ -725,7 +691,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
             <tbody>
               {/* Show granular scene sessions if available, otherwise daily aggregates */}
               {sceneSessions.length > 0
-                ? [...sceneSessions].reverse().slice(0, 30).map((ss) => {
+                ? [...sceneSessions].filter(s => s.sceneKey !== 'manual:checkin').reverse().slice(0, 30).map((ss) => {
                     const dateObj = new Date(ss.date + 'T12:00:00');
                     const mins = Math.round(ss.durationMs / 60000);
                     const hrs = ss.durationMs / 3600000;

@@ -9651,6 +9651,7 @@
   border-collapse: collapse;
   font-size: 13px;
   overflow: visible;
+  table-layout: fixed;
 }
 
 .todo-widget-table thead tr {
@@ -9679,6 +9680,10 @@
 
 .todo-widget-th-scene {
   width: 180px;
+  resize: horizontal;
+  overflow: hidden;
+  min-width: 100px;
+  max-width: 60%;
 }
 
 .todo-widget-th-desc {
@@ -9830,6 +9835,7 @@
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
   max-height: 200px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .todo-widget-scene-option {

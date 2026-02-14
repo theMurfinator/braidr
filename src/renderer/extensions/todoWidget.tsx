@@ -16,6 +16,11 @@ interface SceneOption {
   label: string; // "Noah — 3 — Scene title"
 }
 
+// Strip markdown tags (#tag_name) from scene titles
+function cleanSceneTitle(text: string): string {
+  return text.replace(/#[a-zA-Z0-9_]+/g, '').replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '').replace(/\s+/g, ' ').trim();
+}
+
 // React component for the todo widget node view
 function TodoWidgetView({ node, updateAttributes, editor }: any) {
   const [rows, setRows] = useState<TodoRow[]>(node.attrs.rows || []);
@@ -34,7 +39,7 @@ function TodoWidgetView({ node, updateAttributes, editor }: any) {
   const sceneOptions: SceneOption[] = useMemo(() => {
     return scenes.map((s: any) => {
       const charName = characters.find((c: any) => c.id === s.characterId)?.name || '?';
-      const title = s.title ? ` — ${s.title}` : '';
+      const title = s.title ? ` — ${cleanSceneTitle(s.title)}` : '';
       return {
         key: `${s.characterId}:${s.sceneNumber}`,
         label: `${charName} — ${s.sceneNumber}${title}`,

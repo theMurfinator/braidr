@@ -1,9 +1,10 @@
 import { useState } from 'react';
 
 interface CheckinModalProps {
-  sceneLabel: string;
-  durationMs: number;
-  wordsNet: number;
+  sceneLabel?: string;
+  durationMs?: number;
+  wordsNet?: number;
+  standalone?: boolean;
   onSubmit: (checkin: { energy: number; focus: number; mood: number }) => void;
   onSkip: () => void;
 }
@@ -26,7 +27,7 @@ const SCALES = [
   },
 ];
 
-export default function CheckinModal({ sceneLabel, durationMs, wordsNet, onSubmit, onSkip }: CheckinModalProps) {
+export default function CheckinModal({ sceneLabel, durationMs = 0, wordsNet = 0, standalone, onSubmit, onSkip }: CheckinModalProps) {
   const [energy, setEnergy] = useState(0);
   const [focus, setFocus] = useState(0);
   const [mood, setMood] = useState(0);
@@ -48,18 +49,20 @@ export default function CheckinModal({ sceneLabel, durationMs, wordsNet, onSubmi
     <div className="checkin-overlay" onClick={onSkip}>
       <div className="checkin-modal" onClick={e => e.stopPropagation()}>
         <div className="checkin-header">
-          <h3 className="checkin-title">How was that session?</h3>
-          <div className="checkin-summary">
-            <span>{sceneLabel}</span>
-            <span className="checkin-summary-sep">·</span>
-            <span>{formatDuration(durationMs)}</span>
-            {wordsNet !== 0 && (
-              <>
-                <span className="checkin-summary-sep">·</span>
-                <span>{wordsNet > 0 ? '+' : ''}{wordsNet} words</span>
-              </>
-            )}
-          </div>
+          <h3 className="checkin-title">{standalone ? 'How are you feeling?' : 'How was that session?'}</h3>
+          {!standalone && sceneLabel && (
+            <div className="checkin-summary">
+              <span>{sceneLabel}</span>
+              <span className="checkin-summary-sep">·</span>
+              <span>{formatDuration(durationMs)}</span>
+              {wordsNet !== 0 && (
+                <>
+                  <span className="checkin-summary-sep">·</span>
+                  <span>{wordsNet > 0 ? '+' : ''}{wordsNet} words</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="checkin-scales">
@@ -88,7 +91,7 @@ export default function CheckinModal({ sceneLabel, durationMs, wordsNet, onSubmi
         </div>
 
         <div className="checkin-actions">
-          <button className="checkin-skip-btn" onClick={onSkip}>Skip</button>
+          <button className="checkin-skip-btn" onClick={onSkip}>{standalone ? 'Cancel' : 'Skip'}</button>
           <button
             className="checkin-save-btn"
             disabled={!canSubmit}

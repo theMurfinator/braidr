@@ -20,7 +20,7 @@ import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
-import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate, deleteSceneSession, getSceneSessionsList } from './utils/analyticsStore';
+import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate, deleteSceneSession, getSceneSessionsList, appendSceneSession, getTodayStr } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import braidrIcon from './assets/braidr-icon.png';
@@ -117,6 +117,7 @@ function App() {
   const analyticsRef = useRef<AnalyticsData | null>(null);
   const [sceneSessions, setSceneSessions] = useState<SceneSession[]>([]);
   const [pendingSession, setPendingSession] = useState<SessionSummary | null>(null);
+  const [showManualCheckin, setShowManualCheckin] = useState(false);
   const pendingSessionRef = useRef<SessionSummary | null>(null);
   const pendingTotalWordsRef = useRef<number>(0);
   const isClosingRef = useRef(false);
@@ -401,6 +402,26 @@ function App() {
 
     pendingSessionRef.current = null;
     setPendingSession(null);
+  }, [projectData]);
+
+  // Manual (standalone) check-in handler
+  const handleManualCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number }) => {
+    if (!analyticsRef.current || !projectData) return;
+    const session: SceneSession = {
+      id: `ss-manual-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      sceneKey: 'manual:checkin',
+      date: getTodayStr(),
+      startTime: Date.now(),
+      endTime: Date.now(),
+      durationMs: 0,
+      wordsNet: 0,
+      checkin,
+    };
+    const updated = appendSceneSession(analyticsRef.current, session);
+    analyticsRef.current = updated;
+    setSceneSessions(updated.sceneSessions || []);
+    saveAnalytics(projectData.projectPath, updated);
+    setShowManualCheckin(false);
   }, [projectData]);
 
   // End session when switching away from editor view
@@ -2784,6 +2805,15 @@ function App() {
                   </svg>
                   Goals & Analytics
                 </button>
+                <button onClick={() => { setShowManualCheckin(true); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                    <line x1="9" y1="9" x2="9.01" y2="9"/>
+                    <line x1="15" y1="9" x2="15.01" y2="9"/>
+                  </svg>
+                  Mood Check-in
+                </button>
                 <div className="settings-dropdown-divider" />
                 <button onClick={() => { setShowCharacterManager(true); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3664,6 +3694,15 @@ function App() {
             setViewMode('pov');
           }}
           onClose={() => setShowSearch(false)}
+        />
+      )}
+
+      {/* Manual Mood Check-in */}
+      {showManualCheckin && (
+        <CheckinModal
+          standalone
+          onSubmit={handleManualCheckinSubmit}
+          onSkip={() => setShowManualCheckin(false)}
         />
       )}
 
