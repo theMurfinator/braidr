@@ -7,10 +7,14 @@
       "parentId": null,
       "order": 0,
       "createdAt": 1707600000000,
-      "modifiedAt": 1707700000000,
-      "outgoingLinks": ["note3"],
-      "sceneLinks": ["c1m65ta:1", "c1m65ta:7", "c1m65ta:11", "c1m65ta:17"],
-      "tags": ["ring", "sauron", "power"]
+      "modifiedAt": 1771085760146,
+      "outgoingLinks": [],
+      "sceneLinks": [],
+      "tags": [
+        "ring",
+        "sauron",
+        "power"
+      ]
     },
     {
       "id": "note2",
@@ -22,7 +26,10 @@
       "modifiedAt": 1707710000000,
       "outgoingLinks": [],
       "sceneLinks": [],
-      "tags": ["worldbuilding", "locations"]
+      "tags": [
+        "worldbuilding",
+        "locations"
+      ]
     },
     {
       "id": "note3",
@@ -31,10 +38,13 @@
       "parentId": null,
       "order": 2,
       "createdAt": 1707620000000,
-      "modifiedAt": 1707720000000,
-      "outgoingLinks": ["note1"],
-      "sceneLinks": ["cceiiks:4", "cceiiks:6", "cceiiks:12", "cceiiks:14"],
-      "tags": ["aragorn", "character_arc"]
+      "modifiedAt": 1771084627590,
+      "outgoingLinks": [],
+      "sceneLinks": [],
+      "tags": [
+        "aragorn",
+        "character_arc"
+      ]
     },
     {
       "id": "note4",
@@ -44,9 +54,14 @@
       "order": 3,
       "createdAt": 1707630000000,
       "modifiedAt": 1707730000000,
-      "outgoingLinks": ["note1"],
+      "outgoingLinks": [
+        "note1"
+      ],
       "sceneLinks": [],
-      "tags": ["themes", "writing"]
+      "tags": [
+        "themes",
+        "writing"
+      ]
     }
   ],
   "version": 2
