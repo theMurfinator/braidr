@@ -2908,11 +2908,22 @@ function App() {
         </div>
       </div>
 
-      <div className={`main-content main-content--${viewMode}`}>
+      <div
+        className={`main-content main-content--${viewMode}`}
+        style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes'
+          ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, overflow: 'hidden' }
+          : undefined}
+      >
         {loading ? (
           <div className="loading">Loading...</div>
         ) : (
-          <div className={`scene-list scene-list--${viewMode}`} ref={sceneListRef}>
+          <div
+            className={`scene-list scene-list--${viewMode}`}
+            ref={sceneListRef}
+            style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes'
+              ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, margin: 0, maxWidth: 'none', minHeight: 0 }
+              : undefined}
+          >
             {viewMode === 'analytics' ? (
               <WordCountDashboard
                 scenes={projectData.scenes}

@@ -12031,7 +12031,9 @@ body.has-trial-banner .app-sidebar {
 
 body.has-trial-banner .app {
   padding-top: 32px;
-  height: calc(100vh - 32px);
+  /* height stays 100vh from base rule — padding-top with border-box
+     already reserves space for the banner. calc(100vh - 32px) was
+     double-subtracting, losing 32px at the bottom. */
 }
 
 /* Trial banner — sits at the very top of the window */
