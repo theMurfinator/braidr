@@ -20,16 +20,34 @@
 - [ ] Test: App should check for updates on launch
 - [ ] Add "Check for Updates" menu item
 
-### License Key System
-- [ ] Sign up for Gumroad
-  - Product: "Braidr - Multi-POV Writing Tool"
-  - Price: $49 one-time
-  - Enable license keys
-- [ ] Implement trial logic (7 days from first launch)
-- [ ] Add license key validation
-- [ ] Create "Enter License Key" dialog
-- [ ] Test: Trial expires after 7 days, license key unlocks
-- [ ] Add "Purchase License" link (opens Gumroad)
+### Payment & License System (Stripe + Keygen)
+- [x] Stripe checkout flow (creates subscription → triggers webhook)
+- [x] Stripe webhook handler (checkout.session.completed, subscription.deleted, invoice.payment_failed)
+- [x] Keygen license creation (auto-created on purchase via webhook)
+- [x] Keygen license suspension (on cancellation or payment failure)
+- [x] License key emailed to customer via Resend
+- [x] Implement trial logic (14 days from first launch)
+- [x] Keygen license validation in Electron app (with 24hr cache + offline grace)
+- [x] "Enter License Key" dialog (LicenseGate component)
+- [x] Trial banner with days remaining
+- [x] Trial expired / license expired / invalid key screens
+- [x] "Buy Now" button opens Stripe checkout link
+- [x] Stripe billing portal for subscription management
+- [ ] Test: Full end-to-end purchase flow (Stripe → webhook → Keygen → email → activate in app)
+- [ ] Swap Clerk test publishable key to production key in portal HTML
+
+### Server Deployment (Vercel)
+- [x] Vercel project configured (vercel.json with rewrites, CORS headers)
+- [x] API routes: /api/checkout, /api/webhooks/stripe, /api/portal/me, /api/portal/billing, /api/admin/overview, /api/feedback
+- [x] Customer portal HTML (sign-in, dashboard with license display + download links)
+- [x] Admin dashboard HTML (MRR, subscribers, revenue, feedback feed)
+- [x] Clerk auth integration for portal/admin routes
+- [x] Feedback system with Vercel Blob storage
+- [ ] Verify server is deployed and accessible at braidr-api.vercel.app
+- [ ] Verify all environment variables set in Vercel dashboard
+- [ ] Register Stripe webhook URL in Stripe dashboard (https://braidr-api.vercel.app/api/webhooks/stripe)
+- [ ] Enable 3 webhook events in Stripe (checkout.session.completed, customer.subscription.deleted, invoice.payment_failed)
+- [ ] Restrict CORS from wildcard (*) to production domain before launch
 
 ### App Icon
 - [ ] Commission professional icon on Fiverr/Upwork

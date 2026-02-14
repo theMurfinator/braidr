@@ -37,6 +37,9 @@ Writers working on multi-POV novels (fantasy, sci-fi, romance, literary fiction)
 - [ ] Code signing + notarization setup
 - [ ] Auto-update system (electron-updater)
 - [x] License key system (Stripe + Keygen integration)
+- [x] Server/API deployed to Vercel (Stripe webhooks, customer portal, admin dashboard)
+- [ ] Verify Stripe webhook + env vars configured in dashboards
+- [ ] End-to-end purchase test
 - [ ] Professional app icon
 
 **Important (Should-have):**
@@ -44,11 +47,13 @@ Writers working on multi-POV novels (fantasy, sci-fi, romance, literary fiction)
 - [ ] First-run welcome screen
 - [ ] Export to folder functionality
 - [ ] Privacy policy
+- [ ] Swap Clerk test keys to production
 
 **Nice-to-have (Can wait):**
 - [ ] Crash reporting (Sentry)
 - [ ] Usage analytics (PostHog)
 - [ ] In-app feedback button
+- [ ] Restrict CORS to production domain
 
 ---
 
