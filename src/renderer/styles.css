@@ -3395,12 +3395,12 @@
   transition: all 0.15s;
 }
 
-/* Braided scene card */
-.braided-scene-item.compact {
+/* Braided scene card - POV text layout */
+.braided-scene-item.pov-text {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 20px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -3410,10 +3410,37 @@
   margin-bottom: 6px;
 }
 
-.braided-scene-item.compact:hover {
+.braided-scene-item.pov-text:hover {
   background: var(--surface-light);
   border-color: rgba(0, 0, 0, 0.08);
   box-shadow: var(--shadow-md);
+}
+
+.braided-text-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.braided-text-content {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  font-family: var(--font-scene-title);
+  padding-left: 38px;
+}
+
+.braided-text-notes {
+  padding-left: 38px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  font-family: var(--font-scene-title);
+  font-style: italic;
+}
+
+.braided-text-notes p {
+  margin: 2px 0;
 }
 
 .braided-drag-handle {
@@ -3426,7 +3453,7 @@
   user-select: none;
 }
 
-.braided-scene-item.compact:hover .braided-drag-handle {
+.braided-scene-item.pov-text:hover .braided-drag-handle {
   opacity: 0.5;
 }
 
@@ -3518,7 +3545,7 @@
 }
 
 .is-connecting .braided-scene-item.connect-target:hover .scene-card,
-.is-connecting .braided-scene-item.compact.connect-target:hover {
+.is-connecting .braided-scene-item.pov-text.connect-target:hover {
   outline: 2px dashed var(--tag-locations);
   outline-offset: 2px;
 }

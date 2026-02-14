@@ -973,6 +973,12 @@ function App() {
     return cleaned;
   };
 
+  const cleanSceneContent = (content: string): string => {
+    return content
+      .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
+      .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
+  };
+
   // Apply global font settings to CSS variables on :root
   const applyFontSettings = (settings: FontSettings) => {
     const root = document.documentElement;
@@ -3466,28 +3472,37 @@ function App() {
                             }}
                             onMouseEnter={() => setHoveredSceneId(scene.id)}
                             onMouseLeave={() => setHoveredSceneId(null)}
-                            className={`braided-scene-item compact ${draggedScene?.id === scene.id ? 'dragging' : ''} ${selectedSceneId === scene.id ? 'selected' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${(sceneConnections[scene.id]?.length || 0) > 0 ? 'has-connections' : ''}`}
+                            className={`braided-scene-item pov-text ${draggedScene?.id === scene.id ? 'dragging' : ''} ${selectedSceneId === scene.id ? 'selected' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${(sceneConnections[scene.id]?.length || 0) > 0 ? 'has-connections' : ''}`}
                             style={showPovColors ? { backgroundColor: getCharacterColor(scene.characterId) } : { borderLeftColor: getCharacterHexColor(scene.characterId), borderLeftWidth: '3px' }}
                           >
-                            <span
-                              className="braided-drag-handle"
-                              onMouseDown={() => setCanDragScene(true)}
-                            >
-                              ⋮⋮
-                            </span>
-                            <span className="braided-scene-number">{displayPosition}.</span>
-                            <span className="braided-scene-title">
-                              {extractShortTitle(scene.content) || 'Untitled'}
-                            </span>
-                            <span className="braided-scene-character">{getCharacterName(scene.characterId)}</span>
-                            <span className="braided-scene-meta">
-                              {scene.plotPointId && projectData.plotPoints.find(p => p.id === scene.plotPointId) && (
-                                <span className="braided-scene-plotpoint">{projectData.plotPoints.find(p => p.id === scene.plotPointId)!.title}</span>
+                            <div className="braided-text-header">
+                              <span
+                                className="braided-drag-handle"
+                                onMouseDown={() => setCanDragScene(true)}
+                              >
+                                ⋮⋮
+                              </span>
+                              <span className="braided-scene-number">{displayPosition}.</span>
+                              <span className="braided-scene-character">{getCharacterName(scene.characterId)}</span>
+                              <span className="braided-scene-meta">
+                                <span className="braided-scene-scenenumber">Scene {scene.sceneNumber}</span>
+                                {scene.plotPointId && projectData.plotPoints.find(p => p.id === scene.plotPointId) && (
+                                  <span className="braided-scene-plotpoint">{projectData.plotPoints.find(p => p.id === scene.plotPointId)!.title}</span>
+                                )}
+                              </span>
+                              {(sceneConnections[scene.id]?.length || 0) > 0 && (
+                                <span className="braided-scene-connections-badge">{sceneConnections[scene.id].length}</span>
                               )}
-                              <span className="braided-scene-scenenumber">Scene {scene.sceneNumber}</span>
-                            </span>
-                            {(sceneConnections[scene.id]?.length || 0) > 0 && (
-                              <span className="braided-scene-connections-badge">{sceneConnections[scene.id].length}</span>
+                            </div>
+                            <div className="braided-text-content">
+                              {cleanSceneContent(scene.content) || 'Untitled scene'}
+                            </div>
+                            {scene.notes.length > 0 && (
+                              <div className="braided-text-notes">
+                                {scene.notes.map((note, i) => (
+                                  <p key={i}>{note}</p>
+                                ))}
+                              </div>
                             )}
                           </div>
                         </div>
