@@ -3763,6 +3763,7 @@
   display: flex;
   gap: 0;
   max-width: none;
+  height: 100%;
 }
 
 .pov-content {
@@ -5885,6 +5886,7 @@
 .editor-view {
   display: flex;
   flex: 1;
+  height: 100%;
   min-height: 0;
   width: 100%;
 }

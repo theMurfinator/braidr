@@ -21,6 +21,39 @@
         height: 100vh;
         width: 100vw;
       }
+
+      /* Full-width view layout — nuclear override to eliminate gaps.
+         These rules use !important to guarantee they win over any
+         class-based or bundled CSS that might add padding/margins. */
+      .main-content--editor,
+      .main-content--braided,
+      .main-content--notes {
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+      }
+      .scene-list--editor,
+      .scene-list--braided,
+      .scene-list--notes {
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: none !important;
+        min-height: 0 !important;
+      }
+      .editor-view,
+      .pov-layout,
+      .braided-layout {
+        display: flex !important;
+        flex: 1 !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        width: 100% !important;
+      }
     </style>
   </head>
   <body>

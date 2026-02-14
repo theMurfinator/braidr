@@ -922,7 +922,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   };
 
   return (
-    <div className="editor-view" style={{ display: 'flex', flex: 1, minHeight: 0, width: '100%' }}>
+    <div className="editor-view" style={{ display: 'flex', flex: 1, height: '100%', minHeight: 0, width: '100%' }}>
       {/* Left: Scene Navigator */}
       {showNav && <div className="editor-nav" style={{ width: navWidth }}>
         <div className="editor-nav-filter">
