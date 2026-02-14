@@ -118,6 +118,16 @@ Description of what happens in this plot point section...
 6. Tag database and management
 7. Filtering
 
+## Release Process
+- Releases are **fully automated via GitHub Actions** (`.github/workflows/release.yml`)
+- Triggered by pushing a `v*` tag to `main`
+- The workflow builds for macOS, Windows, and Linux, codesigns, notarizes (via `scripts/notarize.js`), and publishes to GitHub Releases
+- **Do NOT run `npm run package` locally** — it will prompt for codesign credentials that are only in GitHub Secrets
+- To release: merge to `main`, tag with `git tag v<version>`, push the tag
+- Secrets (CSC_LINK, CSC_KEY_PASSWORD, APPLE_ID, APPLE_ID_PASSWORD, APPLE_APP_SPECIFIC_PASSWORD) are configured in the GitHub repo settings
+- Team ID: CBMC9F64HB (hardcoded in `scripts/notarize.js` and workflow)
+- **Always read the release workflow and notarize script before giving release instructions**
+
 ## Technical Notes
 - Use data service abstraction from day 1 for web migration path
 - Store tags in local SQLite or JSON database
