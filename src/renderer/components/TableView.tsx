@@ -39,6 +39,16 @@ function cleanContent(text: string): string {
     .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
 }
 
+function extractShortTitle(content: string): string {
+  // Try to extract highlighted title: ==**...**==
+  const match = content.match(/==\*\*(.+?)\*\*==/);
+  if (match) return match[1].replace(/#[a-zA-Z0-9_]+/g, '').trim();
+  // Fall back to cleaned first portion
+  const cleaned = cleanContent(content);
+  if (cleaned.length > 60) return cleaned.substring(0, 57).trim() + '\u2026';
+  return cleaned;
+}
+
 export default function TableView({
   scenes,
   characters,
@@ -81,9 +91,18 @@ export default function TableView({
   });
 
   // Column widths and order
+  const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+    scene: 280,
+    character: 140,
+    status: 130,
+    words: 100,
+    plotPoint: 160,
+    synopsis: 200,
+  };
+
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
     const saved = localStorage.getItem('table-column-widths');
-    return saved ? JSON.parse(saved) : {};
+    return saved ? { ...DEFAULT_COLUMN_WIDTHS, ...JSON.parse(saved) } : { ...DEFAULT_COLUMN_WIDTHS };
   });
 
   const [columnOrder, setColumnOrder] = useState<string[]>(() => {
@@ -788,7 +807,9 @@ export default function TableView({
                 return (
                   <td key="scene" className="table-cell table-cell-scene">
                     <span className="table-scene-number">{scene.timelinePosition}</span>
-                    <span className="table-scene-content">{cleanContent(scene.content) || 'Untitled'}</span>
+                    <span className="table-scene-content">
+                      {character?.name || 'Unknown'} — {extractShortTitle(scene.content) || 'Untitled'}
+                    </span>
                   </td>
                 );
               }

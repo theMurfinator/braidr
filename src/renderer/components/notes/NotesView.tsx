@@ -5,7 +5,6 @@ import { useToast } from '../ToastContext';
 import NotesSidebar from './NotesSidebar';
 import NoteEditor from './NoteEditor';
 import BacklinksPanel from './BacklinksPanel';
-import GraphView from './GraphView';
 
 interface NotesViewProps {
   projectPath: string;
@@ -162,7 +161,6 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     const saved = localStorage.getItem('braidr-notes-backlinks-width');
     return saved ? parseInt(saved, 10) : 240;
   });
-  const [notesViewMode, setNotesViewMode] = useState<'editor' | 'graph'>('editor');
   const indexRef = useRef(notesIndex);
   indexRef.current = notesIndex;
   const draggingRef = useRef<{ panel: 'sidebar' | 'backlinks'; startX: number; initialWidth: number } | null>(null);
@@ -579,32 +577,6 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
               <line x1="5.5" y1="0.75" x2="5.5" y2="13.25" stroke="currentColor" strokeWidth="1.5"/>
             </svg>
           </button>
-          <div className="notes-view-mode-toggle">
-            <button
-              className={`notes-view-mode-btn ${notesViewMode === 'editor' ? 'active' : ''}`}
-              onClick={() => setNotesViewMode('editor')}
-              title="Editor view"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3" fill="none"/>
-                <path d="M5 5.5h6M5 8h4M5 10.5h5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-              </svg>
-            </button>
-            <button
-              className={`notes-view-mode-btn ${notesViewMode === 'graph' ? 'active' : ''}`}
-              onClick={() => setNotesViewMode('graph')}
-              title="Graph view"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <circle cx="4" cy="5" r="2" stroke="currentColor" strokeWidth="1.3" fill="none"/>
-                <circle cx="12" cy="4" r="2" stroke="currentColor" strokeWidth="1.3" fill="none"/>
-                <circle cx="8" cy="12" r="2" stroke="currentColor" strokeWidth="1.3" fill="none"/>
-                <line x1="5.7" y1="6.2" x2="6.8" y2="10.5" stroke="currentColor" strokeWidth="1.1"/>
-                <line x1="10.3" y1="5.2" x2="9.2" y2="10.5" stroke="currentColor" strokeWidth="1.1"/>
-                <line x1="6" y1="4.7" x2="10" y2="4.2" stroke="currentColor" strokeWidth="1.1"/>
-              </svg>
-            </button>
-          </div>
           <div className="notes-panel-toggle-spacer" />
           <button className="notes-panel-toggle" onClick={() => setBacklinksPanelCollapsed(!backlinksPanelCollapsed)} title={backlinksPanelCollapsed ? 'Show links' : 'Hide links'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
@@ -613,18 +585,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             </svg>
           </button>
         </div>
-        {notesViewMode === 'graph' ? (
-          <GraphView
-            notes={notesIndex.notes}
-            scenes={scenes}
-            characters={characters}
-            onSelectNote={(noteId) => {
-              setSelectedNoteId(noteId);
-              setNotesViewMode('editor');
-            }}
-            selectedNoteId={selectedNoteId}
-          />
-        ) : selectedNote ? (
+        {selectedNote ? (
           <NoteEditor
             noteId={selectedNote.id}
             title={selectedNote.title}
