@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { autoUpdater } from 'electron-updater';
 import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
-import { getLicenseStatus, activateLicense, deactivateLicense, openPurchaseUrl } from './license';
+import { getLicenseStatus, activateLicense, deactivateLicense, openPurchaseUrl, openBillingPortal } from './license';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -238,6 +238,12 @@ function createMenu() {
           label: 'Purchase License',
           click: () => {
             openPurchaseUrl();
+          }
+        },
+        {
+          label: 'Manage Subscription...',
+          click: () => {
+            openBillingPortal();
           }
         },
         ...(!isMac ? [{
@@ -901,6 +907,14 @@ ipcMain.handle(IPC_CHANNELS.OPEN_PURCHASE_URL, async () => {
   try {
     openPurchaseUrl();
     return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.OPEN_BILLING_PORTAL, async () => {
+  try {
+    return await openBillingPortal();
   } catch (error) {
     return { success: false, error: String(error) };
   }

@@ -1,17 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 import { list } from '@vercel/blob';
-import { verifySession } from '../_lib/auth';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY!;
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').toLowerCase().split(',').map(e => e.trim()).filter(Boolean);
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY!;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const email = await verifySession(req.headers.authorization);
-  if (!email || !ADMIN_EMAILS.includes(email.toLowerCase())) {
+  const apiKey = req.headers['x-admin-key'];
+  if (!apiKey || apiKey !== ADMIN_API_KEY) {
     return res.status(403).json({ error: 'Admin access required' });
   }
 

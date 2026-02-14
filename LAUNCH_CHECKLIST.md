@@ -11,7 +11,7 @@
   - [ ] `KEYGEN_PRODUCT_TOKEN`
   - [ ] `RESEND_API_KEY`
   - [ ] `FROM_EMAIL`
-  - [ ] `CLERK_SECRET_KEY`
+  - [ ] `ADMIN_API_KEY`
   - [ ] `BASE_URL` (https://braidr-api.vercel.app)
 
 ## Stripe
