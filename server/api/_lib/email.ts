@@ -39,7 +39,7 @@ export function licenseKeyEmail(licenseKey: string): string {
       <hr style="border: none; border-top: 1px solid #e4e4e7; margin: 32px 0;" />
       <p style="font-size: 14px; color: #71717a;">
         You can manage your subscription and view your license key anytime at your
-        <a href="https://braidr-api.vercel.app/portal" style="color: #2563eb;">customer portal</a>.
+        <a href="https://billing.stripe.com/p/login/eVq00k3m761132Z13pa3u00" style="color: #2563eb;">customer portal</a>.
       </p>
     </div>
   `;
