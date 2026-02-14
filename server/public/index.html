@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Braidr - The Writing Tool for Multi-POV Novels</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fafafa;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+
+    /* Nav */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px 24px;
+    }
+    .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    .nav-links { display: flex; align-items: center; gap: 16px; }
+    .nav-links a {
+      font-size: 14px;
+      color: #71717a;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: #1a1a1a; }
+
+    /* Hero */
+    .hero {
+      max-width: 640px;
+      margin: 60px auto 0;
+      text-align: center;
+      padding: 0 24px;
+    }
+    .hero h1 {
+      font-size: 44px;
+      font-weight: 700;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .hero p {
+      font-size: 18px;
+      color: #52525b;
+      line-height: 1.6;
+      margin-bottom: 36px;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-primary { background: #1a1a1a; color: #fff; }
+    .btn-outline { background: #fff; color: #1a1a1a; border: 1px solid #d4d4d8; }
+    .btn-outline:hover { background: #f4f4f5; }
+    .btn .price { font-weight: 400; opacity: 0.7; }
+
+    /* Features */
+    .features {
+      max-width: 800px;
+      margin: 80px auto 0;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 32px;
+    }
+    .feature {
+      text-align: center;
+      padding: 28px 20px;
+    }
+    .feature-icon {
+      font-size: 32px;
+      margin-bottom: 16px;
+    }
+    .feature h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .feature p {
+      font-size: 14px;
+      color: #71717a;
+      line-height: 1.5;
+    }
+
+    /* How it works */
+    .how-it-works {
+      max-width: 640px;
+      margin: 64px auto 0;
+      padding: 0 24px;
+      text-align: center;
+    }
+    .how-it-works h2 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 32px;
+    }
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      text-align: left;
+    }
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      background: #1a1a1a;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .step-text h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .step-text p { font-size: 14px; color: #71717a; line-height: 1.5; }
+
+    /* CTA */
+    .cta {
+      max-width: 640px;
+      margin: 80px auto;
+      text-align: center;
+      padding: 48px 24px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .cta h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .cta p { font-size: 15px; color: #71717a; margin-bottom: 24px; }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 13px;
+      color: #a1a1aa;
+    }
+    footer a { color: #71717a; text-decoration: none; }
+    footer a:hover { color: #1a1a1a; }
+
+    /* Checkout success banner */
+    .success-banner {
+      background: #dcfce7;
+      color: #166534;
+      text-align: center;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="logo">Braidr</span>
+    <div class="nav-links">
+      <a href="/portal">Sign In</a>
+      <a href="#" class="btn btn-primary" id="navBuyBtn" style="padding: 8px 18px; font-size: 13px;">Get Started</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <h1>Outline your novel, braid your timelines</h1>
+    <p>
+      The writing tool built for multi-POV novels. Work on each character's arc independently, then see how all the storylines weave together.
+    </p>
+    <div class="hero-actions">
+      <a href="#" class="btn btn-primary" id="heroBuyBtn">
+        Start Free Trial <span class="price">&mdash; then $39/yr</span>
+      </a>
+      <a href="https://github.com/theMurfinator/braidr/releases/latest" class="btn btn-outline">Download</a>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="feature">
+      <div class="feature-icon">&#9998;</div>
+      <h3>POV View</h3>
+      <p>Work on each character's arc in their own narrative order. Plot point headers, scene numbering, notes &mdash; all in one place.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">&#10006;&#10006;</div>
+      <h3>Braided Timeline</h3>
+      <p>See every scene from every character in reading order. Drag and drop to reorder your interleaved timeline.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">&#128196;</div>
+      <h3>Your Files, Forever</h3>
+      <p>Plain markdown files on your computer. Use git, edit in any text editor, no lock-in. Your data stays yours.</p>
+    </div>
+  </section>
+
+  <section class="how-it-works">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <h4>Create your characters</h4>
+          <p>Each POV character gets their own outline file. Add scenes, plot points, and notes in their narrative order.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <h4>Braid the timeline</h4>
+          <p>Switch to the braided view to see all characters' scenes in the order your reader will experience them.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <h4>Drag, drop, reorder</h4>
+          <p>Move scenes around in the braided view to find the perfect reading order. Scene numbers stay consistent within each character's arc.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <h2>Ready to braid your story?</h2>
+    <p>14-day free trial. No credit card required to download.</p>
+    <div class="hero-actions">
+      <a href="#" class="btn btn-primary" id="ctaBuyBtn">
+        Get Braidr <span class="price">&mdash; $39/year</span>
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <a href="/portal">Customer Portal</a>
+  </footer>
+
+  <script>
+    // Purchase buttons → Stripe checkout via API
+    const STRIPE_LINK = 'https://buy.stripe.com/eVq00k3m761132Z13pa3u00';
+
+    document.querySelectorAll('#navBuyBtn, #heroBuyBtn, #ctaBuyBtn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.href = STRIPE_LINK;
+      });
+    });
+  </script>
+</body>
+</html>

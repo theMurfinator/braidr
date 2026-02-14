@@ -3,6 +3,8 @@
   "buildCommand": "",
   "outputDirectory": "public",
   "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/checkout-cancelled", "destination": "/checkout-cancelled.html" },
     { "source": "/portal", "destination": "/portal/index.html" },
     { "source": "/portal/dashboard", "destination": "/portal/dashboard.html" },
     { "source": "/admin", "destination": "/admin/dashboard.html" },
