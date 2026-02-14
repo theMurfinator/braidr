@@ -12,6 +12,9 @@ const KEYGEN_PRODUCT_ID = process.env.KEYGEN_PRODUCT_ID || 'fe8d919b-5b04-41bf-a
 const TRIAL_DAYS = 14;
 const PURCHASE_URL = 'https://buy.stripe.com/eVq00k3m761132Z13pa3u00';
 const BILLING_API_URL = process.env.BILLING_API_URL || 'https://braidr-api.vercel.app/api/portal/billing';
+// Stripe no-code customer portal — fallback for users without a license key
+// Enable at: Stripe Dashboard > Settings > Customer portal > Activate no-code link
+const BILLING_PORTAL_URL = process.env.BILLING_PORTAL_URL || 'https://billing.stripe.com/p/login/REPLACE_ME';
 const LICENSE_FILE = 'license.json';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -264,7 +267,9 @@ export function openPurchaseUrl(): void {
 export async function openBillingPortal(): Promise<{ success: boolean; error?: string }> {
   const data = readLicenseData();
   if (!data.licenseKey) {
-    return { success: false, error: 'No license key found' };
+    // No license key — open Stripe's no-code portal (email + OTP login)
+    await shell.openExternal(BILLING_PORTAL_URL);
+    return { success: true };
   }
 
   try {
