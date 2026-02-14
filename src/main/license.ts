@@ -1,4 +1,4 @@
-import { app, shell, net } from 'electron';
+import { app, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as https from 'https';
@@ -11,7 +11,7 @@ const KEYGEN_PRODUCT_ID = process.env.KEYGEN_PRODUCT_ID || 'fe8d919b-5b04-41bf-a
 
 const TRIAL_DAYS = 14;
 const PURCHASE_URL = 'https://buy.stripe.com/eVq00k3m761132Z13pa3u00';
-const BILLING_API_URL = process.env.BILLING_API_URL || 'https://braidr-api.vercel.app/api/portal/billing';
+const PORTAL_URL = process.env.PORTAL_URL || 'https://braidr-api.vercel.app/portal/dashboard';
 const LICENSE_FILE = 'license.json';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -268,21 +268,10 @@ export async function openBillingPortal(): Promise<{ success: boolean; error?: s
   }
 
   try {
-    const response = await net.fetch(BILLING_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ licenseKey: data.licenseKey }),
-    });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      return { success: false, error: (body as any).error || `Server returned ${response.status}` };
-    }
-
-    const result = await response.json() as { url: string };
-    await shell.openExternal(result.url);
+    const url = `${PORTAL_URL}?key=${encodeURIComponent(data.licenseKey)}`;
+    await shell.openExternal(url);
     return { success: true };
   } catch (err: any) {
-    return { success: false, error: err.message || 'Could not connect to billing server' };
+    return { success: false, error: err.message || 'Could not open customer portal' };
   }
 }
