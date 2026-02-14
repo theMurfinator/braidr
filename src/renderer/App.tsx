@@ -963,6 +963,16 @@ function App() {
     return character?.name || 'Unknown';
   };
 
+  const extractShortTitle = (content: string): string => {
+    const match = content.match(/==\*\*(.+?)\*\*==/);
+    if (match) return match[1].replace(/#[a-zA-Z0-9_]+/g, '').trim();
+    const cleaned = content
+      .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
+      .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
+    if (cleaned.length > 60) return cleaned.substring(0, 57).trim() + '\u2026';
+    return cleaned;
+  };
+
   // Apply global font settings to CSS variables on :root
   const applyFontSettings = (settings: FontSettings) => {
     const root = document.documentElement;
@@ -980,6 +990,20 @@ function App() {
         root.style.setProperty(varName, suffix ? `${val}${suffix}` : String(val));
       } else {
         root.style.removeProperty(varName);
+      }
+    }
+    // Bold weight variables
+    const boldVars: Array<[keyof FontSettings, string, boolean]> = [
+      ['sectionTitleBold', '--font-section-title-weight', true],
+      ['sceneTitleBold', '--font-scene-title-weight', true],
+      ['bodyBold', '--font-body-weight', false],
+    ];
+    for (const [key, varName, defaultBold] of boldVars) {
+      const val = settings[key];
+      if (val !== undefined && val !== null) {
+        root.style.setProperty(varName, val ? '700' : '400');
+      } else {
+        root.style.setProperty(varName, defaultBold ? '700' : '400');
       }
     }
   };
@@ -1001,6 +1025,20 @@ function App() {
       const val = screenSettings?.[key];
       if (val !== undefined && val !== null) {
         el.style.setProperty(varName, suffix ? `${val}${suffix}` : String(val));
+      } else {
+        el.style.removeProperty(varName);
+      }
+    }
+    // Bold weight overrides
+    const boldVars: Array<[keyof FontSettings, string]> = [
+      ['sectionTitleBold', '--font-section-title-weight'],
+      ['sceneTitleBold', '--font-scene-title-weight'],
+      ['bodyBold', '--font-body-weight'],
+    ];
+    for (const [key, varName] of boldVars) {
+      const val = screenSettings?.[key];
+      if (val !== undefined && val !== null) {
+        el.style.setProperty(varName, val ? '700' : '400');
       } else {
         el.style.removeProperty(varName);
       }
@@ -2805,10 +2843,10 @@ function App() {
               onClick={() => setShowSettingsMenu(!showSettingsMenu)}
               title="Settings & Tools"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="1"/>
-                <circle cx="12" cy="5" r="1"/>
-                <circle cx="12" cy="19" r="1"/>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <circle cx="12" cy="5" r="2"/>
+                <circle cx="12" cy="12" r="2"/>
+                <circle cx="12" cy="19" r="2"/>
               </svg>
             </button>
             {showSettingsMenu && (
@@ -3439,7 +3477,7 @@ function App() {
                             </span>
                             <span className="braided-scene-number">{displayPosition}.</span>
                             <span className="braided-scene-title">
-                              {scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '').replace(/#\w+/g, '').trim()}
+                              {extractShortTitle(scene.content) || 'Untitled'}
                             </span>
                             <span className="braided-scene-character">{getCharacterName(scene.characterId)}</span>
                             <span className="braided-scene-meta">

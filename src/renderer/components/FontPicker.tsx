@@ -71,6 +71,7 @@ const TAB_SECTIONS: Record<TabKey, FontSection[]> = {
     { field: 'body', label: 'Draft Text', preview: 'This is how your draft prose will appear. The quick brown fox jumps over the lazy dog.' },
   ],
   notes: [
+    { field: 'section', label: 'Note Title', preview: 'My Research Notes' },
     { field: 'body', label: 'Notes Body', preview: 'This is how your notes will appear. The quick brown fox jumps over the lazy dog.' },
   ],
 };
@@ -142,10 +143,13 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
         global: {
           sectionTitle: DEFAULT_FONT,
           sectionTitleSize: DEFAULT_SECTION_SIZE,
+          sectionTitleBold: true,
           sceneTitle: DEFAULT_FONT,
           sceneTitleSize: DEFAULT_SCENE_SIZE,
+          sceneTitleBold: true,
           body: DEFAULT_FONT,
           bodySize: DEFAULT_BODY_SIZE,
+          bodyBold: false,
         },
       }));
     } else {
@@ -189,11 +193,16 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
             const sizeKey = section.field === 'section' ? 'sectionTitleSize'
               : section.field === 'scene' ? 'sceneTitleSize'
               : 'bodySize';
+            const boldKey = section.field === 'section' ? 'sectionTitleBold'
+              : section.field === 'scene' ? 'sceneTitleBold'
+              : 'bodyBold';
 
             const fontValue = (getResolved(localSettings, activeTab, fontKey) as string) || DEFAULT_FONT;
             const sizeValue = (getResolved(localSettings, activeTab, sizeKey) as number)
               || (section.field === 'section' ? DEFAULT_SECTION_SIZE : section.field === 'scene' ? DEFAULT_SCENE_SIZE : DEFAULT_BODY_SIZE);
-            const isOvr = isOverridden(localSettings, activeTab, fontKey) || isOverridden(localSettings, activeTab, sizeKey);
+            const boldValue = getResolved(localSettings, activeTab, boldKey);
+            const isBold = boldValue !== undefined ? Boolean(boldValue) : section.field !== 'body';
+            const isOvr = isOverridden(localSettings, activeTab, fontKey) || isOverridden(localSettings, activeTab, sizeKey) || isOverridden(localSettings, activeTab, boldKey);
 
             return (
               <div key={section.field} className="font-setting">
@@ -201,7 +210,7 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
                   <label>{section.label}</label>
                   {isScreenTab && (
                     isOvr
-                      ? <button className="font-setting-reset-link" onClick={() => { resetField(fontKey); resetField(sizeKey); }}>Reset to global</button>
+                      ? <button className="font-setting-reset-link" onClick={() => { resetField(fontKey); resetField(sizeKey); resetField(boldKey); }}>Reset to global</button>
                       : <span className="font-setting-inherited">Inherited</span>
                   )}
                 </div>
@@ -227,10 +236,17 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
                       <option key={size} value={size}>{size}px</option>
                     ))}
                   </select>
+                  <button
+                    className={`font-bold-toggle ${isBold ? 'active' : ''}`}
+                    onClick={() => updateField(boldKey, isBold ? false : true)}
+                    title={isBold ? 'Bold (on)' : 'Bold (off)'}
+                  >
+                    <strong>B</strong>
+                  </button>
                 </div>
                 <div className="font-preview" style={{
                   fontFamily: fontValue,
-                  fontWeight: section.field === 'body' ? undefined : 600,
+                  fontWeight: isBold ? 700 : 400,
                   fontSize: `${sizeValue}px`,
                   lineHeight: section.field === 'body' ? 1.6 : undefined,
                 }}>
