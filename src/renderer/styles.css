@@ -1298,6 +1298,11 @@
 }
 
 /* When in editor view, full width */
+.main-content:has(.editor-view) {
+  overflow: hidden;
+  padding: 0;
+}
+
 .scene-list:has(.editor-view) {
   max-width: none;
   padding: 0;
