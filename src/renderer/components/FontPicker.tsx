@@ -44,6 +44,37 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'notes', label: 'Notes' },
 ];
 
+// Define which font sections are visible per tab, with context-specific labels
+type FontSection = {
+  field: 'section' | 'scene' | 'body';
+  label: string;
+  preview: string;
+};
+
+const TAB_SECTIONS: Record<TabKey, FontSection[]> = {
+  global: [
+    { field: 'section', label: 'Plot Point Headers', preview: 'Act One: The Beginning' },
+    { field: 'scene', label: 'Scene Titles', preview: '1. The protagonist wakes up in a strange place' },
+    { field: 'body', label: 'Body Text', preview: 'This is how your notes and descriptions will appear. The quick brown fox jumps over the lazy dog.' },
+  ],
+  pov: [
+    { field: 'section', label: 'Plot Point Headers', preview: 'Act One: The Beginning' },
+    { field: 'scene', label: 'Scene Descriptions', preview: '1. The protagonist wakes up in a strange place' },
+    { field: 'body', label: 'Notes & Synopsis', preview: 'This is how your notes and descriptions will appear. The quick brown fox jumps over the lazy dog.' },
+  ],
+  braided: [
+    { field: 'scene', label: 'Scene Labels', preview: 'Kate 3 — Meeting at the cathedral' },
+    { field: 'body', label: 'Synopsis Text', preview: 'This is how your notes and descriptions will appear. The quick brown fox jumps over the lazy dog.' },
+  ],
+  editor: [
+    { field: 'scene', label: 'Scene Title', preview: 'Press tour — taking an interview' },
+    { field: 'body', label: 'Draft Text', preview: 'This is how your draft prose will appear. The quick brown fox jumps over the lazy dog.' },
+  ],
+  notes: [
+    { field: 'body', label: 'Notes Body', preview: 'This is how your notes will appear. The quick brown fox jumps over the lazy dog.' },
+  ],
+};
+
 // Helper to get the resolved value for a field (screen override or global fallback)
 function getResolved(all: AllFontSettings, tab: TabKey, field: keyof FontSettings): string | number | undefined {
   if (tab === 'global') {
@@ -68,13 +99,7 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
     setLocalSettings(allFontSettings);
   }, [allFontSettings]);
 
-  // Get the effective values for the current tab
-  const sectionTitle = (getResolved(localSettings, activeTab, 'sectionTitle') as string) || DEFAULT_FONT;
-  const sectionTitleSize = (getResolved(localSettings, activeTab, 'sectionTitleSize') as number) || DEFAULT_SECTION_SIZE;
-  const sceneTitle = (getResolved(localSettings, activeTab, 'sceneTitle') as string) || DEFAULT_FONT;
-  const sceneTitleSize = (getResolved(localSettings, activeTab, 'sceneTitleSize') as number) || DEFAULT_SCENE_SIZE;
-  const body = (getResolved(localSettings, activeTab, 'body') as string) || DEFAULT_FONT;
-  const bodySize = (getResolved(localSettings, activeTab, 'bodySize') as number) || DEFAULT_BODY_SIZE;
+  // Font values are now resolved dynamically in the render loop
 
   // Update a field — on 'global' tab updates global, on screen tabs updates screen override
   const updateField = (field: keyof FontSettings, value: string | number) => {
@@ -133,9 +158,6 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
     }
   };
 
-  const sectionTitleOverridden = isOverridden(localSettings, activeTab, 'sectionTitle') || isOverridden(localSettings, activeTab, 'sectionTitleSize');
-  const sceneTitleOverridden = isOverridden(localSettings, activeTab, 'sceneTitle') || isOverridden(localSettings, activeTab, 'sceneTitleSize');
-  const bodyOverridden = isOverridden(localSettings, activeTab, 'body') || isOverridden(localSettings, activeTab, 'bodySize');
   const isScreenTab = activeTab !== 'global';
 
   return (
@@ -159,116 +181,64 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
         </div>
 
         <div className="font-picker-content">
-          <div className="font-setting">
-            <div className="font-setting-header">
-              <label>Section Titles</label>
-              {isScreenTab && (
-                sectionTitleOverridden
-                  ? <button className="font-setting-reset-link" onClick={() => { resetField('sectionTitle'); resetField('sectionTitleSize'); }}>Reset to global</button>
-                  : <span className="font-setting-inherited">Inherited</span>
-              )}
-            </div>
-            <div className="font-controls">
-              <select
-                value={sectionTitle}
-                onChange={(e) => updateField('sectionTitle', e.target.value)}
-                style={{ fontFamily: sectionTitle }}
-                className={`font-family-select ${isScreenTab && !isOverridden(localSettings, activeTab, 'sectionTitle') ? 'inherited' : ''}`}
-              >
-                {AVAILABLE_FONTS.map((font) => (
-                  <option key={font.name} value={font.value} style={{ fontFamily: font.value }}>
-                    {font.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={sectionTitleSize}
-                onChange={(e) => updateField('sectionTitleSize', Number(e.target.value))}
-                className={`font-size-select ${isScreenTab && !isOverridden(localSettings, activeTab, 'sectionTitleSize') ? 'inherited' : ''}`}
-              >
-                {FONT_SIZES.map((size) => (
-                  <option key={size} value={size}>{size}px</option>
-                ))}
-              </select>
-            </div>
-            <div className="font-preview" style={{ fontFamily: sectionTitle, fontWeight: 600, fontSize: `${sectionTitleSize}px` }}>
-              Act One: The Beginning
-            </div>
-          </div>
+          {TAB_SECTIONS[activeTab].map((section) => {
+            // Map section field to the corresponding font setting keys
+            const fontKey = section.field === 'section' ? 'sectionTitle'
+              : section.field === 'scene' ? 'sceneTitle'
+              : 'body';
+            const sizeKey = section.field === 'section' ? 'sectionTitleSize'
+              : section.field === 'scene' ? 'sceneTitleSize'
+              : 'bodySize';
 
-          <div className="font-setting">
-            <div className="font-setting-header">
-              <label>Scene Titles</label>
-              {isScreenTab && (
-                sceneTitleOverridden
-                  ? <button className="font-setting-reset-link" onClick={() => { resetField('sceneTitle'); resetField('sceneTitleSize'); }}>Reset to global</button>
-                  : <span className="font-setting-inherited">Inherited</span>
-              )}
-            </div>
-            <div className="font-controls">
-              <select
-                value={sceneTitle}
-                onChange={(e) => updateField('sceneTitle', e.target.value)}
-                style={{ fontFamily: sceneTitle }}
-                className={`font-family-select ${isScreenTab && !isOverridden(localSettings, activeTab, 'sceneTitle') ? 'inherited' : ''}`}
-              >
-                {AVAILABLE_FONTS.map((font) => (
-                  <option key={font.name} value={font.value} style={{ fontFamily: font.value }}>
-                    {font.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={sceneTitleSize}
-                onChange={(e) => updateField('sceneTitleSize', Number(e.target.value))}
-                className={`font-size-select ${isScreenTab && !isOverridden(localSettings, activeTab, 'sceneTitleSize') ? 'inherited' : ''}`}
-              >
-                {FONT_SIZES.map((size) => (
-                  <option key={size} value={size}>{size}px</option>
-                ))}
-              </select>
-            </div>
-            <div className="font-preview" style={{ fontFamily: sceneTitle, fontWeight: 600, fontSize: `${sceneTitleSize}px` }}>
-              1. The protagonist wakes up in a strange place
-            </div>
-          </div>
+            const fontValue = (getResolved(localSettings, activeTab, fontKey) as string) || DEFAULT_FONT;
+            const sizeValue = (getResolved(localSettings, activeTab, sizeKey) as number)
+              || (section.field === 'section' ? DEFAULT_SECTION_SIZE : section.field === 'scene' ? DEFAULT_SCENE_SIZE : DEFAULT_BODY_SIZE);
+            const isOvr = isOverridden(localSettings, activeTab, fontKey) || isOverridden(localSettings, activeTab, sizeKey);
 
-          <div className="font-setting">
-            <div className="font-setting-header">
-              <label>Body Text</label>
-              {isScreenTab && (
-                bodyOverridden
-                  ? <button className="font-setting-reset-link" onClick={() => { resetField('body'); resetField('bodySize'); }}>Reset to global</button>
-                  : <span className="font-setting-inherited">Inherited</span>
-              )}
-            </div>
-            <div className="font-controls">
-              <select
-                value={body}
-                onChange={(e) => updateField('body', e.target.value)}
-                style={{ fontFamily: body }}
-                className={`font-family-select ${isScreenTab && !isOverridden(localSettings, activeTab, 'body') ? 'inherited' : ''}`}
-              >
-                {AVAILABLE_FONTS.map((font) => (
-                  <option key={font.name} value={font.value} style={{ fontFamily: font.value }}>
-                    {font.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={bodySize}
-                onChange={(e) => updateField('bodySize', Number(e.target.value))}
-                className={`font-size-select ${isScreenTab && !isOverridden(localSettings, activeTab, 'bodySize') ? 'inherited' : ''}`}
-              >
-                {FONT_SIZES.map((size) => (
-                  <option key={size} value={size}>{size}px</option>
-                ))}
-              </select>
-            </div>
-            <div className="font-preview" style={{ fontFamily: body, fontSize: `${bodySize}px`, lineHeight: 1.6 }}>
-              This is how your notes and descriptions will appear. The quick brown fox jumps over the lazy dog.
-            </div>
-          </div>
+            return (
+              <div key={section.field} className="font-setting">
+                <div className="font-setting-header">
+                  <label>{section.label}</label>
+                  {isScreenTab && (
+                    isOvr
+                      ? <button className="font-setting-reset-link" onClick={() => { resetField(fontKey); resetField(sizeKey); }}>Reset to global</button>
+                      : <span className="font-setting-inherited">Inherited</span>
+                  )}
+                </div>
+                <div className="font-controls">
+                  <select
+                    value={fontValue}
+                    onChange={(e) => updateField(fontKey, e.target.value)}
+                    style={{ fontFamily: fontValue }}
+                    className={`font-family-select ${isScreenTab && !isOverridden(localSettings, activeTab, fontKey) ? 'inherited' : ''}`}
+                  >
+                    {AVAILABLE_FONTS.map((font) => (
+                      <option key={font.name} value={font.value} style={{ fontFamily: font.value }}>
+                        {font.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={sizeValue}
+                    onChange={(e) => updateField(sizeKey, Number(e.target.value))}
+                    className={`font-size-select ${isScreenTab && !isOverridden(localSettings, activeTab, sizeKey) ? 'inherited' : ''}`}
+                  >
+                    {FONT_SIZES.map((size) => (
+                      <option key={size} value={size}>{size}px</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="font-preview" style={{
+                  fontFamily: fontValue,
+                  fontWeight: section.field === 'body' ? undefined : 600,
+                  fontSize: `${sizeValue}px`,
+                  lineHeight: section.field === 'body' ? 1.6 : undefined,
+                }}>
+                  {section.preview}
+                </div>
+              </div>
+            );
+          })}
 
           <div className="font-setting">
             <label>Content Width</label>

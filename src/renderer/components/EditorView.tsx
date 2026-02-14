@@ -160,7 +160,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   sceneSessionsList,
 }, ref) {
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
+  const [selectedStatusFilters, setSelectedStatusFilters] = useState<Set<string>>(new Set());
+  const [showStatusFilterDropdown, setShowStatusFilterDropdown] = useState(false);
+  const statusFilterRef = useRef<HTMLDivElement>(null);
   const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(null);
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null);
   const [showMetaEditor, setShowMetaEditor] = useState(false);
@@ -253,15 +255,28 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     ? (statusFieldDefForFilter.options || []).map(v => ({ value: v, color: statusFieldDefForFilter.optionColors?.[v] || '#9e9e9e' }))
     : DEFAULT_STATUSES;
 
+  const toggleStatusFilter = (value: string) => {
+    setSelectedStatusFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(value)) {
+        next.delete(value);
+      } else {
+        next.add(value);
+      }
+      return next;
+    });
+  };
+
   const filteredScenes = scenes.filter(s => {
     if (selectedCharFilter !== 'all' && s.characterId !== selectedCharFilter) return false;
-    if (selectedStatusFilter !== 'all') {
+    if (selectedStatusFilters.size > 0) {
       const sceneKey = getSceneKey(s);
       const meta = sceneMetadata[sceneKey];
       const status = meta?.['_status'] as string | undefined;
-      if (selectedStatusFilter === '__none__') {
-        if (status) return false;
-      } else if (status !== selectedStatusFilter) return false;
+      if (!status) {
+        return selectedStatusFilters.has('__none__');
+      }
+      return selectedStatusFilters.has(status);
     }
     return true;
   });
@@ -719,6 +734,17 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showStatusDropdown]);
 
+  // Close status filter dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (statusFilterRef.current && !statusFilterRef.current.contains(e.target as Node)) {
+        setShowStatusFilterDropdown(false);
+      }
+    };
+    if (showStatusFilterDropdown) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showStatusFilterDropdown]);
+
   // Keyboard shortcuts: Cmd+[ toggles nav, Cmd+] toggles meta
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -919,13 +945,47 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <select value={selectedStatusFilter} onChange={e => setSelectedStatusFilter(e.target.value)}>
-            <option value="all">All Statuses</option>
-            <option value="__none__">No Status</option>
-            {statusOptionsForFilter.map(s => (
-              <option key={s.value} value={s.value}>{s.value}</option>
-            ))}
-          </select>
+          <div className="editor-nav-filter-multi" ref={statusFilterRef}>
+            <button
+              className="editor-nav-filter-multi-btn"
+              onClick={() => setShowStatusFilterDropdown(!showStatusFilterDropdown)}
+            >
+              {selectedStatusFilters.size === 0
+                ? 'All Statuses'
+                : selectedStatusFilters.size === 1
+                  ? ([...selectedStatusFilters][0] === '__none__' ? 'No Status' : [...selectedStatusFilters][0])
+                  : `${selectedStatusFilters.size} Statuses`}
+            </button>
+            {showStatusFilterDropdown && (
+              <div className="editor-nav-filter-multi-dropdown">
+                <div
+                  className={`editor-nav-filter-multi-option ${selectedStatusFilters.size === 0 ? 'active' : ''}`}
+                  onClick={() => setSelectedStatusFilters(new Set())}
+                >
+                  <span className="editor-nav-filter-multi-check">{selectedStatusFilters.size === 0 ? '\u2713' : ''}</span>
+                  All Statuses
+                </div>
+                <div
+                  className={`editor-nav-filter-multi-option ${selectedStatusFilters.has('__none__') ? 'active' : ''}`}
+                  onClick={() => toggleStatusFilter('__none__')}
+                >
+                  <span className="editor-nav-filter-multi-check">{selectedStatusFilters.has('__none__') ? '\u2713' : ''}</span>
+                  No Status
+                </div>
+                {statusOptionsForFilter.map(s => (
+                  <div
+                    key={s.value}
+                    className={`editor-nav-filter-multi-option ${selectedStatusFilters.has(s.value) ? 'active' : ''}`}
+                    onClick={() => toggleStatusFilter(s.value)}
+                  >
+                    <span className="editor-nav-filter-multi-check">{selectedStatusFilters.has(s.value) ? '\u2713' : ''}</span>
+                    <span className="editor-nav-filter-multi-dot" style={{ background: s.color }} />
+                    {s.value}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <div className="editor-nav-list">
           <>

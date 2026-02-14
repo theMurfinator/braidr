@@ -623,146 +623,6 @@ function SceneCard({
                     </div>
                   )}
                   <EditorContent editor={editor} className="notes-editor" />
-              {/* Connection controls in notes area */}
-              {(onStartConnection || connectedScenes || onWordCountChange) && (
-                <div className="scene-connections-inline">
-                  {connectedScenes && connectedScenes.length > 0 && (
-                    <div className="connected-scenes-list">
-                      {connectedScenes.map(conn => (
-                        <span key={conn.id} className="connected-scene-chip">
-                          {conn.label}
-                          {onRemoveConnection && (
-                            <button
-                              className="remove-connection-chip-btn"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRemoveConnection(conn.id);
-                              }}
-                              title="Remove connection"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <div className="scene-actions-row">
-                    {connectableScenes && onCompleteConnection ? (
-                      <div className="connect-search-container" ref={connectSearchRef}>
-                        {showConnectSearch ? (
-                          <div className="connect-search-dropdown">
-                            <input
-                              type="text"
-                              className="connect-search-input"
-                              placeholder="Search scenes..."
-                              value={connectSearchText}
-                              onChange={(e) => setConnectSearchText(e.target.value)}
-                              autoFocus
-                            />
-                            <div className="connect-search-results">
-                              {connectableScenes
-                                .filter(s => !connectSearchText.trim() || s.label.toLowerCase().includes(connectSearchText.trim().toLowerCase()))
-                                .map(s => (
-                                  <button
-                                    key={s.id}
-                                    className="connect-search-item"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onCompleteConnection(s.id);
-                                      setShowConnectSearch(false);
-                                      setConnectSearchText('');
-                                    }}
-                                  >
-                                    {s.label}
-                                  </button>
-                                ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            className="add-connection-inline-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowConnectSearch(true);
-                            }}
-                          >
-                            + Connect
-                          </button>
-                        )}
-                      </div>
-                    ) : onStartConnection && (
-                      <button
-                        className="add-connection-inline-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onStartConnection();
-                        }}
-                      >
-                        + Connect
-                      </button>
-                    )}
-                    {onWordCountChange && (
-                      <div className="word-count-box">
-                        {isEditingWordCount ? (
-                          <input
-                            type="number"
-                            min="0"
-                            className="word-count-input"
-                            value={editWordCount}
-                            onChange={(e) => setEditWordCount(e.target.value)}
-                            onBlur={() => {
-                              setIsEditingWordCount(false);
-                              const val = editWordCount.trim() === '' ? undefined : parseInt(editWordCount, 10);
-                              if (!isNaN(val as number) || val === undefined) {
-                                onWordCountChange(scene.id, val);
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                setIsEditingWordCount(false);
-                                const val = editWordCount.trim() === '' ? undefined : parseInt(editWordCount, 10);
-                                if (!isNaN(val as number) || val === undefined) {
-                                  onWordCountChange(scene.id, val);
-                                }
-                              } else if (e.key === 'Escape') {
-                                setEditWordCount(scene.wordCount?.toString() ?? '');
-                                setIsEditingWordCount(false);
-                              }
-                            }}
-                            autoFocus
-                          />
-                        ) : (
-                          <button
-                            className="word-count-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsEditingWordCount(true);
-                            }}
-                          >
-                            {scene.wordCount !== undefined ? `${scene.wordCount.toLocaleString()} words` : '+ Words'}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {/* Status indicator */}
-                    {(() => {
-                      const statusField = metadataFieldDefs.find(f => f.id === '_status');
-                      const status = sceneMetadata['_status'] as string | undefined;
-                      if (status && statusField) {
-                        const color = statusField.optionColors?.[status] || '#9e9e9e';
-                        return (
-                          <span className="scene-status-pill" style={{ '--status-color': color } as React.CSSProperties}>
-                            {status}
-                          </span>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </div>
-              )}
 
               {/* Metadata Properties Section */}
               {onMetadataChange && onMetadataFieldDefsChange && (
@@ -775,6 +635,146 @@ function SceneCard({
                   </button>
                   {metadataExpanded && (
                     <div className="scene-metadata-fields">
+                      {/* Connection controls */}
+                      {(onStartConnection || connectedScenes || onWordCountChange) && (
+                        <div className="scene-connections-inline">
+                          {connectedScenes && connectedScenes.length > 0 && (
+                            <div className="connected-scenes-list">
+                              {connectedScenes.map(conn => (
+                                <span key={conn.id} className="connected-scene-chip">
+                                  {conn.label}
+                                  {onRemoveConnection && (
+                                    <button
+                                      className="remove-connection-chip-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRemoveConnection(conn.id);
+                                      }}
+                                      title="Remove connection"
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="scene-actions-row">
+                            {connectableScenes && onCompleteConnection ? (
+                              <div className="connect-search-container" ref={connectSearchRef}>
+                                {showConnectSearch ? (
+                                  <div className="connect-search-dropdown">
+                                    <input
+                                      type="text"
+                                      className="connect-search-input"
+                                      placeholder="Search scenes..."
+                                      value={connectSearchText}
+                                      onChange={(e) => setConnectSearchText(e.target.value)}
+                                      autoFocus
+                                    />
+                                    <div className="connect-search-results">
+                                      {connectableScenes
+                                        .filter(s => !connectSearchText.trim() || s.label.toLowerCase().includes(connectSearchText.trim().toLowerCase()))
+                                        .map(s => (
+                                          <button
+                                            key={s.id}
+                                            className="connect-search-item"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onCompleteConnection(s.id);
+                                              setShowConnectSearch(false);
+                                              setConnectSearchText('');
+                                            }}
+                                          >
+                                            {s.label}
+                                          </button>
+                                        ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    className="add-connection-inline-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setShowConnectSearch(true);
+                                    }}
+                                  >
+                                    + Connect
+                                  </button>
+                                )}
+                              </div>
+                            ) : onStartConnection && (
+                              <button
+                                className="add-connection-inline-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onStartConnection();
+                                }}
+                              >
+                                + Connect
+                              </button>
+                            )}
+                            {onWordCountChange && (
+                              <div className="word-count-box">
+                                {isEditingWordCount ? (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="word-count-input"
+                                    value={editWordCount}
+                                    onChange={(e) => setEditWordCount(e.target.value)}
+                                    onBlur={() => {
+                                      setIsEditingWordCount(false);
+                                      const val = editWordCount.trim() === '' ? undefined : parseInt(editWordCount, 10);
+                                      if (!isNaN(val as number) || val === undefined) {
+                                        onWordCountChange(scene.id, val);
+                                      }
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        setIsEditingWordCount(false);
+                                        const val = editWordCount.trim() === '' ? undefined : parseInt(editWordCount, 10);
+                                        if (!isNaN(val as number) || val === undefined) {
+                                          onWordCountChange(scene.id, val);
+                                        }
+                                      } else if (e.key === 'Escape') {
+                                        setEditWordCount(scene.wordCount?.toString() ?? '');
+                                        setIsEditingWordCount(false);
+                                      }
+                                    }}
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <button
+                                    className="word-count-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setIsEditingWordCount(true);
+                                    }}
+                                  >
+                                    {scene.wordCount !== undefined ? `${scene.wordCount.toLocaleString()} words` : '+ Words'}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {/* Status indicator */}
+                            {(() => {
+                              const statusField = metadataFieldDefs.find(f => f.id === '_status');
+                              const status = sceneMetadata['_status'] as string | undefined;
+                              if (status && statusField) {
+                                const color = statusField.optionColors?.[status] || '#9e9e9e';
+                                return (
+                                  <span className="scene-status-pill" style={{ '--status-color': color } as React.CSSProperties}>
+                                    {status}
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        </div>
+                      )}
                       {metadataFieldDefs
                         .filter(field => field.id !== '_status')
                         .sort((a, b) => a.order - b.order)
