@@ -1,96 +1,285 @@
 {
   "sessions": [
+    { "date": "2026-01-02", "wordsWritten": 650, "duration": 35 },
+    { "date": "2026-01-03", "wordsWritten": 1100, "duration": 52 },
+    { "date": "2026-01-05", "wordsWritten": 480, "duration": 25 },
+    { "date": "2026-01-06", "wordsWritten": 1350, "duration": 62 },
+    { "date": "2026-01-07", "wordsWritten": 920, "duration": 44 },
+    { "date": "2026-01-10", "wordsWritten": 1200, "duration": 55 },
+    { "date": "2026-01-11", "wordsWritten": 1450, "duration": 68 },
+    { "date": "2026-01-12", "wordsWritten": 380, "duration": 20 },
+    { "date": "2026-01-13", "wordsWritten": 1050, "duration": 48 },
+    { "date": "2026-01-15", "wordsWritten": 1600, "duration": 75 },
+    { "date": "2026-01-16", "wordsWritten": 720, "duration": 35 },
+    { "date": "2026-01-18", "wordsWritten": 880, "duration": 42 },
+    { "date": "2026-01-19", "wordsWritten": 1250, "duration": 58 },
+    { "date": "2026-01-20", "wordsWritten": 980, "duration": 46 },
+    { "date": "2026-01-21", "wordsWritten": 1400, "duration": 65 },
+    { "date": "2026-01-23", "wordsWritten": 450, "duration": 22 },
+    { "date": "2026-01-24", "wordsWritten": 830, "duration": 40 },
+    { "date": "2026-01-26", "wordsWritten": 1150, "duration": 54 },
+    { "date": "2026-01-27", "wordsWritten": 1500, "duration": 70 },
+    { "date": "2026-01-28", "wordsWritten": 1050, "duration": 50 },
+    { "date": "2026-01-30", "wordsWritten": 920, "duration": 44 },
+    { "date": "2026-01-31", "wordsWritten": 1300, "duration": 60 },
+    { "date": "2026-02-01", "wordsWritten": 1100, "duration": 52 },
+    { "date": "2026-02-03", "wordsWritten": 750, "duration": 36 },
+    { "date": "2026-02-04", "wordsWritten": 1250, "duration": 58 },
+    { "date": "2026-02-06", "wordsWritten": 980, "duration": 46 },
+    { "date": "2026-02-08", "wordsWritten": 870, "duration": 42 },
+    { "date": "2026-02-09", "wordsWritten": 1450, "duration": 68 },
+    { "date": "2026-02-10", "wordsWritten": 1100, "duration": 52 },
+    { "date": "2026-02-11", "wordsWritten": 1650, "duration": 78 },
+    { "date": "2026-02-12", "wordsWritten": 920, "duration": 44 },
+    { "date": "2026-02-13", "wordsWritten": 1300, "duration": 62 },
+    { "date": "2026-02-14", "wordsWritten": 580, "duration": 28 }
+  ],
+  "sceneSessions": [
     {
-      "id": "s1",
-      "startTime": 1707580800000,
-      "endTime": 1707588000000,
-      "wordsWritten": 3200,
-      "scenesWorked": ["c1m65ta:1", "c1m65ta:2"],
-      "checkinNote": "Got the opening party scene drafted. Bilbo's speech feels right."
+      "id": "ss-1769940000000-a1b",
+      "sceneKey": "c1m65ta:14",
+      "date": "2026-02-01",
+      "startTime": 1769940000000,
+      "endTime": 1769941560000,
+      "durationMs": 1560000,
+      "wordsNet": 620,
+      "checkin": { "energy": 3, "focus": 4, "mood": 4 }
     },
     {
-      "id": "s2",
-      "startTime": 1707667200000,
-      "endTime": 1707676200000,
-      "wordsWritten": 4100,
-      "scenesWorked": ["cceiiks:1", "cceiiks:2", "cceiiks:3"],
-      "checkinNote": "Aragorn's introduction and Weathertop. Need to revisit the pacing of the Nazgul attack."
+      "id": "ss-1769941800000-b2c",
+      "sceneKey": "cceiiks:11",
+      "date": "2026-02-01",
+      "startTime": 1769941800000,
+      "endTime": 1769943000000,
+      "durationMs": 1200000,
+      "wordsNet": 480,
+      "checkin": null
     },
     {
-      "id": "s3",
-      "startTime": 1707753600000,
-      "endTime": 1707760800000,
-      "wordsWritten": 2800,
-      "scenesWorked": ["c37xbp1:1", "c37xbp1:2"],
-      "checkinNote": "Gandalf's research scene and the Isengard imprisonment. Saruman's dialogue needs more menace."
+      "id": "ss-1770112800000-c3d",
+      "sceneKey": "c37xbp1:9",
+      "date": "2026-02-03",
+      "startTime": 1770112800000,
+      "endTime": 1770114600000,
+      "durationMs": 1800000,
+      "wordsNet": 750,
+      "checkin": { "energy": 3, "focus": 3, "mood": 3 }
     },
     {
-      "id": "s4",
-      "startTime": 1707840000000,
-      "endTime": 1707850800000,
-      "wordsWritten": 5200,
-      "scenesWorked": ["c1m65ta:7", "c1m65ta:8", "c1m65ta:9"],
-      "checkinNote": "Council of Elrond through Moria. The Balrog scene is the best thing I've written so far."
+      "id": "ss-1770199200000-d4e",
+      "sceneKey": "c1m65ta:15",
+      "date": "2026-02-04",
+      "startTime": 1770199200000,
+      "endTime": 1770201000000,
+      "durationMs": 1800000,
+      "wordsNet": 720,
+      "checkin": { "energy": 4, "focus": 4, "mood": 4 }
     },
     {
-      "id": "s5",
-      "startTime": 1707926400000,
-      "endTime": 1707933600000,
-      "wordsWritten": 3600,
-      "scenesWorked": ["c2fof:6", "c2fof:7"],
-      "checkinNote": "Sam and Gollum dynamic. The stew scene is comic relief but also foreshadowing."
+      "id": "ss-1770201300000-e5f",
+      "sceneKey": "c2fof:9",
+      "date": "2026-02-04",
+      "startTime": 1770201300000,
+      "endTime": 1770202800000,
+      "durationMs": 1500000,
+      "wordsNet": 530,
+      "checkin": null
     },
     {
-      "id": "s6",
-      "startTime": 1708012800000,
-      "endTime": 1708023600000,
-      "wordsWritten": 4800,
-      "scenesWorked": ["cceiiks:10", "c37xbp1:8"],
-      "checkinNote": "Helm's Deep from both Aragorn and Gandalf POVs. The dawn charge is cinematic."
+      "id": "ss-1770372000000-f6g",
+      "sceneKey": "cceiiks:12",
+      "date": "2026-02-06",
+      "startTime": 1770372000000,
+      "endTime": 1770374400000,
+      "durationMs": 2400000,
+      "wordsNet": 980,
+      "checkin": { "energy": 4, "focus": 5, "mood": 4 }
     },
     {
-      "id": "s7",
-      "startTime": 1708099200000,
-      "endTime": 1708106400000,
-      "wordsWritten": 3900,
-      "scenesWorked": ["c1m65ta:15", "c2fof:9"],
-      "checkinNote": "Shelob's lair from both Frodo and Sam. Sam's choice to take the Ring is gut-wrenching."
+      "id": "ss-1770544800000-g7h",
+      "sceneKey": "c1m65ta:16",
+      "date": "2026-02-08",
+      "startTime": 1770544800000,
+      "endTime": 1770546600000,
+      "durationMs": 1800000,
+      "wordsNet": 520,
+      "checkin": { "energy": 3, "focus": 3, "mood": 3 }
     },
     {
-      "id": "s8",
-      "startTime": 1708185600000,
-      "endTime": 1708196400000,
-      "wordsWritten": 5500,
-      "scenesWorked": ["c1m65ta:17", "c2fof:11", "c37xbp1:11"],
-      "checkinNote": "Mount Doom, Sam carrying Frodo, and the Black Gate. The climax. Three POVs converging."
+      "id": "ss-1770546900000-h8i",
+      "sceneKey": "c2fof:10",
+      "date": "2026-02-08",
+      "startTime": 1770546900000,
+      "endTime": 1770547800000,
+      "durationMs": 900000,
+      "wordsNet": 350,
+      "checkin": null
     },
     {
-      "id": "s9",
-      "startTime": 1708272000000,
-      "endTime": 1708279200000,
-      "wordsWritten": 2400,
-      "scenesWorked": ["cceiiks:14", "c2fof:12"],
-      "checkinNote": "The coronation and Scouring of the Shire. Bittersweet endings."
+      "id": "ss-1770631200000-i9j",
+      "sceneKey": "c1m65ta:17",
+      "date": "2026-02-09",
+      "startTime": 1770631200000,
+      "endTime": 1770633600000,
+      "durationMs": 2400000,
+      "wordsNet": 840,
+      "checkin": { "energy": 5, "focus": 5, "mood": 5 }
     },
     {
-      "id": "s10",
-      "startTime": 1708358400000,
-      "endTime": 1708365600000,
-      "wordsWritten": 1800,
-      "scenesWorked": ["c1m65ta:4", "c1m65ta:5"],
-      "checkinNote": "Revising Bree and Weathertop. Tightened the pacing, added more sensory detail."
+      "id": "ss-1770633900000-j0k",
+      "sceneKey": "c37xbp1:10",
+      "date": "2026-02-09",
+      "startTime": 1770633900000,
+      "endTime": 1770635400000,
+      "durationMs": 1500000,
+      "wordsNet": 610,
+      "checkin": null
+    },
+    {
+      "id": "ss-1770717600000-k1l",
+      "sceneKey": "cceiiks:13",
+      "date": "2026-02-10",
+      "startTime": 1770717600000,
+      "endTime": 1770719400000,
+      "durationMs": 1800000,
+      "wordsNet": 640,
+      "checkin": { "energy": 4, "focus": 4, "mood": 3 }
+    },
+    {
+      "id": "ss-1770719700000-l2m",
+      "sceneKey": "c2fof:11",
+      "date": "2026-02-10",
+      "startTime": 1770719700000,
+      "endTime": 1770721200000,
+      "durationMs": 1500000,
+      "wordsNet": 460,
+      "checkin": null
+    },
+    {
+      "id": "ss-1770804000000-m3n",
+      "sceneKey": "c1m65ta:17",
+      "date": "2026-02-11",
+      "startTime": 1770804000000,
+      "endTime": 1770806400000,
+      "durationMs": 2400000,
+      "wordsNet": 920,
+      "checkin": { "energy": 5, "focus": 5, "mood": 5 }
+    },
+    {
+      "id": "ss-1770806700000-n4o",
+      "sceneKey": "c37xbp1:11",
+      "date": "2026-02-11",
+      "startTime": 1770806700000,
+      "endTime": 1770808200000,
+      "durationMs": 1500000,
+      "wordsNet": 480,
+      "checkin": { "energy": 4, "focus": 4, "mood": 5 }
+    },
+    {
+      "id": "ss-1770808500000-o5p",
+      "sceneKey": "cceiiks:14",
+      "date": "2026-02-11",
+      "startTime": 1770808500000,
+      "endTime": 1770809400000,
+      "durationMs": 900000,
+      "wordsNet": 250,
+      "checkin": null
+    },
+    {
+      "id": "ss-1770890400000-p6q",
+      "sceneKey": "c2fof:12",
+      "date": "2026-02-12",
+      "startTime": 1770890400000,
+      "endTime": 1770892200000,
+      "durationMs": 1800000,
+      "wordsNet": 580,
+      "checkin": { "energy": 3, "focus": 4, "mood": 4 }
+    },
+    {
+      "id": "ss-1770892500000-q7r",
+      "sceneKey": "c1m65ta:4",
+      "date": "2026-02-12",
+      "startTime": 1770892500000,
+      "endTime": 1770893400000,
+      "durationMs": 900000,
+      "wordsNet": 340,
+      "checkin": null
+    },
+    {
+      "id": "ss-1770976800000-r8s",
+      "sceneKey": "cceiiks:14",
+      "date": "2026-02-13",
+      "startTime": 1770976800000,
+      "endTime": 1770979200000,
+      "durationMs": 2400000,
+      "wordsNet": 780,
+      "checkin": { "energy": 4, "focus": 5, "mood": 4 }
+    },
+    {
+      "id": "ss-1770979500000-s9t",
+      "sceneKey": "c2fof:12",
+      "date": "2026-02-13",
+      "startTime": 1770979500000,
+      "endTime": 1770981000000,
+      "durationMs": 1500000,
+      "wordsNet": 520,
+      "checkin": { "energy": 4, "focus": 4, "mood": 5 }
+    },
+    {
+      "id": "ss-1771063200000-t0u",
+      "sceneKey": "c1m65ta:5",
+      "date": "2026-02-14",
+      "startTime": 1771063200000,
+      "endTime": 1771064700000,
+      "durationMs": 1500000,
+      "wordsNet": 580,
+      "checkin": { "energy": 4, "focus": 4, "mood": 4 }
     }
   ],
-  "dailyWordCounts": {
-    "2024-02-11": 3200,
-    "2024-02-12": 4100,
-    "2024-02-13": 2800,
-    "2024-02-14": 5200,
-    "2024-02-15": 3600,
-    "2024-02-16": 4800,
-    "2024-02-17": 3900,
-    "2024-02-18": 5500,
-    "2024-02-19": 2400,
-    "2024-02-20": 1800
-  }
+  "dailyGoal": {
+    "enabled": true,
+    "target": 800
+  },
+  "deadlineGoal": {
+    "enabled": true,
+    "targetWords": 80000,
+    "deadlineDate": "2026-06-30"
+  },
+  "milestones": [
+    {
+      "id": "ms-10k",
+      "label": "10,000 words",
+      "targetWords": 10000,
+      "achieved": true,
+      "achievedDate": "2026-01-15"
+    },
+    {
+      "id": "ms-25k",
+      "label": "25,000 words",
+      "targetWords": 25000,
+      "achieved": true,
+      "achievedDate": "2026-02-04"
+    },
+    {
+      "id": "ms-50k",
+      "label": "50,000 words",
+      "targetWords": 50000,
+      "achieved": false
+    },
+    {
+      "id": "ms-80k",
+      "label": "80,000 words",
+      "targetWords": 80000,
+      "achieved": false
+    },
+    {
+      "id": "ms-100k",
+      "label": "100,000 words",
+      "targetWords": 100000,
+      "achieved": false
+    }
+  ],
+  "currentStreak": 7,
+  "longestStreak": 9,
+  "lastWritingDate": "2026-02-14"
 }
