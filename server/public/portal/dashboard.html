@@ -214,12 +214,33 @@
     <div id="state-success" class="hidden">
       <div class="checkmark">&#10003;</div>
       <h1>Welcome to Braidr!</h1>
-      <p>Your license key is on its way to your email.</p>
+      <p>Thanks for your purchase! Here's your license key:</p>
+
+      <!-- License key area: loading or ready -->
+      <div id="success-key-loading" style="margin: 24px 0;">
+        <div style="padding: 20px 0;">
+          <span class="spinner"></span>
+          <span style="font-size: 14px; color: #71717a;">Generating your license key...</span>
+        </div>
+      </div>
+
+      <div id="success-key-ready" class="hidden">
+        <div class="license-key-box" style="margin: 24px 0;">
+          <code id="success-license-key"></code>
+          <button class="copy-btn" onclick="copySuccessKey()">Copy</button>
+        </div>
+
+        <p id="success-email-note" class="muted" style="margin-bottom: 16px;"></p>
+      </div>
+
+      <div id="success-key-fallback" class="hidden" style="margin: 24px 0;">
+        <p style="color: #71717a;">Your license key is being generated and will arrive in your email shortly.</p>
+      </div>
 
       <div class="steps">
         <h2>Next steps</h2>
         <ol>
-          <li>Check your email for your license key</li>
+          <li>Copy your license key above</li>
           <li>Open Braidr and go to Braidr &rarr; Manage License</li>
           <li>Paste your license key and click Activate</li>
         </ol>
@@ -418,10 +439,59 @@
       var key = document.getElementById('account-license-key').textContent;
       if (!key || key === 'Not available') return;
       navigator.clipboard.writeText(key).then(function() {
-        var btn = document.querySelector('.copy-btn');
+        var btn = document.querySelector('#state-account .copy-btn');
         btn.textContent = 'Copied!';
         setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
       });
+    }
+
+    function copySuccessKey() {
+      var key = document.getElementById('success-license-key').textContent;
+      if (!key) return;
+      navigator.clipboard.writeText(key).then(function() {
+        var btn = document.querySelector('#success-key-ready .copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+
+    async function pollForLicenseKey(sessionId) {
+      var maxAttempts = 10;
+      var delay = 2000; // start at 2s
+
+      for (var i = 0; i < maxAttempts; i++) {
+        try {
+          var resp = await fetch(API_BASE + '/api/portal/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: sessionId }),
+          });
+
+          if (resp.ok) {
+            var data = await resp.json();
+            if (data.ready && data.licenseKey) {
+              document.getElementById('success-key-loading').classList.add('hidden');
+              document.getElementById('success-license-key').textContent = data.licenseKey;
+              if (data.email) {
+                document.getElementById('success-email-note').textContent =
+                  'A copy has also been sent to ' + data.email;
+              }
+              document.getElementById('success-key-ready').classList.remove('hidden');
+              return;
+            }
+          }
+        } catch (e) {
+          // Network error, keep trying
+        }
+
+        // Wait before next attempt (2s, 2s, 3s, 3s, 4s...)
+        await new Promise(function(resolve) { setTimeout(resolve, delay); });
+        if (i > 1 && i % 2 === 0) delay += 1000;
+      }
+
+      // Gave up polling — fall back to "check your email"
+      document.getElementById('success-key-loading').classList.add('hidden');
+      document.getElementById('success-key-fallback').classList.remove('hidden');
     }
 
     async function openBilling() {
@@ -470,7 +540,18 @@
       var params = new URLSearchParams(window.location.search);
 
       if (params.get('checkout') === 'success') {
+        var sessionId = params.get('session_id');
+        // Clean URL
+        window.history.replaceState({}, '', '/portal/dashboard');
         show('state-success');
+
+        if (sessionId) {
+          pollForLicenseKey(sessionId);
+        } else {
+          // No session ID — can't poll, show fallback
+          document.getElementById('success-key-loading').classList.add('hidden');
+          document.getElementById('success-key-fallback').classList.remove('hidden');
+        }
         return;
       }
 

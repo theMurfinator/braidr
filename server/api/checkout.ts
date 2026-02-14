@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           quantity: 1,
         },
       ],
-      success_url: `${BASE_URL}/portal/dashboard?checkout=success`,
+      success_url: `${BASE_URL}/portal/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${BASE_URL}/checkout-cancelled`,
       allow_promotion_codes: true,
     });
