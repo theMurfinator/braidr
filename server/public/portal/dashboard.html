@@ -208,7 +208,8 @@
       flex-shrink: 0;
     }
     .status-dot.active { background: #22c55e; }
-    .status-dot.trialing { background: #6366f1; }
+    .status-dot.on_trial { background: #6366f1; }
+    .status-dot.paused { background: #f59e0b; }
     .status-dot.cancelled { background: #f59e0b; }
     .status-dot.expired { background: #ef4444; }
     .status-dot.suspended { background: #ef4444; }
@@ -503,12 +504,12 @@
 
     async function init() {
       const params = new URLSearchParams(window.location.search);
-      const sessionId = params.get('session_id');
+      const checkoutId = params.get('checkout_id');
 
-      // Flow 1: Arriving from checkout
-      if (sessionId) {
+      // Flow 1: Arriving from Lemon Squeezy checkout
+      if (checkoutId) {
         document.getElementById('loadingText').textContent = 'Setting up your account...';
-        const result = await pollCheckoutSession(sessionId);
+        const result = await pollCheckoutSession(checkoutId);
         if (result) {
           licenseKey = result.licenseKey;
           localStorage.setItem('braidr_license_key', licenseKey);
@@ -517,7 +518,7 @@
           // Show success banner
           document.getElementById('successBanner').classList.add('visible');
         } else {
-          showError('We couldn\'t retrieve your license key. Please try signing in with it from your confirmation email.');
+          showError('We couldn\'t retrieve your license key. Please check your email for it and sign in below.');
           return;
         }
       }
@@ -532,11 +533,11 @@
       await loadAccount();
     }
 
-    async function pollCheckoutSession(sessionId) {
-      const maxAttempts = 12;
+    async function pollCheckoutSession(checkoutId) {
+      const maxAttempts = 15;
       for (let i = 0; i < maxAttempts; i++) {
         try {
-          const res = await fetch(`/api/portal/checkout-session?session_id=${encodeURIComponent(sessionId)}`);
+          const res = await fetch(`/api/portal/checkout-session?checkout_id=${encodeURIComponent(checkoutId)}`);
           if (res.status === 202) {
             // Webhook hasn't fired yet, wait and retry
             await sleep(2000);
@@ -611,27 +612,36 @@
         return;
       }
 
+      // Lemon Squeezy status values: on_trial, active, cancelled, expired, paused, past_due, unpaid
       const status = sub.status;
-      if (status === 'trialing') {
-        dot.className = 'status-dot trialing';
+      if (status === 'on_trial') {
+        dot.className = 'status-dot on_trial';
         label.textContent = 'Free Trial';
-        const trialEnd = sub.trialEnd ? formatDate(sub.trialEnd) : '';
+        const trialEnd = sub.trialEndsAt ? formatDate(sub.trialEndsAt) : '';
         detail.textContent = trialEnd
           ? `Your trial ends ${trialEnd}. You won't be charged until then.`
           : 'Your free trial is active.';
-      } else if (status === 'active' && sub.cancelAtPeriodEnd) {
-        dot.className = 'status-dot cancelled';
-        label.textContent = 'Cancelling';
-        detail.textContent = `Your subscription is active until ${formatDate(sub.currentPeriodEnd)}, then it will be cancelled.`;
       } else if (status === 'active') {
         dot.className = 'status-dot active';
         label.textContent = 'Active';
-        detail.textContent = `Renews ${formatDate(sub.currentPeriodEnd)}`;
-      } else if (status === 'canceled' || status === 'cancelled') {
-        dot.className = 'status-dot expired';
+        detail.textContent = sub.renewsAt
+          ? `Renews ${formatDate(sub.renewsAt)}`
+          : 'Your subscription is active.';
+      } else if (status === 'cancelled') {
+        dot.className = 'status-dot cancelled';
         label.textContent = 'Cancelled';
-        detail.textContent = 'Your subscription has been cancelled.';
-      } else if (status === 'past_due') {
+        detail.textContent = sub.endsAt
+          ? `Access until ${formatDate(sub.endsAt)}, then your subscription ends.`
+          : 'Your subscription has been cancelled.';
+      } else if (status === 'expired') {
+        dot.className = 'status-dot expired';
+        label.textContent = 'Expired';
+        detail.textContent = 'Your subscription has expired.';
+      } else if (status === 'paused') {
+        dot.className = 'status-dot paused';
+        label.textContent = 'Paused';
+        detail.textContent = 'Your subscription is paused.';
+      } else if (status === 'past_due' || status === 'unpaid') {
         dot.className = 'status-dot cancelled';
         label.textContent = 'Past Due';
         detail.textContent = 'There was an issue with your payment. Please update your billing info.';

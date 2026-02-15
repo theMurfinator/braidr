@@ -1,54 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import Stripe from 'stripe';
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY!;
-const KEYGEN_ACCOUNT_ID = process.env.KEYGEN_ACCOUNT_ID!;
-const KEYGEN_PRODUCT_TOKEN = process.env.KEYGEN_PRODUCT_TOKEN!;
-
-const stripe = new Stripe(STRIPE_SECRET_KEY);
-
-async function validateLicenseKey(licenseKey: string): Promise<{
-  allowed: boolean;
-  valid: boolean;
-  code?: string;
-  email?: string;
-  expiresAt?: string;
-  status?: string;
-  stripeSubscriptionId?: string;
-}> {
-  const response = await fetch(
-    `https://api.keygen.sh/v1/accounts/${KEYGEN_ACCOUNT_ID}/licenses/actions/validate-key`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/vnd.api+json',
-        'Accept': 'application/vnd.api+json',
-        'Authorization': `Bearer ${KEYGEN_PRODUCT_TOKEN}`,
-      },
-      body: JSON.stringify({ meta: { key: licenseKey } }),
-    }
-  );
-
-  if (!response.ok) return { allowed: false, valid: false };
-
-  const result = await response.json();
-  const valid = result.meta?.valid === true;
-  const code = result.meta?.code;
-  const attrs = result.data?.attributes;
-
-  // Allow login for valid, suspended, or expired licenses (so users can manage billing)
-  const allowed = valid || code === 'SUSPENDED' || code === 'EXPIRED';
-
-  return {
-    allowed,
-    valid,
-    code,
-    email: attrs?.metadata?.email,
-    expiresAt: attrs?.expiry,
-    status: attrs?.status,
-    stripeSubscriptionId: attrs?.metadata?.stripeSubscriptionId,
-  };
-}
+const LS_API_KEY = process.env.LEMON_SQUEEZY_API_KEY!;
+const LS_STORE_ID = process.env.LEMON_SQUEEZY_STORE_ID!;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -60,37 +13,76 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const license = await validateLicenseKey(licenseKey.trim());
-    if (!license.allowed) {
+    // Validate the license key with Lemon Squeezy's License API
+    const validateRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+      body: new URLSearchParams({ license_key: licenseKey.trim() }),
+    });
+
+    if (!validateRes.ok) {
       return res.status(401).json({ error: 'Invalid license key' });
     }
 
-    // Look up Stripe subscription for billing details
+    const data = await validateRes.json();
+
+    // Verify this key belongs to our store
+    if (String(data.meta?.store_id) !== LS_STORE_ID) {
+      return res.status(401).json({ error: 'Invalid license key' });
+    }
+
+    const keyStatus = data.license_key?.status; // active, expired, disabled
+    if (!keyStatus) {
+      return res.status(401).json({ error: 'Invalid license key' });
+    }
+
+    // Fetch subscription data from Lemon Squeezy API
     let subscription: any = null;
-    if (license.stripeSubscriptionId) {
+    const customerId = data.meta?.customer_id;
+
+    if (customerId) {
       try {
-        const sub = await stripe.subscriptions.retrieve(license.stripeSubscriptionId);
-        subscription = {
-          status: sub.status,
-          currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
-          cancelAtPeriodEnd: sub.cancel_at_period_end,
-          cancelAt: sub.cancel_at ? new Date(sub.cancel_at * 1000).toISOString() : null,
-          trialEnd: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
-        };
+        const subsRes = await fetch(
+          `https://api.lemonsqueezy.com/v1/subscriptions?filter[store_id]=${LS_STORE_ID}&filter[customer_id]=${customerId}`,
+          {
+            headers: {
+              'Accept': 'application/vnd.api+json',
+              'Authorization': `Bearer ${LS_API_KEY}`,
+            },
+          }
+        );
+
+        if (subsRes.ok) {
+          const subsData = await subsRes.json();
+          const sub = subsData.data?.[0];
+          if (sub) {
+            subscription = {
+              id: sub.id,
+              status: sub.attributes.status, // on_trial, active, cancelled, expired, paused, past_due, unpaid
+              renewsAt: sub.attributes.renews_at,
+              endsAt: sub.attributes.ends_at,
+              trialEndsAt: sub.attributes.trial_ends_at,
+              customerPortalUrl: sub.attributes.urls?.customer_portal,
+            };
+          }
+        }
       } catch (err: any) {
-        console.error('Failed to fetch Stripe subscription:', err.message);
+        console.error('Failed to fetch subscription:', err.message);
       }
     }
 
     return res.status(200).json({
       license: {
         key: licenseKey.trim(),
-        status: license.status,
-        expiresAt: license.expiresAt,
-        code: license.code,
+        status: keyStatus,
+        activationLimit: data.license_key?.activation_limit,
+        activationUsage: data.license_key?.activation_usage,
+        expiresAt: data.license_key?.expires_at,
       },
       customer: {
-        email: license.email,
+        id: customerId,
+        name: data.meta?.customer_name,
+        email: data.meta?.customer_email,
       },
       subscription,
     });

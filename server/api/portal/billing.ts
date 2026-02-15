@@ -1,12 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import Stripe from 'stripe';
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY!;
-const KEYGEN_ACCOUNT_ID = process.env.KEYGEN_ACCOUNT_ID!;
-const KEYGEN_PRODUCT_TOKEN = process.env.KEYGEN_PRODUCT_TOKEN!;
-const BASE_URL = process.env.BASE_URL || 'https://braidr-api.vercel.app';
-
-const stripe = new Stripe(STRIPE_SECRET_KEY);
+const LS_API_KEY = process.env.LEMON_SQUEEZY_API_KEY!;
+const LS_STORE_ID = process.env.LEMON_SQUEEZY_STORE_ID!;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -18,67 +13,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Validate key with Keygen — allow suspended/expired so they can manage billing
-    const keygenRes = await fetch(
-      `https://api.keygen.sh/v1/accounts/${KEYGEN_ACCOUNT_ID}/licenses/actions/validate-key`,
+    // Validate key → get customer_id
+    const validateRes = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+      body: new URLSearchParams({ license_key: licenseKey.trim() }),
+    });
+
+    if (!validateRes.ok) {
+      return res.status(401).json({ error: 'Invalid license key' });
+    }
+
+    const data = await validateRes.json();
+    if (String(data.meta?.store_id) !== LS_STORE_ID) {
+      return res.status(401).json({ error: 'Invalid license key' });
+    }
+
+    const customerId = data.meta?.customer_id;
+    if (!customerId) {
+      return res.status(404).json({ error: 'No customer found' });
+    }
+
+    // Fetch subscription to get the pre-signed customer portal URL
+    const subsRes = await fetch(
+      `https://api.lemonsqueezy.com/v1/subscriptions?filter[store_id]=${LS_STORE_ID}&filter[customer_id]=${customerId}`,
       {
-        method: 'POST',
         headers: {
-          'Content-Type': 'application/vnd.api+json',
           'Accept': 'application/vnd.api+json',
-          'Authorization': `Bearer ${KEYGEN_PRODUCT_TOKEN}`,
+          'Authorization': `Bearer ${LS_API_KEY}`,
         },
-        body: JSON.stringify({ meta: { key: licenseKey.trim() } }),
       }
     );
 
-    if (!keygenRes.ok) {
-      return res.status(401).json({ error: 'Invalid license key' });
+    if (!subsRes.ok) {
+      return res.status(500).json({ error: 'Failed to look up subscription' });
     }
 
-    const keygenData = await keygenRes.json();
-    const code = keygenData.meta?.code;
-    const valid = keygenData.meta?.valid === true;
-    if (!valid && code !== 'SUSPENDED' && code !== 'EXPIRED') {
-      return res.status(401).json({ error: 'Invalid license key' });
+    const subsData = await subsRes.json();
+    const sub = subsData.data?.[0];
+    const portalUrl = sub?.attributes?.urls?.customer_portal;
+
+    if (!portalUrl) {
+      return res.status(404).json({ error: 'No billing portal available' });
     }
 
-    const stripeSubscriptionId = keygenData.data?.attributes?.metadata?.stripeSubscriptionId;
-    const email = keygenData.data?.attributes?.metadata?.email?.toLowerCase();
-
-    // Try to find the Stripe customer via subscription ID first, fall back to email
-    let customerId: string | null = null;
-
-    if (stripeSubscriptionId) {
-      try {
-        const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-        customerId = typeof subscription.customer === 'string'
-          ? subscription.customer
-          : subscription.customer.id;
-      } catch {
-        // Subscription may have been deleted, fall through to email lookup
-      }
-    }
-
-    if (!customerId && email) {
-      const customers = await stripe.customers.list({ email, limit: 1 });
-      if (customers.data.length > 0) {
-        customerId = customers.data[0].id;
-      }
-    }
-
-    if (!customerId) {
-      return res.status(404).json({ error: 'No billing account found' });
-    }
-
-    const portalSession = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${BASE_URL}/portal/dashboard`,
-    });
-
-    return res.status(200).json({ url: portalSession.url });
+    return res.status(200).json({ url: portalUrl });
   } catch (err: any) {
     console.error('Billing portal error:', err.message);
-    return res.status(500).json({ error: 'Failed to create billing session' });
+    return res.status(500).json({ error: 'Failed to open billing portal' });
   }
 }
