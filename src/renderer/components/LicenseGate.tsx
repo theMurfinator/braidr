@@ -9,8 +9,8 @@ interface LicenseGateProps {
 
 /**
  * Wraps the app and checks license status on mount.
- * Shows trial banner, license activation dialog, or expired modal as needed.
- * Lets the app render normally when licensed or in active trial.
+ * Shows signup screen, license activation dialog, or expired modal as needed.
+ * Lets the app render normally when licensed.
  */
 export default function LicenseGate({ children }: LicenseGateProps) {
   const [status, setStatus] = useState<LicenseStatus | null>(null);
@@ -19,17 +19,6 @@ export default function LicenseGate({ children }: LicenseGateProps) {
   const [licenseKeyInput, setLicenseKeyInput] = useState('');
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState<string | null>(null);
-
-  // Toggle body class for trial banner offset
-  // NOTE: This useEffect MUST be before any conditional returns to respect Rules of Hooks
-  useEffect(() => {
-    if (status?.state === 'trial') {
-      document.body.classList.add('has-trial-banner');
-    } else {
-      document.body.classList.remove('has-trial-banner');
-    }
-    return () => document.body.classList.remove('has-trial-banner');
-  }, [status?.state]);
 
   useEffect(() => {
     checkLicense();
@@ -49,7 +38,7 @@ export default function LicenseGate({ children }: LicenseGateProps) {
       }
     } catch {
       // If license check fails, allow usage (offline grace)
-      setStatus({ state: 'trial', trialDaysRemaining: 14 });
+      setStatus({ state: 'licensed' });
     }
     setLoading(false);
   }
@@ -102,16 +91,16 @@ export default function LicenseGate({ children }: LicenseGateProps) {
     );
   }
 
-  // Trial expired or license expired — block the app
-  if (status && status.state === 'expired' && !status.licenseKey) {
+  // No license — must sign up through Stripe
+  if (status && status.state === 'unlicensed') {
     return (
       <div className="license-expired-screen">
         <div className="license-expired-card">
-          <h2>Your trial has ended</h2>
-          <p>Thanks for trying Braidr! To keep using it, activate a license key.</p>
+          <h2>Welcome to Braidr</h2>
+          <p>Start your 14-day free trial — no charge until the trial ends.</p>
           <div className="license-expired-actions">
             <button className="license-btn-primary" onClick={handlePurchase}>
-              Get a License - $39/year
+              Start Free Trial
             </button>
             <button className="license-btn-secondary" onClick={() => setShowActivateDialog(true)}>
               I have a license key
@@ -244,29 +233,12 @@ export default function LicenseGate({ children }: LicenseGateProps) {
     );
   }
 
-  // Active trial or licensed — render the app
+  // Licensed — render the app
   return (
     <>
-      {/* Trial banner */}
-      {status?.state === 'trial' && (
-        <div className="license-trial-banner">
-          <span>
-            Trial: {status.trialDaysRemaining} day{status.trialDaysRemaining !== 1 ? 's' : ''} remaining
-          </span>
-          <div className="license-trial-banner-actions">
-            <button className="license-banner-btn" onClick={() => setShowActivateDialog(true)}>
-              Enter License Key
-            </button>
-            <button className="license-banner-btn-primary" onClick={handlePurchase}>
-              Buy Now
-            </button>
-          </div>
-        </div>
-      )}
-
       {children}
 
-      {/* Activate dialog (from trial banner) */}
+      {/* Activate dialog (from menu) */}
       {showActivateDialog && (
         <div className="modal-overlay" onClick={() => setShowActivateDialog(false)}>
           <div className="license-dialog" onClick={e => e.stopPropagation()}>

@@ -18,7 +18,7 @@
 - [ ] Register webhook URL in Stripe dashboard: `https://braidr-api.vercel.app/api/webhooks/stripe`
 - [ ] Enable webhook events: `checkout.session.completed`, `customer.subscription.deleted`, `invoice.payment_failed`
 - [ ] Configure Payment Link redirect → `https://braidr-api.vercel.app/portal/dashboard`
-- [ ] Test purchase with Stripe test card end-to-end
+- [ ] Test purchase with real card (buy it yourself, ~5% fee)
 
 ## Apple Code Signing & Notarization
 - [x] Enroll in Apple Developer Program

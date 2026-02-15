@@ -148,12 +148,14 @@ Customer cancels → webhook suspends license → app shows "expired"
 
 ---
 
-## Testing Checklist
+## Testing
 
-- [ ] Create a test license in Keygen dashboard
-- [ ] Paste it into Braidr → should show "Licensed"
-- [ ] Use Stripe test mode (sk_test_...) to run a test checkout
+Just use live keys and buy it yourself. The ~5% Stripe fee is worth avoiding test/live key-swapping complexity.
+
+- [ ] Buy Braidr through the real checkout flow
 - [ ] Verify webhook creates a Keygen license
-- [ ] Test expired license behavior (create one with past expiry)
+- [ ] Verify license key email arrives
+- [ ] Paste key into Braidr → should show "Licensed"
+- [ ] Test expired license behavior (create one with past expiry in Keygen)
 - [ ] Test offline behavior (disconnect internet, reopen app)
 - [ ] Test invalid key (type garbage, should show error)

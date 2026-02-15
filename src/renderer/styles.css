@@ -12130,78 +12130,7 @@ textarea.table-cell-input {
   to { transform: rotate(360deg); }
 }
 
-/* When trial banner is visible, offset fixed elements */
-body.has-trial-banner .app-sidebar {
-  top: 32px;
-}
-
-body.has-trial-banner .app {
-  padding-top: 32px;
-  /* height stays 100vh from base rule — padding-top with border-box
-     already reserves space for the banner. calc(100vh - 32px) was
-     double-subtracting, losing 32px at the bottom. */
-}
-
-/* Trial banner — sits at the very top of the window */
-.license-trial-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 32px;
-  background: var(--accent);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 500;
-  z-index: 9999;
-  -webkit-app-region: drag;
-}
-
-.license-trial-banner-actions {
-  display: flex;
-  gap: 8px;
-  -webkit-app-region: no-drag;
-}
-
-.license-banner-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: #fff;
-  padding: 2px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-family: var(--font-ui);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.license-banner-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.license-banner-btn-primary {
-  background: #fff;
-  border: none;
-  color: var(--accent);
-  padding: 2px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-weight: 600;
-  font-family: var(--font-ui);
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.license-banner-btn-primary:hover {
-  opacity: 0.9;
-}
-
-/* Expired / blocked screen */
+/* Expired / blocked / unlicensed screen */
 .license-expired-screen {
   display: flex;
   align-items: center;
