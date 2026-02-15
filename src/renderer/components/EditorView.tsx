@@ -10,6 +10,7 @@ import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftV
 import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
 import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
+import { htmlToNotes, notesToHtml } from '../utils/notesHtml';
 
 interface EditorViewProps {
   scenes: Scene[];
@@ -67,14 +68,6 @@ const STATUS_COLORS = ['#9e9e9e', '#4a90d9', '#e8973d', '#4caf7a', '#e74c3c', '#
 
 function getSceneKey(scene: Scene): string {
   return `${scene.characterId}:${scene.sceneNumber}`;
-}
-
-function markdownToHtml(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/__(.+?)__/g, '<strong>$1</strong>')
-    .replace(/_(.+?)_/g, '<em>$1</em>');
 }
 
 function cleanContent(text: string): string {
@@ -557,47 +550,6 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   selectedSceneRef.current = selectedScene;
   const onNotesChangeRef = useRef(onNotesChange);
   onNotesChangeRef.current = onNotesChange;
-  const notesToHtml = (notes: string[]): string => {
-    if (notes.length === 0) return '';
-    return notes.map(note => `<p>${markdownToHtml(note)}</p>`).join('');
-  };
-
-  const htmlToNotes = (html: string): string[] => {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    const notes: string[] = [];
-    const seen = new Set<string>();
-
-    const extractFormatted = (el: Element): string => {
-      let result = '';
-      el.childNodes.forEach(node => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          result += node.textContent || '';
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const elem = node as Element;
-          const tag = elem.tagName.toLowerCase();
-          const inner = extractFormatted(elem);
-          if (tag === 'strong' || tag === 'b') result += `**${inner}**`;
-          else if (tag === 'em' || tag === 'i') result += `*${inner}*`;
-          else result += inner;
-        }
-      });
-      return result;
-    };
-
-    div.querySelectorAll('li').forEach(el => {
-      const text = extractFormatted(el).trim();
-      if (text && !seen.has(text)) { notes.push(text); seen.add(text); }
-    });
-    div.querySelectorAll('p').forEach(el => {
-      if (el.closest('li')) return;
-      const text = extractFormatted(el).trim();
-      if (text && !seen.has(text)) { notes.push(text); seen.add(text); }
-    });
-
-    return notes;
-  };
-
   const notesEditor = useEditor({
     editorProps: {
       attributes: { spellcheck: 'true' },
@@ -625,7 +577,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
         notesEditor.commands.setContent(newHtml);
       }
     }
-  }, [selectedScene?.id]);
+  }, [selectedScene?.id, selectedScene?.notes]);
 
   // Scratchpad editor (per-scene rich text notes)
   const scratchpadEditor = useEditor({

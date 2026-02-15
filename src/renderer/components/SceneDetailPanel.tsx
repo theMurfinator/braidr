@@ -3,6 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Scene, Tag, TagCategory } from '../../shared/types';
+import { htmlToNotes, notesToHtml } from '../utils/notesHtml';
 
 interface SceneDetailPanelProps {
   scene: Scene;
@@ -38,24 +39,6 @@ function SceneDetailPanel({
   const [newTagCategory, setNewTagCategory] = useState<'people' | 'locations' | 'arcs' | 'things' | 'time'>('people');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const tagPickerRef = useRef<HTMLDivElement>(null);
-
-  // Convert notes array to HTML for TipTap
-  const notesToHtml = (notes: string[]): string => {
-    if (notes.length === 0) return '';
-    return notes.map(note => `<p>${note}</p>`).join('');
-  };
-
-  // Convert TipTap HTML back to notes array
-  const htmlToNotes = (html: string): string[] => {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    const notes: string[] = [];
-    div.querySelectorAll('p, li').forEach(el => {
-      const text = el.textContent?.trim();
-      if (text) notes.push(text);
-    });
-    return notes;
-  };
 
   const editor = useEditor({
     extensions: [

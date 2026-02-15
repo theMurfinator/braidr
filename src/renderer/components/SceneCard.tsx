@@ -5,6 +5,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Scene, Tag, MetadataFieldDef } from '../../shared/types';
+import { htmlToNotes, notesToHtml } from '../utils/notesHtml';
 
 interface SceneCardProps {
   scene: Scene;
@@ -101,83 +102,6 @@ function SceneCard({
   sceneRef.current = scene;
   editContentRef.current = editContent;
 
-  // Convert markdown-style formatting to HTML for TipTap
-  const markdownToHtml = (text: string): string => {
-    return text
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      .replace(/_(.+?)_/g, '<em>$1</em>');
-  };
-
-  // Convert HTML formatting to markdown-style for storage
-  const htmlToMarkdown = (html: string): string => {
-    return html
-      .replace(/<strong>(.+?)<\/strong>/g, '**$1**')
-      .replace(/<b>(.+?)<\/b>/g, '**$1**')
-      .replace(/<em>(.+?)<\/em>/g, '*$1*')
-      .replace(/<i>(.+?)<\/i>/g, '*$1*')
-      .replace(/<[^>]+>/g, '') // Strip remaining HTML tags
-      .trim();
-  };
-
-  // Convert notes array to HTML for TipTap
-  const notesToHtml = (notes: string[]): string => {
-    if (notes.length === 0) return '';
-    return notes.map(note => `<p>${markdownToHtml(note)}</p>`).join('');
-  };
-
-  // Convert TipTap HTML back to notes array (preserving formatting as markdown)
-  const htmlToNotes = (html: string): string[] => {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    const notes: string[] = [];
-    const seen = new Set<string>();
-
-    // Helper to extract formatted text from an element
-    const extractFormattedText = (el: Element): string => {
-      let result = '';
-      el.childNodes.forEach(node => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          result += node.textContent || '';
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const elem = node as Element;
-          const tagName = elem.tagName.toLowerCase();
-          const innerText = extractFormattedText(elem);
-          if (tagName === 'strong' || tagName === 'b') {
-            result += `**${innerText}**`;
-          } else if (tagName === 'em' || tagName === 'i') {
-            result += `*${innerText}*`;
-          } else {
-            result += innerText;
-          }
-        }
-      });
-      return result;
-    };
-
-    // Process list items first (they may contain p tags)
-    div.querySelectorAll('li').forEach(el => {
-      const text = extractFormattedText(el).trim();
-      if (text && !seen.has(text)) {
-        notes.push(text);
-        seen.add(text);
-      }
-    });
-
-    // Then process standalone paragraphs (not inside lists)
-    div.querySelectorAll('p').forEach(el => {
-      // Skip if this p is inside a list item
-      if (el.closest('li')) return;
-      const text = extractFormattedText(el).trim();
-      if (text && !seen.has(text)) {
-        notes.push(text);
-        seen.add(text);
-      }
-    });
-
-    return notes;
-  };
 
   // TipTap editor for notes
   const editor = useEditor({

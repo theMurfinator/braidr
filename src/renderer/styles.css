@@ -1548,6 +1548,20 @@
   font-style: italic;
 }
 
+.description-editor .tiptap ul,
+.description-editor .tiptap ol {
+  margin: 0 0 8px 0;
+  padding-left: 20px;
+}
+
+.description-editor .tiptap li {
+  margin-bottom: 4px;
+}
+
+.description-editor .tiptap li p {
+  margin: 0;
+}
+
 .description-editor .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
