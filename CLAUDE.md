@@ -120,10 +120,12 @@ Description of what happens in this plot point section...
 
 ## Release Process
 - Releases are **fully automated via GitHub Actions** (`.github/workflows/release.yml`)
-- Triggered by pushing a `v*` tag to `main`
+- **Auto-release on merge to main**: When a PR is merged (or code is pushed) to `main`, the workflow automatically bumps the patch version, creates a tag, and builds/publishes a release
+- Manual tag push (`v*` tags) also triggers a build (backward compatible)
 - The workflow builds for macOS, Windows, and Linux, codesigns, notarizes (via `scripts/notarize.js`), and publishes to GitHub Releases
 - **Do NOT run `npm run package` locally** — it will prompt for codesign credentials that are only in GitHub Secrets
-- To release: merge to `main`, tag with `git tag v<version>`, push the tag
+- **To release: just merge a PR to `main`** — version bump, tagging, building, and publishing all happen automatically
+- To skip a release on a main push, include `chore: bump version` in the commit message
 - Secrets (CSC_LINK, CSC_KEY_PASSWORD, APPLE_ID, APPLE_ID_PASSWORD, APPLE_APP_SPECIFIC_PASSWORD) are configured in the GitHub repo settings
 - Team ID: CBMC9F64HB (hardcoded in `scripts/notarize.js` and workflow)
 - **Always read the release workflow and notarize script before giving release instructions**

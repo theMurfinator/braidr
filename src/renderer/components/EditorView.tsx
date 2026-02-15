@@ -10,6 +10,7 @@ import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftV
 import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
 import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
+import { htmlToNotes, notesToHtml } from '../utils/notesHtml';
 
 interface EditorViewProps {
   scenes: Scene[];
@@ -67,14 +68,6 @@ const STATUS_COLORS = ['#9e9e9e', '#4a90d9', '#e8973d', '#4caf7a', '#e74c3c', '#
 
 function getSceneKey(scene: Scene): string {
   return `${scene.characterId}:${scene.sceneNumber}`;
-}
-
-function markdownToHtml(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/__(.+?)__/g, '<strong>$1</strong>')
-    .replace(/_(.+?)_/g, '<em>$1</em>');
 }
 
 function cleanContent(text: string): string {
@@ -557,50 +550,6 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   selectedSceneRef.current = selectedScene;
   const onNotesChangeRef = useRef(onNotesChange);
   onNotesChangeRef.current = onNotesChange;
-  const [notesEditorFocused, setNotesEditorFocused] = useState(false);
-  const [scratchpadEditorFocused, setScratchpadEditorFocused] = useState(false);
-
-  const notesToHtml = (notes: string[]): string => {
-    if (notes.length === 0) return '';
-    return notes.map(note => `<p>${markdownToHtml(note)}</p>`).join('');
-  };
-
-  const htmlToNotes = (html: string): string[] => {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    const notes: string[] = [];
-    const seen = new Set<string>();
-
-    const extractFormatted = (el: Element): string => {
-      let result = '';
-      el.childNodes.forEach(node => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          result += node.textContent || '';
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const elem = node as Element;
-          const tag = elem.tagName.toLowerCase();
-          const inner = extractFormatted(elem);
-          if (tag === 'strong' || tag === 'b') result += `**${inner}**`;
-          else if (tag === 'em' || tag === 'i') result += `*${inner}*`;
-          else result += inner;
-        }
-      });
-      return result;
-    };
-
-    div.querySelectorAll('li').forEach(el => {
-      const text = extractFormatted(el).trim();
-      if (text && !seen.has(text)) { notes.push(text); seen.add(text); }
-    });
-    div.querySelectorAll('p').forEach(el => {
-      if (el.closest('li')) return;
-      const text = extractFormatted(el).trim();
-      if (text && !seen.has(text)) { notes.push(text); seen.add(text); }
-    });
-
-    return notes;
-  };
-
   const notesEditor = useEditor({
     editorProps: {
       attributes: { spellcheck: 'true' },
@@ -612,9 +561,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       Placeholder.configure({ placeholder: '' }),
     ],
     content: notesToHtml(selectedScene?.notes || []),
-    onFocus: () => setNotesEditorFocused(true),
     onBlur: () => {
-      setNotesEditorFocused(false);
       if (notesEditor && selectedSceneRef.current) {
         const notes = htmlToNotes(notesEditor.getHTML());
         onNotesChangeRef.current(selectedSceneRef.current.id, notes);
@@ -630,7 +577,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
         notesEditor.commands.setContent(newHtml);
       }
     }
-  }, [selectedScene?.id]);
+  }, [selectedScene?.id, selectedScene?.notes]);
 
   // Scratchpad editor (per-scene rich text notes)
   const scratchpadEditor = useEditor({
@@ -644,9 +591,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       Placeholder.configure({ placeholder: '' }),
     ],
     content: selectedSceneKey ? (scratchpad[selectedSceneKey] || '') : '',
-    onFocus: () => setScratchpadEditorFocused(true),
     onBlur: () => {
-      setScratchpadEditorFocused(false);
       if (scratchpadEditor && selectedSceneKey) {
         setScratchpad(prev => ({ ...prev, [selectedSceneKey]: scratchpadEditor.getHTML() }));
       }
@@ -983,6 +928,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                 const charColor = characterColors[scene.characterId] || '#888';
                 const isActive = selectedSceneKeys.includes(key);
                 const isPrimary = isMultiSelect ? (primarySceneKey === key || activeEditorKey === key) : (selectedSceneKey === key);
+                const sceneStatus = (sceneMetadata[key]?.['_status'] as string) || '';
+                const sceneStatusColor = statusOptions.find(s => s.value === sceneStatus)?.color;
                 return (
                   <div
                     key={key}
@@ -994,7 +941,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                       <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
                       <span className="editor-nav-item-title">{cleanContent(scene.content)}</span>
                     </div>
-                    {hasDraft && <span className="editor-nav-item-draft-indicator" style={{ backgroundColor: charColor }} />}
+                    {sceneStatusColor && <span className="editor-nav-item-status-dot" style={{ backgroundColor: sceneStatusColor }} title={sceneStatus} />}
                   </div>
                 );
               })}
@@ -1008,6 +955,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     const charColor = characterColors[scene.characterId] || '#888';
                     const isActive = selectedSceneKeys.includes(key);
                     const isPrimary = isMultiSelect ? (primarySceneKey === key || activeEditorKey === key) : (selectedSceneKey === key);
+                    const sceneStatus = (sceneMetadata[key]?.['_status'] as string) || '';
+                    const sceneStatusColor = statusOptions.find(s => s.value === sceneStatus)?.color;
                     return (
                       <div
                         key={key}
@@ -1019,7 +968,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                           <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
                           <span className="editor-nav-item-title">{cleanContent(scene.content)}</span>
                         </div>
-                        {hasDraft && <span className="editor-nav-item-draft-indicator" style={{ backgroundColor: charColor }} />}
+                        {sceneStatusColor && <span className="editor-nav-item-status-dot" style={{ backgroundColor: sceneStatusColor }} title={sceneStatus} />}
                       </div>
                     );
                   })}
@@ -1238,28 +1187,12 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
             {/* Scene Synopsis */}
             <div className="editor-meta-section">
               <h4 className="editor-meta-label">Scene Synopsis</h4>
-              {notesEditorFocused && notesEditor && (
-                <div className="editor-meta-notes-toolbar">
-                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
-                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
-                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
-                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
-                </div>
-              )}
               <EditorContent editor={notesEditor} className="editor-meta-notes-editor" />
             </div>
 
             {/* Scratchpad */}
             <div className="editor-meta-section">
               <h4 className="editor-meta-label">Scratchpad</h4>
-              {scratchpadEditorFocused && scratchpadEditor && (
-                <div className="editor-meta-notes-toolbar">
-                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
-                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
-                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
-                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
-                </div>
-              )}
               <EditorContent editor={scratchpadEditor} className="editor-meta-scratchpad-editor" />
             </div>
 
@@ -1490,11 +1423,22 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                       </div>
                     </div>
                     {field.type === 'text' && (
-                      <input
-                        type="text"
+                      <textarea
                         className="editor-meta-field-input"
                         value={(currentMeta[field.id] as string) || ''}
                         onChange={e => handleMetaChange(field.id, e.target.value)}
+                        rows={1}
+                        onInput={(e) => {
+                          const el = e.currentTarget;
+                          el.style.height = 'auto';
+                          el.style.height = el.scrollHeight + 'px';
+                        }}
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = 'auto';
+                            el.style.height = el.scrollHeight + 'px';
+                          }
+                        }}
                       />
                     )}
                     {field.type === 'dropdown' && (

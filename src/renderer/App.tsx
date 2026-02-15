@@ -985,10 +985,13 @@ function App() {
     const vars: Array<[keyof FontSettings, string, string?]> = [
       ['sectionTitle', '--font-section-title'],
       ['sectionTitleSize', '--font-section-title-size', 'px'],
+      ['sectionTitleColor', '--font-section-title-color'],
       ['sceneTitle', '--font-scene-title'],
       ['sceneTitleSize', '--font-scene-title-size', 'px'],
+      ['sceneTitleColor', '--font-scene-title-color'],
       ['body', '--font-body'],
       ['bodySize', '--font-body-size', 'px'],
+      ['bodyColor', '--font-body-color'],
     ];
     for (const [key, varName, suffix] of vars) {
       const val = settings[key];
@@ -1022,10 +1025,13 @@ function App() {
     const vars: Array<[keyof FontSettings, string, string?]> = [
       ['sectionTitle', '--font-section-title'],
       ['sectionTitleSize', '--font-section-title-size', 'px'],
+      ['sectionTitleColor', '--font-section-title-color'],
       ['sceneTitle', '--font-scene-title'],
       ['sceneTitleSize', '--font-scene-title-size', 'px'],
+      ['sceneTitleColor', '--font-scene-title-color'],
       ['body', '--font-body'],
       ['bodySize', '--font-body-size', 'px'],
+      ['bodyColor', '--font-body-color'],
     ];
     for (const [key, varName, suffix] of vars) {
       const val = screenSettings?.[key];
