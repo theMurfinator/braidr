@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Scene, Character, PlotPoint } from '../../shared/types';
 import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages } from '../utils/analyticsStore';
+import { track } from '../utils/posthogTracker';
 
 interface WordCountDashboardProps {
   scenes: Scene[];
@@ -107,6 +108,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
   const handleGoalSave = () => {
     const parsed = parseInt(goalInput, 10);
     if (!isNaN(parsed) && parsed >= 0) {
+      track('goal_set', { type: 'project' });
       onGoalChange(parsed);
     }
     setEditingGoal(false);
@@ -116,6 +118,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     if (!analytics || !projectPath) return;
     const parsed = parseInt(dailyGoalInput, 10);
     if (!isNaN(parsed) && parsed >= 0) {
+      track('goal_set', { type: 'daily' });
       const updated = {
         ...analytics,
         dailyGoal: { enabled: parsed > 0, target: parsed },
@@ -230,6 +233,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     const target = parseInt(deadlineTargetInput, 10);
     const date = deadlineDateInput;
     if (!isNaN(target) && target > 0 && date) {
+      track('goal_set', { type: 'deadline' });
       const updated = {
         ...analytics,
         deadlineGoal: { enabled: true, targetWords: target, deadlineDate: date },

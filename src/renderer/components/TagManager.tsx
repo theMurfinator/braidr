@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Tag, TagCategory } from '../../shared/types';
+import { track } from '../utils/posthogTracker';
 
 interface TagManagerProps {
   tags: Tag[];
@@ -33,6 +34,7 @@ function TagManager({ tags, onUpdateTag, onCreateTag, onDeleteTag, onClose }: Ta
       alert('Tag already exists');
       return;
     }
+    track('tag_created', { category: newTagCategory });
     onCreateTag(cleanName, newTagCategory);
     setNewTagName('');
   };

@@ -25,6 +25,7 @@ import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
+import { track } from './utils/posthogTracker';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'analytics';
 type BraidedSubMode = 'list' | 'table' | 'rails';
@@ -44,6 +45,7 @@ function App() {
   const setViewMode = (mode: ViewMode) => {
     _setViewMode(mode);
     localStorage.setItem('braidr-last-view-mode', mode);
+    track('screen_viewed', { screen: mode });
   };
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -387,6 +389,12 @@ function App() {
         analyticsRef.current = updated;
         setSceneSessions(updated.sceneSessions || []);
         saveAnalytics(projectData.projectPath, updated);
+        track('writing_session_ended', {
+          duration_ms: summary.durationMs,
+          words_net: summary.wordsNet,
+          scene_key: summary.sceneKey,
+          had_checkin: false,
+        });
       }
     });
 
@@ -407,6 +415,15 @@ function App() {
     analyticsRef.current = updated;
     setSceneSessions(updated.sceneSessions || []);
     saveAnalytics(projectData.projectPath, updated);
+    track('writing_session_ended', {
+      duration_ms: summary.durationMs,
+      words_net: summary.wordsNet,
+      scene_key: summary.sceneKey,
+      had_checkin: true,
+      checkin_energy: checkin.energy,
+      checkin_focus: checkin.focus,
+      checkin_mood: checkin.mood,
+    });
 
     pendingSessionRef.current = null;
     setPendingSession(null);
@@ -680,6 +697,11 @@ function App() {
     }
 
     setProjectData({ ...data, projectName: name });
+    track('project_opened', {
+      character_count: data.characters.length,
+      scene_count: data.scenes.length,
+      total_words: Object.values(data.wordCounts || {}).reduce((sum: number, wc: number) => sum + wc, 0),
+    });
 
     // Load editor data
     const loadedDraft = data.draftContent || {};
@@ -804,6 +826,7 @@ function App() {
       );
 
       if (projectPath) {
+        track('project_created', { template: newProjectTemplate });
         await loadProjectFromPath(projectPath, newProjectName.trim());
         setShowNewProject(false);
         setNewProjectName('');
@@ -942,6 +965,7 @@ function App() {
     if (!projectData) return;
     const result = await (window as any).electronAPI.backupProject(projectData.projectPath);
     if (result.success) {
+      track('backup_created');
       alert(`Backup saved to:\n${result.backupPath}`);
     } else if (!result.canceled) {
       setError(result.error || 'Backup failed');
@@ -1209,6 +1233,7 @@ function App() {
       };
       setSceneConnections(newConnections);
       await saveTimelineData(projectData.scenes, newConnections, braidedChapters);
+      track('connection_created');
     }
   };
 
@@ -1511,6 +1536,7 @@ function App() {
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, updatedCharScenes);
       await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+      track('scene_reordered', { view: 'pov' });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
@@ -1569,6 +1595,7 @@ function App() {
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, updatedCharScenes);
       await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+      track('scene_reordered', { view: 'pov' });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
@@ -1848,6 +1875,7 @@ function App() {
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
       await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+      track('scene_created', { character_id: selectedCharacterId });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
@@ -2022,6 +2050,7 @@ function App() {
     setDropTargetIndex(null);
 
     await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
+    track('scene_reordered', { view: 'braided' });
   };
 
   const handleDragOverInbox = (e: React.DragEvent) => {
@@ -2190,6 +2219,7 @@ function App() {
     const updatedArchived = [...archivedScenes, archived];
     setArchivedScenes(updatedArchived);
     archivedScenesRef.current = updatedArchived;
+    track('scene_deleted', { character_id: scene.characterId });
 
     // Remove scene from active state
     const updatedScenes = projectData.scenes.filter(s => s.id !== sceneId);
@@ -2718,19 +2748,19 @@ function App() {
             <div className="sub-view-toggle">
               <button
                 className={braidedSubMode === 'list' ? 'active' : ''}
-                onClick={() => setBraidedSubMode('list')}
+                onClick={() => { setBraidedSubMode('list'); track('braided_subview_changed', { subview: 'list' }); }}
               >
                 List
               </button>
               <button
                 className={braidedSubMode === 'table' ? 'active' : ''}
-                onClick={() => setBraidedSubMode('table')}
+                onClick={() => { setBraidedSubMode('table'); track('braided_subview_changed', { subview: 'table' }); }}
               >
                 Table
               </button>
               <button
                 className={braidedSubMode === 'rails' ? 'active' : ''}
-                onClick={() => setBraidedSubMode('rails')}
+                onClick={() => { setBraidedSubMode('rails'); track('braided_subview_changed', { subview: 'rails' }); }}
               >
                 Rails
               </button>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Character } from '../../shared/types';
+import { track } from '../utils/posthogTracker';
 
 interface CharacterManagerProps {
   characters: Character[];
@@ -27,6 +28,7 @@ function CharacterManager({
 
   const handleCreate = () => {
     if (newCharacterName.trim()) {
+      track('character_created');
       onCreateCharacter(newCharacterName.trim());
       setNewCharacterName('');
     }
@@ -117,7 +119,7 @@ function CharacterManager({
                       {confirmDeleteId === character.id ? (
                         <div className="delete-confirm-row">
                           <span className="delete-confirm-text">Delete {character.name}?</span>
-                          <button className="delete-confirm-btn" onClick={() => { onDeleteCharacter(character.id); setConfirmDeleteId(null); }}>Yes, delete</button>
+                          <button className="delete-confirm-btn" onClick={() => { track('character_deleted'); onDeleteCharacter(character.id); setConfirmDeleteId(null); }}>Yes, delete</button>
                           <button className="delete-cancel-btn" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
                         </div>
                       ) : (

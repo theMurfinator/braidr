@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { NoteMetadata, NotesIndex, Scene, Character, Tag } from '../../../shared/types';
 import { dataService } from '../../services/dataService';
 import { useToast } from '../ToastContext';
+import { track } from '../../utils/posthogTracker';
 import NotesSidebar from './NotesSidebar';
 import NoteEditor from './NoteEditor';
 import BacklinksPanel from './BacklinksPanel';
@@ -336,6 +337,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
       await saveIndex(newIndex);
       setSelectedNoteId(id);
       setNoteContent('<p></p>');
+      track('note_created');
     } catch (err) {
       addToast('Couldn\u2019t create note');
     }

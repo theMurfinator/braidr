@@ -143,6 +143,75 @@
       font-size: 14px;
     }
 
+    /* Section headers */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 32px 0 16px;
+    }
+    .section-header h2 { font-size: 16px; font-weight: 600; color: #3f3f46; }
+    .section-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .section-note {
+      font-size: 12px;
+      color: #a1a1aa;
+      margin-left: auto;
+    }
+
+    /* Bar chart */
+    .chart-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .chart-title { font-size: 13px; color: #71717a; font-weight: 500; margin-bottom: 12px; }
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 100px;
+    }
+    .bar {
+      flex: 1;
+      background: #3b82f6;
+      border-radius: 2px 2px 0 0;
+      min-height: 2px;
+      position: relative;
+      cursor: default;
+    }
+    .bar:hover { background: #2563eb; }
+    .bar-tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .bar:hover .bar-tooltip { display: block; }
+
+    /* Analytics not configured state */
+    .analytics-note {
+      font-size: 13px;
+      color: #a1a1aa;
+      padding: 20px 0;
+    }
+
     /* Loading */
     .loading { text-align: center; padding: 80px 0; color: #71717a; }
     .error-state { text-align: center; padding: 40px 0; color: #991b1b; }
@@ -188,6 +257,71 @@
         </div>
       </div>
 
+      <!-- App Analytics -->
+      <div id="appAnalyticsSection" style="display: none;">
+        <div class="section-header">
+          <h2>App Analytics</h2>
+          <span class="section-badge">30 days</span>
+          <span class="section-note" id="analyticsTimestamp"></span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Daily Active Users (avg)</div>
+            <div class="stat-value" id="appDAU">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Writing Sessions</div>
+            <div class="stat-value" id="appSessions">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Words Written</div>
+            <div class="stat-value" id="appWords">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Trial → Licensed</div>
+            <div class="stat-value" id="appConversion">--</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Website Analytics -->
+      <div id="webAnalyticsSection" style="display: none;">
+        <div class="section-header">
+          <h2>Website Analytics</h2>
+          <span class="section-badge">30 days</span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Daily Visitors (avg)</div>
+            <div class="stat-value" id="webVisitors">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">CTA Click Rate</div>
+            <div class="stat-value" id="webCtaRate">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total CTA Clicks</div>
+            <div class="stat-value" id="webCtaClicks">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Top CTA</div>
+            <div class="stat-value" id="webTopCta" style="font-size: 18px;">--</div>
+          </div>
+        </div>
+        <div class="chart-card" id="visitorsChart" style="display: none;">
+          <div class="chart-title">Daily Visitors (30 days)</div>
+          <div class="bar-chart" id="visitorsBarChart"></div>
+        </div>
+      </div>
+
+      <!-- Analytics not configured notice -->
+      <div id="analyticsNotConfigured" style="display: none;">
+        <div class="section-header">
+          <h2>Analytics</h2>
+        </div>
+        <p class="analytics-note">PostHog analytics not configured. Set POSTHOG_PERSONAL_API_KEY in your environment.</p>
+      </div>
+
       <!-- Feedback -->
       <div class="card">
         <div class="card-header">
@@ -208,7 +342,7 @@
     if (adminKey) {
       document.getElementById('auth').style.display = 'none';
       document.getElementById('loading').style.display = 'block';
-      loadDashboard();
+      loadDashboard().then(ok => { if (ok) loadAnalytics(); });
     }
 
     document.getElementById('apiKeyInput').addEventListener('keydown', (e) => {
@@ -224,6 +358,7 @@
       document.getElementById('authError').style.display = 'none';
 
       const ok = await loadDashboard();
+      if (ok) loadAnalytics();
       if (!ok) {
         adminKey = '';
         sessionStorage.removeItem('braidr_admin_key');
@@ -324,6 +459,72 @@
       const div = document.createElement('div');
       div.textContent = str;
       return div.innerHTML;
+    }
+
+    async function loadAnalytics() {
+      try {
+        const res = await fetch('/api/admin/analytics', {
+          headers: { 'X-Admin-Key': adminKey },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (!data.app && !data.web) {
+          document.getElementById('analyticsNotConfigured').style.display = 'block';
+          return;
+        }
+
+        if (data.generatedAt) {
+          document.getElementById('analyticsTimestamp').textContent =
+            'Updated ' + timeAgo(data.generatedAt);
+        }
+
+        // App metrics
+        if (data.app) {
+          document.getElementById('appAnalyticsSection').style.display = 'block';
+          document.getElementById('appDAU').textContent = data.app.avgDAU;
+          document.getElementById('appSessions').textContent = data.app.totalWritingSessions.toLocaleString();
+          document.getElementById('appWords').textContent = data.app.totalWordsWritten.toLocaleString();
+          document.getElementById('appConversion').textContent = data.app.trialConversionRate + '%';
+        }
+
+        // Web metrics
+        if (data.web) {
+          document.getElementById('webAnalyticsSection').style.display = 'block';
+          document.getElementById('webVisitors').textContent = data.web.avgDailyVisitors;
+          document.getElementById('webCtaRate').textContent = data.web.ctaClickRate + '%';
+          document.getElementById('webCtaClicks').textContent = data.web.totalCtaClicks;
+
+          // Top CTA location
+          if (data.web.ctaClicks && data.web.ctaClicks.length > 0) {
+            document.getElementById('webTopCta').textContent = data.web.ctaClicks[0].location;
+          }
+
+          // Bar chart for daily visitors
+          if (data.web.dailyVisitors && data.web.dailyVisitors.length > 0) {
+            document.getElementById('visitorsChart').style.display = 'block';
+            const chart = document.getElementById('visitorsBarChart');
+            const maxVal = Math.max(...data.web.dailyVisitors.map(d => d.visitors));
+
+            for (const day of data.web.dailyVisitors) {
+              const bar = document.createElement('div');
+              bar.className = 'bar';
+              const pct = maxVal > 0 ? (day.visitors / maxVal) * 100 : 0;
+              bar.style.height = Math.max(pct, 2) + '%';
+
+              const tooltip = document.createElement('div');
+              tooltip.className = 'bar-tooltip';
+              const dateStr = new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              tooltip.textContent = dateStr + ': ' + day.visitors;
+              bar.appendChild(tooltip);
+
+              chart.appendChild(bar);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Analytics load error:', err);
+      }
     }
   </script>
 </body>

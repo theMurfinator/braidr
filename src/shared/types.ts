@@ -240,4 +240,6 @@ export const IPC_CHANNELS = {
   OPEN_PURCHASE_URL: 'open-purchase-url',
   OPEN_BILLING_PORTAL: 'open-billing-portal',
   OPEN_FEEDBACK_EMAIL: 'open-feedback-email',
+  // Analytics (PostHog)
+  CAPTURE_ANALYTICS_EVENT: 'capture-analytics-event',
 } as const;

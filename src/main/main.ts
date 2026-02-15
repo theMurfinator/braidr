@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import { autoUpdater } from 'electron-updater';
 import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
 import { getLicenseStatus, activateLicense, deactivateLicense, openPurchaseUrl, openBillingPortal } from './license';
+import { initPostHog, captureEvent, identifyUser, aliasUser, getSessionDurationMs, shutdownPostHog } from './posthog';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -114,6 +115,7 @@ autoUpdater.on('download-progress', (progressObj) => {
 
 autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info.version);
+  captureEvent('update_downloaded', { version: info.version });
   if (mainWindow) {
     dialog.showMessageBox(mainWindow, {
       type: 'info',
@@ -353,14 +355,33 @@ app.whenReady().then(() => {
     return net.fetch(`file://${filePath}`);
   });
 
+  initPostHog();
   createWindow();
   createMenu();
+
+  // Capture app_opened after license check (deferred so license status is available)
+  getLicenseStatus().then(status => {
+    captureEvent('app_opened', { license_state: status.state });
+    identifyUser(status.state, {
+      trial_days_remaining: status.trialDaysRemaining,
+      has_license_key: !!status.licenseKey,
+    });
+    // First ever launch = trial started
+    if (status.state === 'trial' && status.trialDaysRemaining !== undefined && status.trialDaysRemaining >= 13) {
+      captureEvent('trial_started', { trial_days_remaining: status.trialDaysRemaining });
+    }
+  }).catch(() => {});
 });
 
 app.on('window-all-closed', () => {
+  captureEvent('app_closed', { session_duration_ms: getSessionDurationMs() });
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', async () => {
+  await shutdownPostHog();
 });
 
 app.on('activate', () => {
@@ -370,6 +391,12 @@ app.on('activate', () => {
 });
 
 // IPC Handlers
+
+// PostHog analytics event relay from renderer
+ipcMain.handle(IPC_CHANNELS.CAPTURE_ANALYTICS_EVENT, async (_event, eventName: string, properties: Record<string, any>) => {
+  captureEvent(eventName, properties);
+  return { success: true };
+});
 
 ipcMain.handle(IPC_CHANNELS.SELECT_FOLDER, async () => {
   const result = await dialog.showOpenDialog(mainWindow!, {
@@ -888,6 +915,9 @@ ipcMain.handle(IPC_CHANNELS.GET_LICENSE_STATUS, async () => {
 ipcMain.handle(IPC_CHANNELS.ACTIVATE_LICENSE, async (_event, licenseKey: string) => {
   try {
     const status = await activateLicense(licenseKey);
+    captureEvent('license_activated', { state: status.state });
+    aliasUser(licenseKey);
+    identifyUser(status.state, { has_license_key: true });
     return { success: true, data: status };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -897,6 +927,7 @@ ipcMain.handle(IPC_CHANNELS.ACTIVATE_LICENSE, async (_event, licenseKey: string)
 ipcMain.handle(IPC_CHANNELS.DEACTIVATE_LICENSE, async () => {
   try {
     const status = deactivateLicense();
+    captureEvent('license_deactivated');
     return { success: true, data: status };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -905,6 +936,7 @@ ipcMain.handle(IPC_CHANNELS.DEACTIVATE_LICENSE, async () => {
 
 ipcMain.handle(IPC_CHANNELS.OPEN_PURCHASE_URL, async () => {
   try {
+    captureEvent('purchase_clicked');
     openPurchaseUrl();
     return { success: true };
   } catch (error) {
