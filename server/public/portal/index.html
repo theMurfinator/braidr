@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Braidr</title>
+  <title>Braidr - Sign In</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -14,34 +14,259 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 20px;
     }
-    .container {
+
+    .login-container {
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .logo {
       text-align: center;
-      padding: 40px 20px;
-      max-width: 480px;
+      margin-bottom: 40px;
     }
-    h1 { font-size: 28px; margin-bottom: 12px; }
-    p { font-size: 15px; color: #71717a; line-height: 1.6; margin-bottom: 24px; }
-    .btn {
-      display: inline-block;
-      padding: 12px 24px;
-      background: #1a1a1a;
+    .logo svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 12px;
+    }
+    .logo h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+      padding: 32px;
+    }
+
+    .card h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .card .subtitle {
+      font-size: 14px;
+      color: #71717a;
+      margin-bottom: 24px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #52525b;
+      margin-bottom: 6px;
+    }
+    .key-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d4d4d8;
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, monospace;
+      letter-spacing: 0.5px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .key-input:focus {
+      border-color: #a1a1aa;
+      box-shadow: 0 0 0 3px rgba(161,161,170,0.15);
+    }
+    .key-input.error {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+    }
+
+    .error-msg {
+      font-size: 13px;
+      color: #ef4444;
+      margin-top: 8px;
+      display: none;
+    }
+    .error-msg.visible { display: block; }
+
+    .sign-in-btn {
+      width: 100%;
+      padding: 12px;
+      background: #18181b;
       color: #fff;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 15px;
       font-weight: 500;
-      text-decoration: none;
+      cursor: pointer;
       transition: opacity 0.15s;
+      margin-top: 20px;
     }
-    .btn:hover { opacity: 0.9; }
+    .sign-in-btn:hover { opacity: 0.9; }
+    .sign-in-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 14px;
+      color: #71717a;
+    }
+    .footer a {
+      color: #18181b;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .footer a:hover { text-decoration: underline; }
+
+    .help-text {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 13px;
+      color: #a1a1aa;
+    }
+    .help-text a {
+      color: #71717a;
+      text-decoration: none;
+    }
+    .help-text a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Braidr</h1>
-    <p>Manage your subscription directly from the Braidr app. Open the settings menu and click "Manage Subscription."</p>
-    <a href="https://getbraider.com" class="btn">Visit getbraider.com</a>
+  <div class="login-container">
+    <div class="logo">
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="12" fill="#18181b"/>
+        <path d="M14 14h6c3.3 0 6 2.7 6 6s-2.7 6-6 6h-2l8 8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M14 34h6c3.3 0 6-2.7 6-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <circle cx="34" cy="16" r="3" fill="#a78bfa"/>
+        <circle cx="34" cy="26" r="3" fill="#818cf8"/>
+        <circle cx="34" cy="36" r="2" fill="#6366f1" opacity="0.5"/>
+      </svg>
+      <h1>Braidr</h1>
+    </div>
+
+    <div class="card">
+      <h2>Sign in to your account</h2>
+      <p class="subtitle">Enter the license key from your purchase.</p>
+
+      <label for="licenseKey">License Key</label>
+      <input
+        type="text"
+        id="licenseKey"
+        class="key-input"
+        placeholder="XXXX-XXXX-XXXX-XXXX"
+        autocomplete="off"
+        spellcheck="false"
+        autofocus
+      />
+      <p class="error-msg" id="errorMsg"></p>
+
+      <button class="sign-in-btn" id="signInBtn" onclick="handleSignIn()">
+        Sign In
+      </button>
+    </div>
+
+    <div class="footer">
+      Don't have an account? <a href="/api/checkout" id="trialLink">Start a free trial</a>
+    </div>
+
+    <div class="help-text">
+      <a href="https://getbraider.com">getbraider.com</a>
+    </div>
   </div>
+
+  <script>
+    // If user already has a key stored, go straight to dashboard
+    if (localStorage.getItem('braidr_license_key')) {
+      window.location.href = '/portal/dashboard';
+    }
+
+    const input = document.getElementById('licenseKey');
+    const btn = document.getElementById('signInBtn');
+    const errorMsg = document.getElementById('errorMsg');
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleSignIn();
+      // Clear error when typing
+      errorMsg.classList.remove('visible');
+      input.classList.remove('error');
+    });
+
+    // "Start a free trial" link — create checkout session and redirect
+    document.getElementById('trialLink').addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        const res = await fetch('/api/checkout', { method: 'POST' });
+        if (!res.ok) throw new Error('Failed to create checkout');
+        const { url } = await res.json();
+        window.location.href = url;
+      } catch (err) {
+        showError('Could not start checkout. Please try again.');
+      }
+    });
+
+    async function handleSignIn() {
+      const key = input.value.trim();
+      if (!key) {
+        showError('Please enter your license key.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Signing in...';
+      errorMsg.classList.remove('visible');
+      input.classList.remove('error');
+
+      try {
+        const res = await fetch('/api/portal/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ licenseKey: key }),
+        });
+
+        if (res.status === 401) {
+          showError('Invalid license key. Please check and try again.');
+          return;
+        }
+
+        if (!res.ok) {
+          showError('Something went wrong. Please try again.');
+          return;
+        }
+
+        // Store key and redirect to dashboard
+        localStorage.setItem('braidr_license_key', key);
+        window.location.href = '/portal/dashboard';
+      } catch (err) {
+        showError('Could not connect. Check your internet and try again.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      }
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.classList.add('visible');
+      input.classList.add('error');
+    }
+  </script>
 </body>
 </html>

@@ -153,8 +153,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           metadata: { keygen_license_key: licenseKey },
         });
 
-        // Email the license key to the customer
-        if (email) {
+        // Email the license key to the customer (only if Resend is configured)
+        if (email && process.env.RESEND_API_KEY) {
           try {
             await sendEmail({
               to: email,

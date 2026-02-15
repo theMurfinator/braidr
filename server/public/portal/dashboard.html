@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Braidr - Welcome</title>
+  <title>Braidr - Dashboard</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -11,114 +11,796 @@
       background: #fafafa;
       color: #1a1a1a;
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
-    .container {
-      text-align: center;
-      padding: 40px 20px;
-      max-width: 520px;
-    }
-    .checkmark {
-      width: 64px;
-      height: 64px;
-      background: #dcfce7;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 24px;
-      font-size: 32px;
-    }
-    h1 { font-size: 24px; margin-bottom: 12px; }
-    p { font-size: 15px; color: #71717a; line-height: 1.6; margin-bottom: 8px; }
-    .steps {
-      text-align: left;
+
+    /* ─── Top Nav ─────────────────────────────────── */
+    .nav {
       background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      padding: 24px 28px;
-      margin: 24px 0;
-    }
-    .steps h2 { font-size: 14px; color: #71717a; font-weight: 500; margin-bottom: 16px; }
-    .steps ol {
-      list-style: none;
-      counter-reset: step;
-    }
-    .steps li {
-      counter-increment: step;
-      padding: 8px 0;
-      font-size: 15px;
+      border-bottom: 1px solid #e4e4e7;
+      padding: 0 24px;
+      height: 56px;
       display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-logo {
+      width: 32px;
+      height: 32px;
+    }
+    .nav-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .nav-email {
+      font-size: 13px;
+      color: #71717a;
+    }
+    .sign-out-btn {
+      font-size: 13px;
+      color: #71717a;
+      background: none;
+      border: 1px solid #e4e4e7;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .sign-out-btn:hover {
+      background: #f4f4f5;
+      color: #1a1a1a;
+    }
+
+    /* ─── Layout ──────────────────────────────────── */
+    .main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+
+    /* ─── Success Banner ─────────────────────────── */
+    .success-banner {
+      display: none;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
       align-items: flex-start;
       gap: 12px;
     }
-    .steps li::before {
-      content: counter(step);
-      min-width: 24px;
+    .success-banner.visible { display: flex; }
+    .success-icon {
+      width: 24px;
       height: 24px;
-      background: #f4f4f5;
+      background: #22c55e;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .success-icon svg { width: 14px; height: 14px; }
+    .success-text h3 {
+      font-size: 15px;
       font-weight: 600;
+      color: #166534;
+      margin-bottom: 2px;
+    }
+    .success-text p {
+      font-size: 13px;
+      color: #15803d;
+    }
+
+    /* ─── Loading State ──────────────────────────── */
+    .loading-screen {
+      text-align: center;
+      padding: 120px 20px;
+    }
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e4e4e7;
+      border-top-color: #18181b;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-screen p {
+      font-size: 14px;
       color: #71717a;
     }
-    .btn {
-      display: inline-block;
-      padding: 12px 24px;
-      background: #1a1a1a;
+
+    /* ─── Cards ───────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #a1a1aa;
+      margin-bottom: 14px;
+    }
+
+    /* ─── Two-column Row ─────────────────────────── */
+    .card-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 560px) {
+      .card-row { grid-template-columns: 1fr; }
+    }
+
+    /* ─── License Key Card ───────────────────────── */
+    .key-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f4f4f5;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .key-text {
+      flex: 1;
+      font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, monospace;
+      font-size: 14px;
+      letter-spacing: 0.3px;
+      word-break: break-all;
+      user-select: all;
+    }
+    .copy-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+      color: #71717a;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { background: #e4e4e7; color: #1a1a1a; }
+    .copy-btn svg { width: 16px; height: 16px; display: block; }
+    .copy-toast {
+      font-size: 12px;
+      color: #22c55e;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .copy-toast.visible { opacity: 1; }
+    .key-hint {
+      font-size: 13px;
+      color: #a1a1aa;
+      line-height: 1.5;
+    }
+
+    /* ─── Subscription Card ──────────────────────── */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.active { background: #22c55e; }
+    .status-dot.trialing { background: #6366f1; }
+    .status-dot.cancelled { background: #f59e0b; }
+    .status-dot.expired { background: #ef4444; }
+    .status-dot.suspended { background: #ef4444; }
+    .status-label {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .status-detail {
+      font-size: 13px;
+      color: #71717a;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .billing-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 16px;
+      background: #18181b;
       color: #fff;
       border: none;
-      border-radius: 8px;
-      font-size: 15px;
+      border-radius: 10px;
+      font-size: 14px;
       font-weight: 500;
-      text-decoration: none;
+      cursor: pointer;
       transition: opacity 0.15s;
     }
-    .btn:hover { opacity: 0.9; }
-    .default-msg { display: none; }
+    .billing-btn:hover { opacity: 0.9; }
+    .billing-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .billing-btn svg { width: 14px; height: 14px; }
+
+    /* ─── Download Card ──────────────────────────── */
+    .download-section {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .download-main {
+      flex: 1;
+      min-width: 200px;
+    }
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      background: #18181b;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s;
+      margin-bottom: 10px;
+    }
+    .download-btn:hover { opacity: 0.9; }
+    .download-btn svg { width: 18px; height: 18px; }
+    .download-version {
+      font-size: 12px;
+      color: #a1a1aa;
+      margin-bottom: 10px;
+    }
+    .download-alt {
+      font-size: 13px;
+      color: #71717a;
+    }
+    .download-alt a {
+      color: #18181b;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .download-alt a:hover { text-decoration: underline; }
+    .download-alt .sep { margin: 0 6px; color: #d4d4d8; }
+
+    /* ─── Support Card ───────────────────────────── */
+    .support-textarea {
+      width: 100%;
+      min-height: 80px;
+      padding: 12px 14px;
+      border: 1px solid #d4d4d8;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      margin-bottom: 12px;
+    }
+    .support-textarea:focus {
+      border-color: #a1a1aa;
+      box-shadow: 0 0 0 3px rgba(161,161,170,0.15);
+    }
+    .support-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .support-send-btn {
+      padding: 10px 20px;
+      background: #18181b;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .support-send-btn:hover { opacity: 0.9; }
+    .support-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .support-status {
+      font-size: 13px;
+      color: #22c55e;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .support-status.visible { opacity: 1; }
+    .support-status.error { color: #ef4444; }
+
+    /* ─── Footer ─────────────────────────────────── */
+    .portal-footer {
+      text-align: center;
+      padding: 24px 20px;
+      font-size: 13px;
+      color: #a1a1aa;
+    }
+    .portal-footer a {
+      color: #71717a;
+      text-decoration: none;
+    }
+    .portal-footer a:hover { text-decoration: underline; }
+
+    /* ─── Error State ────────────────────────────── */
+    .error-screen {
+      text-align: center;
+      padding: 120px 20px;
+      display: none;
+    }
+    .error-screen h2 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .error-screen p {
+      font-size: 14px;
+      color: #71717a;
+      margin-bottom: 24px;
+    }
+    .error-screen .retry-btn {
+      padding: 10px 24px;
+      background: #18181b;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .error-screen .retry-btn:hover { opacity: 0.9; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Shown after successful checkout -->
-    <div id="success" class="default-msg">
-      <div class="checkmark">&#10003;</div>
-      <h1>Welcome to Braidr!</h1>
-      <p>Your license key is on its way to your email.</p>
 
-      <div class="steps">
-        <h2>Next steps</h2>
-        <ol>
-          <li>Check your email for your license key</li>
-          <li>Open Braidr and go to Help &rarr; Manage License</li>
-          <li>Paste your license key and click Activate</li>
-        </ol>
+  <!-- Top Nav -->
+  <nav class="nav">
+    <div class="nav-left">
+      <svg class="nav-logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="12" fill="#18181b"/>
+        <path d="M14 14h6c3.3 0 6 2.7 6 6s-2.7 6-6 6h-2l8 8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M14 34h6c3.3 0 6-2.7 6-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <circle cx="34" cy="16" r="3" fill="#a78bfa"/>
+        <circle cx="34" cy="26" r="3" fill="#818cf8"/>
+        <circle cx="34" cy="36" r="2" fill="#6366f1" opacity="0.5"/>
+      </svg>
+      <span class="nav-title">Braidr</span>
+    </div>
+    <div class="nav-right">
+      <span class="nav-email" id="navEmail"></span>
+      <button class="sign-out-btn" onclick="signOut()">Sign Out</button>
+    </div>
+  </nav>
+
+  <!-- Loading -->
+  <div id="loadingScreen" class="loading-screen">
+    <div class="loading-spinner"></div>
+    <p id="loadingText">Loading your account...</p>
+  </div>
+
+  <!-- Error -->
+  <div id="errorScreen" class="error-screen">
+    <h2>Something went wrong</h2>
+    <p id="errorText">We couldn't load your account. Please try again.</p>
+    <button class="retry-btn" onclick="window.location.reload()">Try Again</button>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div id="dashboard" class="main" style="display: none;">
+
+    <!-- Success Banner (shown after checkout) -->
+    <div class="success-banner" id="successBanner">
+      <div class="success-icon">
+        <svg fill="none" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-
-      <p style="font-size: 13px; color: #a1a1aa;">
-        To manage your subscription later, use the "Manage Subscription" option in the app's settings menu.
-      </p>
+      <div class="success-text">
+        <h3>You're all set!</h3>
+        <p>Your license key is ready below. Copy it and paste it into the Braidr app to get started.</p>
+      </div>
     </div>
 
-    <!-- Default state (no checkout param) -->
-    <div id="default" class="default-msg">
-      <h1>Braidr</h1>
-      <p style="margin-bottom: 24px;">Manage your subscription directly from the Braidr app. Open the settings menu and click "Manage Subscription."</p>
-      <a href="https://getbraider.com" class="btn">Visit getbraider.com</a>
+    <!-- License Key + Subscription Row -->
+    <div class="card-row">
+
+      <!-- License Key -->
+      <div class="card">
+        <div class="card-label">License Key</div>
+        <div class="key-display">
+          <span class="key-text" id="licenseKeyText">--</span>
+          <button class="copy-btn" onclick="copyKey()" title="Copy to clipboard">
+            <svg fill="none" viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" stroke="currentColor" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+        <span class="copy-toast" id="copyToast">Copied!</span>
+        <p class="key-hint">Paste in Braidr &rarr; Help &rarr; Manage License</p>
+      </div>
+
+      <!-- Subscription -->
+      <div class="card">
+        <div class="card-label">Subscription</div>
+        <div class="status-row">
+          <span class="status-dot" id="statusDot"></span>
+          <span class="status-label" id="statusLabel">--</span>
+        </div>
+        <p class="status-detail" id="statusDetail"></p>
+        <button class="billing-btn" id="billingBtn" onclick="openBilling()">
+          Manage Billing
+          <svg fill="none" viewBox="0 0 14 14"><path d="M5 2.5h7m0 0v7m0-7L4.5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Download -->
+    <div class="card">
+      <div class="card-label">Download Braidr</div>
+      <div class="download-section">
+        <div class="download-main">
+          <a class="download-btn" id="downloadBtn" href="#" target="_blank">
+            <span id="downloadIcon"></span>
+            <span id="downloadLabel">Download</span>
+          </a>
+          <div class="download-version" id="downloadVersion"></div>
+          <div class="download-alt" id="downloadAlt"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Support -->
+    <div class="card">
+      <div class="card-label">Need Help?</div>
+      <textarea class="support-textarea" id="supportMessage" placeholder="Describe your issue or ask a question..."></textarea>
+      <div class="support-actions">
+        <span class="support-status" id="supportStatus"></span>
+        <button class="support-send-btn" id="supportBtn" onclick="sendSupport()">Send Message</button>
+      </div>
     </div>
   </div>
 
+  <!-- Footer -->
+  <div class="portal-footer">
+    <a href="https://getbraider.com">getbraider.com</a>
+  </div>
+
   <script>
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('checkout') === 'success') {
-      document.getElementById('success').style.display = 'block';
-    } else {
-      document.getElementById('default').style.display = 'block';
+    // ─── State ──────────────────────────────────────
+    let licenseKey = localStorage.getItem('braidr_license_key');
+    let accountData = null;
+
+    // ─── Platform Icons (inline SVGs) ───────────────
+    const platformIcons = {
+      mac: '<svg viewBox="0 0 18 18" fill="currentColor" width="18" height="18"><path d="M14.94 13.54c-.29.68-.63 1.3-1.03 1.87-.54.77-.99 1.3-1.33 1.6-.53.5-1.1.75-1.71.77-.44 0-.96-.12-1.58-.37-.62-.25-1.19-.37-1.71-.37-.54 0-1.13.12-1.75.37-.62.25-1.12.38-1.51.39-.58.02-1.16-.24-1.75-.79-.37-.33-.84-.89-1.39-1.69-.59-.85-1.08-1.84-1.46-2.97C.24 10.92 0 9.56 0 8.25c0-1.5.32-2.79.97-3.86a5.1 5.1 0 011.8-1.84A4.84 4.84 0 015.2 1.8c.46 0 1.07.14 1.83.42.75.28 1.24.42 1.45.42.16 0 .7-.17 1.61-.5.86-.3 1.59-.43 2.18-.38 1.61.13 2.82.77 3.62 1.92-1.44.87-2.15 2.1-2.13 3.67.02 1.23.46 2.25 1.32 3.06.39.37.83.66 1.31.87-.1.31-.22.6-.35.88zM11.68.37c0 .96-.35 1.86-1.05 2.69-.84.98-1.86 1.55-2.97 1.46a2.98 2.98 0 01-.02-.36c0-.93.4-1.92 1.11-2.73.36-.41.81-.75 1.36-1.02.55-.27 1.07-.42 1.55-.44.02.13.02.27.02.4z"/></svg>',
+      win: '<svg viewBox="0 0 18 18" fill="currentColor" width="18" height="18"><path d="M0 2.5l7.36-1v7.12H0V2.5zm0 13l7.36 1V9.62H0V15.5zm8.18 1.12L18 18V9.62H8.18v6.99zM8.18 1.38v7.24H18V0L8.18 1.38z"/></svg>',
+      linux: '<svg viewBox="0 0 18 18" fill="currentColor" width="18" height="18"><path d="M9 0C5.69 0 3 2.69 3 6v3.6c0 1.33-.58 2.4-1.47 3.27-.38.37-.53.85-.53 1.33 0 1.05.86 1.8 1.8 1.8h12.4c.94 0 1.8-.75 1.8-1.8 0-.48-.15-.96-.53-1.33C15.58 12 15 10.93 15 9.6V6c0-3.31-2.69-6-6-6zm-2.5 14a.5.5 0 110 1 .5.5 0 010-1zm5 0a.5.5 0 110 1 .5.5 0 010-1zM7 11h4a1 1 0 010 2H7a1 1 0 010-2z"/></svg>',
+    };
+
+    const platformNames = { mac: 'macOS', win: 'Windows', linux: 'Linux' };
+
+    // ─── Init ───────────────────────────────────────
+    init();
+
+    async function init() {
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('session_id');
+
+      // Flow 1: Arriving from checkout
+      if (sessionId) {
+        document.getElementById('loadingText').textContent = 'Setting up your account...';
+        const result = await pollCheckoutSession(sessionId);
+        if (result) {
+          licenseKey = result.licenseKey;
+          localStorage.setItem('braidr_license_key', licenseKey);
+          // Clean URL
+          history.replaceState(null, '', '/portal/dashboard');
+          // Show success banner
+          document.getElementById('successBanner').classList.add('visible');
+        } else {
+          showError('We couldn\'t retrieve your license key. Please try signing in with it from your confirmation email.');
+          return;
+        }
+      }
+
+      // Flow 2: Returning user with stored key
+      if (!licenseKey) {
+        window.location.href = '/portal';
+        return;
+      }
+
+      // Load account data
+      await loadAccount();
+    }
+
+    async function pollCheckoutSession(sessionId) {
+      const maxAttempts = 12;
+      for (let i = 0; i < maxAttempts; i++) {
+        try {
+          const res = await fetch(`/api/portal/checkout-session?session_id=${encodeURIComponent(sessionId)}`);
+          if (res.status === 202) {
+            // Webhook hasn't fired yet, wait and retry
+            await sleep(2000);
+            continue;
+          }
+          if (!res.ok) return null;
+          return await res.json();
+        } catch {
+          await sleep(2000);
+        }
+      }
+      return null;
+    }
+
+    async function loadAccount() {
+      try {
+        const res = await fetch('/api/portal/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ licenseKey }),
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem('braidr_license_key');
+          window.location.href = '/portal';
+          return;
+        }
+
+        if (!res.ok) throw new Error('Failed to load account');
+
+        accountData = await res.json();
+        renderDashboard();
+      } catch (err) {
+        showError('Could not load your account data. Please check your connection and try again.');
+      }
+    }
+
+    // ─── Render ─────────────────────────────────────
+    function renderDashboard() {
+      const { license, customer, subscription } = accountData;
+
+      // Nav email
+      if (customer?.email) {
+        document.getElementById('navEmail').textContent = customer.email;
+      }
+
+      // License key
+      document.getElementById('licenseKeyText').textContent = license.key;
+
+      // Subscription status
+      renderSubscription(subscription, license);
+
+      // Downloads
+      renderDownloads();
+
+      // Show dashboard
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+    }
+
+    function renderSubscription(sub, license) {
+      const dot = document.getElementById('statusDot');
+      const label = document.getElementById('statusLabel');
+      const detail = document.getElementById('statusDetail');
+
+      if (!sub) {
+        dot.className = 'status-dot active';
+        label.textContent = 'Active';
+        detail.textContent = license.expiresAt
+          ? `License valid until ${formatDate(license.expiresAt)}`
+          : 'License is active';
+        return;
+      }
+
+      const status = sub.status;
+      if (status === 'trialing') {
+        dot.className = 'status-dot trialing';
+        label.textContent = 'Free Trial';
+        const trialEnd = sub.trialEnd ? formatDate(sub.trialEnd) : '';
+        detail.textContent = trialEnd
+          ? `Your trial ends ${trialEnd}. You won't be charged until then.`
+          : 'Your free trial is active.';
+      } else if (status === 'active' && sub.cancelAtPeriodEnd) {
+        dot.className = 'status-dot cancelled';
+        label.textContent = 'Cancelling';
+        detail.textContent = `Your subscription is active until ${formatDate(sub.currentPeriodEnd)}, then it will be cancelled.`;
+      } else if (status === 'active') {
+        dot.className = 'status-dot active';
+        label.textContent = 'Active';
+        detail.textContent = `Renews ${formatDate(sub.currentPeriodEnd)}`;
+      } else if (status === 'canceled' || status === 'cancelled') {
+        dot.className = 'status-dot expired';
+        label.textContent = 'Cancelled';
+        detail.textContent = 'Your subscription has been cancelled.';
+      } else if (status === 'past_due') {
+        dot.className = 'status-dot cancelled';
+        label.textContent = 'Past Due';
+        detail.textContent = 'There was an issue with your payment. Please update your billing info.';
+      } else {
+        dot.className = 'status-dot expired';
+        label.textContent = capitalize(status);
+        detail.textContent = '';
+      }
+    }
+
+    async function renderDownloads() {
+      const os = detectOS();
+      const btn = document.getElementById('downloadBtn');
+      const icon = document.getElementById('downloadIcon');
+      const labelEl = document.getElementById('downloadLabel');
+      const versionEl = document.getElementById('downloadVersion');
+      const altEl = document.getElementById('downloadAlt');
+
+      icon.innerHTML = platformIcons[os] || '';
+      labelEl.textContent = `Download for ${platformNames[os] || 'your platform'}`;
+
+      try {
+        const res = await fetch('https://api.github.com/repos/theMurfinator/braidr/releases/latest');
+        if (!res.ok) throw new Error('GitHub API error');
+        const release = await res.json();
+        const assets = release.assets || [];
+        const version = release.tag_name || '';
+
+        const urls = {
+          mac: findAsset(assets, ['.dmg']),
+          win: findAsset(assets, ['.exe']),
+          linux: findAsset(assets, ['.AppImage']),
+        };
+
+        if (urls[os]) {
+          btn.href = urls[os];
+        }
+
+        if (version) {
+          versionEl.textContent = `Version ${version}`;
+        }
+
+        // Build "also available" links for other platforms
+        const others = Object.entries(urls)
+          .filter(([p, url]) => p !== os && url)
+          .map(([p, url]) => `<a href="${url}">${platformNames[p]}</a>`)
+          .join('<span class="sep">&middot;</span>');
+
+        if (others) {
+          altEl.innerHTML = `Also available for ${others}`;
+        }
+      } catch {
+        // Fallback: link to releases page
+        btn.href = 'https://github.com/theMurfinator/braidr/releases/latest';
+        labelEl.textContent = `Download for ${platformNames[os] || 'your platform'}`;
+        altEl.innerHTML = '<a href="https://github.com/theMurfinator/braidr/releases/latest">View all downloads</a>';
+      }
+    }
+
+    // ─── Actions ────────────────────────────────────
+    function copyKey() {
+      const key = document.getElementById('licenseKeyText').textContent;
+      navigator.clipboard.writeText(key).then(() => {
+        const toast = document.getElementById('copyToast');
+        toast.classList.add('visible');
+        setTimeout(() => toast.classList.remove('visible'), 2000);
+      });
+    }
+
+    async function openBilling() {
+      const btn = document.getElementById('billingBtn');
+      btn.disabled = true;
+      btn.textContent = 'Opening...';
+
+      try {
+        const res = await fetch('/api/portal/billing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ licenseKey }),
+        });
+
+        if (!res.ok) throw new Error('Failed');
+        const { url } = await res.json();
+        window.open(url, '_blank');
+      } catch {
+        alert('Could not open billing portal. Please try again.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Manage Billing <svg fill="none" viewBox="0 0 14 14"><path d="M5 2.5h7m0 0v7m0-7L4.5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      }
+    }
+
+    async function sendSupport() {
+      const msg = document.getElementById('supportMessage').value.trim();
+      if (!msg) return;
+
+      const btn = document.getElementById('supportBtn');
+      const status = document.getElementById('supportStatus');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      status.classList.remove('visible', 'error');
+
+      try {
+        const res = await fetch('/api/portal/support', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: accountData?.customer?.email || '',
+            message: msg,
+            licenseKey: licenseKey,
+          }),
+        });
+
+        if (!res.ok) throw new Error('Failed');
+
+        document.getElementById('supportMessage').value = '';
+        status.textContent = 'Message sent! We\'ll get back to you soon.';
+        status.classList.remove('error');
+        status.classList.add('visible');
+        setTimeout(() => status.classList.remove('visible'), 5000);
+      } catch {
+        status.textContent = 'Failed to send. Please try again.';
+        status.classList.add('visible', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Message';
+      }
+    }
+
+    function signOut() {
+      localStorage.removeItem('braidr_license_key');
+      window.location.href = '/portal';
+    }
+
+    // ─── Helpers ────────────────────────────────────
+    function showError(msg) {
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('errorText').textContent = msg;
+      document.getElementById('errorScreen').style.display = 'block';
+    }
+
+    function detectOS() {
+      const ua = navigator.userAgent;
+      if (ua.includes('Mac')) return 'mac';
+      if (ua.includes('Win')) return 'win';
+      return 'linux';
+    }
+
+    function findAsset(assets, extensions) {
+      for (const ext of extensions) {
+        const asset = assets.find(a => a.name.endsWith(ext));
+        if (asset) return asset.browser_download_url;
+      }
+      return null;
+    }
+
+    function formatDate(isoStr) {
+      if (!isoStr) return '';
+      const d = new Date(isoStr);
+      return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
+
+    function capitalize(str) {
+      if (!str) return '';
+      return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, ' ');
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
     }
   </script>
 </body>
