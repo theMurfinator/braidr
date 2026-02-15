@@ -1471,11 +1471,22 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                       </div>
                     </div>
                     {field.type === 'text' && (
-                      <input
-                        type="text"
+                      <textarea
                         className="editor-meta-field-input"
                         value={(currentMeta[field.id] as string) || ''}
                         onChange={e => handleMetaChange(field.id, e.target.value)}
+                        rows={1}
+                        onInput={(e) => {
+                          const el = e.currentTarget;
+                          el.style.height = 'auto';
+                          el.style.height = el.scrollHeight + 'px';
+                        }}
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = 'auto';
+                            el.style.height = el.scrollHeight + 'px';
+                          }
+                        }}
                       />
                     )}
                     {field.type === 'dropdown' && (

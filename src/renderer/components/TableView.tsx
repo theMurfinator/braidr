@@ -974,17 +974,28 @@ export default function TableView({
                           ))}
                         </select>
                       ) : (
-                        <input
-                          type="text"
+                        <textarea
                           className="table-cell-input"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
                           onBlur={handleCellSave}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleCellSave();
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCellSave(); }
                             if (e.key === 'Escape') handleCellCancel();
                           }}
                           autoFocus
+                          rows={1}
+                          onInput={(e) => {
+                            const el = e.currentTarget;
+                            el.style.height = 'auto';
+                            el.style.height = el.scrollHeight + 'px';
+                          }}
+                          ref={(el) => {
+                            if (el) {
+                              el.style.height = 'auto';
+                              el.style.height = el.scrollHeight + 'px';
+                            }
+                          }}
                         />
                       )
                     ) : (

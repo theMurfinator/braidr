@@ -767,12 +767,23 @@ function SceneCard({
                                 {field.label}
                               </label>
                               {field.type === 'text' && (
-                                <input
-                                  type="text"
+                                <textarea
                                   className="scene-metadata-field-input"
                                   value={(value as string) || ''}
                                   onChange={(e) => onMetadataChange(scene.id, field.id, e.target.value)}
                                   placeholder="—"
+                                  rows={1}
+                                  onInput={(e) => {
+                                    const el = e.currentTarget;
+                                    el.style.height = 'auto';
+                                    el.style.height = el.scrollHeight + 'px';
+                                  }}
+                                  ref={(el) => {
+                                    if (el) {
+                                      el.style.height = 'auto';
+                                      el.style.height = el.scrollHeight + 'px';
+                                    }
+                                  }}
                                 />
                               )}
                               {field.type === 'dropdown' && (

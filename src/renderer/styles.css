@@ -2140,6 +2140,8 @@
   margin-left: 34px;
   border-left: 2px solid var(--border);
   padding-left: 12px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .metadata-toggle-btn {
@@ -2196,6 +2198,14 @@
   padding: 6px 8px;
   outline: none;
   transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+textarea.scene-metadata-field-input {
+  resize: none;
+  overflow: hidden;
+  line-height: 1.5;
 }
 
 .scene-metadata-field-input:focus,
@@ -7280,6 +7290,12 @@
   transition: border-color 0.15s;
 }
 
+textarea.editor-meta-field-input {
+  resize: none;
+  overflow: hidden;
+  line-height: 1.5;
+}
+
 .editor-meta-field-input:focus,
 .editor-meta-field-select:focus {
   outline: none;
@@ -8478,6 +8494,12 @@
   color: var(--text-primary);
   outline: none;
   box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.15);
+}
+
+textarea.table-cell-input {
+  resize: none;
+  overflow: hidden;
+  line-height: 1.5;
 }
 
 .table-cell-input:focus {
