@@ -6518,25 +6518,11 @@
 /* Scene title header in draft pane */
 .editor-draft-scene-header {
   padding: 10px 0 10px;
+  margin-bottom: 20px;
   background: var(--bg-primary);
   border-bottom: 1px solid var(--bg-tertiary);
   width: 100%;
   box-sizing: border-box;
-}
-
-.editor-draft.both-panels .editor-draft-scene-header {
-  padding-left: 15px;
-  padding-right: 15px;
-}
-
-.editor-draft.one-panel .editor-draft-scene-header {
-  padding-left: var(--content-padding, 40px);
-  padding-right: var(--content-padding, 40px);
-}
-
-.editor-draft.no-panels .editor-draft-scene-header {
-  padding-left: var(--content-padding, 200px);
-  padding-right: var(--content-padding, 200px);
 }
 
 .editor-draft-scene-title {
