@@ -1,16 +1,5 @@
 # Migration Plan: Stripe + Keygen → LemonSqueezy
 
-## Key URLs
-
-| Service | URL |
-|---|---|
-| **Vercel API (production)** | `https://braidr-api.vercel.app` |
-| **Webhook endpoint** | `https://braidr-api.vercel.app/api/webhooks/lemonsqueezy` |
-| **Checkout endpoint** | `https://braidr-api.vercel.app/api/checkout` |
-| **Billing portal endpoint** | `https://braidr-api.vercel.app/api/portal/billing` |
-
----
-
 ## Why migrate?
 
 LemonSqueezy is an all-in-one platform that replaces **both** Stripe (payments) and Keygen (license management). This eliminates a service, reduces webhook complexity, and gives us a built-in customer portal — no more wiring two systems together.
