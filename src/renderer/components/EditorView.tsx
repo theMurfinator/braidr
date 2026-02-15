@@ -983,6 +983,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                 const charColor = characterColors[scene.characterId] || '#888';
                 const isActive = selectedSceneKeys.includes(key);
                 const isPrimary = isMultiSelect ? (primarySceneKey === key || activeEditorKey === key) : (selectedSceneKey === key);
+                const sceneStatus = (sceneMetadata[key]?.['_status'] as string) || '';
+                const sceneStatusColor = statusOptions.find(s => s.value === sceneStatus)?.color;
                 return (
                   <div
                     key={key}
@@ -994,7 +996,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                       <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
                       <span className="editor-nav-item-title">{cleanContent(scene.content)}</span>
                     </div>
-                    {hasDraft && <span className="editor-nav-item-draft-indicator" style={{ backgroundColor: charColor }} />}
+                    {sceneStatusColor && <span className="editor-nav-item-status-dot" style={{ backgroundColor: sceneStatusColor }} title={sceneStatus} />}
                   </div>
                 );
               })}
@@ -1008,6 +1010,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     const charColor = characterColors[scene.characterId] || '#888';
                     const isActive = selectedSceneKeys.includes(key);
                     const isPrimary = isMultiSelect ? (primarySceneKey === key || activeEditorKey === key) : (selectedSceneKey === key);
+                    const sceneStatus = (sceneMetadata[key]?.['_status'] as string) || '';
+                    const sceneStatusColor = statusOptions.find(s => s.value === sceneStatus)?.color;
                     return (
                       <div
                         key={key}
@@ -1019,7 +1023,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                           <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
                           <span className="editor-nav-item-title">{cleanContent(scene.content)}</span>
                         </div>
-                        {hasDraft && <span className="editor-nav-item-draft-indicator" style={{ backgroundColor: charColor }} />}
+                        {sceneStatusColor && <span className="editor-nav-item-status-dot" style={{ backgroundColor: sceneStatusColor }} title={sceneStatus} />}
                       </div>
                     );
                   })}

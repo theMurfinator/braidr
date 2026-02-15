@@ -6173,17 +6173,17 @@
   font-weight: 500;
 }
 
-/* Draft indicator dot */
-.editor-nav-item-draft-indicator {
-  width: 6px;
-  height: 6px;
+/* Status indicator dot */
+.editor-nav-item-status-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
   margin-top: 7px;
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
-.editor-nav-item.active .editor-nav-item-draft-indicator {
+.editor-nav-item.active .editor-nav-item-status-dot {
   opacity: 1;
 }
 
