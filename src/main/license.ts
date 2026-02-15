@@ -1,16 +1,14 @@
 import { app, shell, net } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as https from 'https';
 import { LicenseData, LicenseStatus } from '../shared/types';
 
 // ─── Configuration ──────────────────────────────────────────────────────────
-// Set these via environment variables or replace with your actual values
-const KEYGEN_ACCOUNT_ID = process.env.KEYGEN_ACCOUNT_ID || '8abb6c6d-bb7d-4f57-bbe9-e9a18060f28d';
-const KEYGEN_PRODUCT_ID = process.env.KEYGEN_PRODUCT_ID || 'fe8d919b-5b04-41bf-a7ef-ef487ca1d30e';
+const LEMONSQUEEZY_STORE_ID = 'braidr';
+const LEMONSQUEEZY_STORE_ID_NUM = process.env.LEMONSQUEEZY_STORE_ID || '';
 
 const TRIAL_DAYS = 14;
-const PURCHASE_URL = 'https://buy.stripe.com/eVq00k3m761132Z13pa3u00';
+const PURCHASE_URL = 'https://braidr.lemonsqueezy.com/checkout/buy/1310252';
 const BILLING_API_URL = process.env.BILLING_API_URL || 'https://braidr-api.vercel.app/api/portal/billing';
 const LICENSE_FILE = 'license.json';
 
@@ -49,73 +47,43 @@ function trialDaysRemaining(trialStartDate: string): number {
   return Math.max(0, TRIAL_DAYS - elapsed);
 }
 
-// ─── Keygen API ─────────────────────────────────────────────────────────────
+// ─── LemonSqueezy License API ───────────────────────────────────────────────
 
-function keygenRequest(method: string, urlPath: string, body?: object): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const options: https.RequestOptions = {
-      hostname: 'api.keygen.sh',
-      path: `/v1/accounts/${KEYGEN_ACCOUNT_ID}${urlPath}`,
-      method,
-      headers: {
-        'Content-Type': 'application/vnd.api+json',
-        'Accept': 'application/vnd.api+json',
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        try {
-          resolve({ status: res.statusCode, body: JSON.parse(data) });
-        } catch {
-          resolve({ status: res.statusCode, body: data });
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.setTimeout(10000, () => {
-      req.destroy(new Error('Request timeout'));
-    });
-
-    if (body) {
-      req.write(JSON.stringify(body));
-    }
-    req.end();
-  });
-}
-
-async function validateKeyWithKeygen(licenseKey: string): Promise<{
+async function validateKeyWithLemonSqueezy(licenseKey: string): Promise<{
   valid: boolean;
   expiresAt?: string;
   email?: string;
   detail?: string;
 }> {
   try {
-    const result = await keygenRequest('POST', '/licenses/actions/validate-key', {
-      meta: {
-        key: licenseKey,
-        scope: {
-          product: KEYGEN_PRODUCT_ID,
-        },
+    const response = await net.fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
       },
+      body: new URLSearchParams({ license_key: licenseKey }).toString(),
     });
 
-    const { meta, data } = result.body;
+    const result = await response.json();
 
-    if (meta?.valid) {
+    if (result.valid) {
+      // Security: verify the license belongs to our store
+      if (result.meta?.store_id && LEMONSQUEEZY_STORE_ID_NUM &&
+          String(result.meta.store_id) !== String(LEMONSQUEEZY_STORE_ID_NUM)) {
+        return { valid: false, detail: 'License key does not belong to this product' };
+      }
+
       return {
         valid: true,
-        expiresAt: data?.attributes?.expiry || undefined,
-        email: data?.attributes?.metadata?.email || undefined,
+        expiresAt: result.license_key?.expires_at || undefined,
+        email: result.meta?.customer_email || undefined,
       };
     }
 
     return {
       valid: false,
-      detail: meta?.detail || 'License key is not valid',
+      detail: result.error || 'License key is not valid',
     };
   } catch (error) {
     // Network error — use cached status if available
@@ -140,7 +108,7 @@ export async function getLicenseStatus(): Promise<LicenseStatus> {
       return data.cachedStatus;
     }
 
-    const result = await validateKeyWithKeygen(data.licenseKey);
+    const result = await validateKeyWithLemonSqueezy(data.licenseKey);
 
     if (result.valid) {
       // Check if the license has expired (annual subscription)
@@ -206,7 +174,7 @@ export async function getLicenseStatus(): Promise<LicenseStatus> {
 export async function activateLicense(licenseKey: string): Promise<LicenseStatus> {
   const trimmedKey = licenseKey.trim();
 
-  const result = await validateKeyWithKeygen(trimmedKey);
+  const result = await validateKeyWithLemonSqueezy(trimmedKey);
 
   if (!result.valid) {
     return {
