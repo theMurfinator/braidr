@@ -53,12 +53,15 @@
   --font-section-title: 'Lora', Georgia, serif;
   --font-section-title-size: 20px;
   --font-section-title-weight: 700;
+  --font-section-title-color: var(--text-primary);
   --font-scene-title: 'Lora', Georgia, serif;
   --font-scene-title-size: 16px;
   --font-scene-title-weight: 700;
+  --font-scene-title-color: var(--text-primary);
   --font-body: 'Lora', Georgia, serif;
   --font-body-size: 16px;
   --font-body-weight: 400;
+  --font-body-color: var(--text-primary);
   --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
@@ -1434,7 +1437,7 @@
   font-size: var(--font-section-title-size);
   font-weight: var(--font-section-title-weight);
   font-family: var(--font-section-title);
-  color: var(--text-primary);
+  color: var(--font-section-title-color);
   cursor: pointer;
   letter-spacing: -0.01em;
   transition: color 0.15s;
@@ -1448,7 +1451,7 @@
   font-size: var(--font-section-title-size);
   font-weight: var(--font-section-title-weight);
   font-family: var(--font-section-title);
-  color: var(--text-primary);
+  color: var(--font-section-title-color);
   background: var(--bg-primary);
   border: 1px solid var(--border);
   outline: none;
@@ -1509,7 +1512,7 @@
 
 .plot-point-description {
   padding: 4px 0 8px 0;
-  color: var(--text-secondary);
+  color: var(--font-body-color);
   font-size: var(--font-body-size);
   line-height: 1.6;
   min-height: 16px;
@@ -1519,7 +1522,7 @@
 .description-editor {
   font-size: var(--font-body-size);
   font-family: var(--font-body);
-  color: var(--text-secondary);
+  color: var(--font-body-color);
   line-height: 1.6;
 }
 
@@ -1643,7 +1646,7 @@
   font-size: var(--font-scene-title-size);
   font-weight: var(--font-scene-title-weight);
   font-family: var(--font-scene-title);
-  color: var(--text-primary);
+  color: var(--font-scene-title-color);
   flex: 1;
   line-height: 1.5;
   letter-spacing: -0.01em;
@@ -3425,7 +3428,7 @@
 .braided-text-content {
   font-size: 14px;
   line-height: 1.6;
-  color: var(--text-primary);
+  color: var(--font-scene-title-color);
   font-family: var(--font-scene-title);
   padding-left: 38px;
 }
@@ -3434,9 +3437,10 @@
   padding-left: 38px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--text-secondary);
+  color: var(--font-body-color);
   font-family: var(--font-scene-title);
   font-style: italic;
+  opacity: 0.7;
 }
 
 .braided-text-notes p {
@@ -3478,7 +3482,7 @@
   flex: 1;
   font-size: 14px;
   font-weight: 400;
-  color: var(--text-primary);
+  color: var(--font-scene-title-color);
   font-family: var(--font-scene-title);
   white-space: nowrap;
   overflow: hidden;
@@ -5832,6 +5836,26 @@
   border-color: var(--text-primary);
 }
 
+.font-color-input {
+  width: 32px;
+  height: 32px;
+  padding: 1px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.font-color-input::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.font-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
 .font-preview {
   padding: 16px;
   background: var(--bg-tertiary);
@@ -6425,14 +6449,14 @@
   font-size: 17px;
   font-family: var(--font-body);
   font-weight: var(--font-body-weight);
-  color: var(--text-primary);
+  color: var(--font-body-color);
   letter-spacing: 0.005em;
 }
 
 .editor-draft-editor .tiptap h2 {
   font-size: 22px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--font-section-title-color);
   margin: 40px 0 16px;
   letter-spacing: -0.01em;
   font-family: var(--font-section-title);
@@ -6441,7 +6465,7 @@
 .editor-draft-editor .tiptap h3 {
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--font-section-title-color);
   margin: 32px 0 12px;
   font-family: var(--font-section-title);
 }
@@ -6531,7 +6555,7 @@
   margin-left: -4px;
   font-size: 28px;
   font-weight: var(--font-section-title-weight);
-  color: var(--text-primary);
+  color: var(--font-section-title-color);
   font-family: var(--font-section-title);
   cursor: text;
   transition: background 0.2s;
@@ -6554,7 +6578,7 @@
   width: 100%;
   font-size: 28px;
   font-weight: var(--font-section-title-weight);
-  color: var(--text-primary);
+  color: var(--font-section-title-color);
   font-family: var(--font-section-title);
   border: none;
   border-bottom: 2px solid var(--border);
@@ -9204,7 +9228,7 @@
   font-size: var(--font-section-title-size, 32px);
   font-weight: var(--font-section-title-weight);
   font-family: var(--font-section-title);
-  color: var(--text-primary);
+  color: var(--font-section-title-color);
   background: transparent;
   padding: 0;
   line-height: 1.2;
@@ -9226,7 +9250,7 @@
   font-size: var(--font-body-size);
   font-weight: var(--font-body-weight);
   line-height: 1.8;
-  color: var(--text-primary);
+  color: var(--font-body-color);
   min-height: 100%;
   padding-bottom: 80px;
 }

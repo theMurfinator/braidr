@@ -33,6 +33,7 @@ const DEFAULT_FONT = "'Lora', Georgia, serif";
 const DEFAULT_SECTION_SIZE = 18;
 const DEFAULT_SCENE_SIZE = 15;
 const DEFAULT_BODY_SIZE = 14;
+const DEFAULT_COLOR = '#1A1A1A';
 
 type TabKey = 'global' | ScreenKey;
 
@@ -144,12 +145,15 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
           sectionTitle: DEFAULT_FONT,
           sectionTitleSize: DEFAULT_SECTION_SIZE,
           sectionTitleBold: true,
+          sectionTitleColor: DEFAULT_COLOR,
           sceneTitle: DEFAULT_FONT,
           sceneTitleSize: DEFAULT_SCENE_SIZE,
           sceneTitleBold: true,
+          sceneTitleColor: DEFAULT_COLOR,
           body: DEFAULT_FONT,
           bodySize: DEFAULT_BODY_SIZE,
           bodyBold: false,
+          bodyColor: DEFAULT_COLOR,
         },
       }));
     } else {
@@ -196,13 +200,17 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
             const boldKey = section.field === 'section' ? 'sectionTitleBold'
               : section.field === 'scene' ? 'sceneTitleBold'
               : 'bodyBold';
+            const colorKey = section.field === 'section' ? 'sectionTitleColor'
+              : section.field === 'scene' ? 'sceneTitleColor'
+              : 'bodyColor';
 
             const fontValue = (getResolved(localSettings, activeTab, fontKey) as string) || DEFAULT_FONT;
             const sizeValue = (getResolved(localSettings, activeTab, sizeKey) as number)
               || (section.field === 'section' ? DEFAULT_SECTION_SIZE : section.field === 'scene' ? DEFAULT_SCENE_SIZE : DEFAULT_BODY_SIZE);
             const boldValue = getResolved(localSettings, activeTab, boldKey);
             const isBold = boldValue !== undefined ? Boolean(boldValue) : section.field !== 'body';
-            const isOvr = isOverridden(localSettings, activeTab, fontKey) || isOverridden(localSettings, activeTab, sizeKey) || isOverridden(localSettings, activeTab, boldKey);
+            const colorValue = (getResolved(localSettings, activeTab, colorKey) as string) || DEFAULT_COLOR;
+            const isOvr = isOverridden(localSettings, activeTab, fontKey) || isOverridden(localSettings, activeTab, sizeKey) || isOverridden(localSettings, activeTab, boldKey) || isOverridden(localSettings, activeTab, colorKey);
 
             return (
               <div key={section.field} className="font-setting">
@@ -210,7 +218,7 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
                   <label>{section.label}</label>
                   {isScreenTab && (
                     isOvr
-                      ? <button className="font-setting-reset-link" onClick={() => { resetField(fontKey); resetField(sizeKey); resetField(boldKey); }}>Reset to global</button>
+                      ? <button className="font-setting-reset-link" onClick={() => { resetField(fontKey); resetField(sizeKey); resetField(boldKey); resetField(colorKey); }}>Reset to global</button>
                       : <span className="font-setting-inherited">Inherited</span>
                   )}
                 </div>
@@ -243,11 +251,19 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
                   >
                     <strong>B</strong>
                   </button>
+                  <input
+                    type="color"
+                    value={colorValue}
+                    onChange={(e) => updateField(colorKey, e.target.value)}
+                    className="font-color-input"
+                    title="Font color"
+                  />
                 </div>
                 <div className="font-preview" style={{
                   fontFamily: fontValue,
                   fontWeight: isBold ? 700 : 400,
                   fontSize: `${sizeValue}px`,
+                  color: colorValue,
                   lineHeight: section.field === 'body' ? 1.6 : undefined,
                 }}>
                   {section.preview}

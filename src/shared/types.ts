@@ -25,12 +25,15 @@ export interface FontSettings {
   sectionTitle?: string;
   sectionTitleSize?: number;
   sectionTitleBold?: boolean;
+  sectionTitleColor?: string;
   sceneTitle?: string;
   sceneTitleSize?: number;
   sceneTitleBold?: boolean;
+  sceneTitleColor?: string;
   body?: string;
   bodySize?: number;
   bodyBold?: boolean;
+  bodyColor?: string;
 }
 
 export type ScreenKey = 'pov' | 'braided' | 'editor' | 'notes';

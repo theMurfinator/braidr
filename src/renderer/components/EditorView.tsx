@@ -557,9 +557,6 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   selectedSceneRef.current = selectedScene;
   const onNotesChangeRef = useRef(onNotesChange);
   onNotesChangeRef.current = onNotesChange;
-  const [notesEditorFocused, setNotesEditorFocused] = useState(false);
-  const [scratchpadEditorFocused, setScratchpadEditorFocused] = useState(false);
-
   const notesToHtml = (notes: string[]): string => {
     if (notes.length === 0) return '';
     return notes.map(note => `<p>${markdownToHtml(note)}</p>`).join('');
@@ -612,9 +609,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       Placeholder.configure({ placeholder: '' }),
     ],
     content: notesToHtml(selectedScene?.notes || []),
-    onFocus: () => setNotesEditorFocused(true),
     onBlur: () => {
-      setNotesEditorFocused(false);
       if (notesEditor && selectedSceneRef.current) {
         const notes = htmlToNotes(notesEditor.getHTML());
         onNotesChangeRef.current(selectedSceneRef.current.id, notes);
@@ -644,9 +639,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       Placeholder.configure({ placeholder: '' }),
     ],
     content: selectedSceneKey ? (scratchpad[selectedSceneKey] || '') : '',
-    onFocus: () => setScratchpadEditorFocused(true),
     onBlur: () => {
-      setScratchpadEditorFocused(false);
       if (scratchpadEditor && selectedSceneKey) {
         setScratchpad(prev => ({ ...prev, [selectedSceneKey]: scratchpadEditor.getHTML() }));
       }
@@ -1242,28 +1235,12 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
             {/* Scene Synopsis */}
             <div className="editor-meta-section">
               <h4 className="editor-meta-label">Scene Synopsis</h4>
-              {notesEditorFocused && notesEditor && (
-                <div className="editor-meta-notes-toolbar">
-                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
-                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
-                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
-                  <button className="notes-toolbar-btn" onClick={() => notesEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
-                </div>
-              )}
               <EditorContent editor={notesEditor} className="editor-meta-notes-editor" />
             </div>
 
             {/* Scratchpad */}
             <div className="editor-meta-section">
               <h4 className="editor-meta-label">Scratchpad</h4>
-              {scratchpadEditorFocused && scratchpadEditor && (
-                <div className="editor-meta-notes-toolbar">
-                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleBold().run()} title="Bold"><strong>B</strong></button>
-                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleItalic().run()} title="Italic"><em>I</em></button>
-                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleBulletList().run()} title="Bullet List">≡</button>
-                  <button className="notes-toolbar-btn" onClick={() => scratchpadEditor.chain().focus().toggleTaskList().run()} title="Checkbox List">☐</button>
-                </div>
-              )}
               <EditorContent editor={scratchpadEditor} className="editor-meta-scratchpad-editor" />
             </div>
 

@@ -87,7 +87,6 @@ function SceneCard({
   const [showConnectSearch, setShowConnectSearch] = useState(false);
   const [connectSearchText, setConnectSearchText] = useState('');
   const connectSearchRef = useRef<HTMLDivElement>(null);
-  const [editorFocused, setEditorFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const tagPickerRef = useRef<HTMLDivElement>(null);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
@@ -196,8 +195,6 @@ function SceneCard({
       }),
     ],
     content: notesToHtml(scene.notes),
-    onFocus: () => setEditorFocused(true),
-    onBlur: () => setEditorFocused(false),
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
       const notes = htmlToNotes(html);
@@ -606,22 +603,6 @@ function SceneCard({
               </div>
               {notesExpanded && (
                 <>
-                  {editorFocused && editor && (
-                    <div className="notes-toolbar">
-                      <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleBold().run()} title="Bold (Ctrl+B)">
-                        <strong>B</strong>
-                      </button>
-                      <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic (Ctrl+I)">
-                        <em>I</em>
-                      </button>
-                      <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet List">
-                        ≡
-                      </button>
-                      <button className="notes-toolbar-btn" onClick={() => editor.chain().focus().toggleTaskList().run()} title="Checkbox List">
-                        ☐
-                      </button>
-                    </div>
-                  )}
                   <EditorContent editor={editor} className="notes-editor" />
 
               {/* Metadata Properties Section */}
