@@ -23,6 +23,7 @@ import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, Sessio
 import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate, deleteSceneSession, getSceneSessionsList, appendSceneSession, getTodayStr } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
+import UpdateModal from './components/UpdateModal';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 
@@ -100,6 +101,8 @@ function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<{ available: boolean; currentVersion: string; latestVersion: string; changelog: string; downloadUrl: string } | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const [wordCountGoal, setWordCountGoal] = useState(0);
   const wordCountGoalRef = useRef(0);
@@ -141,6 +144,18 @@ function App() {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, [timerRunning]);
+
+  // Check for app updates on launch
+  useEffect(() => {
+    const api = (window as any).electronAPI;
+    if (!api?.checkAppUpdate) return;
+    api.checkAppUpdate().then((result: any) => {
+      if (result?.available) {
+        setUpdateInfo(result);
+        setShowUpdateModal(true);
+      }
+    });
+  }, []);
 
   const formatTimer = (totalSec: number) => {
     const hrs = Math.floor(totalSec / 3600);
@@ -2610,6 +2625,19 @@ function App() {
             )}
           </div>
         </div>
+        {showUpdateModal && updateInfo && (
+          <UpdateModal
+            currentVersion={updateInfo.currentVersion}
+            latestVersion={updateInfo.latestVersion}
+            changelog={updateInfo.changelog}
+            onUpdate={() => {
+              const api = (window as any).electronAPI;
+              api?.openDownloadUrl(updateInfo.downloadUrl);
+              setShowUpdateModal(false);
+            }}
+            onDismiss={() => setShowUpdateModal(false)}
+          />
+        )}
       </div>
     );
   }
@@ -2860,6 +2888,7 @@ function App() {
                 <circle cx="12" cy="12" r="2"/>
                 <circle cx="12" cy="19" r="2"/>
               </svg>
+              {updateInfo?.available && <span className="settings-update-badge" />}
             </button>
             {showSettingsMenu && (
               <div className="settings-dropdown">
@@ -2946,6 +2975,17 @@ function App() {
                   Switch Project
                 </button>
                 <div className="settings-dropdown-divider" />
+                {updateInfo?.available && (
+                  <button className="settings-dropdown-update" onClick={() => { setShowUpdateModal(true); setShowSettingsMenu(false); }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Update Available
+                    <span className="update-dot" />
+                  </button>
+                )}
                 <button onClick={() => { api.openBillingPortal(); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
@@ -3886,6 +3926,19 @@ function App() {
               return false;
             }
           }}
+        />
+      )}
+      {showUpdateModal && updateInfo && (
+        <UpdateModal
+          currentVersion={updateInfo.currentVersion}
+          latestVersion={updateInfo.latestVersion}
+          changelog={updateInfo.changelog}
+          onUpdate={() => {
+            const api = (window as any).electronAPI;
+            api?.openDownloadUrl(updateInfo.downloadUrl);
+            setShowUpdateModal(false);
+          }}
+          onDismiss={() => setShowUpdateModal(false)}
         />
       )}
     </div>

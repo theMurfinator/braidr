@@ -942,6 +942,52 @@ ipcMain.handle(IPC_CHANNELS.OPEN_FEEDBACK_EMAIL, async (_event, category: string
   }
 });
 
+// Check for app updates via landing site version endpoint
+const VERSION_API_URL = 'https://getbraider.com/api/version';
+const DOWNLOAD_URL = 'https://braidr.lemonsqueezy.com/billing';
+
+ipcMain.handle(IPC_CHANNELS.CHECK_APP_UPDATE, async () => {
+  try {
+    const currentVersion = app.getVersion();
+    const response = await net.fetch(VERSION_API_URL);
+    if (!response.ok) {
+      return { available: false, currentVersion };
+    }
+    const data = await response.json() as { version: string; changelog?: string; downloadUrl?: string };
+    const latest = data.version;
+    const updateAvailable = isNewerVersion(latest, currentVersion);
+    return {
+      available: updateAvailable,
+      currentVersion,
+      latestVersion: latest,
+      changelog: data.changelog || '',
+      downloadUrl: data.downloadUrl || DOWNLOAD_URL,
+    };
+  } catch {
+    return { available: false, currentVersion: app.getVersion() };
+  }
+});
+
+// Compare semver strings: returns true if remote > local
+function isNewerVersion(remote: string, local: string): boolean {
+  const r = remote.replace(/^v/, '').split('.').map(Number);
+  const l = local.replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((r[i] || 0) > (l[i] || 0)) return true;
+    if ((r[i] || 0) < (l[i] || 0)) return false;
+  }
+  return false;
+}
+
+ipcMain.handle(IPC_CHANNELS.OPEN_DOWNLOAD_URL, async (_event, url?: string) => {
+  try {
+    await shell.openExternal(url || DOWNLOAD_URL);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
 // PDF Export via hidden BrowserWindow
 ipcMain.handle(IPC_CHANNELS.PRINT_TO_PDF, async (_event, html: string) => {
   let pdfWindow: BrowserWindow | null = null;

@@ -238,4 +238,6 @@ export const IPC_CHANNELS = {
   OPEN_PURCHASE_URL: 'open-purchase-url',
   OPEN_BILLING_PORTAL: 'open-billing-portal',
   OPEN_FEEDBACK_EMAIL: 'open-feedback-email',
+  CHECK_APP_UPDATE: 'check-app-update',
+  OPEN_DOWNLOAD_URL: 'open-download-url',
 } as const;
