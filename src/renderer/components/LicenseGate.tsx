@@ -91,7 +91,7 @@ export default function LicenseGate({ children }: LicenseGateProps) {
     );
   }
 
-  // No license — must sign up through Stripe
+  // No license — must sign up through LemonSqueezy
   if (status && status.state === 'unlicensed') {
     return (
       <div className="license-expired-screen">
