@@ -163,6 +163,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
   });
   const indexRef = useRef(notesIndex);
   indexRef.current = notesIndex;
+  const loadNoteIdRef = useRef<string | null>(null);
   const draggingRef = useRef<{ panel: 'sidebar' | 'backlinks'; startX: number; initialWidth: number } | null>(null);
 
   // Load notes index on mount
@@ -284,7 +285,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     }
   }, [projectPath]);
 
-  // Load note content when selection changes
+  // Load note content when selection or notes index changes
   useEffect(() => {
     if (selectedNoteId) {
       const note = notesIndex.notes.find(n => n.id === selectedNoteId);
@@ -292,13 +293,18 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
         loadNoteContent(note.fileName);
       }
     }
-  }, [selectedNoteId]);
+  }, [selectedNoteId, notesIndex.notes]);
 
   const loadNoteContent = async (fileName: string) => {
+    const noteId = selectedNoteId;
+    loadNoteIdRef.current = noteId;
     try {
       const content = await dataService.readNote(projectPath, fileName);
-      setNoteContent(content);
+      // Guard against stale load if user switched notes before async completed
+      if (loadNoteIdRef.current !== noteId) return;
+      setNoteContent(content || '<p></p>');
     } catch (err) {
+      if (loadNoteIdRef.current !== noteId) return;
       addToast('Couldn\u2019t open note');
       setNoteContent('<p></p>');
     }

@@ -78,6 +78,12 @@ function App() {
     const saved = localStorage.getItem('braidr-content-padding');
     return saved ? parseInt(saved, 10) : 220;
   });
+  const [perViewPadding, setPerViewPadding] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('braidr-per-view-padding');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const [braidedSubMode, setBraidedSubMode] = useState<BraidedSubMode>('list');
   const [showRailsConnections, setShowRailsConnections] = useState(true);
   const [listFloatingEditor, setListFloatingEditor] = useState<Scene | null>(null);
@@ -337,8 +343,8 @@ function App() {
         }
       }
 
-      // Cmd+K / Ctrl+K: Open search
-      if (modifier && e.key === 'k') {
+      // Cmd+K / Ctrl+K or Cmd+O / Ctrl+O: Open search
+      if (modifier && (e.key === 'k' || e.key === 'o')) {
         e.preventDefault();
         setShowSearch(prev => !prev);
       }
@@ -363,7 +369,6 @@ function App() {
     });
 
     // When a session ends, merge it into analytics and persist
-    const CHECKIN_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
     tracker.setOnSessionEnd((summary) => {
       if (!analyticsRef.current || !projectData) return;
 
@@ -376,18 +381,11 @@ function App() {
         }
       }
 
-      if (summary.durationMs >= CHECKIN_THRESHOLD_MS && !isClosingRef.current) {
-        // Defer save — show check-in modal
-        pendingSessionRef.current = summary;
-        pendingTotalWordsRef.current = totalWords;
-        setPendingSession(summary);
-      } else {
-        // Short session or app closing — save immediately without check-in
-        const updated = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords, null);
-        analyticsRef.current = updated;
-        setSceneSessions(updated.sceneSessions || []);
-        saveAnalytics(projectData.projectPath, updated);
-      }
+      // Always save immediately without auto-popup — check-in is manual only
+      const updated = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords, null);
+      analyticsRef.current = updated;
+      setSceneSessions(updated.sceneSessions || []);
+      saveAnalytics(projectData.projectPath, updated);
     });
 
     return () => {
@@ -1057,20 +1055,24 @@ function App() {
     }
   };
 
-  // Reapply per-screen overrides when view changes
+  // Reapply per-screen overrides when view or font settings change
   useEffect(() => {
     applyScreenFontOverrides(viewMode, allFontSettingsRef.current);
-  }, [viewMode]);
+  }, [viewMode, allFontSettings]);
 
-  // Content padding
+  // Content padding — apply per-view override or global default
   useEffect(() => {
     localStorage.setItem('braidr-content-padding', contentPadding.toString());
-    document.documentElement.style.setProperty('--content-padding', `${420 - contentPadding}px`);
   }, [contentPadding]);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--content-padding', `${420 - contentPadding}px`);
-  }, []);
+    localStorage.setItem('braidr-per-view-padding', JSON.stringify(perViewPadding));
+  }, [perViewPadding]);
+
+  useEffect(() => {
+    const active = perViewPadding[viewMode] ?? contentPadding;
+    document.documentElement.style.setProperty('--content-padding', `${420 - active}px`);
+  }, [viewMode, perViewPadding, contentPadding]);
 
   // Handle font settings change (now receives AllFontSettings)
   const handleFontSettingsChange = async (settings: AllFontSettings) => {
@@ -1967,6 +1969,36 @@ function App() {
       return cleanup;
     }
   }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+
+  // Listen for update status from main process
+  useEffect(() => {
+    const api = (window as any).electronAPI;
+    if (api?.onUpdateStatus) {
+      const cleanup = api.onUpdateStatus((data: { status: string; version?: string; percent?: number; message?: string }) => {
+        switch (data.status) {
+          case 'checking':
+            addToast('Checking for updates\u2026');
+            break;
+          case 'up-to-date':
+            addToast('You\u2019re on the latest version');
+            break;
+          case 'available':
+            addToast(`Update ${data.version} available`);
+            break;
+          case 'downloading':
+            // Progress handled by native dialog, skip toasts to avoid spam
+            break;
+          case 'downloaded':
+            addToast('Update downloaded — restart to install');
+            break;
+          case 'error':
+            addToast('Update check failed');
+            break;
+        }
+      });
+      return cleanup;
+    }
+  }, []);
 
   // Drag handlers
   const handleDragStart = (e: React.DragEvent, scene: Scene) => {
@@ -3049,6 +3081,8 @@ function App() {
                 onDeleteSession={handleDeleteSession}
                 sceneSessionsByDate={(sceneKey: string) => getSceneSessionsByDate(sceneSessions, sceneKey)}
                 sceneSessionsList={(sceneKey: string) => getSceneSessionsList(sceneSessions, sceneKey)}
+                connectedNotes={searchNotesIndex.map(n => ({ id: n.id, title: n.title, sceneLinks: n.sceneLinks || [] }))}
+                onNavigateToNote={(noteId) => { setPendingNoteId(noteId); setViewMode('notes'); }}
               />
             ) : viewMode === 'pov' ? (
               // POV View with plot points and table of contents
@@ -3749,6 +3783,8 @@ function App() {
           onFontSettingsChange={handleFontSettingsChange}
           contentPadding={contentPadding}
           onContentPaddingChange={setContentPadding}
+          perViewPadding={perViewPadding}
+          onPerViewPaddingChange={setPerViewPadding}
           onClose={() => setShowFontPicker(false)}
         />
       )}

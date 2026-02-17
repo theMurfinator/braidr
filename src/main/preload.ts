@@ -88,6 +88,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('show-license-dialog', listener);
     };
   },
+  // Update status listener
+  onUpdateStatus: (callback: (status: { status: string; version?: string; percent?: number; message?: string }) => void) => {
+    const listener = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('update-status', listener);
+    return () => {
+      ipcRenderer.removeListener('update-status', listener);
+    };
+  },
   // Graceful quit handshake
   onAppClosing: (callback: () => void) => {
     const listener = () => callback();

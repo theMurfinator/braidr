@@ -56,7 +56,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     let totalWords = 0;
     const perCharacter: Record<string, number> = {};
     const perPlotPoint: Record<string, number> = {};
-    const perStatus: Record<string, number> = {};
+    const perStatus: Record<string, { scenes: number; words: number }> = {};
     let draftedScenes = 0;
     let longestScene = 0;
     const sceneCounts: number[] = [];
@@ -86,8 +86,9 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
       // Per status
       const meta = sceneMetadata[key];
       const status = (meta?.['_status'] as string) || 'No status';
-      if (!perStatus[status]) perStatus[status] = 0;
-      perStatus[status]++;
+      if (!perStatus[status]) perStatus[status] = { scenes: 0, words: 0 };
+      perStatus[status].scenes++;
+      perStatus[status].words += words;
     });
 
     const avgWords = sceneCounts.length > 0 ? Math.round(sceneCounts.reduce((a, b) => a + b, 0) / sceneCounts.length) : 0;
@@ -601,6 +602,39 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
             })}
           </div>
         </div>
+
+        {/* By Status */}
+        {Object.keys(stats.perStatus).length > 0 && (
+          <div className="analytics-card">
+            <div className="analytics-card-header">
+              <span className="analytics-card-title">By Status</span>
+              <span className="analytics-card-subtitle">{scenes.length} scenes</span>
+            </div>
+            <div className="analytics-status-table">
+              <div className="analytics-status-header-row">
+                <span className="analytics-status-cell-label">Status</span>
+                <span className="analytics-status-cell-num">Scenes</span>
+                <span className="analytics-status-cell-num">Words</span>
+              </div>
+              {Object.entries(stats.perStatus)
+                .sort((a, b) => b[1].words - a[1].words)
+                .map(([status, data]) => {
+                  const maxWords = Math.max(...Object.values(stats.perStatus).map(d => d.words), 1);
+                  const barWidth = (data.words / maxWords) * 100;
+                  return (
+                    <div key={status} className="analytics-status-row">
+                      <span className="analytics-status-cell-label">{status}</span>
+                      <span className="analytics-status-cell-num">{data.scenes}</span>
+                      <span className="analytics-status-cell-num">{data.words.toLocaleString()}</span>
+                      <div className="analytics-status-bar-track">
+                        <div className="analytics-status-bar-fill" style={{ width: `${barWidth}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
 
         {/* Check-in Averages */}
         {checkinAvgs && (

@@ -51,6 +51,8 @@ interface EditorViewProps {
   onDeleteSession?: (sessionId: string) => void;
   sceneSessionsByDate?: (sceneKey: string) => { date: string; totalMs: number; sessionCount: number }[];
   sceneSessionsList?: (sceneKey: string) => SceneSession[];
+  connectedNotes?: { id: string; title: string; sceneLinks: string[] }[];
+  onNavigateToNote?: (noteId: string) => void;
 }
 
 export interface EditorViewHandle {
@@ -151,6 +153,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   onDeleteSession,
   sceneSessionsByDate,
   sceneSessionsList,
+  connectedNotes = [],
+  onNavigateToNote,
 }, ref) {
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<Set<string>>(new Set());
@@ -321,6 +325,17 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       onSceneSelect?.(key);
     }
   }, [scenes, initialSceneKey]);
+
+  // Scroll the sidebar nav to the active scene on mount / scene change
+  useEffect(() => {
+    if (!selectedSceneKey) return;
+    requestAnimationFrame(() => {
+      const activeItem = document.querySelector('.editor-nav-item.active');
+      if (activeItem) {
+        activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  }, [selectedSceneKey]);
 
   // Flush pending content on unmount
   useEffect(() => {
@@ -980,7 +995,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       {showNav && <div className="editor-resize-handle" onMouseDown={e => handleResizeStart(e, 'nav')} />}
 
       {/* Center: Draft Editor */}
-      <div className={`editor-draft ${showNav && showMeta ? 'both-panels' : !showNav && !showMeta ? 'no-panels' : 'one-panel'}`}>
+      <div className={`editor-draft ${showNav && showMeta ? 'both-panels' : !showNav && !showMeta ? 'no-panels' : showMeta ? 'one-panel meta-only' : 'one-panel nav-only'}`}>
         <div className="editor-draft-toolbar">
           <button className="editor-panel-toggle editor-panel-toggle-nav" onClick={() => setShowNav(!showNav)} title={showNav ? 'Hide navigator (Cmd+[)' : 'Show navigator (Cmd+[)'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
@@ -1195,6 +1210,34 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               <h4 className="editor-meta-label">Scratchpad</h4>
               <EditorContent editor={scratchpadEditor} className="editor-meta-scratchpad-editor" />
             </div>
+
+            {/* Connected Notes */}
+            {selectedScene && (() => {
+              const sceneKey = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
+              const linked = connectedNotes.filter(n => n.sceneLinks.includes(sceneKey));
+              if (linked.length === 0) return null;
+              return (
+                <div className="editor-meta-section">
+                  <h4 className="editor-meta-label">Connected Notes</h4>
+                  <div className="editor-meta-connected-notes">
+                    {linked.map(note => (
+                      <button
+                        key={note.id}
+                        className="editor-meta-connected-note"
+                        onClick={() => onNavigateToNote?.(note.id)}
+                        title={`Open "${note.title}"`}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                          <rect x="2" y="1.5" width="12" height="13" rx="2" stroke="currentColor" strokeWidth="1.2" fill="none"/>
+                          <path d="M5 5h6M5 7.5h4M5 10h5" stroke="currentColor" strokeWidth="0.9" strokeLinecap="round"/>
+                        </svg>
+                        <span>{note.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Changes Needed */}
             {selectedScene && (() => {

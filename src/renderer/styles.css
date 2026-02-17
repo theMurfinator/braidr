@@ -3427,20 +3427,19 @@ textarea.scene-metadata-field-input {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 16px 20px;
+  padding: 18px 0;
   background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 6px;
+  transition: background 0.15s ease;
+  box-shadow: none;
+  margin-bottom: 0;
 }
 
 .braided-scene-item.pov-text:hover {
-  background: var(--surface-light);
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-secondary);
 }
 
 .braided-text-header {
@@ -6454,10 +6453,16 @@ textarea.scene-metadata-field-input {
   padding-right: 15px;
 }
 
-/* One panel open: use content-padding slider */
-.editor-draft.one-panel .editor-draft-editor {
-  padding-left: var(--content-padding, 40px);
+/* One panel open (nav side): content-padding on the right */
+.editor-draft.one-panel.nav-only .editor-draft-editor {
+  padding-left: 15px;
   padding-right: var(--content-padding, 40px);
+}
+
+/* One panel open (meta/right side only): larger left padding for balance */
+.editor-draft.one-panel.meta-only .editor-draft-editor {
+  padding-left: var(--content-padding, 40px);
+  padding-right: 15px;
 }
 
 /* No panels: use content-padding slider */
@@ -6470,7 +6475,7 @@ textarea.scene-metadata-field-input {
   outline: none;
   min-height: 300px;
   line-height: 1.8;
-  font-size: 17px;
+  font-size: var(--font-body-size, 17px);
   font-family: var(--font-body);
   font-weight: var(--font-body-weight);
   color: var(--font-body-color);
@@ -7086,6 +7091,39 @@ textarea.scene-metadata-field-input {
   margin-top: 4px;
 }
 
+/* Connected Notes in editor sidebar */
+.editor-meta-connected-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.editor-meta-connected-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-secondary, #f5f5f5);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.editor-meta-connected-note:hover {
+  background: var(--bg-hover, #eee);
+}
+
+.editor-meta-connected-note span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .editor-meta-tags {
   display: flex;
   flex-wrap: wrap;
@@ -7288,7 +7326,7 @@ textarea.scene-metadata-field-input {
   font-size: 12px;
   color: var(--text-secondary);
   margin-bottom: 2px;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .editor-meta-field-input,
@@ -11008,6 +11046,64 @@ textarea.table-cell-input {
 .analytics-char-bar-fill {
   height: 100%;
   border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* Status breakdown table */
+.analytics-status-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.analytics-status-header-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 80px;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.analytics-status-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 80px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  position: relative;
+}
+
+.analytics-status-cell-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.analytics-status-cell-num {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-status-bar-track {
+  grid-column: 1 / -1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.analytics-status-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent, #3b82f6);
   transition: width 0.5s ease;
 }
 

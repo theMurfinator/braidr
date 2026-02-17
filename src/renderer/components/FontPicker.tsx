@@ -6,6 +6,8 @@ interface FontPickerProps {
   onFontSettingsChange: (settings: AllFontSettings) => void;
   contentPadding: number;
   onContentPaddingChange: (value: number) => void;
+  perViewPadding?: Record<string, number>;
+  onPerViewPaddingChange?: (perView: Record<string, number>) => void;
   onClose: () => void;
 }
 
@@ -93,7 +95,7 @@ function isOverridden(all: AllFontSettings, tab: TabKey, field: keyof FontSettin
   return all.screens?.[tab]?.[field] !== undefined;
 }
 
-function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onContentPaddingChange, onClose }: FontPickerProps) {
+function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onContentPaddingChange, perViewPadding = {}, onPerViewPaddingChange, onClose }: FontPickerProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('global');
   const [localSettings, setLocalSettings] = useState<AllFontSettings>(allFontSettings);
 
@@ -273,15 +275,35 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
           })}
 
           <div className="font-setting">
-            <label>Content Width</label>
+            <div className="font-setting-header">
+              <label>Content Width</label>
+              {isScreenTab && (
+                perViewPadding[activeTab] !== undefined
+                  ? <button className="font-setting-reset-link" onClick={() => {
+                      if (onPerViewPaddingChange) {
+                        const next = { ...perViewPadding };
+                        delete next[activeTab];
+                        onPerViewPaddingChange(next);
+                      }
+                    }}>Reset to global</button>
+                  : <span className="font-setting-inherited">Inherited</span>
+              )}
+            </div>
             <div className="content-width-setting">
               <span className="content-width-label">Narrow</span>
               <input
                 type="range"
                 min="20"
                 max="400"
-                value={contentPadding}
-                onChange={(e) => onContentPaddingChange(parseInt(e.target.value, 10))}
+                value={isScreenTab ? (perViewPadding[activeTab] ?? contentPadding) : contentPadding}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (isScreenTab && onPerViewPaddingChange) {
+                    onPerViewPaddingChange({ ...perViewPadding, [activeTab]: val });
+                  } else {
+                    onContentPaddingChange(val);
+                  }
+                }}
                 className="content-width-range"
               />
               <span className="content-width-label">Wide</span>

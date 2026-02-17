@@ -77,14 +77,16 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 autoUpdater.autoDownload = false; // Don't auto-download, let user confirm
 autoUpdater.autoInstallOnAppQuit = true;
 
-// Auto-updater event handlers
+// Auto-updater event handlers — send status to renderer for visual feedback
 autoUpdater.on('checking-for-update', () => {
   console.log('Checking for updates...');
+  if (mainWindow) mainWindow.webContents.send('update-status', { status: 'checking' });
 });
 
 autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info.version);
   if (mainWindow) {
+    mainWindow.webContents.send('update-status', { status: 'available', version: info.version });
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update Available',
@@ -103,18 +105,19 @@ autoUpdater.on('update-available', (info) => {
 
 autoUpdater.on('update-not-available', () => {
   console.log('No updates available');
-  // Dialog disabled - no need to notify user when no updates
+  if (mainWindow) mainWindow.webContents.send('update-status', { status: 'up-to-date' });
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
   const logMessage = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}%`;
   console.log(logMessage);
-  // Could send this to renderer for a progress bar
+  if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloading', percent: Math.round(progressObj.percent) });
 });
 
 autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info.version);
   if (mainWindow) {
+    mainWindow.webContents.send('update-status', { status: 'downloaded', version: info.version });
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update Ready',
@@ -132,7 +135,7 @@ autoUpdater.on('update-downloaded', (info) => {
 
 autoUpdater.on('error', (error) => {
   console.error('Auto-updater error:', error);
-  // Dialog disabled - silently fail update checks
+  if (mainWindow) mainWindow.webContents.send('update-status', { status: 'error', message: error.message });
 });
 
 function createMenu() {
