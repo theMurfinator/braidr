@@ -224,12 +224,12 @@ export function openPurchaseUrl(): void {
 
 export async function openBillingPortal(): Promise<{ success: boolean; error?: string }> {
   const data = readLicenseData();
-  if (!data.licenseKey) {
-    return { success: false, error: 'No license key found' };
-  }
 
   try {
-    const url = `${BILLING_API_URL}?key=${encodeURIComponent(data.licenseKey)}`;
+    // If no license key (trial user), open the generic LemonSqueezy billing login
+    const url = data.licenseKey
+      ? `${BILLING_API_URL}?key=${encodeURIComponent(data.licenseKey)}`
+      : 'https://braidr.lemonsqueezy.com/billing';
     await shell.openExternal(url);
     return { success: true };
   } catch (err: any) {
