@@ -144,7 +144,7 @@ export default function TourOverlay({ onComplete, setViewMode }: TourOverlayProp
     onComplete();
   };
 
-  // Compute tooltip position
+  // Compute tooltip position with viewport clamping
   const getTooltipStyle = (): React.CSSProperties => {
     if (!spotlightRect) {
       // Centered card (for welcome/done steps)
@@ -158,13 +158,13 @@ export default function TourOverlay({ onComplete, setViewMode }: TourOverlayProp
 
     const tooltipWidth = 320;
     const tooltipMargin = 16;
+    const edgePadding = 16; // minimum distance from viewport edge
     const pos = step.position || 'auto';
     const style: React.CSSProperties = { position: 'fixed' };
 
     // Determine best position
     let resolvedPos = pos;
     if (pos === 'auto') {
-      // Default to right, fall back to bottom
       if (spotlightRect.right + tooltipMargin + tooltipWidth < window.innerWidth) {
         resolvedPos = 'right';
       } else {
@@ -183,24 +183,23 @@ export default function TourOverlay({ onComplete, setViewMode }: TourOverlayProp
         style.top = spotlightRect.top + spotlightRect.height / 2;
         style.transform = 'translateY(-50%)';
         break;
-      case 'bottom':
+      case 'bottom': {
         style.top = spotlightRect.bottom + PADDING + tooltipMargin;
-        style.left = spotlightRect.left + spotlightRect.width / 2;
-        style.transform = 'translateX(-50%)';
+        // Calculate centered left, then clamp to viewport
+        let left = spotlightRect.left + spotlightRect.width / 2 - tooltipWidth / 2;
+        left = Math.max(edgePadding, Math.min(left, window.innerWidth - tooltipWidth - edgePadding));
+        style.left = left;
         break;
-      case 'top':
+      }
+      case 'top': {
         style.bottom = window.innerHeight - spotlightRect.top + PADDING + tooltipMargin;
-        style.left = spotlightRect.left + spotlightRect.width / 2;
-        style.transform = 'translateX(-50%)';
+        let left = spotlightRect.left + spotlightRect.width / 2 - tooltipWidth / 2;
+        left = Math.max(edgePadding, Math.min(left, window.innerWidth - tooltipWidth - edgePadding));
+        style.left = left;
         break;
+      }
     }
 
-    return style;
-  };
-
-  // Prevent tooltip from going off screen
-  const clampTooltipStyle = (style: React.CSSProperties): React.CSSProperties => {
-    // Clamping handled by CSS max-width and the positioning logic above
     return style;
   };
 
@@ -224,7 +223,7 @@ export default function TourOverlay({ onComplete, setViewMode }: TourOverlayProp
       {/* Tooltip card */}
       <div
         className={`tour-tooltip ${transitioning ? 'tour-tooltip--hidden' : ''}`}
-        style={clampTooltipStyle(getTooltipStyle())}
+        style={getTooltipStyle()}
         ref={tooltipRef}
       >
         <div className="tour-tooltip-header">
