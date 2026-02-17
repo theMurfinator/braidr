@@ -1,4 +1,4 @@
-import { app, shell } from 'electron';
+import { app, net, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { LicenseData, LicenseStatus } from '../shared/types';
@@ -62,7 +62,7 @@ async function validateKeyWithLemonSqueezy(licenseKey: string): Promise<{
       body: new URLSearchParams({ license_key: licenseKey }).toString(),
     });
 
-    const result = await response.json();
+    const result = await response.json() as any;
 
     if (result.valid) {
       // Security: verify the license belongs to our store

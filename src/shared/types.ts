@@ -190,16 +190,18 @@ export interface NotesIndex {
 
 // License types
 export interface LicenseStatus {
-  state: 'unlicensed' | 'licensed' | 'expired' | 'invalid';
+  state: 'unlicensed' | 'licensed' | 'expired' | 'invalid' | 'trial' | 'trial_expired';
   licenseKey?: string;
   expiresAt?: string; // ISO date string
   customerEmail?: string;
+  trialDaysRemaining?: number;
 }
 
 export interface LicenseData {
   licenseKey?: string;
   lastValidation?: string; // ISO date string
   cachedStatus?: LicenseStatus;
+  trialStartDate?: string; // ISO date string
 }
 
 // IPC channel names
