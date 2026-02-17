@@ -1,6 +1,6 @@
 {
   "name": "braidr",
-  "version": "1.4.38",
+  "version": "1.4.39",
   "description": "A tool for managing multiple POV character outlines with independent timeline views",
   "main": "dist-electron/main/main.js",
   "scripts": {
