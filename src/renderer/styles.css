@@ -11882,6 +11882,151 @@ textarea.table-cell-input {
 }
 
 /* =========================================
+   Update Modal
+   ========================================= */
+
+.update-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: checkin-fade-in 0.2s ease;
+}
+
+.update-modal {
+  background: var(--bg-primary);
+  border-radius: 16px;
+  padding: 40px 36px 32px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  animation: update-modal-in 0.25s ease;
+}
+
+@keyframes update-modal-in {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.update-modal-icon {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  display: inline-block;
+}
+
+.update-modal-spin {
+  animation: update-modal-spinner 1s linear infinite;
+}
+
+@keyframes update-modal-spinner {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.update-modal-icon-ok {
+  color: #22c55e;
+}
+
+.update-modal-icon-new {
+  color: #3b82f6;
+}
+
+.update-modal-icon-error {
+  color: #ef4444;
+}
+
+.update-modal-title {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+
+.update-modal-subtitle {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.update-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.update-modal-btn {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.update-modal-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.update-modal-btn.primary {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.update-modal-btn.primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.update-modal-btn.secondary {
+  /* default style */
+}
+
+.update-modal-progress {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.update-modal-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-tertiary, #e5e7eb);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.update-modal-progress-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.update-modal-percent {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================================
    Check-in Modal
    ========================================= */
 

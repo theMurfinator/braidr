@@ -24,6 +24,7 @@ import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, addManualTim
 import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import { UpdateBanner } from './components/UpdateBanner';
+import UpdateModal from './components/UpdateModal';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 import { track } from './utils/posthogTracker';
@@ -103,6 +104,7 @@ function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const [wordCountGoal, setWordCountGoal] = useState(0);
   const wordCountGoalRef = useRef(0);
@@ -1989,6 +1991,17 @@ function App() {
     }
   }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
 
+  // Listen for "Check for Updates" menu click
+  useEffect(() => {
+    const api = (window as any).electronAPI;
+    if (api?.onShowUpdateModal) {
+      const cleanup = api.onShowUpdateModal(() => {
+        setShowUpdateModal(true);
+      });
+      return cleanup;
+    }
+  }, []);
+
   // Drag handlers
   const handleDragStart = (e: React.DragEvent, scene: Scene) => {
     setDraggedScene(scene);
@@ -2634,6 +2647,9 @@ function App() {
             )}
           </div>
         </div>
+        {showUpdateModal && (
+          <UpdateModal onClose={() => setShowUpdateModal(false)} />
+        )}
       </div>
     );
   }
@@ -3920,6 +3936,11 @@ function App() {
             }
           }}
         />
+      )}
+
+      {/* Update Modal (triggered from menu → Check for Updates) */}
+      {showUpdateModal && (
+        <UpdateModal onClose={() => setShowUpdateModal(false)} />
       )}
     </div>
   );

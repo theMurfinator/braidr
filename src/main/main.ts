@@ -121,7 +121,14 @@ autoUpdater.on('error', (error) => {
 
 // IPC handlers for update actions from renderer
 ipcMain.on('update-download', () => {
-  autoUpdater.downloadUpdate();
+  console.log('update-download IPC received, starting download...');
+  autoUpdater.downloadUpdate().catch((err) => {
+    console.error('downloadUpdate() failed:', err);
+    mainWindow?.webContents.send('update-status', {
+      status: 'error',
+      message: err?.message || 'Download failed',
+    });
+  });
 });
 
 ipcMain.on('update-install', () => {
@@ -142,6 +149,7 @@ function createMenu() {
         {
           label: 'Check for Updates...',
           click: () => {
+            mainWindow?.webContents.send('show-update-modal');
             autoUpdater.checkForUpdates();
           }
         },
@@ -246,6 +254,7 @@ function createMenu() {
         }, {
           label: 'Check for Updates...',
           click: () => {
+            mainWindow?.webContents.send('show-update-modal');
             autoUpdater.checkForUpdates();
           }
         }] : [])

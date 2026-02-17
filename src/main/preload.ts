@@ -102,6 +102,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   safeToClose: () => ipcRenderer.send(IPC_CHANNELS.SAFE_TO_CLOSE),
   // Auto-updater
+  onShowUpdateModal: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('show-update-modal', listener);
+    return () => {
+      ipcRenderer.removeListener('show-update-modal', listener);
+    };
+  },
   onUpdateStatus: (callback: (data: any) => void) => {
     const listener = (_event: any, data: any) => callback(data);
     ipcRenderer.on('update-status', listener);
