@@ -5,7 +5,7 @@ import * as crypto from 'crypto';
 import { autoUpdater } from 'electron-updater';
 import windowStateKeeper from 'electron-window-state';
 import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
-import { getLicenseStatus, activateLicense, deactivateLicense, openPurchaseUrl, openBillingPortal } from './license';
+import { getLicenseStatus, activateLicense, deactivateLicense, startTrial, openPurchaseUrl, openBillingPortal } from './license';
 import { initPostHog, captureEvent, identifyUser, aliasUser, getSessionDurationMs, shutdownPostHog } from './posthog';
 
 let mainWindow: BrowserWindow | null = null;
@@ -254,7 +254,7 @@ function createMenu() {
         },
         { type: 'separator' },
         {
-          label: 'Manage License...',
+          label: 'Manage Account...',
           click: () => {
             if (mainWindow) {
               mainWindow.webContents.send('show-license-dialog');
@@ -262,7 +262,7 @@ function createMenu() {
           }
         },
         {
-          label: 'Purchase License',
+          label: 'Subscribe',
           click: () => {
             openPurchaseUrl();
           }
@@ -401,9 +401,6 @@ app.whenReady().then(() => {
   if (!process.env.VITE_POSTHOG_KEY || process.env.VITE_POSTHOG_KEY === 'phc_YOUR_KEY_HERE') {
     envWarnings.push('VITE_POSTHOG_KEY is not set — analytics will be disabled');
   }
-  if (!process.env.LEMONSQUEEZY_STORE_ID) {
-    envWarnings.push('LEMONSQUEEZY_STORE_ID is not set — license validation may not work');
-  }
   if (envWarnings.length > 0) {
     console.warn('[Braidr] Environment warnings:\n  ' + envWarnings.join('\n  '));
   }
@@ -417,7 +414,7 @@ app.whenReady().then(() => {
     captureEvent('app_opened', { license_state: status.state });
     identifyUser(status.state, {
       trial_days_remaining: status.trialDaysRemaining,
-      has_license_key: !!status.licenseKey,
+      has_email: !!status.email,
     });
     // First ever launch = trial started
     if (status.state === 'trial' && status.trialDaysRemaining !== undefined && status.trialDaysRemaining >= 13) {
@@ -965,12 +962,24 @@ ipcMain.handle(IPC_CHANNELS.GET_LICENSE_STATUS, async () => {
   }
 });
 
-ipcMain.handle(IPC_CHANNELS.ACTIVATE_LICENSE, async (_event, licenseKey: string) => {
+ipcMain.handle(IPC_CHANNELS.ACTIVATE_LICENSE, async (_event, email: string) => {
   try {
-    const status = await activateLicense(licenseKey);
+    const status = await activateLicense(email);
     captureEvent('license_activated', { state: status.state });
-    aliasUser(licenseKey);
-    identifyUser(status.state, { has_license_key: true });
+    aliasUser(email);
+    identifyUser(status.state, { has_email: true });
+    return { success: true, data: status };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.START_TRIAL, async (_event, email: string) => {
+  try {
+    const status = await startTrial(email);
+    captureEvent('trial_started', { trial_days_remaining: status.trialDaysRemaining });
+    aliasUser(email);
+    identifyUser(status.state, { has_email: true });
     return { success: true, data: status };
   } catch (error) {
     return { success: false, error: String(error) };

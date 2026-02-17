@@ -29,6 +29,7 @@ const IPC_CHANNELS = {
   GET_LICENSE_STATUS: 'get-license-status',
   ACTIVATE_LICENSE: 'activate-license',
   DEACTIVATE_LICENSE: 'deactivate-license',
+  START_TRIAL: 'start-trial',
   OPEN_PURCHASE_URL: 'open-purchase-url',
   OPEN_BILLING_PORTAL: 'open-billing-portal',
   OPEN_FEEDBACK_EMAIL: 'open-feedback-email',
@@ -76,7 +77,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveAnalytics: (projectPath: string, data: any) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_ANALYTICS, projectPath, data),
   // License
   getLicenseStatus: () => ipcRenderer.invoke(IPC_CHANNELS.GET_LICENSE_STATUS),
-  activateLicense: (licenseKey: string) => ipcRenderer.invoke(IPC_CHANNELS.ACTIVATE_LICENSE, licenseKey),
+  activateLicense: (email: string) => ipcRenderer.invoke(IPC_CHANNELS.ACTIVATE_LICENSE, email),
+  startTrial: (email: string) => ipcRenderer.invoke(IPC_CHANNELS.START_TRIAL, email),
   deactivateLicense: () => ipcRenderer.invoke(IPC_CHANNELS.DEACTIVATE_LICENSE),
   openPurchaseUrl: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_PURCHASE_URL),
   openBillingPortal: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_BILLING_PORTAL),

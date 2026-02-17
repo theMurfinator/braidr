@@ -4,12 +4,8 @@ import * as fs from 'fs';
 import { LicenseData, LicenseStatus } from '../shared/types';
 
 // ─── Configuration ──────────────────────────────────────────────────────────
-const LEMONSQUEEZY_STORE_ID = 'braidr';
-const LEMONSQUEEZY_STORE_ID_NUM = process.env.LEMONSQUEEZY_STORE_ID || '';
-
+const API_BASE = process.env.API_BASE_URL || 'https://braidr-api.vercel.app';
 const TRIAL_DAYS = 14;
-const PURCHASE_URL = 'https://braidr.lemonsqueezy.com/checkout/buy/1310252';
-const BILLING_API_URL = process.env.BILLING_API_URL || 'https://braidr-api.vercel.app/api/portal/billing';
 const LICENSE_FILE = 'license.json';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -44,47 +40,21 @@ function trialDaysRemaining(trialStartDate: string): number {
   return Math.max(0, TRIAL_DAYS - elapsed);
 }
 
-// ─── LemonSqueezy License API ───────────────────────────────────────────────
+// ─── Server API ─────────────────────────────────────────────────────────────
 
-async function validateKeyWithLemonSqueezy(licenseKey: string): Promise<{
-  valid: boolean;
-  expiresAt?: string;
-  email?: string;
-  detail?: string;
+async function validateEmailWithServer(email: string): Promise<{
+  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'none';
+  currentPeriodEnd?: string;
+  cancelAtPeriodEnd?: boolean;
 }> {
   try {
-    const response = await net.fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-      },
-      body: new URLSearchParams({ license_key: licenseKey }).toString(),
-    });
-
-    const result = await response.json() as any;
-
-    if (result.valid) {
-      // Security: verify the license belongs to our store
-      if (result.meta?.store_id && LEMONSQUEEZY_STORE_ID_NUM &&
-          String(result.meta.store_id) !== String(LEMONSQUEEZY_STORE_ID_NUM)) {
-        return { valid: false, detail: 'License key does not belong to this product' };
-      }
-
-      return {
-        valid: true,
-        expiresAt: result.license_key?.expires_at || undefined,
-        email: result.meta?.customer_email || undefined,
-      };
+    const response = await net.fetch(`${API_BASE}/api/license?email=${encodeURIComponent(email)}`);
+    if (!response.ok) {
+      return { status: 'none' };
     }
-
-    return {
-      valid: false,
-      detail: result.error || 'License key is not valid',
-    };
-  } catch (error) {
-    // Network error — use cached status if available
-    return { valid: false, detail: 'Could not connect to license server' };
+    return await response.json() as any;
+  } catch {
+    return { status: 'none' };
   }
 }
 
@@ -93,8 +63,13 @@ async function validateKeyWithLemonSqueezy(licenseKey: string): Promise<{
 export async function getLicenseStatus(): Promise<LicenseStatus> {
   const data = readLicenseData();
 
-  // If there's a stored license key, validate it
-  if (data.licenseKey) {
+  // Migration: old license key exists but no email — prompt re-entry
+  if (data.licenseKey && !data.email) {
+    return { state: 'unlicensed' };
+  }
+
+  // If there's a stored email, validate with server
+  if (data.email) {
     const lastValidation = data.lastValidation ? new Date(data.lastValidation) : null;
     const hoursSinceValidation = lastValidation
       ? (Date.now() - lastValidation.getTime()) / (1000 * 60 * 60)
@@ -105,31 +80,15 @@ export async function getLicenseStatus(): Promise<LicenseStatus> {
       return data.cachedStatus;
     }
 
-    const result = await validateKeyWithLemonSqueezy(data.licenseKey);
+    const result = await validateEmailWithServer(data.email);
 
-    if (result.valid) {
-      // Check if the license has expired (annual subscription)
-      if (result.expiresAt) {
-        const expiryDate = new Date(result.expiresAt);
-        if (expiryDate.getTime() < Date.now()) {
-          const status: LicenseStatus = {
-            state: 'expired',
-            licenseKey: data.licenseKey,
-            expiresAt: result.expiresAt,
-            customerEmail: result.email,
-          };
-          data.cachedStatus = status;
-          data.lastValidation = new Date().toISOString();
-          writeLicenseData(data);
-          return status;
-        }
-      }
-
+    // Map Stripe status to app states
+    if (result.status === 'active' || result.status === 'trialing' || result.status === 'past_due') {
       const status: LicenseStatus = {
         state: 'licensed',
-        licenseKey: data.licenseKey,
-        expiresAt: result.expiresAt,
-        customerEmail: result.email,
+        email: data.email,
+        expiresAt: result.currentPeriodEnd,
+        cancelAtPeriodEnd: result.cancelAtPeriodEnd,
       };
       data.cachedStatus = status;
       data.lastValidation = new Date().toISOString();
@@ -137,23 +96,36 @@ export async function getLicenseStatus(): Promise<LicenseStatus> {
       return status;
     }
 
-    // Validation failed but we're offline — be generous, use cached
-    if (result.detail?.includes('Could not connect') && data.cachedStatus?.state === 'licensed') {
+    if (result.status === 'canceled') {
+      const status: LicenseStatus = {
+        state: 'expired',
+        email: data.email,
+        expiresAt: result.currentPeriodEnd,
+      };
+      data.cachedStatus = status;
+      data.lastValidation = new Date().toISOString();
+      writeLicenseData(data);
+      return status;
+    }
+
+    // status === 'none' — check if offline and be generous
+    if (data.cachedStatus?.state === 'licensed') {
       return data.cachedStatus;
     }
 
-    // Key is genuinely invalid
-    const status: LicenseStatus = {
-      state: 'invalid',
-      licenseKey: data.licenseKey,
-    };
-    data.cachedStatus = status;
-    data.lastValidation = new Date().toISOString();
-    writeLicenseData(data);
-    return status;
+    // No subscription found — check if still in trial
+    if (data.trialStartDate) {
+      const remaining = trialDaysRemaining(data.trialStartDate);
+      if (remaining > 0) {
+        return { state: 'trial', email: data.email, trialDaysRemaining: remaining };
+      }
+      return { state: 'trial_expired', email: data.email };
+    }
+
+    return { state: 'trial_expired', email: data.email };
   }
 
-  // No license key — check trial
+  // No email stored — check trial (legacy local-only trial)
   if (data.trialStartDate) {
     const remaining = trialDaysRemaining(data.trialStartDate);
     if (remaining > 0) {
@@ -162,54 +134,62 @@ export async function getLicenseStatus(): Promise<LicenseStatus> {
     return { state: 'trial_expired' };
   }
 
-  // First launch — start trial
-  data.trialStartDate = new Date().toISOString();
-  writeLicenseData(data);
-  return { state: 'trial', trialDaysRemaining: TRIAL_DAYS };
+  // First launch — unlicensed (user must enter email to start trial)
+  return { state: 'unlicensed' };
 }
 
-export async function activateLicense(licenseKey: string): Promise<LicenseStatus> {
-  const trimmedKey = licenseKey.trim();
-
-  const result = await validateKeyWithLemonSqueezy(trimmedKey);
-
-  if (!result.valid) {
-    return {
-      state: 'invalid',
-      licenseKey: trimmedKey,
-    };
-  }
-
-  // Check expiry
-  if (result.expiresAt) {
-    const expiryDate = new Date(result.expiresAt);
-    if (expiryDate.getTime() < Date.now()) {
-      return {
-        state: 'expired',
-        licenseKey: trimmedKey,
-        expiresAt: result.expiresAt,
-      };
-    }
-  }
-
-  // Save the valid key
+export async function startTrial(email: string): Promise<LicenseStatus> {
   const data = readLicenseData();
-  data.licenseKey = trimmedKey;
-  data.lastValidation = new Date().toISOString();
-  const status: LicenseStatus = {
-    state: 'licensed',
-    licenseKey: trimmedKey,
-    expiresAt: result.expiresAt,
-    customerEmail: result.email,
-  };
-  data.cachedStatus = status;
+  data.email = email.toLowerCase().trim();
+  data.trialStartDate = data.trialStartDate || new Date().toISOString();
   writeLicenseData(data);
 
-  return status;
+  // Register with server (fire and forget)
+  try {
+    await net.fetch(`${API_BASE}/api/users/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: data.email, source: 'app' }),
+    });
+  } catch {
+    // Non-fatal — trial still works locally
+  }
+
+  return {
+    state: 'trial',
+    email: data.email,
+    trialDaysRemaining: TRIAL_DAYS,
+  };
+}
+
+export async function activateLicense(email: string): Promise<LicenseStatus> {
+  const trimmedEmail = email.toLowerCase().trim();
+  const result = await validateEmailWithServer(trimmedEmail);
+
+  if (result.status === 'active' || result.status === 'trialing' || result.status === 'past_due') {
+    const data = readLicenseData();
+    data.email = trimmedEmail;
+    data.lastValidation = new Date().toISOString();
+    const status: LicenseStatus = {
+      state: 'licensed',
+      email: trimmedEmail,
+      expiresAt: result.currentPeriodEnd,
+      cancelAtPeriodEnd: result.cancelAtPeriodEnd,
+    };
+    data.cachedStatus = status;
+    writeLicenseData(data);
+    return status;
+  }
+
+  return {
+    state: 'invalid',
+    email: trimmedEmail,
+  };
 }
 
 export function deactivateLicense(): LicenseStatus {
   const data = readLicenseData();
+  delete data.email;
   delete data.licenseKey;
   delete data.lastValidation;
   delete data.cachedStatus;
@@ -218,20 +198,43 @@ export function deactivateLicense(): LicenseStatus {
   return { state: 'unlicensed' };
 }
 
-export function openPurchaseUrl(): void {
-  shell.openExternal(PURCHASE_URL);
+export async function openPurchaseUrl(): Promise<void> {
+  const data = readLicenseData();
+  try {
+    const response = await net.fetch(`${API_BASE}/api/checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: data.email || '' }),
+    });
+    const result = await response.json() as any;
+    if (result.url) {
+      shell.openExternal(result.url);
+    }
+  } catch {
+    // Fallback: open base URL
+    shell.openExternal('https://getbraider.com');
+  }
 }
 
 export async function openBillingPortal(): Promise<{ success: boolean; error?: string }> {
   const data = readLicenseData();
 
+  if (!data.email) {
+    return { success: false, error: 'No email on file' };
+  }
+
   try {
-    // If no license key (trial user), open the generic LemonSqueezy billing login
-    const url = data.licenseKey
-      ? `${BILLING_API_URL}?key=${encodeURIComponent(data.licenseKey)}`
-      : 'https://braidr.lemonsqueezy.com/billing';
-    await shell.openExternal(url);
-    return { success: true };
+    const response = await net.fetch(`${API_BASE}/api/portal/billing`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: data.email }),
+    });
+    const result = await response.json() as any;
+    if (result.url) {
+      await shell.openExternal(result.url);
+      return { success: true };
+    }
+    return { success: false, error: result.error || 'Could not open billing portal' };
   } catch (err: any) {
     return { success: false, error: err.message || 'Could not open customer portal' };
   }

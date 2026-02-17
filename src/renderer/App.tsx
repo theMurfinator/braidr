@@ -2977,15 +2977,20 @@ function App() {
                   <>
                     <div className="settings-account-header">
                       <div className="settings-account-icon">
-                        {licenseStatus.customerEmail ? licenseStatus.customerEmail.charAt(0).toUpperCase() : 'B'}
+                        {licenseStatus.email ? licenseStatus.email.charAt(0).toUpperCase() : 'B'}
                       </div>
                       <div className="settings-account-info">
                         <span className="settings-account-email">
-                          {licenseStatus.customerEmail || 'Braidr'}
+                          {licenseStatus.email || 'Braidr'}
                         </span>
                         <span className="settings-account-status">
-                          {licenseStatus.state === 'licensed' ? 'Licensed' :
-                           licenseStatus.state === 'trial' ? `Trial \u2014 ${licenseStatus.trialDaysRemaining} day${licenseStatus.trialDaysRemaining !== 1 ? 's' : ''} left` :
+                          {licenseStatus.state === 'licensed'
+                            ? (licenseStatus.cancelAtPeriodEnd && licenseStatus.expiresAt
+                                ? `Cancels ${new Date(licenseStatus.expiresAt).toLocaleDateString()}`
+                                : licenseStatus.expiresAt
+                                  ? `Renews ${new Date(licenseStatus.expiresAt).toLocaleDateString()}`
+                                  : 'Active')
+                            : licenseStatus.state === 'trial' ? `Trial \u2014 ${licenseStatus.trialDaysRemaining} day${licenseStatus.trialDaysRemaining !== 1 ? 's' : ''} left` :
                            licenseStatus.state === 'expired' ? 'Expired' :
                            'Free'}
                           {' \u00B7 v' + (__APP_VERSION__)}

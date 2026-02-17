@@ -191,14 +191,15 @@ export interface NotesIndex {
 // License types
 export interface LicenseStatus {
   state: 'unlicensed' | 'licensed' | 'expired' | 'invalid' | 'trial' | 'trial_expired';
-  licenseKey?: string;
+  email?: string;
   expiresAt?: string; // ISO date string
-  customerEmail?: string;
+  cancelAtPeriodEnd?: boolean;
   trialDaysRemaining?: number;
 }
 
 export interface LicenseData {
-  licenseKey?: string;
+  email?: string;
+  licenseKey?: string; // Legacy — kept for migration detection
   lastValidation?: string; // ISO date string
   cachedStatus?: LicenseStatus;
   trialStartDate?: string; // ISO date string
@@ -237,6 +238,7 @@ export const IPC_CHANNELS = {
   GET_LICENSE_STATUS: 'get-license-status',
   ACTIVATE_LICENSE: 'activate-license',
   DEACTIVATE_LICENSE: 'deactivate-license',
+  START_TRIAL: 'start-trial',
   OPEN_PURCHASE_URL: 'open-purchase-url',
   OPEN_BILLING_PORTAL: 'open-billing-portal',
   OPEN_FEEDBACK_EMAIL: 'open-feedback-email',

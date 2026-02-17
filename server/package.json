@@ -8,7 +8,9 @@
     "deploy": "vercel --prod"
   },
   "dependencies": {
-    "@vercel/blob": "^2.2.0"
+    "@vercel/blob": "^2.2.0",
+    "@vercel/kv": "^3.0.0",
+    "stripe": "^17.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

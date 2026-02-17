@@ -39,10 +39,10 @@ export function identifyUser(licenseState: string, properties: Record<string, an
   });
 }
 
-export function aliasUser(licenseKey: string): void {
+export function aliasUser(email: string): void {
   if (!client) return;
-  const hashedKey = crypto.createHash('sha256').update(licenseKey).digest('hex').substring(0, 16);
-  client.alias({ distinctId: 'license_' + hashedKey, alias: distinctId });
+  const hashedEmail = crypto.createHash('sha256').update(email.toLowerCase()).digest('hex').substring(0, 16);
+  client.alias({ distinctId: 'email_' + hashedEmail, alias: distinctId });
 }
 
 export function captureEvent(event: string, properties: Record<string, any> = {}): void {

@@ -9,22 +9,21 @@ interface LicenseGateProps {
 
 /**
  * Wraps the app and checks license status on mount.
- * Shows signup screen, license activation dialog, or expired modal as needed.
- * Lets the app render normally when licensed.
+ * Shows email entry, trial expired, or subscription expired screens as needed.
+ * Lets the app render normally when licensed or in trial.
  */
 export default function LicenseGate({ children }: LicenseGateProps) {
   const [status, setStatus] = useState<LicenseStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showActivateDialog, setShowActivateDialog] = useState(false);
-  const [licenseKeyInput, setLicenseKeyInput] = useState('');
+  const [showAccountDialog, setShowAccountDialog] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState<string | null>(null);
 
   useEffect(() => {
     checkLicense();
-    // Listen for menu-triggered license dialog
     const cleanup = api.onShowLicenseDialog?.(() => {
-      setShowActivateDialog(true);
+      setShowAccountDialog(true);
     });
     return () => cleanup?.();
   }, []);
@@ -37,50 +36,62 @@ export default function LicenseGate({ children }: LicenseGateProps) {
         setStatus(result.data);
       }
     } catch {
-      // If license check fails, allow usage (offline grace)
       setStatus({ state: 'licensed' });
     }
     setLoading(false);
   }
 
-  async function handleActivate() {
-    if (!licenseKeyInput.trim()) return;
+  async function handleStartTrial() {
+    if (!emailInput.trim()) return;
     setActivating(true);
     setActivateError(null);
 
     try {
-      const result = await api.activateLicense(licenseKeyInput.trim());
+      const result = await api.startTrial(emailInput.trim());
       if (result.success) {
-        const newStatus: LicenseStatus = result.data;
-        if (newStatus.state === 'licensed') {
-          setStatus(newStatus);
-          setShowActivateDialog(false);
-          setLicenseKeyInput('');
-        } else if (newStatus.state === 'expired') {
-          setActivateError('This license has expired. Please renew your subscription.');
-        } else {
-          setActivateError('Invalid license key. Please check and try again.');
-        }
+        setStatus(result.data);
+        setEmailInput('');
       } else {
-        setActivateError('Could not validate license. Check your internet connection.');
+        setActivateError('Could not start trial. Please try again.');
       }
     } catch {
-      setActivateError('Could not connect to license server.');
+      setActivateError('Could not connect. Please check your internet connection.');
     }
     setActivating(false);
   }
 
-  async function handleDeactivate() {
+  async function handleActivate() {
+    const email = emailInput.trim() || status?.email;
+    if (!email) return;
+    setActivating(true);
+    setActivateError(null);
+
     try {
-      const result = await api.deactivateLicense();
+      const result = await api.activateLicense(email);
       if (result.success) {
-        setStatus(result.data);
+        const newStatus: LicenseStatus = result.data;
+        if (newStatus.state === 'licensed') {
+          setStatus(newStatus);
+          setShowAccountDialog(false);
+          setEmailInput('');
+        } else {
+          setActivateError('No active subscription found for this email.');
+        }
+      } else {
+        setActivateError('Could not validate. Check your internet connection.');
       }
-    } catch { /* ignore */ }
+    } catch {
+      setActivateError('Could not connect to server.');
+    }
+    setActivating(false);
   }
 
   function handlePurchase() {
     api.openPurchaseUrl();
+  }
+
+  function handleManageSubscription() {
+    api.openBillingPortal();
   }
 
   if (loading) {
@@ -91,175 +102,114 @@ export default function LicenseGate({ children }: LicenseGateProps) {
     );
   }
 
-  // No license — must sign up through LemonSqueezy
+  // First launch — email input + start trial
   if (status && status.state === 'unlicensed') {
     return (
       <div className="license-expired-screen">
         <div className="license-expired-card">
           <h2>Welcome to Braidr</h2>
-          <p>Start your 14-day free trial — no charge until the trial ends.</p>
+          <p>Enter your email to start a 14-day free trial. No credit card required.</p>
+          <input
+            type="email"
+            className="license-key-input"
+            placeholder="you@example.com"
+            value={emailInput}
+            onChange={e => setEmailInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleStartTrial()}
+            autoFocus
+          />
+          {activateError && <p className="license-error">{activateError}</p>}
           <div className="license-expired-actions">
-            <button className="license-btn-primary" onClick={handlePurchase}>
-              Start Free Trial
-            </button>
-            <button className="license-btn-secondary" onClick={() => setShowActivateDialog(true)}>
-              I have a license key
+            <button className="license-btn-primary" onClick={handleStartTrial} disabled={activating || !emailInput.trim()}>
+              {activating ? 'Starting...' : 'Start Free Trial'}
             </button>
           </div>
         </div>
-
-        {showActivateDialog && (
-          <div className="modal-overlay" onClick={() => setShowActivateDialog(false)}>
-            <div className="license-dialog" onClick={e => e.stopPropagation()}>
-              <h3>Activate License</h3>
-              <p>Enter the license key from your purchase confirmation email.</p>
-              <input
-                type="text"
-                className="license-key-input"
-                placeholder="XXXX-XXXX-XXXX-XXXX"
-                value={licenseKeyInput}
-                onChange={e => setLicenseKeyInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleActivate()}
-                autoFocus
-              />
-              {activateError && <p className="license-error">{activateError}</p>}
-              <div className="license-dialog-actions">
-                <button className="license-btn-secondary" onClick={() => setShowActivateDialog(false)}>
-                  Cancel
-                </button>
-                <button className="license-btn-primary" onClick={handleActivate} disabled={activating || !licenseKeyInput.trim()}>
-                  {activating ? 'Validating...' : 'Activate'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
 
-  // License expired (had a key but subscription lapsed)
-  if (status && status.state === 'expired' && status.licenseKey) {
+  // Trial expired — prompt to subscribe
+  if (status && status.state === 'trial_expired') {
     return (
       <div className="license-expired-screen">
         <div className="license-expired-card">
-          <h2>Your license has expired</h2>
-          <p>Your annual subscription has ended. Renew to continue using Braidr.</p>
+          <h2>Your free trial has ended</h2>
+          <p>Subscribe to keep writing with Braidr. Your projects are still here.</p>
           <div className="license-expired-actions">
             <button className="license-btn-primary" onClick={handlePurchase}>
-              Renew - $39/year
+              Subscribe — $39/year
             </button>
-            <button className="license-btn-secondary" onClick={() => setShowActivateDialog(true)}>
-              Enter new license key
+            <button className="license-btn-secondary" onClick={handleActivate} disabled={activating}>
+              {activating ? 'Checking...' : 'I already subscribed'}
             </button>
           </div>
+          {activateError && <p className="license-error">{activateError}</p>}
         </div>
-
-        {showActivateDialog && (
-          <div className="modal-overlay" onClick={() => setShowActivateDialog(false)}>
-            <div className="license-dialog" onClick={e => e.stopPropagation()}>
-              <h3>Activate License</h3>
-              <input
-                type="text"
-                className="license-key-input"
-                placeholder="XXXX-XXXX-XXXX-XXXX"
-                value={licenseKeyInput}
-                onChange={e => setLicenseKeyInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleActivate()}
-                autoFocus
-              />
-              {activateError && <p className="license-error">{activateError}</p>}
-              <div className="license-dialog-actions">
-                <button className="license-btn-secondary" onClick={() => setShowActivateDialog(false)}>
-                  Cancel
-                </button>
-                <button className="license-btn-primary" onClick={handleActivate} disabled={activating || !licenseKeyInput.trim()}>
-                  {activating ? 'Validating...' : 'Activate'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
 
-  // Invalid license key
-  if (status && status.state === 'invalid') {
+  // Subscription expired / canceled
+  if (status && (status.state === 'expired' || status.state === 'invalid')) {
     return (
       <div className="license-expired-screen">
         <div className="license-expired-card">
-          <h2>License key is invalid</h2>
-          <p>The stored license key could not be validated. Please enter a valid key or purchase a new license.</p>
+          <h2>Your subscription has expired</h2>
+          <p>Renew your subscription to continue using Braidr.</p>
           <div className="license-expired-actions">
-            <button className="license-btn-primary" onClick={() => setShowActivateDialog(true)}>
-              Enter license key
+            <button className="license-btn-primary" onClick={handlePurchase}>
+              Renew — $39/year
             </button>
-            <button className="license-btn-secondary" onClick={handlePurchase}>
-              Get a License - $39/year
+            <button className="license-btn-secondary" onClick={handleManageSubscription}>
+              Manage Subscription
             </button>
-            <button className="license-btn-text" onClick={handleDeactivate}>
-              Remove stored key
+            <button className="license-btn-secondary" onClick={handleActivate} disabled={activating}>
+              {activating ? 'Checking...' : 'I already renewed'}
             </button>
           </div>
+          {activateError && <p className="license-error">{activateError}</p>}
         </div>
-
-        {showActivateDialog && (
-          <div className="modal-overlay" onClick={() => setShowActivateDialog(false)}>
-            <div className="license-dialog" onClick={e => e.stopPropagation()}>
-              <h3>Activate License</h3>
-              <input
-                type="text"
-                className="license-key-input"
-                placeholder="XXXX-XXXX-XXXX-XXXX"
-                value={licenseKeyInput}
-                onChange={e => setLicenseKeyInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleActivate()}
-                autoFocus
-              />
-              {activateError && <p className="license-error">{activateError}</p>}
-              <div className="license-dialog-actions">
-                <button className="license-btn-secondary" onClick={() => setShowActivateDialog(false)}>
-                  Cancel
-                </button>
-                <button className="license-btn-primary" onClick={handleActivate} disabled={activating || !licenseKeyInput.trim()}>
-                  {activating ? 'Validating...' : 'Activate'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
 
-  // Licensed — render the app
+  // Licensed or trial — render the app
   return (
     <>
       {children}
 
-      {/* Activate dialog (from menu) */}
-      {showActivateDialog && (
-        <div className="modal-overlay" onClick={() => setShowActivateDialog(false)}>
+      {/* Account dialog (from menu) */}
+      {showAccountDialog && (
+        <div className="modal-overlay" onClick={() => setShowAccountDialog(false)}>
           <div className="license-dialog" onClick={e => e.stopPropagation()}>
-            <h3>Activate License</h3>
-            <p>Enter the license key from your purchase confirmation email.</p>
-            <input
-              type="text"
-              className="license-key-input"
-              placeholder="XXXX-XXXX-XXXX-XXXX"
-              value={licenseKeyInput}
-              onChange={e => setLicenseKeyInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleActivate()}
-              autoFocus
-            />
-            {activateError && <p className="license-error">{activateError}</p>}
-            <div className="license-dialog-actions">
-              <button className="license-btn-secondary" onClick={() => setShowActivateDialog(false)}>
-                Cancel
+            <h3>Account</h3>
+            {status?.email && (
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ margin: '0 0 4px', fontWeight: 600 }}>{status.email}</p>
+                <p style={{ margin: 0, fontSize: 13, color: '#71717a' }}>
+                  {status.state === 'licensed' ? 'Active subscription' :
+                   status.state === 'trial' ? `Trial — ${status.trialDaysRemaining} day${status.trialDaysRemaining !== 1 ? 's' : ''} left` :
+                   'No active subscription'}
+                  {status.cancelAtPeriodEnd && status.expiresAt && (
+                    <> — cancels {new Date(status.expiresAt).toLocaleDateString()}</>
+                  )}
+                </p>
+              </div>
+            )}
+            {status?.state === 'licensed' && (
+              <button className="license-btn-secondary" style={{ width: '100%', marginBottom: 8 }} onClick={() => { handleManageSubscription(); setShowAccountDialog(false); }}>
+                Manage Subscription
               </button>
-              <button className="license-btn-primary" onClick={handleActivate} disabled={activating || !licenseKeyInput.trim()}>
-                {activating ? 'Validating...' : 'Activate'}
+            )}
+            {status?.state === 'trial' && (
+              <button className="license-btn-primary" style={{ width: '100%', marginBottom: 8 }} onClick={() => { handlePurchase(); setShowAccountDialog(false); }}>
+                Subscribe — $39/year
+              </button>
+            )}
+            <div className="license-dialog-actions">
+              <button className="license-btn-secondary" onClick={() => setShowAccountDialog(false)}>
+                Close
               </button>
             </div>
           </div>
