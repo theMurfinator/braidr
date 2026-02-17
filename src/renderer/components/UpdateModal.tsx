@@ -66,7 +66,10 @@ export default function UpdateModal({ onClose }: UpdateModalProps) {
             <p className="update-modal-subtitle">Version {update.version} is ready to download</p>
             <div className="update-modal-actions">
               <button className="update-modal-btn secondary" onClick={onClose}>Later</button>
-              <button className="update-modal-btn primary" onClick={() => window.electronAPI.updateDownload()}>Download</button>
+              <button className="update-modal-btn primary" onClick={() => {
+                setUpdate({ status: 'downloading', percent: 0 });
+                window.electronAPI.updateDownload();
+              }}>Download</button>
             </div>
           </>
         )}

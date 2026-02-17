@@ -120,15 +120,22 @@ autoUpdater.on('error', (error) => {
 });
 
 // IPC handlers for update actions from renderer
-ipcMain.on('update-download', () => {
+ipcMain.on('update-download', async () => {
   console.log('update-download IPC received, starting download...');
-  autoUpdater.downloadUpdate().catch((err) => {
+  try {
+    // Re-check with autoDownload enabled to ensure download actually starts,
+    // even if the cached update info from the initial check has gone stale.
+    autoUpdater.autoDownload = true;
+    await autoUpdater.checkForUpdates();
+  } catch (err: any) {
     console.error('downloadUpdate() failed:', err);
     mainWindow?.webContents.send('update-status', {
       status: 'error',
       message: err?.message || 'Download failed',
     });
-  });
+  } finally {
+    autoUpdater.autoDownload = false;
+  }
 });
 
 ipcMain.on('update-install', () => {

@@ -46,7 +46,10 @@ export function UpdateBanner() {
             <span className="update-banner-text">
               Version {update.version} is available
             </span>
-            <button className="update-banner-action" onClick={() => window.electronAPI.updateDownload()}>
+            <button className="update-banner-action" onClick={() => {
+              setUpdate({ status: 'downloading', percent: 0 });
+              window.electronAPI.updateDownload();
+            }}>
               Download
             </button>
           </>
