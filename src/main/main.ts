@@ -1004,7 +1004,7 @@ ipcMain.handle(IPC_CHANNELS.OPEN_BILLING_PORTAL, async () => {
 
 ipcMain.handle(IPC_CHANNELS.OPEN_FEEDBACK_EMAIL, async (_event, category: string, message: string) => {
   try {
-    const response = await net.fetch('https://getbraider.com/api/feedback', {
+    const response = await net.fetch('https://braidr-api.vercel.app/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

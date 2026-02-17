@@ -3078,7 +3078,7 @@ function App() {
                   Switch Project
                 </button>
                 <div className="settings-dropdown-divider" />
-                <button onClick={() => { api.openBillingPortal(); setShowSettingsMenu(false); }}>
+                <button onClick={() => { (window as any).electronAPI.openBillingPortal(); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
                     <line x1="1" y1="10" x2="23" y2="10"/>
