@@ -94,6 +94,12 @@ export default function LicenseGate({ children }: LicenseGateProps) {
     api.openBillingPortal();
   }
 
+  async function handleSignOut() {
+    await api.deactivateLicense();
+    setShowAccountDialog(false);
+    setStatus({ state: 'unlicensed' });
+  }
+
   if (loading) {
     return (
       <div className="license-loading">
@@ -210,6 +216,9 @@ export default function LicenseGate({ children }: LicenseGateProps) {
             <div className="license-dialog-actions">
               <button className="license-btn-secondary" onClick={() => setShowAccountDialog(false)}>
                 Close
+              </button>
+              <button className="license-btn-secondary" style={{ color: '#ef4444', marginTop: 8 }} onClick={handleSignOut}>
+                Sign Out
               </button>
             </div>
           </div>
