@@ -5,19 +5,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thank You — Braidr</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #fafafa; color: #1a1a1a; }
-    .card { text-align: center; max-width: 440px; padding: 48px 32px; }
-    h1 { font-size: 28px; margin: 0 0 12px; }
-    p { font-size: 16px; color: #6b7280; line-height: 1.6; margin: 0 0 24px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #fafafa; color: #1a1a1a; }
+    .card { text-align: center; max-width: 520px; padding: 48px 32px; }
     .check { width: 64px; height: 64px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
     .check svg { width: 32px; height: 32px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    h1 { font-size: 28px; margin: 0 0 8px; }
+    .subtitle { font-size: 16px; color: #6b7280; line-height: 1.6; margin: 0 0 32px; }
+    .step { font-size: 14px; color: #6b7280; line-height: 1.5; margin: 0 0 4px; }
+    .step strong { color: #1a1a1a; }
+    .steps { margin: 0 0 32px; }
+    .downloads { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 0 0 24px; }
+    .dl-btn { display: inline-flex; align-items: center; gap: 10px; padding: 12px 24px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; text-decoration: none; color: #1a1a1a; font-size: 14px; font-weight: 600; transition: all 0.15s; }
+    .dl-btn:hover { border-color: #ccc; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .dl-btn .label { text-align: left; }
+    .dl-btn .sub { font-size: 11px; font-weight: 400; color: #9ca3af; }
+    .note { font-size: 13px; color: #9ca3af; line-height: 1.5; }
+    .note a { color: #6b7280; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg></div>
-    <h1>Thank you!</h1>
-    <p>Your subscription is active. Return to Braidr and click "I already subscribed" to activate your account.</p>
+    <h1>You're in!</h1>
+    <p class="subtitle">Your subscription is active. Download Braidr and start writing.</p>
+
+    <div class="downloads">
+      <a href="https://github.com/theMurfinator/braidr/releases/latest" class="dl-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.1 22C7.79 22.05 6.8 20.68 5.96 19.47C4.25 16.56 2.93 11.3 4.7 7.72C5.57 5.94 7.36 4.86 9.28 4.84C10.56 4.81 11.78 5.7 12.58 5.7C13.38 5.7 14.88 4.62 16.41 4.8C17.04 4.83 18.84 5.06 19.97 6.7C19.88 6.75 17.8 7.93 17.83 10.44C17.85 13.45 20.49 14.43 20.52 14.44C20.49 14.51 20.07 15.9 19.08 17.33L18.71 19.5Z" fill="#111"/><path d="M15.49 2.88C16.17 2.06 16.63 0.94 16.49 0C15.53 0.04 14.36 0.62 13.64 1.43C12.99 2.16 12.44 3.3 12.61 4.39C13.69 4.47 14.78 3.73 15.49 2.88Z" fill="#111"/></svg>
+        <div class="label">macOS<div class="sub">Apple Silicon (.dmg)</div></div>
+      </a>
+      <a href="https://github.com/theMurfinator/braidr/releases/latest" class="dl-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 5.548l7.514-1.02v7.264H3V5.548zm0 13.168l7.514 1.02v-7.264H3v6.244zm8.486 1.15L21 21v-8.528H11.486v8.394zm0-15.404v8.394H21V3L11.486 4.462z" fill="#111"/></svg>
+        <div class="label">Windows<div class="sub">64-bit (.exe)</div></div>
+      </a>
+    </div>
+
+    <div class="steps">
+      <p class="step"><strong>1.</strong> Download and install Braidr</p>
+      <p class="step"><strong>2.</strong> Enter the email you just used to subscribe</p>
+      <p class="step"><strong>3.</strong> You're activated — start writing</p>
+    </div>
+
+    <p class="note">Already have Braidr installed? Just open it and click "I already subscribed."</p>
   </div>
 </body>
 </html>
