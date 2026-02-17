@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Scene, Character, PlotPoint, BraidedChapter, MetadataFieldDef } from '../../shared/types';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
+import { track } from '../utils/posthogTracker';
 
 interface CompileModalProps {
   scenes: Scene[];
@@ -362,6 +363,7 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
   };
 
   const handleExport = async () => {
+    track('compile_started', { format });
     setExporting(true);
     try {
       if (format === 'md') {

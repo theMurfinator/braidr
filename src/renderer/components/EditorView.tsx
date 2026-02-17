@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { track } from '../utils/posthogTracker';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -488,6 +489,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     const activeEd = isMultiSelect ? (activeEditorKey ? subEditorsRef.current.get(activeEditorKey) : null) : editor;
     if (!key || !activeEd) return;
     flushPending();
+    track('draft_version_saved');
     onSaveDraft(key, activeEd.getHTML());
   };
 

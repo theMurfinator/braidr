@@ -32,6 +32,7 @@ const IPC_CHANNELS = {
   OPEN_PURCHASE_URL: 'open-purchase-url',
   OPEN_BILLING_PORTAL: 'open-billing-portal',
   OPEN_FEEDBACK_EMAIL: 'open-feedback-email',
+  CAPTURE_ANALYTICS_EVENT: 'capture-analytics-event',
   APP_CLOSING: 'app-closing',
   SAFE_TO_CLOSE: 'safe-to-close',
 } as const;
@@ -80,6 +81,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openPurchaseUrl: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_PURCHASE_URL),
   openBillingPortal: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_BILLING_PORTAL),
   openFeedbackEmail: (category: string, message: string) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_FEEDBACK_EMAIL, category, message),
+  // PostHog analytics
+  captureAnalyticsEvent: (eventName: string, properties: Record<string, any>) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_ANALYTICS_EVENT, eventName, properties),
   // License dialog (triggered from menu)
   onShowLicenseDialog: (callback: () => void) => {
     const listener = () => callback();

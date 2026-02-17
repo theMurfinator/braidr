@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Scene, Character, Tag, NoteMetadata } from '../../shared/types';
+import { track } from '../utils/posthogTracker';
 
 interface SearchResult {
   type: 'scene' | 'draft' | 'note' | 'character' | 'tag';
@@ -152,6 +153,13 @@ export default function SearchOverlay({ scenes, characters, tags, draftContent, 
 
     return grouped;
   }, [debouncedQuery, scenes, characters, tags, draftContent, notesIndex, noteContentCache]);
+
+  // Track search when results are computed for a non-empty query
+  useEffect(() => {
+    if (debouncedQuery.trim()) {
+      track('search_performed', { result_count: results.length });
+    }
+  }, [results, debouncedQuery]);
 
   // Reset selection when results change
   useEffect(() => {

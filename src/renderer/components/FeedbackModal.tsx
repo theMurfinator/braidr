@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { track } from '../utils/posthogTracker';
 
 interface FeedbackModalProps {
   onClose: () => void;
@@ -20,6 +21,7 @@ export default function FeedbackModal({ onClose, onSubmit }: FeedbackModalProps)
 
   const handleSend = async () => {
     setSending(true);
+    track('feedback_submitted', { category });
     const ok = await onSubmit(category, message.trim());
     if (!ok) setSending(false);
   };
