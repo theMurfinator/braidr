@@ -376,11 +376,14 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // Check for updates on startup (production only)
+  // Check for updates on startup and every 30 minutes (production only)
   if (!isDev) {
     setTimeout(() => {
       autoUpdater.checkForUpdates();
-    }, 3000); // Wait 3 seconds after app loads
+    }, 3000);
+    setInterval(() => {
+      autoUpdater.checkForUpdates();
+    }, 30 * 60 * 1000);
   }
 }
 
