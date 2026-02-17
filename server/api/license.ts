@@ -19,7 +19,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       cancelAtPeriodEnd: sub.cancelAtPeriodEnd || false,
     });
   } catch (err: any) {
-    console.error('License check error:', err.message);
-    return res.status(500).json({ error: 'Failed to check subscription status' });
+    console.error('License check error:', err.message, err.stack);
+    return res.status(500).json({
+      error: 'Failed to check subscription status',
+      detail: err.message,
+    });
   }
 }

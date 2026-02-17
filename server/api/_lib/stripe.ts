@@ -1,10 +1,12 @@
 import Stripe from 'stripe';
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY!;
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 
-export const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: '2025-02-24.acacia',
-});
+if (!STRIPE_SECRET_KEY) {
+  console.error('STRIPE_SECRET_KEY is not set in environment variables');
+}
+
+export const stripe = new Stripe(STRIPE_SECRET_KEY);
 
 interface SubscriptionInfo {
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'none';
