@@ -23,6 +23,7 @@ import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, Sessio
 import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate, deleteSceneSession, getSceneSessionsList, appendSceneSession, getTodayStr } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
+import { UpdateBanner } from './components/UpdateBanner';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 
@@ -2429,6 +2430,7 @@ function App() {
 
     return (
       <div className="app">
+        <UpdateBanner />
         <div className="main-content welcome-main-content">
           <div className="welcome-screen">
             {!showNewProject ? (
@@ -2625,6 +2627,7 @@ function App() {
 
   return (
     <div className="app">
+      <UpdateBanner />
       {/* Left sidebar navigation */}
       <nav className="app-sidebar">
         <img src={braidrIcon} alt="Braidr" className="app-sidebar-logo" />
