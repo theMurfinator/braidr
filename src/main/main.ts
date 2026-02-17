@@ -278,7 +278,7 @@ function createWindow() {
       spellcheck: true,
     },
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 10, y: 14 },
+    trafficLightPosition: { x: 6, y: 14 },
   });
 
   if (isDev) {
