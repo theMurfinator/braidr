@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { track } from '../utils/posthogTracker';
 
 interface Props {
   children: ReactNode;
@@ -21,6 +22,15 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+
+    // Report crash to PostHog
+    track('crash_report', {
+      source: 'renderer',
+      error_name: error.name,
+      error_message: error.message,
+      error_stack: error.stack?.substring(0, 2000),
+      component_stack: errorInfo.componentStack?.substring(0, 2000),
+    });
 
     // Attempt to flush any pending saves
     try {

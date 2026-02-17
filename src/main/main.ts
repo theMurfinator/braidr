@@ -3,11 +3,33 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { autoUpdater } from 'electron-updater';
+import windowStateKeeper from 'electron-window-state';
 import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
 import { getLicenseStatus, activateLicense, deactivateLicense, openPurchaseUrl, openBillingPortal } from './license';
 import { initPostHog, captureEvent, identifyUser, aliasUser, getSessionDurationMs, shutdownPostHog } from './posthog';
 
 let mainWindow: BrowserWindow | null = null;
+
+// Global crash reporting via PostHog
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+  captureEvent('crash_report', {
+    source: 'main_process',
+    error_name: error.name,
+    error_message: error.message,
+    error_stack: error.stack?.substring(0, 2000),
+  });
+});
+
+process.on('unhandledRejection', (reason: any) => {
+  console.error('Unhandled rejection:', reason);
+  captureEvent('crash_report', {
+    source: 'main_process',
+    error_name: 'UnhandledRejection',
+    error_message: String(reason?.message || reason),
+    error_stack: reason?.stack?.substring(0, 2000),
+  });
+});
 
 // Register braidr-img:// as a privileged scheme (must happen before app.whenReady())
 protocol.registerSchemesAsPrivileged([
@@ -274,9 +296,16 @@ function createMenu() {
 }
 
 function createWindow() {
+  const mainWindowState = windowStateKeeper({
+    defaultWidth: 1400,
+    defaultHeight: 900,
+  });
+
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    x: mainWindowState.x,
+    y: mainWindowState.y,
+    width: mainWindowState.width,
+    height: mainWindowState.height,
     icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -287,6 +316,8 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 6, y: 14 },
   });
+
+  mainWindowState.manage(mainWindow);
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
@@ -366,6 +397,18 @@ app.whenReady().then(() => {
     const filePath = decodeURIComponent(request.url.replace('braidr-img://', ''));
     return net.fetch(`file://${filePath}`);
   });
+
+  // Validate environment variables
+  const envWarnings: string[] = [];
+  if (!process.env.VITE_POSTHOG_KEY || process.env.VITE_POSTHOG_KEY === 'phc_YOUR_KEY_HERE') {
+    envWarnings.push('VITE_POSTHOG_KEY is not set — analytics will be disabled');
+  }
+  if (!process.env.LEMONSQUEEZY_STORE_ID) {
+    envWarnings.push('LEMONSQUEEZY_STORE_ID is not set — license validation may not work');
+  }
+  if (envWarnings.length > 0) {
+    console.warn('[Braidr] Environment warnings:\n  ' + envWarnings.join('\n  '));
+  }
 
   initPostHog();
   createWindow();

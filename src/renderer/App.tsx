@@ -332,6 +332,32 @@ function App() {
     }).catch(() => {});
   }, []);
 
+  // Global error handler for uncaught renderer errors
+  useEffect(() => {
+    const handleError = (e: ErrorEvent) => {
+      track('crash_report', {
+        source: 'renderer_global',
+        error_message: e.message,
+        error_stack: e.error?.stack?.substring(0, 2000),
+        filename: e.filename,
+        lineno: e.lineno,
+      });
+    };
+    const handleRejection = (e: PromiseRejectionEvent) => {
+      track('crash_report', {
+        source: 'renderer_promise',
+        error_message: String(e.reason?.message || e.reason),
+        error_stack: e.reason?.stack?.substring(0, 2000),
+      });
+    };
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
   // Keyboard shortcuts for undo/redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2678,13 +2704,26 @@ function App() {
   return (
     <div className="app">
       <UpdateBanner />
+      {licenseStatus?.state === 'trial' && licenseStatus.trialDaysRemaining !== undefined && licenseStatus.trialDaysRemaining <= 3 && (
+        <div className="trial-expiry-banner">
+          <span>
+            {licenseStatus.trialDaysRemaining === 0
+              ? 'Your free trial expires today.'
+              : `Your free trial expires in ${licenseStatus.trialDaysRemaining} day${licenseStatus.trialDaysRemaining !== 1 ? 's' : ''}.`}
+          </span>
+          <button onClick={() => (window as any).electronAPI?.openPurchaseUrl?.()}>
+            Subscribe Now
+          </button>
+        </div>
+      )}
       {/* Left sidebar navigation */}
-      <nav className="app-sidebar">
+      <nav className="app-sidebar" aria-label="Main navigation">
         <img src={braidrIcon} alt="Braidr" className="app-sidebar-logo" />
         <button
           className={`app-sidebar-btn ${viewMode === 'pov' ? 'active' : ''}`}
           onClick={() => setViewMode('pov')}
           title="POV Outline"
+          aria-label="POV Outline view"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M4 6h16M4 12h10M4 18h13"/>
@@ -2695,6 +2734,7 @@ function App() {
           className={`app-sidebar-btn ${viewMode === 'braided' ? 'active' : ''}`}
           onClick={() => setViewMode('braided')}
           title="Braided Timeline"
+          aria-label="Braided Timeline view"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M8 3v18M16 3v18M3 8h18M3 16h18"/>
@@ -2705,6 +2745,7 @@ function App() {
           className={`app-sidebar-btn ${viewMode === 'editor' ? 'active' : ''}`}
           onClick={() => { setEditorInitialSceneKey(null); setViewMode('editor'); }}
           title="Editor"
+          aria-label="Editor view"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
@@ -2715,6 +2756,7 @@ function App() {
           className={`app-sidebar-btn ${viewMode === 'notes' ? 'active' : ''}`}
           onClick={() => setViewMode('notes')}
           title="Notes"
+          aria-label="Notes view"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -2728,6 +2770,7 @@ function App() {
           className={`app-sidebar-btn ${viewMode === 'analytics' ? 'active' : ''}`}
           onClick={() => setViewMode('analytics')}
           title="Analytics"
+          aria-label="Analytics view"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <rect x="3" y="12" width="4" height="9"/>
@@ -2741,6 +2784,7 @@ function App() {
           className="app-sidebar-btn"
           onClick={() => setShowSearch(true)}
           title="Search (Cmd+K)"
+          aria-label="Search scenes and notes"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/>
@@ -2880,6 +2924,7 @@ function App() {
             className="icon-btn"
             onClick={() => setShowSearch(true)}
             title="Search (Cmd+K)"
+            aria-label="Search scenes and notes"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8"/>
@@ -2891,6 +2936,7 @@ function App() {
             onClick={undoProjectData}
             disabled={!canUndo}
             title="Undo (Cmd+Z)"
+            aria-label="Undo"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 7v6h6"/>
@@ -2902,6 +2948,7 @@ function App() {
             onClick={redoProjectData}
             disabled={!canRedo}
             title="Redo (Cmd+Shift+Z)"
+            aria-label="Redo"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 7v6h-6"/>
@@ -2914,6 +2961,9 @@ function App() {
               className={`icon-btn ${showSettingsMenu ? 'active' : ''}`}
               onClick={() => setShowSettingsMenu(!showSettingsMenu)}
               title="Settings & Tools"
+              aria-label="Settings and tools menu"
+              aria-expanded={showSettingsMenu}
+              aria-haspopup="true"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                 <circle cx="12" cy="5" r="2"/>
@@ -2938,6 +2988,7 @@ function App() {
                            licenseStatus.state === 'trial' ? `Trial \u2014 ${licenseStatus.trialDaysRemaining} day${licenseStatus.trialDaysRemaining !== 1 ? 's' : ''} left` :
                            licenseStatus.state === 'expired' ? 'Expired' :
                            'Free'}
+                          {' \u00B7 v' + (__APP_VERSION__)}
                         </span>
                       </div>
                     </div>

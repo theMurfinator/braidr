@@ -11789,6 +11789,41 @@ textarea.table-cell-input {
   }
 }
 
+/* ─── Trial Expiry Banner ────────────────────────────────────────────────── */
+
+.trial-expiry-banner {
+  position: fixed;
+  top: 0;
+  left: 56px;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.trial-expiry-banner button {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.4);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.trial-expiry-banner button:hover {
+  background: rgba(255,255,255,0.35);
+}
+
 /* ─── Update Banner ──────────────────────────────────────────────────────── */
 
 .update-banner {
