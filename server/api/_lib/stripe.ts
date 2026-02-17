@@ -1,12 +1,24 @@
 import Stripe from 'stripe';
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
+let _stripe: Stripe | null = null;
 
-if (!STRIPE_SECRET_KEY) {
-  console.error('STRIPE_SECRET_KEY is not set in environment variables');
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error('STRIPE_SECRET_KEY is not set in environment variables');
+    }
+    _stripe = new Stripe(key);
+  }
+  return _stripe;
 }
 
-export const stripe = new Stripe(STRIPE_SECRET_KEY);
+// Keep backward compat export — lazy getter
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    return (getStripe() as any)[prop];
+  },
+});
 
 interface SubscriptionInfo {
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'none';
@@ -23,7 +35,8 @@ const STATUS_PRIORITY: Record<string, number> = {
 };
 
 export async function getActiveSubscriptionByEmail(email: string): Promise<SubscriptionInfo> {
-  const customers = await stripe.customers.list({ email, limit: 10 });
+  const s = getStripe();
+  const customers = await s.customers.list({ email, limit: 10 });
 
   if (customers.data.length === 0) {
     return { status: 'none' };
@@ -33,7 +46,7 @@ export async function getActiveSubscriptionByEmail(email: string): Promise<Subsc
   let bestPriority = 0;
 
   for (const customer of customers.data) {
-    const subs = await stripe.subscriptions.list({
+    const subs = await s.subscriptions.list({
       customer: customer.id,
       limit: 10,
     });
