@@ -101,4 +101,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
   safeToClose: () => ipcRenderer.send(IPC_CHANNELS.SAFE_TO_CLOSE),
+  // Auto-updater
+  onUpdateStatus: (callback: (data: any) => void) => {
+    const listener = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('update-status', listener);
+    return () => {
+      ipcRenderer.removeListener('update-status', listener);
+    };
+  },
+  updateDownload: () => ipcRenderer.send('update-download'),
+  updateInstall: () => ipcRenderer.send('update-install'),
 });

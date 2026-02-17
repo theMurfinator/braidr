@@ -398,6 +398,26 @@
   text-overflow: ellipsis;
 }
 
+/* Check-in button next to timer */
+.toolbar-checkin-btn {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.toolbar-checkin-btn:hover {
+  background: var(--bg-tertiary, #e8e8e8);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
 /* Manual time entry (editor meta) */
 .editor-manual-time {
   margin-top: 6px;
@@ -3422,25 +3442,24 @@ textarea.scene-metadata-field-input {
   transition: all 0.15s;
 }
 
-/* Braided scene card - POV text layout */
+/* Braided scene card - POV text layout (matches .scene-card styling) */
 .braided-scene-item.pov-text {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 16px 20px;
+  padding: 18px 20px;
   background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 6px;
+  transition: background 0.15s ease;
+  box-shadow: none;
+  margin-bottom: 0;
 }
 
 .braided-scene-item.pov-text:hover {
-  background: var(--surface-light);
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-secondary);
 }
 
 .braided-text-header {
@@ -6454,10 +6473,16 @@ textarea.scene-metadata-field-input {
   padding-right: 15px;
 }
 
-/* One panel open: use content-padding slider */
-.editor-draft.one-panel .editor-draft-editor {
+/* Left panel only: pad right side more */
+.editor-draft.left-panel-only .editor-draft-editor {
   padding-left: var(--content-padding, 40px);
   padding-right: var(--content-padding, 40px);
+}
+
+/* Right panel only: constrain width so text doesn't stretch */
+.editor-draft.right-panel-only .editor-draft-editor {
+  padding-left: var(--content-padding, 120px);
+  padding-right: 15px;
 }
 
 /* No panels: use content-padding slider */
@@ -6470,7 +6495,7 @@ textarea.scene-metadata-field-input {
   outline: none;
   min-height: 300px;
   line-height: 1.8;
-  font-size: 17px;
+  font-size: var(--font-body-size, 17px);
   font-family: var(--font-body);
   font-weight: var(--font-body-weight);
   color: var(--font-body-color);
@@ -6577,7 +6602,7 @@ textarea.scene-metadata-field-input {
   margin: 0;
   padding: 2px 4px;
   margin-left: -4px;
-  font-size: 28px;
+  font-size: var(--font-section-title-size, 28px);
   font-weight: var(--font-section-title-weight);
   color: var(--font-section-title-color);
   font-family: var(--font-section-title);
@@ -6587,12 +6612,6 @@ textarea.scene-metadata-field-input {
   letter-spacing: -0.01em;
   border-radius: 4px;
   text-align: left;
-}
-
-@media (min-width: 768px) {
-  .editor-draft-scene-title {
-    font-size: 32px;
-  }
 }
 
 .editor-draft-scene-title:hover {
@@ -7288,7 +7307,7 @@ textarea.scene-metadata-field-input {
   font-size: 12px;
   color: var(--text-secondary);
   margin-bottom: 2px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .editor-meta-field-input,
@@ -11724,6 +11743,144 @@ textarea.table-cell-input {
   }
 }
 
+/* ─── Update Banner ──────────────────────────────────────────────────────── */
+
+.update-banner {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--text-primary);
+  color: #fff;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  line-height: 1.4;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+  animation: update-banner-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 480px;
+  min-width: 280px;
+}
+
+.update-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.update-banner-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.9;
+}
+
+.update-banner-icon-spin {
+  animation: spin 0.8s linear infinite;
+}
+
+.update-banner-icon-ready {
+  color: #4ade80;
+}
+
+.update-banner-icon-error {
+  color: #f87171;
+}
+
+.update-banner-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.update-banner-action {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.update-banner-action:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.update-banner-action-install {
+  background: #16a34a;
+  border-color: #22c55e;
+}
+
+.update-banner-action-install:hover {
+  background: #15803d;
+  border-color: #16a34a;
+}
+
+.update-banner-progress {
+  flex-shrink: 0;
+  width: 80px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.update-banner-progress-fill {
+  height: 100%;
+  background: #60a5fa;
+  border-radius: 2px;
+  transition: width 0.3s ease-out;
+}
+
+.update-banner-dismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.update-banner-dismiss:hover {
+  color: #fff;
+}
+
+.update-banner-error {
+  background: #991b1b;
+}
+
+@keyframes update-banner-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
 /* =========================================
    Check-in Modal
    ========================================= */
@@ -12130,78 +12287,7 @@ textarea.table-cell-input {
   to { transform: rotate(360deg); }
 }
 
-/* When trial banner is visible, offset fixed elements */
-body.has-trial-banner .app-sidebar {
-  top: 32px;
-}
-
-body.has-trial-banner .app {
-  padding-top: 32px;
-  /* height stays 100vh from base rule — padding-top with border-box
-     already reserves space for the banner. calc(100vh - 32px) was
-     double-subtracting, losing 32px at the bottom. */
-}
-
-/* Trial banner — sits at the very top of the window */
-.license-trial-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 32px;
-  background: var(--accent);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 500;
-  z-index: 9999;
-  -webkit-app-region: drag;
-}
-
-.license-trial-banner-actions {
-  display: flex;
-  gap: 8px;
-  -webkit-app-region: no-drag;
-}
-
-.license-banner-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: #fff;
-  padding: 2px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-family: var(--font-ui);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.license-banner-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.license-banner-btn-primary {
-  background: #fff;
-  border: none;
-  color: var(--accent);
-  padding: 2px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-weight: 600;
-  font-family: var(--font-ui);
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.license-banner-btn-primary:hover {
-  opacity: 0.9;
-}
-
-/* Expired / blocked screen */
+/* Expired / blocked / unlicensed screen */
 .license-expired-screen {
   display: flex;
   align-items: center;

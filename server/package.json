@@ -1,14 +1,14 @@
 {
   "name": "braidr-server",
   "version": "1.0.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel --prod"
   },
   "dependencies": {
-    "@vercel/blob": "^2.2.0",
-    "stripe": "^17.0.0"
+    "@vercel/blob": "^2.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

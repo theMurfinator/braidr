@@ -13,7 +13,7 @@ Writers working on multi-POV novels (fantasy, sci-fi, romance, literary fiction)
 
 ### Pricing Model
 - **14-day free trial** → **$39/year subscription**
-- Payments via Stripe, license keys via Keygen
+- Payments and license keys via LemonSqueezy
 
 ---
 
@@ -36,7 +36,7 @@ Writers working on multi-POV novels (fantasy, sci-fi, romance, literary fiction)
 - [ ] Apple Developer account ($99/year)
 - [ ] Code signing + notarization setup
 - [ ] Auto-update system (electron-updater)
-- [x] License key system (Stripe + Keygen integration)
+- [x] License key system (LemonSqueezy integration)
 - [ ] Professional app icon
 
 **Important (Should-have):**

@@ -78,63 +78,56 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 autoUpdater.autoDownload = false; // Don't auto-download, let user confirm
 autoUpdater.autoInstallOnAppQuit = true;
 
-// Auto-updater event handlers
+// Flag to bypass graceful quit handler when installing updates
+let isInstallingUpdate = false;
+
+// Auto-updater event handlers — send status to renderer for in-app UI
 autoUpdater.on('checking-for-update', () => {
   console.log('Checking for updates...');
+  mainWindow?.webContents.send('update-status', { status: 'checking' });
 });
 
 autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info.version);
-  if (mainWindow) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Update Available',
-      message: `A new version (${info.version}) is available!`,
-      detail: 'Would you like to download it now?',
-      buttons: ['Download', 'Later'],
-      defaultId: 0,
-      cancelId: 1
-    }).then(result => {
-      if (result.response === 0) {
-        autoUpdater.downloadUpdate();
-      }
-    });
-  }
+  mainWindow?.webContents.send('update-status', { status: 'available', version: info.version });
 });
 
 autoUpdater.on('update-not-available', () => {
   console.log('No updates available');
-  // Dialog disabled - no need to notify user when no updates
+  mainWindow?.webContents.send('update-status', { status: 'not-available' });
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
-  const logMessage = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}%`;
-  console.log(logMessage);
-  // Could send this to renderer for a progress bar
+  console.log(`Download: ${Math.round(progressObj.percent)}%`);
+  mainWindow?.webContents.send('update-status', {
+    status: 'downloading',
+    percent: progressObj.percent,
+  });
 });
 
 autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded:', info.version);
   captureEvent('update_downloaded', { version: info.version });
-  if (mainWindow) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Update Ready',
-      message: 'Update downloaded. Braidr will restart to install the update.',
-      buttons: ['Restart Now', 'Later'],
-      defaultId: 0,
-      cancelId: 1
-    }).then(result => {
-      if (result.response === 0) {
-        autoUpdater.quitAndInstall();
-      }
-    });
-  }
+  mainWindow?.webContents.send('update-status', { status: 'downloaded', version: info.version });
 });
 
 autoUpdater.on('error', (error) => {
   console.error('Auto-updater error:', error);
-  // Dialog disabled - silently fail update checks
+  mainWindow?.webContents.send('update-status', {
+    status: 'error',
+    message: error?.message || 'Update check failed',
+  });
+});
+
+// IPC handlers for update actions from renderer
+ipcMain.on('update-download', () => {
+  autoUpdater.downloadUpdate();
+});
+
+ipcMain.on('update-install', () => {
+  // Set flag so the graceful quit handler doesn't block the restart
+  isInstallingUpdate = true;
+  autoUpdater.quitAndInstall(false, true);
 });
 
 function createMenu() {
@@ -312,6 +305,9 @@ function createWindow() {
   let isReadyToClose = false;
 
   mainWindow.on('close', (e) => {
+    // Skip graceful quit when installing an update — let quitAndInstall() proceed
+    if (isInstallingUpdate) return;
+
     if (!isReadyToClose && mainWindow) {
       e.preventDefault();
       mainWindow.webContents.send('app-closing');

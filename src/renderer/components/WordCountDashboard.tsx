@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Scene, Character, PlotPoint } from '../../shared/types';
+import { Scene, Character, PlotPoint, MetadataFieldDef } from '../../shared/types';
 import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages } from '../utils/analyticsStore';
 import { track } from '../utils/posthogTracker';
 
@@ -10,6 +10,7 @@ interface WordCountDashboardProps {
   characterColors: Record<string, string>;
   draftContent: Record<string, string>;
   sceneMetadata: Record<string, Record<string, string | string[]>>;
+  metadataFieldDefs: MetadataFieldDef[];
   wordCountGoal: number;
   projectPath: string;
   onGoalChange: (goal: number) => void;
@@ -28,7 +29,7 @@ function getSceneKey(scene: Scene): string {
   return `${scene.characterId}:${scene.sceneNumber}`;
 }
 
-export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, wordCountGoal, projectPath, onGoalChange, sceneSessions = [] }: WordCountDashboardProps) {
+export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [] }: WordCountDashboardProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(wordCountGoal || ''));
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -57,7 +58,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     let totalWords = 0;
     const perCharacter: Record<string, number> = {};
     const perPlotPoint: Record<string, number> = {};
-    const perStatus: Record<string, number> = {};
+    const perStatus: Record<string, { scenes: number; words: number }> = {};
     let draftedScenes = 0;
     let longestScene = 0;
     const sceneCounts: number[] = [];
@@ -87,8 +88,9 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
       // Per status
       const meta = sceneMetadata[key];
       const status = (meta?.['_status'] as string) || 'No status';
-      if (!perStatus[status]) perStatus[status] = 0;
-      perStatus[status]++;
+      if (!perStatus[status]) perStatus[status] = { scenes: 0, words: 0 };
+      perStatus[status].scenes++;
+      perStatus[status].words += words;
     });
 
     const avgWords = sceneCounts.length > 0 ? Math.round(sceneCounts.reduce((a, b) => a + b, 0) / sceneCounts.length) : 0;
@@ -605,6 +607,40 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
             })}
           </div>
         </div>
+
+        {/* Scenes by Status */}
+        {Object.keys(stats.perStatus).length > 0 && (
+          <div className="analytics-card">
+            <div className="analytics-card-header">
+              <span className="analytics-card-title">By Status</span>
+              <span className="analytics-card-subtitle">{scenes.length} scenes</span>
+            </div>
+            <div className="analytics-character-bars">
+              {(() => {
+                const statusField = metadataFieldDefs.find(f => f.id === '_status');
+                const statusColors = statusField?.optionColors || {};
+                const sorted = Object.entries(stats.perStatus).sort((a, b) => b[1].scenes - a[1].scenes);
+                const maxScenes = Math.max(...sorted.map(([, v]) => v.scenes), 1);
+                return sorted.map(([status, data]) => {
+                  const color = statusColors[status] || '#94a3b8';
+                  const barWidth = (data.scenes / maxScenes) * 100;
+                  return (
+                    <div key={status} className="analytics-char-row">
+                      <div className="analytics-char-info">
+                        <span className="analytics-char-dot" style={{ backgroundColor: color }} />
+                        <span className="analytics-char-name">{status}</span>
+                        <span className="analytics-char-words">{data.scenes} scenes · {data.words.toLocaleString()} words</span>
+                      </div>
+                      <div className="analytics-char-bar-track">
+                        <div className="analytics-char-bar-fill" style={{ width: `${barWidth}%`, backgroundColor: color }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
 
         {/* Check-in Averages */}
         {checkinAvgs && (
