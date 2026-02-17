@@ -145,18 +145,13 @@ autoUpdater.on('error', (error) => {
 ipcMain.on('update-download', async () => {
   console.log('update-download IPC received, starting download...');
   try {
-    // Re-check with autoDownload enabled to ensure download actually starts,
-    // even if the cached update info from the initial check has gone stale.
-    autoUpdater.autoDownload = true;
-    await autoUpdater.checkForUpdates();
+    await autoUpdater.downloadUpdate();
   } catch (err: any) {
     console.error('downloadUpdate() failed:', err);
     mainWindow?.webContents.send('update-status', {
       status: 'error',
       message: err?.message || 'Download failed',
     });
-  } finally {
-    autoUpdater.autoDownload = false;
   }
 });
 

@@ -11831,7 +11831,8 @@ textarea.table-cell-input {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10001;
+  z-index: 1800;
+  -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -11896,6 +11897,7 @@ textarea.table-cell-input {
   padding: 4px 12px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
+  -webkit-app-region: no-drag;
 }
 
 .update-banner-action:hover {
@@ -11941,6 +11943,7 @@ textarea.table-cell-input {
   padding: 2px;
   border-radius: 4px;
   transition: color 0.15s;
+  -webkit-app-region: no-drag;
 }
 
 .update-banner-dismiss:hover {
@@ -11971,6 +11974,7 @@ textarea.table-cell-input {
   inset: 0;
   z-index: 2000;
   background: rgba(0, 0, 0, 0.3);
+  -webkit-app-region: no-drag;
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;

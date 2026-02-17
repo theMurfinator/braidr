@@ -2503,7 +2503,7 @@ function App() {
 
     return (
       <div className="app">
-        <UpdateBanner />
+        {!showUpdateModal && <UpdateBanner />}
         <div className="main-content welcome-main-content">
           <div className="welcome-screen">
             {!showNewProject ? (
@@ -2703,7 +2703,7 @@ function App() {
 
   return (
     <div className="app">
-      <UpdateBanner />
+      {!showUpdateModal && <UpdateBanner />}
       {licenseStatus?.state === 'trial' && licenseStatus.trialDaysRemaining !== undefined && licenseStatus.trialDaysRemaining <= 3 && (
         <div className="trial-expiry-banner">
           <span>
