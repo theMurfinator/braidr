@@ -7,7 +7,7 @@ import Heading from '@tiptap/extension-heading';
 import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion } from '../../shared/types';
+import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion, NoteMetadata } from '../../shared/types';
 import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
 import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
@@ -52,6 +52,8 @@ interface EditorViewProps {
   onDeleteSession?: (sessionId: string) => void;
   sceneSessionsByDate?: (sceneKey: string) => { date: string; totalMs: number; sessionCount: number }[];
   sceneSessionsList?: (sceneKey: string) => SceneSession[];
+  notesIndex?: NoteMetadata[];
+  onGoToNote?: (noteId: string) => void;
 }
 
 export interface EditorViewHandle {
@@ -152,6 +154,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   onDeleteSession,
   sceneSessionsByDate,
   sceneSessionsList,
+  notesIndex = [],
+  onGoToNote,
 }, ref) {
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<Set<string>>(new Set());
@@ -1387,6 +1391,35 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                 );
               })()}
             </div>
+
+            {/* Linked Notes */}
+            {selectedScene && (() => {
+              const sceneKey = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
+              const linkedNotes = notesIndex.filter(n => n.sceneLinks?.includes(sceneKey));
+              return linkedNotes.length > 0 ? (
+                <div className="editor-meta-section">
+                  <h4 className="editor-meta-label">Linked Notes</h4>
+                  <div className="editor-meta-linked-notes">
+                    {linkedNotes.map(note => (
+                      <button
+                        key={note.id}
+                        className="editor-meta-linked-note"
+                        onClick={() => onGoToNote?.(note.id)}
+                        title={`Open "${note.title}" in Notes`}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                          <line x1="16" y1="13" x2="8" y2="13"/>
+                          <line x1="16" y1="17" x2="8" y2="17"/>
+                        </svg>
+                        <span>{note.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null;
+            })()}
           </>
         )}
 

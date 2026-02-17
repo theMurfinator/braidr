@@ -178,6 +178,15 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
     return items;
   }, [orderedScenes, chapters, draftContent, selectedSceneIds]);
 
+  // Check if a chapter at index i has at least one selected scene with a draft after it
+  const chapterHasContent = (items: typeof previewItems, startIdx: number) => {
+    for (let k = startIdx + 1; k < items.length; k++) {
+      if (items[k].type === 'chapter') return false; // hit next chapter
+      if (items[k].scene && items[k].hasDraft && items[k].isSelected) return true;
+    }
+    return false;
+  };
+
   // Build HTML string for export (shared between HTML and PDF export)
   const buildExportHTML = () => {
     let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
@@ -198,8 +207,8 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
       html += `<p class="author">by ${authorName}</p>\n`;
     }
 
-    previewItems.forEach(item => {
-      if (item.type === 'chapter' && includeChapterHeadings) {
+    previewItems.forEach((item, idx) => {
+      if (item.type === 'chapter' && includeChapterHeadings && chapterHasContent(previewItems, idx)) {
         html += `<h2>${item.chapterTitle}</h2>\n`;
       } else if (item.scene && item.hasDraft && item.isSelected) {
         const key = getSceneKey(item.scene);
@@ -227,8 +236,8 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
       md += `*by ${authorName}*\n\n`;
     }
 
-    previewItems.forEach(item => {
-      if (item.type === 'chapter' && includeChapterHeadings) {
+    previewItems.forEach((item, idx) => {
+      if (item.type === 'chapter' && includeChapterHeadings && chapterHasContent(previewItems, idx)) {
         md += `\n## ${item.chapterTitle}\n\n`;
       } else if (item.scene && item.hasDraft && item.isSelected) {
         const key = getSceneKey(item.scene);
@@ -286,8 +295,8 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
       }));
     }
 
-    previewItems.forEach(item => {
-      if (item.type === 'chapter' && includeChapterHeadings) {
+    previewItems.forEach((item, idx) => {
+      if (item.type === 'chapter' && includeChapterHeadings && chapterHasContent(previewItems, idx)) {
         paragraphs.push(new Paragraph({
           text: item.chapterTitle || '',
           heading: HeadingLevel.HEADING_2,
@@ -391,8 +400,8 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
     }
 
     let hasContent = false;
-    previewItems.forEach(item => {
-      if (item.type === 'chapter' && includeChapterHeadings) {
+    previewItems.forEach((item, idx) => {
+      if (item.type === 'chapter' && includeChapterHeadings && chapterHasContent(previewItems, idx)) {
         html += `<h2 style="text-align: center; font-size: 18px; margin: 32px 0 16px; color: #555; font-weight: 600;">${item.chapterTitle}</h2>\n`;
       } else if (item.scene && item.hasDraft && item.isSelected) {
         hasContent = true;
@@ -513,22 +522,28 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
             {/* Scene order preview */}
             <div className="compile-preview">
               <h4>What to compile</h4>
-              {previewItems.filter(item => item.type === 'scene').map((item) => (
-                <div key={`sc-${item.scene!.id}`} className={`compile-preview-scene ${item.hasDraft ? 'has-draft' : 'no-draft'} ${item.isSelected ? 'selected' : ''}`} style={{ borderLeftColor: characterColors[item.scene!.characterId] || 'transparent' }}>
-                  <input
-                    type="checkbox"
-                    className="compile-scene-checkbox"
-                    checked={item.isSelected || false}
-                    onChange={() => toggleSceneSelection(item.scene!.id)}
-                    disabled={!item.hasDraft}
-                  />
-                  <span className="compile-preview-char">
-                    {characters.find(c => c.id === item.scene!.characterId)?.name}
-                    {item.sceneNumber && ` — Scene ${item.sceneNumber}`}
-                  </span>
-                  <span className="compile-preview-title">{cleanSceneContent(item.scene!.content) || `Scene ${item.scene!.sceneNumber}`}</span>
-                  {!item.hasDraft && <span className="compile-preview-badge">No draft</span>}
-                </div>
+              {previewItems.map((item, idx) => (
+                item.type === 'chapter' ? (
+                  <div key={`ch-${idx}`} className="compile-preview-chapter" style={{ opacity: includeChapterHeadings ? 1 : 0.4 }}>
+                    {item.chapterTitle}
+                  </div>
+                ) : (
+                  <div key={`sc-${item.scene!.id}`} className={`compile-preview-scene ${item.hasDraft ? 'has-draft' : 'no-draft'} ${item.isSelected ? 'selected' : ''}`} style={{ borderLeftColor: characterColors[item.scene!.characterId] || 'transparent' }}>
+                    <input
+                      type="checkbox"
+                      className="compile-scene-checkbox"
+                      checked={item.isSelected || false}
+                      onChange={() => toggleSceneSelection(item.scene!.id)}
+                      disabled={!item.hasDraft}
+                    />
+                    <span className="compile-preview-char">
+                      {characters.find(c => c.id === item.scene!.characterId)?.name}
+                      {item.sceneNumber && ` — Scene ${item.sceneNumber}`}
+                    </span>
+                    <span className="compile-preview-title">{cleanSceneContent(item.scene!.content) || `Scene ${item.scene!.sceneNumber}`}</span>
+                    {!item.hasDraft && <span className="compile-preview-badge">No draft</span>}
+                  </div>
+                )
               ))}
               {unplacedScenes.length > 0 && (
                 <>

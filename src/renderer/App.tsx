@@ -3190,6 +3190,8 @@ function App() {
                 onDeleteSession={handleDeleteSession}
                 sceneSessionsByDate={(sceneKey: string) => getSceneSessionsByDate(sceneSessions, sceneKey)}
                 sceneSessionsList={(sceneKey: string) => getSceneSessionsList(sceneSessions, sceneKey)}
+                notesIndex={searchNotesIndex}
+                onGoToNote={(noteId: string) => { setPendingNoteId(noteId); setViewMode('notes'); }}
               />
             ) : viewMode === 'pov' ? (
               // POV View with plot points and table of contents
