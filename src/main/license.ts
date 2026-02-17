@@ -125,14 +125,8 @@ export async function getLicenseStatus(): Promise<LicenseStatus> {
     return { state: 'trial_expired', email: data.email };
   }
 
-  // No email stored — check trial (legacy local-only trial)
-  if (data.trialStartDate) {
-    const remaining = trialDaysRemaining(data.trialStartDate);
-    if (remaining > 0) {
-      return { state: 'trial', trialDaysRemaining: remaining };
-    }
-    return { state: 'trial_expired' };
-  }
+  // No email stored — require email entry even if local trial exists
+  // (handles migration from pre-email trial versions)
 
   // First launch — unlicensed (user must enter email to start trial)
   return { state: 'unlicensed' };
