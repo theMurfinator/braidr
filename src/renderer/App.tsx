@@ -363,8 +363,7 @@ function App() {
       setSceneSessions(data.sceneSessions || []);
     });
 
-    // When a session ends, merge it into analytics and persist
-    const CHECKIN_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+    // When a session ends, merge it into analytics and persist (no auto-pop check-in)
     tracker.setOnSessionEnd((summary) => {
       if (!analyticsRef.current || !projectData) return;
 
@@ -377,18 +376,11 @@ function App() {
         }
       }
 
-      if (summary.durationMs >= CHECKIN_THRESHOLD_MS && !isClosingRef.current) {
-        // Defer save — show check-in modal
-        pendingSessionRef.current = summary;
-        pendingTotalWordsRef.current = totalWords;
-        setPendingSession(summary);
-      } else {
-        // Short session or app closing — save immediately without check-in
-        const updated = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords, null);
-        analyticsRef.current = updated;
-        setSceneSessions(updated.sceneSessions || []);
-        saveAnalytics(projectData.projectPath, updated);
-      }
+      // Always save immediately — check-in is manual only
+      const updated = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords, null);
+      analyticsRef.current = updated;
+      setSceneSessions(updated.sceneSessions || []);
+      saveAnalytics(projectData.projectPath, updated);
     });
 
     return () => {
@@ -2819,6 +2811,13 @@ function App() {
               </button>
             );
           })()}
+          {timerSceneKey && (
+            <button
+              className="toolbar-checkin-btn"
+              onClick={() => setShowManualCheckin(true)}
+              title="Mood check-in"
+            >Check in</button>
+          )}
           <button
             className="icon-btn"
             onClick={() => setShowSearch(true)}
@@ -2992,6 +2991,7 @@ function App() {
                 characterColors={characterColors}
                 draftContent={draftContent}
                 sceneMetadata={sceneMetadata}
+                metadataFieldDefs={metadataFieldDefs}
                 wordCountGoal={wordCountGoal}
                 projectPath={projectData.projectPath}
                 onGoalChange={handleWordCountGoalChange}

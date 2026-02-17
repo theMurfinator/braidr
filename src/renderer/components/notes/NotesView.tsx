@@ -145,6 +145,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     else localStorage.removeItem('braidr-last-note-id');
   };
   const [noteContent, setNoteContent] = useState<string>('<p></p>');
+  const [noteLoading, setNoteLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('braidr-notes-sidebar-collapsed');
     return saved !== null ? saved === 'true' : false;
@@ -289,6 +290,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     if (selectedNoteId) {
       const note = notesIndex.notes.find(n => n.id === selectedNoteId);
       if (note) {
+        setNoteLoading(true);
         loadNoteContent(note.fileName);
       }
     }
@@ -301,6 +303,8 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     } catch (err) {
       addToast('Couldn\u2019t open note');
       setNoteContent('<p></p>');
+    } finally {
+      setNoteLoading(false);
     }
   };
 
@@ -585,7 +589,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             </svg>
           </button>
         </div>
-        {selectedNote ? (
+        {selectedNote && !noteLoading ? (
           <NoteEditor
             noteId={selectedNote.id}
             title={selectedNote.title}
@@ -601,6 +605,8 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             onNavigateNote={handleNavigateNote}
             onTagsChange={handleNoteTagsChange}
           />
+        ) : selectedNote && noteLoading ? (
+          <div className="notes-empty-state"><div className="notes-empty-state-content">Loading...</div></div>
         ) : (
           <div className="notes-empty-state">
             <div className="notes-empty-state-content">

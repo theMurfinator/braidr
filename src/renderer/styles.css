@@ -398,6 +398,26 @@
   text-overflow: ellipsis;
 }
 
+/* Check-in button next to timer */
+.toolbar-checkin-btn {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.toolbar-checkin-btn:hover {
+  background: var(--bg-tertiary, #e8e8e8);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
 /* Manual time entry (editor meta) */
 .editor-manual-time {
   margin-top: 6px;
@@ -3422,25 +3442,24 @@ textarea.scene-metadata-field-input {
   transition: all 0.15s;
 }
 
-/* Braided scene card - POV text layout */
+/* Braided scene card - POV text layout (matches .scene-card styling) */
 .braided-scene-item.pov-text {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 16px 20px;
+  padding: 18px 20px;
   background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 6px;
+  transition: background 0.15s ease;
+  box-shadow: none;
+  margin-bottom: 0;
 }
 
 .braided-scene-item.pov-text:hover {
-  background: var(--surface-light);
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-secondary);
 }
 
 .braided-text-header {
@@ -6454,10 +6473,16 @@ textarea.scene-metadata-field-input {
   padding-right: 15px;
 }
 
-/* One panel open: use content-padding slider */
-.editor-draft.one-panel .editor-draft-editor {
+/* Left panel only: pad right side more */
+.editor-draft.left-panel-only .editor-draft-editor {
   padding-left: var(--content-padding, 40px);
   padding-right: var(--content-padding, 40px);
+}
+
+/* Right panel only: constrain width so text doesn't stretch */
+.editor-draft.right-panel-only .editor-draft-editor {
+  padding-left: var(--content-padding, 120px);
+  padding-right: 15px;
 }
 
 /* No panels: use content-padding slider */
@@ -6470,7 +6495,7 @@ textarea.scene-metadata-field-input {
   outline: none;
   min-height: 300px;
   line-height: 1.8;
-  font-size: 17px;
+  font-size: var(--font-body-size, 17px);
   font-family: var(--font-body);
   font-weight: var(--font-body-weight);
   color: var(--font-body-color);
@@ -6577,7 +6602,7 @@ textarea.scene-metadata-field-input {
   margin: 0;
   padding: 2px 4px;
   margin-left: -4px;
-  font-size: 28px;
+  font-size: var(--font-section-title-size, 28px);
   font-weight: var(--font-section-title-weight);
   color: var(--font-section-title-color);
   font-family: var(--font-section-title);
@@ -6587,12 +6612,6 @@ textarea.scene-metadata-field-input {
   letter-spacing: -0.01em;
   border-radius: 4px;
   text-align: left;
-}
-
-@media (min-width: 768px) {
-  .editor-draft-scene-title {
-    font-size: 32px;
-  }
 }
 
 .editor-draft-scene-title:hover {
@@ -7288,7 +7307,7 @@ textarea.scene-metadata-field-input {
   font-size: 12px;
   color: var(--text-secondary);
   margin-bottom: 2px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .editor-meta-field-input,
