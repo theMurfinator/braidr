@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, MetadataFieldDef, DraftVersion, NoteMetadata } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, MetadataFieldDef, DraftVersion, NoteMetadata, LicenseStatus } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -25,6 +25,7 @@ import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import { UpdateBanner } from './components/UpdateBanner';
 import UpdateModal from './components/UpdateModal';
+import TourOverlay from './components/TourOverlay';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 import { track } from './utils/posthogTracker';
@@ -105,7 +106,9 @@ function App() {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showTour, setShowTour] = useState(() => localStorage.getItem('braidr-tour-version') !== '1');
   const settingsMenuRef = useRef<HTMLDivElement>(null);
+  const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null);
   const [wordCountGoal, setWordCountGoal] = useState(0);
   const wordCountGoalRef = useRef(0);
   const [searchNotesIndex, setSearchNotesIndex] = useState<NoteMetadata[]>([]);
@@ -319,6 +322,15 @@ function App() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showSettingsMenu]);
+
+  // Fetch license status for account display
+  useEffect(() => {
+    (window as any).electronAPI?.getLicenseStatus?.().then((result: any) => {
+      if (result?.success && result.data) {
+        setLicenseStatus(result.data);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Keyboard shortcuts for undo/redo
   useEffect(() => {
@@ -2911,6 +2923,27 @@ function App() {
             </button>
             {showSettingsMenu && (
               <div className="settings-dropdown">
+                {licenseStatus && (
+                  <>
+                    <div className="settings-account-header">
+                      <div className="settings-account-icon">
+                        {licenseStatus.customerEmail ? licenseStatus.customerEmail.charAt(0).toUpperCase() : 'B'}
+                      </div>
+                      <div className="settings-account-info">
+                        <span className="settings-account-email">
+                          {licenseStatus.customerEmail || 'Braidr'}
+                        </span>
+                        <span className="settings-account-status">
+                          {licenseStatus.state === 'licensed' ? 'Licensed' :
+                           licenseStatus.state === 'trial' ? `Trial \u2014 ${licenseStatus.trialDaysRemaining} day${licenseStatus.trialDaysRemaining !== 1 ? 's' : ''} left` :
+                           licenseStatus.state === 'expired' ? 'Expired' :
+                           'Free'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="settings-dropdown-divider" />
+                  </>
+                )}
                 <button onClick={() => { setShowCompileModal(true); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -3000,6 +3033,14 @@ function App() {
                     <line x1="1" y1="10" x2="23" y2="10"/>
                   </svg>
                   Manage Subscription
+                </button>
+                <button onClick={() => { setShowTour(true); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  Take a Tour
                 </button>
                 <button onClick={() => { setShowFeedbackModal(true); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3941,6 +3982,17 @@ function App() {
       {/* Update Modal (triggered from menu → Check for Updates) */}
       {showUpdateModal && (
         <UpdateModal onClose={() => setShowUpdateModal(false)} />
+      )}
+
+      {/* App Tour */}
+      {showTour && (
+        <TourOverlay
+          onComplete={() => {
+            setShowTour(false);
+            localStorage.setItem('braidr-tour-version', '1');
+          }}
+          setViewMode={setViewMode}
+        />
       )}
     </div>
   );
