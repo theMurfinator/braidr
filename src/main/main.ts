@@ -1004,20 +1004,12 @@ ipcMain.handle(IPC_CHANNELS.OPEN_BILLING_PORTAL, async () => {
 
 ipcMain.handle(IPC_CHANNELS.OPEN_FEEDBACK_EMAIL, async (_event, category: string, message: string) => {
   try {
-    const response = await net.fetch('https://braidr-api.vercel.app/api/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        category,
-        message,
-        appVersion: app.getVersion(),
-        platform: process.platform,
-        timestamp: new Date().toISOString(),
-      }),
+    captureEvent('feedback_submitted', {
+      category,
+      message,
+      appVersion: app.getVersion(),
+      platform: process.platform,
     });
-    if (!response.ok) {
-      return { success: false, error: `Server responded with ${response.status}` };
-    }
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
