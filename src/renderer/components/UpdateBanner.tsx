@@ -16,11 +16,13 @@ export function UpdateBanner() {
   useEffect(() => {
     if (!window.electronAPI?.onUpdateStatus) return;
     const cleanup = window.electronAPI.onUpdateStatus((data: any) => {
-      setUpdate(data);
-      // Show banner again when a new status arrives (except not-available)
-      if (data.status !== 'not-available' && data.status !== 'idle') {
-        setDismissed(false);
-      }
+      setUpdate((prev) => {
+        // Only re-show banner when status genuinely changes (not on every progress tick)
+        if (data.status !== prev.status && data.status !== 'not-available' && data.status !== 'idle') {
+          setDismissed(false);
+        }
+        return data;
+      });
     });
     return cleanup;
   }, []);
