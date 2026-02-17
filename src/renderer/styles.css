@@ -11873,99 +11873,27 @@ textarea.table-cell-input {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-radius: var(--radius-lg);
-  background: var(--text-primary);
-  color: #fff;
-  font-size: 13px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
   font-family: var(--font-ui);
   line-height: 1.4;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   animation: update-banner-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   max-width: 480px;
-  min-width: 280px;
-}
-
-.update-banner-content {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-}
-
-.update-banner-icon {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.9;
-}
-
-.update-banner-icon-spin {
-  animation: spin 0.8s linear infinite;
-}
-
-.update-banner-icon-ready {
-  color: #4ade80;
-}
-
-.update-banner-icon-error {
-  color: #f87171;
+  pointer-events: auto;
 }
 
 .update-banner-text {
   flex: 1;
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.update-banner-action {
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-sm);
-  color: #fff;
-  font-size: 12px;
-  font-family: var(--font-ui);
-  font-weight: 500;
-  padding: 4px 12px;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  -webkit-app-region: no-drag;
-}
-
-.update-banner-action:hover {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.35);
-}
-
-.update-banner-action-install {
-  background: #16a34a;
-  border-color: #22c55e;
-}
-
-.update-banner-action-install:hover {
-  background: #15803d;
-  border-color: #16a34a;
-}
-
-.update-banner-progress {
-  flex-shrink: 0;
-  width: 80px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.update-banner-progress-fill {
-  height: 100%;
-  background: #60a5fa;
-  border-radius: 2px;
-  transition: width 0.3s ease-out;
+.update-banner-text strong {
+  color: var(--text-primary);
 }
 
 .update-banner-dismiss {
@@ -11975,7 +11903,7 @@ textarea.table-cell-input {
   justify-content: center;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   cursor: pointer;
   padding: 2px;
   border-radius: 4px;
@@ -11984,11 +11912,7 @@ textarea.table-cell-input {
 }
 
 .update-banner-dismiss:hover {
-  color: #fff;
-}
-
-.update-banner-error {
-  background: #991b1b;
+  color: var(--text-primary);
 }
 
 @keyframes update-banner-in {
