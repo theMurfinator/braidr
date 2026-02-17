@@ -26,6 +26,7 @@ export const Wikilink = Node.create<WikilinkOptions>({
     return {
       suggestion: {
         char: '[[',
+        allowSpaces: true,
         pluginKey: new PluginKey('wikilinkSuggestion'),
       },
       onNavigate: undefined,

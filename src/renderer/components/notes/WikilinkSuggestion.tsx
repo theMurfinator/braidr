@@ -113,6 +113,7 @@ export function createWikilinkSuggestion(
 ) {
   return {
     char: '[[',
+    allowSpaces: true,
     items: ({ query }: { query: string }) => getItems(query),
     render: () => {
       let component: ReactRenderer<any> | null = null;
