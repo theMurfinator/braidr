@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { listUsers } from '../_lib/users';
+import { listUsers } from '../_lib/users.js';
 
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY!;
 

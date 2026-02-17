@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
-import { unsubscribeUser } from '../_lib/users';
+import { unsubscribeUser } from '../_lib/users.js';
 
 const UNSUBSCRIBE_SECRET = process.env.ADMIN_API_KEY || 'braidr-unsub';
 

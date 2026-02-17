@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '@vercel/kv';
-import { listUsers, type UserRecord } from '../_lib/users';
-import { sendEmail, trialDripEmail } from '../_lib/email';
+import { listUsers, type UserRecord } from '../_lib/users.js';
+import { sendEmail, trialDripEmail } from '../_lib/email.js';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 

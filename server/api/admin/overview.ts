@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { list } from '@vercel/blob';
-import { stripe } from '../_lib/stripe';
+import { stripe } from '../_lib/stripe.js';
 
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY!;
 

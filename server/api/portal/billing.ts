@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { stripe } from '../_lib/stripe';
+import { stripe } from '../_lib/stripe.js';
 
 const BASE_URL = process.env.BASE_URL || 'https://braidr-api.vercel.app';
 

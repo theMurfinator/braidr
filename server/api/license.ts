@@ -1,10 +1,28 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getActiveSubscriptionByEmail } from './_lib/stripe.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  return res.status(200).json({
-    ok: true,
-    hasStripeKey: !!process.env.STRIPE_SECRET_KEY,
-    stripeKeyPrefix: process.env.STRIPE_SECRET_KEY?.substring(0, 7) || 'NOT_SET',
-    env: Object.keys(process.env).filter(k => k.startsWith('STRIPE') || k.startsWith('KV')).sort(),
-  });
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const email = req.query.email as string;
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    const sub = await getActiveSubscriptionByEmail(email);
+    return res.status(200).json({
+      email,
+      status: sub.status,
+      currentPeriodEnd: sub.currentPeriodEnd || null,
+      cancelAtPeriodEnd: sub.cancelAtPeriodEnd || false,
+    });
+  } catch (err: any) {
+    console.error('License check error:', err.message, err.stack);
+    return res.status(500).json({
+      error: 'Failed to check subscription status',
+      detail: err.message,
+    });
+  }
 }

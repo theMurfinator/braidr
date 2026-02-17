@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { stripe } from '../_lib/stripe';
-import { markConverted } from '../_lib/users';
-import { sendEmail, welcomeEmail, paymentFailedEmail } from '../_lib/email';
+import { stripe } from '../_lib/stripe.js';
+import { markConverted } from '../_lib/users.js';
+import { sendEmail, welcomeEmail, paymentFailedEmail } from '../_lib/email.js';
 
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
 
