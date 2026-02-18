@@ -187,6 +187,25 @@ function createMenu() {
         { role: 'about' },
         { type: 'separator' },
         {
+          label: 'Account...',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('navigate-to-account');
+            }
+          }
+        },
+        {
+          label: 'Sign Out',
+          click: () => {
+            deactivateLicense();
+            if (mainWindow) {
+              mainWindow.webContents.send('show-license-dialog');
+              mainWindow.reload();
+            }
+          }
+        },
+        { type: 'separator' },
+        {
           label: 'Check for Updates...',
           click: () => {
             mainWindow?.webContents.send('show-update-modal');
@@ -268,48 +287,35 @@ function createMenu() {
             await shell.openExternal('https://getbraider.com');
           }
         },
-        { type: 'separator' },
-        {
-          label: 'Manage Account...',
-          click: () => {
-            if (mainWindow) {
-              mainWindow.webContents.send('show-license-dialog');
+        ...(!isMac ? [
+          { type: 'separator' as const },
+          {
+            label: 'Account...',
+            click: () => {
+              if (mainWindow) {
+                mainWindow.webContents.send('navigate-to-account');
+              }
             }
-          }
-        },
-        {
-          label: 'Subscribe',
-          click: () => {
-            openPurchaseUrl();
-          }
-        },
-        {
-          label: 'Account...',
-          click: () => {
-            if (mainWindow) {
-              mainWindow.webContents.send('navigate-to-account');
+          },
+          {
+            label: 'Sign Out',
+            click: () => {
+              deactivateLicense();
+              if (mainWindow) {
+                mainWindow.webContents.send('show-license-dialog');
+                mainWindow.reload();
+              }
             }
-          }
-        },
-        {
-          label: 'Sign Out',
-          click: () => {
-            deactivateLicense();
-            if (mainWindow) {
-              mainWindow.webContents.send('show-license-dialog');
-              mainWindow.reload();
+          },
+          { type: 'separator' as const },
+          {
+            label: 'Check for Updates...',
+            click: () => {
+              mainWindow?.webContents.send('show-update-modal');
+              autoUpdater.checkForUpdates();
             }
-          }
-        },
-        ...(!isMac ? [{
-          type: 'separator' as const
-        }, {
-          label: 'Check for Updates...',
-          click: () => {
-            mainWindow?.webContents.send('show-update-modal');
-            autoUpdater.checkForUpdates();
-          }
-        }] : [])
+          },
+        ] : [])
       ]
     }
   ];
