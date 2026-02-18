@@ -38,6 +38,7 @@
     "wait-on": "^9.0.3"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.7.5",
     "@tiptap/extension-image": "^3.19.0",
     "@tiptap/extension-placeholder": "^3.16.0",
     "@tiptap/extension-table": "^3.19.0",
