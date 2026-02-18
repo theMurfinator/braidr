@@ -1,16 +1,43 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import crypto from 'crypto';
-import { unsubscribeUser } from '../_lib/users.js';
+import { registerUser, unsubscribeUser } from './_lib/users.js';
 
 const UNSUBSCRIBE_SECRET = process.env.ADMIN_API_KEY || 'braidr-unsub';
 
-export function generateUnsubscribeToken(email: string): string {
+function generateUnsubscribeToken(email: string): string {
   return crypto.createHmac('sha256', UNSUBSCRIBE_SECRET).update(email.toLowerCase()).digest('hex');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
+  const action = req.query.action as string;
+
+  if (action === 'register' && req.method === 'POST') {
+    return handleRegister(req, res);
+  } else if (action === 'unsubscribe' && req.method === 'GET') {
+    return handleUnsubscribe(req, res);
+  }
+
+  return res.status(400).json({ error: 'Invalid action. Use ?action=register|unsubscribe' });
+}
+
+async function handleRegister(req: VercelRequest, res: VercelResponse) {
+  const { email, source } = req.body || {};
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    await registerUser(email, source);
+    return res.status(200).json({ success: true });
+  } catch (err: any) {
+    console.error('User registration error:', err.message);
+    return res.status(500).json({ error: 'Failed to register user' });
+  }
+}
+
+async function handleUnsubscribe(req: VercelRequest, res: VercelResponse) {
   const email = req.query.email as string;
   const token = req.query.token as string;
 

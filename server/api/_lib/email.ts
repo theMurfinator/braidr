@@ -29,7 +29,7 @@ export async function sendEmail({ to, subject, html }: SendEmailOptions): Promis
 
 function unsubscribeUrl(email: string): string {
   const token = crypto.createHmac('sha256', UNSUBSCRIBE_SECRET).update(email.toLowerCase()).digest('hex');
-  return `${BASE_URL}/api/users/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
+  return `${BASE_URL}/api/users?action=unsubscribe&email=${encodeURIComponent(email)}&token=${token}`;
 }
 
 function emailLayout(content: string, email?: string): string {

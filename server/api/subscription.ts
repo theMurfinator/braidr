@@ -1,10 +1,23 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getStripe, getActiveSubscriptionByEmail } from '../_lib/stripe.js';
+import { getStripe, getActiveSubscriptionByEmail } from './_lib/stripe.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
+  const action = req.query.action as string;
+
+  if (action === 'details' && req.method === 'GET') {
+    return handleDetails(req, res);
+  } else if (action === 'cancel' && req.method === 'POST') {
+    return handleCancel(req, res);
+  } else if (action === 'reactivate' && req.method === 'POST') {
+    return handleReactivate(req, res);
+  }
+
+  return res.status(400).json({ error: 'Invalid action. Use ?action=details|cancel|reactivate' });
+}
+
+async function handleDetails(req: VercelRequest, res: VercelResponse) {
   const email = req.query.email as string;
   if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'Email is required' });
@@ -26,7 +39,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const stripe = getStripe();
 
-    // Get payment method
     let paymentMethod: { brand: string; last4: string } | null = null;
     try {
       const methods = await stripe.paymentMethods.list({
@@ -40,11 +52,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           last4: methods.data[0].card.last4,
         };
       }
-    } catch {
-      // Non-fatal — payment method is optional
-    }
+    } catch {}
 
-    // Get last 5 invoices
     let invoices: Array<{ date: string; amount: number; status: string; url: string | null }> = [];
     try {
       const invoiceList = await stripe.invoices.list({
@@ -57,11 +66,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         status: inv.status || 'unknown',
         url: inv.hosted_invoice_url || null,
       }));
-    } catch {
-      // Non-fatal
-    }
+    } catch {}
 
-    // Get plan info from subscription
     let plan: { name: string; amount: number; interval: string } | null = null;
     if (sub.subscriptionId) {
       try {
@@ -75,7 +81,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           };
         }
       } catch {
-        // Fallback
         plan = { name: 'Braidr', amount: 3900, interval: 'year' };
       }
     }
@@ -91,5 +96,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err: any) {
     console.error('Subscription details error:', err.message, err.stack);
     return res.status(500).json({ error: 'Failed to fetch subscription details' });
+  }
+}
+
+async function handleCancel(req: VercelRequest, res: VercelResponse) {
+  const { email } = req.body || {};
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    const sub = await getActiveSubscriptionByEmail(email);
+    if (!sub.subscriptionId || sub.status === 'none') {
+      return res.status(404).json({ error: 'No active subscription found' });
+    }
+
+    const stripe = getStripe();
+    const updated = await stripe.subscriptions.update(sub.subscriptionId, {
+      cancel_at_period_end: true,
+    });
+
+    return res.status(200).json({
+      success: true,
+      cancelAt: new Date(updated.current_period_end * 1000).toISOString(),
+    });
+  } catch (err: any) {
+    console.error('Cancel subscription error:', err.message);
+    return res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+}
+
+async function handleReactivate(req: VercelRequest, res: VercelResponse) {
+  const { email } = req.body || {};
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    const sub = await getActiveSubscriptionByEmail(email);
+    if (!sub.subscriptionId || sub.status === 'none') {
+      return res.status(404).json({ error: 'No active subscription found' });
+    }
+
+    const stripe = getStripe();
+    await stripe.subscriptions.update(sub.subscriptionId, {
+      cancel_at_period_end: false,
+    });
+
+    return res.status(200).json({ success: true });
+  } catch (err: any) {
+    console.error('Reactivate subscription error:', err.message);
+    return res.status(500).json({ error: 'Failed to reactivate subscription' });
   }
 }
