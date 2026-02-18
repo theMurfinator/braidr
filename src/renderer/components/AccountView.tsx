@@ -320,6 +320,19 @@ export default function AccountView({ licenseStatus, onLicenseChange }: AccountV
             )}
           </section>
         )}
+        {/* Sign Out */}
+        <section className="account-section" style={{ borderTop: '1px solid var(--border-color, #e4e4e7)', paddingTop: 16 }}>
+          <button
+            className="account-link-btn"
+            style={{ color: '#ef4444' }}
+            onClick={async () => {
+              await window.electronAPI.deactivateLicense();
+              window.location.reload();
+            }}
+          >
+            Sign Out
+          </button>
+        </section>
       </div>
     </div>
   );
