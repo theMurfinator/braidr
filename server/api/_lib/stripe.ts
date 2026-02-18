@@ -25,6 +25,7 @@ interface SubscriptionInfo {
   currentPeriodEnd?: string;
   cancelAtPeriodEnd?: boolean;
   customerId?: string;
+  subscriptionId?: string;
 }
 
 const STATUS_PRIORITY: Record<string, number> = {
@@ -61,6 +62,7 @@ export async function getActiveSubscriptionByEmail(email: string): Promise<Subsc
           currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
           cancelAtPeriodEnd: sub.cancel_at_period_end,
           customerId: customer.id,
+          subscriptionId: sub.id,
         };
       }
     }
