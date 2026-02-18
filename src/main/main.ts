@@ -269,8 +269,22 @@ function createMenu() {
         },
         {
           label: 'Manage Subscription...',
+          click: async () => {
+            const result = await openBillingPortal();
+            if (!result.success && mainWindow) {
+              // If no email on file, open the account dialog so they can see their status
+              mainWindow.webContents.send('show-license-dialog');
+            }
+          }
+        },
+        {
+          label: 'Sign Out',
           click: () => {
-            openBillingPortal();
+            deactivateLicense();
+            if (mainWindow) {
+              mainWindow.webContents.send('show-license-dialog');
+              mainWindow.reload();
+            }
           }
         },
         ...(!isMac ? [{
