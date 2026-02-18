@@ -33,6 +33,9 @@ const IPC_CHANNELS = {
   OPEN_PURCHASE_URL: 'open-purchase-url',
   OPEN_BILLING_PORTAL: 'open-billing-portal',
   OPEN_FEEDBACK_EMAIL: 'open-feedback-email',
+  GET_SUBSCRIPTION_DETAILS: 'get-subscription-details',
+  CANCEL_SUBSCRIPTION: 'cancel-subscription',
+  REACTIVATE_SUBSCRIPTION: 'reactivate-subscription',
   CAPTURE_ANALYTICS_EVENT: 'capture-analytics-event',
   APP_CLOSING: 'app-closing',
   SAFE_TO_CLOSE: 'safe-to-close',
@@ -83,6 +86,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openPurchaseUrl: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_PURCHASE_URL),
   openBillingPortal: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_BILLING_PORTAL),
   openFeedbackEmail: (category: string, message: string) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_FEEDBACK_EMAIL, category, message),
+  // Subscription management
+  getSubscriptionDetails: () => ipcRenderer.invoke(IPC_CHANNELS.GET_SUBSCRIPTION_DETAILS),
+  cancelSubscription: () => ipcRenderer.invoke(IPC_CHANNELS.CANCEL_SUBSCRIPTION),
+  reactivateSubscription: () => ipcRenderer.invoke(IPC_CHANNELS.REACTIVATE_SUBSCRIPTION),
   // PostHog analytics
   captureAnalyticsEvent: (eventName: string, properties: Record<string, any>) =>
     ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_ANALYTICS_EVENT, eventName, properties),
@@ -92,6 +99,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('show-license-dialog', listener);
     return () => {
       ipcRenderer.removeListener('show-license-dialog', listener);
+    };
+  },
+  // Navigate to account view (triggered from menu)
+  onNavigateToAccount: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('navigate-to-account', listener);
+    return () => {
+      ipcRenderer.removeListener('navigate-to-account', listener);
     };
   },
   // Graceful quit handshake

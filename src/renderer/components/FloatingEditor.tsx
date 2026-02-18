@@ -19,6 +19,8 @@ interface FloatingEditorProps {
   onWordCountChange: (sceneId: string, wordCount: number | undefined) => void;
   onDraftChange: (sceneKey: string, html: string) => void;
   onOpenInEditor?: (sceneKey: string) => void;
+  scratchpadContent?: string;
+  onScratchpadChange?: (sceneKey: string, html: string) => void;
 }
 
 export default function FloatingEditor({
@@ -36,10 +38,12 @@ export default function FloatingEditor({
   onWordCountChange,
   onDraftChange,
   onOpenInEditor,
+  scratchpadContent: scratchpadContentProp,
+  onScratchpadChange,
 }: FloatingEditorProps) {
   const [localNotes, setLocalNotes] = useState<string[]>(scene.notes);
   const [localWordCount, setLocalWordCount] = useState<string>(scene.wordCount?.toString() || '');
-  const [localScratchpad, setLocalScratchpad] = useState('');
+  const [localScratchpad, setLocalScratchpad] = useState(scratchpadContentProp || '');
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [tagFilter, setTagFilter] = useState('');
   const [newTagCategory, setNewTagCategory] = useState<'people' | 'locations' | 'arcs' | 'things' | 'time'>('people');
@@ -390,7 +394,12 @@ export default function FloatingEditor({
                 className="floating-editor-scratchpad"
                 placeholder="Jot down quick notes, ideas, reminders..."
                 value={localScratchpad}
-                onChange={(e) => setLocalScratchpad(e.target.value)}
+                onChange={(e) => {
+                  setLocalScratchpad(e.target.value);
+                  if (onScratchpadChange) {
+                    onScratchpadChange(sceneKey, e.target.value);
+                  }
+                }}
               />
             </div>
           </div>

@@ -4,8 +4,6 @@ import { FontSettings, AllFontSettings, ScreenKey } from '../../shared/types';
 interface FontPickerProps {
   allFontSettings: AllFontSettings;
   onFontSettingsChange: (settings: AllFontSettings) => void;
-  contentPadding: number;
-  onContentPaddingChange: (value: number) => void;
   onClose: () => void;
 }
 
@@ -93,7 +91,7 @@ function isOverridden(all: AllFontSettings, tab: TabKey, field: keyof FontSettin
   return all.screens?.[tab]?.[field] !== undefined;
 }
 
-function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onContentPaddingChange, onClose }: FontPickerProps) {
+function FontPicker({ allFontSettings, onFontSettingsChange, onClose }: FontPickerProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('global');
   const [localSettings, setLocalSettings] = useState<AllFontSettings>(allFontSettings);
 
@@ -272,21 +270,7 @@ function FontPicker({ allFontSettings, onFontSettingsChange, contentPadding, onC
             );
           })}
 
-          <div className="font-setting">
-            <label>Content Width</label>
-            <div className="content-width-setting">
-              <span className="content-width-label">Narrow</span>
-              <input
-                type="range"
-                min="20"
-                max="400"
-                value={contentPadding}
-                onChange={(e) => onContentPaddingChange(parseInt(e.target.value, 10))}
-                className="content-width-range"
-              />
-              <span className="content-width-label">Wide</span>
-            </div>
-          </div>
+
         </div>
 
         <div className="font-picker-footer">

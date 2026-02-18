@@ -15,6 +15,7 @@ import FloatingEditor from './components/FloatingEditor';
 import FontPicker from './components/FontPicker';
 import NotesView from './components/notes/NotesView';
 import WordCountDashboard from './components/WordCountDashboard';
+import AccountView from './components/AccountView';
 import SearchOverlay from './components/SearchOverlay';
 import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
@@ -30,7 +31,7 @@ import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 import { track } from './utils/posthogTracker';
 
-type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'analytics';
+type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
 
 function App() {
@@ -79,10 +80,6 @@ function App() {
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [allFontSettings, setAllFontSettings] = useState<AllFontSettings>({ global: {} });
   const sceneListRef = useRef<HTMLDivElement>(null);
-  const [contentPadding, setContentPadding] = useState(() => {
-    const saved = localStorage.getItem('braidr-content-padding');
-    return saved ? parseInt(saved, 10) : 220;
-  });
   const [braidedSubMode, setBraidedSubMode] = useState<BraidedSubMode>('list');
   const [showRailsConnections, setShowRailsConnections] = useState(true);
   const [listFloatingEditor, setListFloatingEditor] = useState<Scene | null>(null);
@@ -95,6 +92,8 @@ function App() {
   const [showArchivePanel, setShowArchivePanel] = useState(false);
   const [draftContent, setDraftContent] = useState<Record<string, string>>({});
   const draftContentRef = useRef<Record<string, string>>({});
+  const [scratchpadContent, setScratchpadContent] = useState<Record<string, string>>({});
+  const scratchpadContentRef = useRef<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<string, DraftVersion[]>>({});
   const draftsRef = useRef<Record<string, DraftVersion[]>>({});
   const [metadataFieldDefs, setMetadataFieldDefs] = useState<MetadataFieldDef[]>([]);
@@ -330,6 +329,17 @@ function App() {
         setLicenseStatus(result.data);
       }
     }).catch(() => {});
+  }, []);
+
+  // Listen for navigation to account view (from LicenseGate or app menu)
+  useEffect(() => {
+    const handler = () => setViewMode('account');
+    window.addEventListener('braidr-navigate-account', handler);
+    const cleanup = (window as any).electronAPI?.onNavigateToAccount?.(handler);
+    return () => {
+      window.removeEventListener('braidr-navigate-account', handler);
+      cleanup?.();
+    };
   }, []);
 
   // Global error handler for uncaught renderer errors
@@ -739,6 +749,7 @@ function App() {
     // Load editor data
     const loadedDraft = data.draftContent || {};
     const loadedDrafts = data.drafts || {};
+    const loadedScratchpad = data.scratchpad || {};
     const loadedMetaDefs = data.metadataFieldDefs || [];
     setMetadataFieldDefs(loadedMetaDefs);
     metadataFieldDefsRef.current = loadedMetaDefs;
@@ -751,6 +762,7 @@ function App() {
     const allStoredKeys = new Set([
       ...Object.keys(loadedDraft),
       ...Object.keys(loadedDrafts),
+      ...Object.keys(loadedScratchpad),
       ...Object.keys(loadedMetaData),
     ]);
     const orphanedKeys = [...allStoredKeys].filter(k => !validKeys.has(k));
@@ -758,6 +770,7 @@ function App() {
       for (const key of orphanedKeys) {
         delete loadedDraft[key];
         delete loadedDrafts[key];
+        delete loadedScratchpad[key];
         delete loadedMetaData[key];
       }
       console.log('Cleaned up orphaned scene keys:', orphanedKeys);
@@ -767,6 +780,8 @@ function App() {
     sceneMetadataRef.current = loadedMetaData;
     setDraftContent(loadedDraft);
     draftContentRef.current = loadedDraft;
+    setScratchpadContent(loadedScratchpad);
+    scratchpadContentRef.current = loadedScratchpad;
     setDrafts(loadedDrafts);
     draftsRef.current = loadedDrafts;
 
@@ -789,7 +804,7 @@ function App() {
 
     // Restore last view mode
     const savedViewMode = localStorage.getItem('braidr-last-view-mode') as ViewMode | null;
-    if (savedViewMode && ['pov', 'braided', 'editor', 'notes', 'analytics'].includes(savedViewMode)) {
+    if (savedViewMode && ['pov', 'braided', 'editor', 'notes', 'analytics', 'account'].includes(savedViewMode)) {
       _setViewMode(savedViewMode);
     }
 
@@ -1119,15 +1134,6 @@ function App() {
     applyScreenFontOverrides(viewMode, allFontSettingsRef.current);
   }, [viewMode]);
 
-  // Content padding
-  useEffect(() => {
-    localStorage.setItem('braidr-content-padding', contentPadding.toString());
-    document.documentElement.style.setProperty('--content-padding', `${420 - contentPadding}px`);
-  }, [contentPadding]);
-
-  useEffect(() => {
-    document.documentElement.style.setProperty('--content-padding', `${420 - contentPadding}px`);
-  }, []);
 
   // Handle font settings change (now receives AllFontSettings)
   const handleFontSettingsChange = async (settings: AllFontSettings) => {
@@ -1182,7 +1188,7 @@ function App() {
         }
       }
 
-      await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings);
+      await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current);
     }
   };
 
@@ -1345,6 +1351,10 @@ function App() {
     const newSceneMetadata = remap(sceneMetadataRef.current);
     setSceneMetadata(newSceneMetadata);
     sceneMetadataRef.current = newSceneMetadata;
+
+    const newScratchpad = remap(scratchpadContentRef.current);
+    setScratchpadContent(newScratchpad);
+    scratchpadContentRef.current = newScratchpad;
   };
 
   // Build oldKey->newKey map from scenes before and after renumbering.
@@ -1967,7 +1977,7 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -2202,6 +2212,13 @@ function App() {
     if (projectData) {
       await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
     }
+  };
+
+  const handleScratchpadChange = (sceneKey: string, html: string) => {
+    isDirtyRef.current = true;
+    const updated = { ...scratchpadContentRef.current, [sceneKey]: html };
+    setScratchpadContent(updated);
+    scratchpadContentRef.current = updated;
   };
 
   const handleSaveDraft = async (sceneKey: string, content: string) => {
@@ -2975,7 +2992,7 @@ function App() {
               <div className="settings-dropdown">
                 {licenseStatus && (
                   <>
-                    <div className="settings-account-header">
+                    <div className="settings-account-header" style={{ cursor: 'pointer' }} onClick={() => { setViewMode('account'); setShowSettingsMenu(false); }}>
                       <div className="settings-account-icon">
                         {licenseStatus.email ? licenseStatus.email.charAt(0).toUpperCase() : 'B'}
                       </div>
@@ -3083,13 +3100,13 @@ function App() {
                   Switch Project
                 </button>
                 <div className="settings-dropdown-divider" />
-                <button onClick={() => { (window as any).electronAPI.openBillingPortal(); setShowSettingsMenu(false); }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
-                    <line x1="1" y1="10" x2="23" y2="10"/>
-                  </svg>
-                  Manage Subscription
-                </button>
+                <button onClick={() => { setViewMode('account'); setShowSettingsMenu(false); }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    Account
+                  </button>
                 <button onClick={() => { setShowTour(true); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10"/>
@@ -3112,7 +3129,7 @@ function App() {
 
       <div
         className={`main-content main-content--${viewMode}`}
-        style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes'
+        style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'account'
           ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, overflow: 'hidden' }
           : undefined}
       >
@@ -3122,11 +3139,20 @@ function App() {
           <div
             className={`scene-list scene-list--${viewMode}`}
             ref={sceneListRef}
-            style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes'
+            style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'account'
               ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, margin: 0, maxWidth: 'none', minHeight: 0 }
               : undefined}
           >
-            {viewMode === 'analytics' ? (
+            {viewMode === 'account' ? (
+              <AccountView
+                licenseStatus={licenseStatus}
+                onLicenseChange={() => {
+                  (window as any).electronAPI?.getLicenseStatus?.().then((result: any) => {
+                    if (result.success) setLicenseStatus(result.data);
+                  });
+                }}
+              />
+            ) : viewMode === 'analytics' ? (
               <WordCountDashboard
                 scenes={projectData.scenes}
                 characters={projectData.characters}
@@ -3197,6 +3223,8 @@ function App() {
                 sceneSessionsList={(sceneKey: string) => getSceneSessionsList(sceneSessions, sceneKey)}
                 notesIndex={searchNotesIndex}
                 onGoToNote={(noteId: string) => { setPendingNoteId(noteId); setViewMode('notes'); }}
+                scratchpad={scratchpadContent}
+                onScratchpadChange={handleScratchpadChange}
               />
             ) : viewMode === 'pov' ? (
               // POV View with plot points and table of contents
@@ -3383,6 +3411,8 @@ function App() {
                     onWordCountChange={handleWordCountChange}
                     onDraftChange={handleDraftChange}
                     onOpenInEditor={handleOpenInEditor}
+                    scratchpadContent={scratchpadContent[`${listFloatingEditor.characterId}:${listFloatingEditor.sceneNumber}`] || ''}
+                    onScratchpadChange={handleScratchpadChange}
                   />
                 )}
               </>
@@ -3620,44 +3650,51 @@ function App() {
                             onClick={(e) => {
                               if (isConnecting && connectionSource && connectionSource !== scene.id) {
                                 handleSceneClick(scene, e);
-                              } else {
-                                setListFloatingEditor(scene);
                               }
                             }}
                             onMouseEnter={() => setHoveredSceneId(scene.id)}
                             onMouseLeave={() => setHoveredSceneId(null)}
-                            className={`braided-scene-item pov-text ${draggedScene?.id === scene.id ? 'dragging' : ''} ${selectedSceneId === scene.id ? 'selected' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${(sceneConnections[scene.id]?.length || 0) > 0 ? 'has-connections' : ''}`}
-                            style={showPovColors ? { backgroundColor: getCharacterColor(scene.characterId) } : { borderLeftColor: getCharacterHexColor(scene.characterId), borderLeftWidth: '3px' }}
+                            className={`braided-scene-drag-wrapper ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''}`}
                           >
-                            <div className="braided-text-header">
-                              <span
-                                className="braided-drag-handle"
-                                onMouseDown={() => setCanDragScene(true)}
-                              >
-                                ⋮⋮
-                              </span>
-                              <span className="braided-scene-number">{displayPosition}.</span>
-                              <span className="braided-scene-character">{getCharacterName(scene.characterId)}</span>
-                              <span className="braided-scene-meta">
-                                <span className="braided-scene-scenenumber">Scene {scene.sceneNumber}</span>
-                                {scene.plotPointId && projectData.plotPoints.find(p => p.id === scene.plotPointId) && (
-                                  <span className="braided-scene-plotpoint">{projectData.plotPoints.find(p => p.id === scene.plotPointId)!.title}</span>
-                                )}
-                              </span>
-                              {(sceneConnections[scene.id]?.length || 0) > 0 && (
-                                <span className="braided-scene-connections-badge">{sceneConnections[scene.id].length}</span>
-                              )}
-                            </div>
-                            <div className="braided-text-content">
-                              {cleanSceneContent(scene.content) || 'Untitled scene'}
-                            </div>
-                            {scene.notes.length > 0 && (
-                              <div className="braided-text-notes">
-                                {scene.notes.map((note, i) => (
-                                  <p key={i}>{note}</p>
-                                ))}
-                              </div>
-                            )}
+                            <SceneCard
+                              scene={scene}
+                              tags={projectData.tags}
+                              showCharacter={true}
+                              characterName={getCharacterName(scene.characterId)}
+                              displayNumber={displayPosition}
+                              plotPointTitle={scene.plotPointId ? projectData.plotPoints.find(p => p.id === scene.plotPointId)?.title : undefined}
+                              showDragHandle={true}
+                              dragHandleRef={(el) => {
+                                if (el) {
+                                  el.onmousedown = () => setCanDragScene(true);
+                                }
+                              }}
+                              backgroundColor={undefined}
+                              onSceneChange={handleSceneChange}
+                              onTagsChange={handleTagsChange}
+                              onCreateTag={handleCreateTag}
+                              onDeleteScene={handleArchiveScene}
+                              onDuplicateScene={handleDuplicateScene}
+                              connectedScenes={getConnectedScenes(scene.id)}
+                              onStartConnection={() => {
+                                setConnectionSource(scene.id);
+                                setIsConnecting(true);
+                              }}
+                              onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
+                              onWordCountChange={handleWordCountChange}
+                              connectableScenes={getConnectableScenes(scene.id)}
+                              onCompleteConnection={(targetId) => handleCompleteConnection(scene.id, targetId)}
+                              onOpenInEditor={handleOpenInEditor}
+                              metadataFieldDefs={metadataFieldDefs}
+                              sceneMetadata={sceneMetadata[`${scene.characterId}:${scene.sceneNumber}`]}
+                              onMetadataChange={(sceneId, fieldId, value) => {
+                                const s = projectData.scenes.find(sc => sc.id === sceneId);
+                                if (s) {
+                                  handleMetadataChange(`${s.characterId}:${s.sceneNumber}`, fieldId, value);
+                                }
+                              }}
+                              onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                            />
                           </div>
                         </div>
                       </div>
@@ -3830,29 +3867,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* Floating Editor for braided list view */}
-                {listFloatingEditor && (
-                  <FloatingEditor
-                    scene={listFloatingEditor}
-                    draftContent={draftContent[`${listFloatingEditor.characterId}:${listFloatingEditor.sceneNumber}`] || ''}
-                    characterName={getCharacterName(listFloatingEditor.characterId)}
-                    tags={projectData.tags}
-                    connectedScenes={getConnectedScenes(listFloatingEditor.id)}
-                    onClose={() => setListFloatingEditor(null)}
-                    onSceneChange={handleSceneChange}
-                    onTagsChange={handleTagsChange}
-                    onCreateTag={handleCreateTag}
-                    onStartConnection={() => {
-                      setConnectionSource(listFloatingEditor.id);
-                      setIsConnecting(true);
-                      setListFloatingEditor(null);
-                    }}
-                    onRemoveConnection={(targetId) => handleRemoveConnection(listFloatingEditor.id, targetId)}
-                    onWordCountChange={handleWordCountChange}
-                    onDraftChange={handleDraftChange}
-                    onOpenInEditor={handleOpenInEditor}
-                  />
-                )}
               </div>
             )}
 
@@ -3895,8 +3909,6 @@ function App() {
         <FontPicker
           allFontSettings={allFontSettings}
           onFontSettingsChange={handleFontSettingsChange}
-          contentPadding={contentPadding}
-          onContentPaddingChange={setContentPadding}
           onClose={() => setShowFontPicker(false)}
         />
       )}

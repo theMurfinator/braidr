@@ -5,10 +5,26 @@ import * as crypto from 'crypto';
 import { autoUpdater } from 'electron-updater';
 import windowStateKeeper from 'electron-window-state';
 import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
-import { getLicenseStatus, activateLicense, deactivateLicense, startTrial, openPurchaseUrl, openBillingPortal } from './license';
+import { getLicenseStatus, activateLicense, deactivateLicense, startTrial, openPurchaseUrl, openBillingPortal, getStoredEmail, getApiBase } from './license';
 import { initPostHog, captureEvent, identifyUser, aliasUser, getSessionDurationMs, shutdownPostHog } from './posthog';
 
 let mainWindow: BrowserWindow | null = null;
+
+function openBillingWindow(url: string) {
+  const billingWindow = new BrowserWindow({
+    width: 900,
+    height: 700,
+    parent: mainWindow || undefined,
+    modal: false,
+    title: 'Manage Subscription',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+  billingWindow.loadURL(url);
+  billingWindow.setMenuBarVisibility(false);
+}
 
 // Global crash reporting via PostHog
 process.on('uncaughtException', (error) => {
@@ -268,12 +284,10 @@ function createMenu() {
           }
         },
         {
-          label: 'Manage Subscription...',
-          click: async () => {
-            const result = await openBillingPortal();
-            if (!result.success && mainWindow) {
-              // If no email on file, open the account dialog so they can see their status
-              mainWindow.webContents.send('show-license-dialog');
+          label: 'Account...',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('navigate-to-account');
             }
           }
         },
@@ -1022,7 +1036,76 @@ ipcMain.handle(IPC_CHANNELS.OPEN_PURCHASE_URL, async () => {
 
 ipcMain.handle(IPC_CHANNELS.OPEN_BILLING_PORTAL, async () => {
   try {
-    return await openBillingPortal();
+    const result = await openBillingPortal();
+    console.log('[Braidr] Billing portal result:', JSON.stringify(result));
+    if (result.success && result.url) {
+      openBillingWindow(result.url);
+    } else if (result.error) {
+      console.error('[Braidr] Billing portal error:', result.error);
+    }
+    return result;
+  } catch (error) {
+    console.error('[Braidr] Billing portal exception:', error);
+    return { success: false, error: String(error) };
+  }
+});
+
+// ─── Subscription Management IPC Handlers ──────────────────────────────────
+
+ipcMain.handle(IPC_CHANNELS.GET_SUBSCRIPTION_DETAILS, async () => {
+  try {
+    const email = getStoredEmail();
+    if (!email) {
+      return { success: false, error: 'No email on file' };
+    }
+    const response = await net.fetch(`${getApiBase()}/api/subscription?action=details&email=${encodeURIComponent(email)}`);
+    if (!response.ok) {
+      return { success: false, error: 'Failed to fetch subscription details' };
+    }
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.CANCEL_SUBSCRIPTION, async () => {
+  try {
+    const email = getStoredEmail();
+    if (!email) {
+      return { success: false, error: 'No email on file' };
+    }
+    const response = await net.fetch(`${getApiBase()}/api/subscription?action=cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      return { success: false, error: 'Failed to cancel subscription' };
+    }
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.REACTIVATE_SUBSCRIPTION, async () => {
+  try {
+    const email = getStoredEmail();
+    if (!email) {
+      return { success: false, error: 'No email on file' };
+    }
+    const response = await net.fetch(`${getApiBase()}/api/subscription?action=reactivate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      return { success: false, error: 'Failed to reactivate subscription' };
+    }
+    const data = await response.json();
+    return { success: true, data };
   } catch (error) {
     return { success: false, error: String(error) };
   }

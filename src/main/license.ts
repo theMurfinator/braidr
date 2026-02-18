@@ -58,6 +58,16 @@ async function validateEmailWithServer(email: string): Promise<{
   }
 }
 
+// ─── Exported helpers ────────────────────────────────────────────────────────
+
+export function getStoredEmail(): string | undefined {
+  return readLicenseData().email;
+}
+
+export function getApiBase(): string {
+  return API_BASE;
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export async function getLicenseStatus(): Promise<LicenseStatus> {
@@ -140,7 +150,7 @@ export async function startTrial(email: string): Promise<LicenseStatus> {
 
   // Register with server (fire and forget)
   try {
-    await net.fetch(`${API_BASE}/api/users/register`, {
+    await net.fetch(`${API_BASE}/api/users?action=register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: data.email, source: 'app' }),
@@ -210,7 +220,7 @@ export async function openPurchaseUrl(): Promise<void> {
   }
 }
 
-export async function openBillingPortal(): Promise<{ success: boolean; error?: string }> {
+export async function openBillingPortal(): Promise<{ success: boolean; url?: string; error?: string }> {
   const data = readLicenseData();
 
   if (!data.email) {
@@ -225,8 +235,7 @@ export async function openBillingPortal(): Promise<{ success: boolean; error?: s
     });
     const result = await response.json() as any;
     if (result.url) {
-      await shell.openExternal(result.url);
-      return { success: true };
+      return { success: true, url: result.url };
     }
     return { success: false, error: result.error || 'Could not open billing portal' };
   } catch (err: any) {

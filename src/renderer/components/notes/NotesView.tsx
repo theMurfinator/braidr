@@ -146,6 +146,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     else localStorage.removeItem('braidr-last-note-id');
   };
   const [noteContent, setNoteContent] = useState<string>('<p></p>');
+  const [noteContentLoaded, setNoteContentLoaded] = useState(false);
   const [noteLoading, setNoteLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('braidr-notes-sidebar-collapsed');
@@ -178,9 +179,13 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
       const note = notesIndex.notes.find(n => n.id === initialNoteId);
       if (note) {
         setSelectedNoteId(note.id);
+        setNoteContentLoaded(false);
         dataService.readNote(projectPath, note.fileName).then(content => {
           setNoteContent(content || '<p></p>');
-        }).catch(() => {});
+          setNoteContentLoaded(true);
+        }).catch(() => {
+          setNoteContentLoaded(true);
+        });
       }
       onNoteNavigated?.();
     }
@@ -286,24 +291,30 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     }
   }, [projectPath]);
 
-  // Load note content when selection changes
+  // Track which note we last loaded to avoid redundant loads but ensure remount loads
+  const lastLoadedNoteRef = useRef<string | null>(null);
+  // Load note content when selection changes or when index first loads
   useEffect(() => {
-    if (selectedNoteId) {
+    if (selectedNoteId && notesIndex.notes.length > 0) {
       const note = notesIndex.notes.find(n => n.id === selectedNoteId);
-      if (note) {
+      if (note && lastLoadedNoteRef.current !== selectedNoteId) {
+        lastLoadedNoteRef.current = selectedNoteId;
+        setNoteContentLoaded(false);
         setNoteLoading(true);
         loadNoteContent(note.fileName);
       }
     }
-  }, [selectedNoteId]);
+  }, [selectedNoteId, notesIndex.notes]);
 
   const loadNoteContent = async (fileName: string) => {
     try {
       const content = await dataService.readNote(projectPath, fileName);
       setNoteContent(content);
+      setNoteContentLoaded(true);
     } catch (err) {
       addToast('Couldn\u2019t open note');
       setNoteContent('<p></p>');
+      setNoteContentLoaded(true);
     } finally {
       setNoteLoading(false);
     }
@@ -591,7 +602,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             </svg>
           </button>
         </div>
-        {selectedNote && !noteLoading ? (
+        {selectedNote && noteContentLoaded ? (
           <NoteEditor
             noteId={selectedNote.id}
             title={selectedNote.title}

@@ -107,6 +107,8 @@ export interface TimelineData {
   sceneMetadata?: Record<string, Record<string, string | string[]>>;
   // Saved draft versions keyed by "characterId:sceneNumber"
   drafts?: Record<string, DraftVersion[]>;
+  // Scratchpad content keyed by "characterId:sceneNumber"
+  scratchpad?: Record<string, string>;
   // Saved table view configurations
   tableViews?: TableViewConfig[];
   // Word count goal for the project
@@ -242,6 +244,10 @@ export const IPC_CHANNELS = {
   OPEN_PURCHASE_URL: 'open-purchase-url',
   OPEN_BILLING_PORTAL: 'open-billing-portal',
   OPEN_FEEDBACK_EMAIL: 'open-feedback-email',
+  // Subscription management
+  GET_SUBSCRIPTION_DETAILS: 'get-subscription-details',
+  CANCEL_SUBSCRIPTION: 'cancel-subscription',
+  REACTIVATE_SUBSCRIPTION: 'reactivate-subscription',
   // Analytics (PostHog)
   CAPTURE_ANALYTICS_EVENT: 'capture-analytics-event',
 } as const;

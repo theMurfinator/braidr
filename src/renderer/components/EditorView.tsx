@@ -54,6 +54,8 @@ interface EditorViewProps {
   sceneSessionsList?: (sceneKey: string) => SceneSession[];
   notesIndex?: NoteMetadata[];
   onGoToNote?: (noteId: string) => void;
+  scratchpad?: Record<string, string>;
+  onScratchpadChange?: (sceneKey: string, html: string) => void;
 }
 
 export interface EditorViewHandle {
@@ -156,6 +158,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   sceneSessionsList,
   notesIndex = [],
   onGoToNote,
+  scratchpad: scratchpadProp,
+  onScratchpadChange,
 }, ref) {
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<Set<string>>(new Set());
@@ -187,7 +191,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     const saved = localStorage.getItem('editor-meta-width');
     return saved !== null ? parseInt(saved, 10) : 240;
   });
-  const [scratchpad, setScratchpad] = useState<Record<string, string>>({});
+  const scratchpad = scratchpadProp || {};
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagCategory, setNewTagCategory] = useState<'people' | 'locations' | 'arcs' | 'things' | 'time'>('people');
@@ -598,8 +602,13 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     ],
     content: selectedSceneKey ? (scratchpad[selectedSceneKey] || '') : '',
     onBlur: () => {
-      if (scratchpadEditor && selectedSceneKey) {
-        setScratchpad(prev => ({ ...prev, [selectedSceneKey]: scratchpadEditor.getHTML() }));
+      if (scratchpadEditor && selectedSceneKey && onScratchpadChange) {
+        onScratchpadChange(selectedSceneKey, scratchpadEditor.getHTML());
+      }
+    },
+    onUpdate: ({ editor: e }) => {
+      if (e && selectedSceneKey && onScratchpadChange) {
+        onScratchpadChange(selectedSceneKey, e.getHTML());
       }
     },
   });

@@ -1964,6 +1964,7 @@
 
 .tag-picker-create {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 8px;
   border-bottom: 1px solid var(--border);
@@ -2800,6 +2801,7 @@ textarea.scene-metadata-field-input {
 .braided-timeline {
   flex: 1;
   min-width: 0;
+  max-width: 800px;
   overflow-y: auto;
   padding-right: 20px;
 }
@@ -3085,8 +3087,39 @@ textarea.scene-metadata-field-input {
   cursor: grabbing;
 }
 
+/* ============================================
+   BRAIDED LIST VIEW — clean document outline
+   ============================================ */
 .braided-timeline .scene-card {
   cursor: default;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: transparent;
+  border-radius: 0;
+}
+
+.braided-timeline .scene-card:hover {
+  background: transparent;
+}
+
+.braided-timeline .scene-drag-handle {
+  opacity: 0;
+}
+
+.braided-timeline .scene-card:hover .scene-drag-handle {
+  opacity: 0.35;
+}
+
+.braided-scene-drag-wrapper {
+  transition: opacity 0.2s;
+}
+
+.braided-scene-drag-wrapper.dragging {
+  opacity: 0.4;
+}
+
+.braided-scene-drag-wrapper.connect-target {
+  cursor: crosshair;
 }
 
 /* Tag Manager Modal */
@@ -3638,7 +3671,8 @@ textarea.scene-metadata-field-input {
 }
 
 .is-connecting .braided-scene-item.connect-target:hover .scene-card,
-.is-connecting .braided-scene-item.pov-text.connect-target:hover {
+.is-connecting .braided-scene-item.pov-text.connect-target:hover,
+.is-connecting .braided-scene-drag-wrapper.connect-target:hover .scene-card {
   outline: 2px dashed var(--tag-locations);
   outline-offset: 2px;
 }
@@ -6513,30 +6547,6 @@ textarea.scene-metadata-field-input {
   background: var(--bg-primary);
 }
 
-/* Both panels open: minimal breathing room */
-.editor-draft.both-panels .editor-draft-editor {
-  padding-left: 15px;
-  padding-right: 15px;
-}
-
-/* Left panel only: pad right side more */
-.editor-draft.left-panel-only .editor-draft-editor {
-  padding-left: var(--content-padding, 40px);
-  padding-right: var(--content-padding, 40px);
-}
-
-/* Right panel only: constrain width so text doesn't stretch */
-.editor-draft.right-panel-only .editor-draft-editor {
-  padding-left: var(--content-padding, 120px);
-  padding-right: 15px;
-}
-
-/* No panels: use content-padding slider */
-.editor-draft.no-panels .editor-draft-editor {
-  padding-left: var(--content-padding, 200px);
-  padding-right: var(--content-padding, 200px);
-}
-
 .editor-draft-editor .tiptap {
   outline: none;
   min-height: 300px;
@@ -6546,6 +6556,25 @@ textarea.scene-metadata-field-input {
   font-weight: var(--font-body-weight);
   color: var(--font-body-color);
   letter-spacing: 0.005em;
+}
+
+/* Both sidebars open: small padding */
+.editor-draft.both-panels .editor-draft-editor {
+  padding-left: 30px;
+  padding-right: 30px;
+}
+
+/* One sidebar open: medium padding */
+.editor-draft.left-panel-only .editor-draft-editor,
+.editor-draft.right-panel-only .editor-draft-editor {
+  padding-left: 80px;
+  padding-right: 80px;
+}
+
+/* No sidebars: generous padding */
+.editor-draft.no-panels .editor-draft-editor {
+  padding-left: 160px;
+  padding-right: 160px;
 }
 
 .editor-draft-editor .tiptap h2 {
@@ -7155,6 +7184,20 @@ textarea.scene-metadata-field-input {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
+}
+
+.editor-meta-tags .tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-meta-tags .tag-picker-dropdown {
+  max-width: calc(100% + 32px);
+  right: 0;
+  left: auto;
 }
 
 /* Changes Needed from Notes */
@@ -9344,7 +9387,7 @@ textarea.table-cell-input {
   flex-direction: column;
   overflow: hidden;
   width: 100%;
-  padding: 0 var(--content-padding, 200px);
+  padding: 0 100px;
   box-sizing: border-box;
   position: relative;
 }
@@ -12641,6 +12684,273 @@ textarea.table-cell-input {
   width: auto;
   max-width: none;
   padding: 8px 20px;
+}
+
+/* =========================================
+   Account View
+   ========================================= */
+
+.account-view {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg-primary);
+  display: flex;
+  justify-content: center;
+  padding: var(--space-xl) var(--space-lg);
+}
+
+.account-view-inner {
+  width: 100%;
+  max-width: 560px;
+}
+
+.account-title {
+  font-family: var(--font-section-title);
+  font-weight: 500;
+  font-size: 24px;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-lg);
+}
+
+.account-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2xl) 0;
+}
+
+.account-error {
+  background: #FEF2F2;
+  color: #B91C1C;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.account-error-dismiss {
+  background: none;
+  border: none;
+  color: #B91C1C;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 0 0 12px;
+  line-height: 1;
+}
+
+.account-section {
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-md) 0;
+}
+
+.account-section:last-child {
+  border-bottom: none;
+}
+
+.account-section-title {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-sm);
+}
+
+.account-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  gap: var(--space-md);
+}
+
+.account-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.account-value {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.account-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 99px;
+}
+
+.account-badge--active {
+  background: #DCFCE7;
+  color: #166534;
+}
+
+.account-badge--trial {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.account-badge--canceling {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.account-badge--expired {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.account-cta-section {
+  text-align: center;
+  padding: var(--space-lg) 0;
+}
+
+.account-cta-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 var(--space-md);
+}
+
+.account-cta-section .license-btn-primary {
+  max-width: 240px;
+  margin: 0 auto;
+}
+
+.account-link-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  padding: 2px 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.account-link-btn:hover {
+  color: var(--text-primary);
+}
+
+/* Invoices table */
+.account-invoices-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.account-invoices-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.account-invoices-table td {
+  padding: 8px 0;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.account-invoices-table th:last-child,
+.account-invoices-table td:last-child {
+  text-align: right;
+}
+
+.account-invoice-status {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.account-invoice-status--paid {
+  color: #166534;
+}
+
+.account-invoice-status--open {
+  color: #92400E;
+}
+
+.account-invoice-status--void,
+.account-invoice-status--uncollectible {
+  color: #991B1B;
+}
+
+/* Cancel / Reactivate */
+.account-danger-section {
+  border-bottom: none;
+  padding-top: var(--space-lg);
+}
+
+.account-cancel-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.account-cancel-btn:hover {
+  color: #B91C1C;
+}
+
+.account-danger-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.account-cancel-confirm {
+  background: #FEF2F2;
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.account-cancel-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.account-cancel-confirm-btn {
+  background: #DC2626;
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.account-cancel-confirm-btn:hover {
+  background: #B91C1C;
+}
+
+.account-cancel-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.account-reactivate {
+  background: #FFFBEB;
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
 }
 
 /* =========================================

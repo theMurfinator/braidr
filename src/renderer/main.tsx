@@ -10,7 +10,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <ToastProvider>
-        <LicenseGate>
+        <LicenseGate onNavigateToAccount={() => window.dispatchEvent(new CustomEvent('braidr-navigate-account'))}>
           <App />
         </LicenseGate>
       </ToastProvider>

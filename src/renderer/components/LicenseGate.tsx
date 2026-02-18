@@ -5,6 +5,7 @@ const api = (window as any).electronAPI;
 
 interface LicenseGateProps {
   children: React.ReactNode;
+  onNavigateToAccount?: () => void;
 }
 
 /**
@@ -12,7 +13,7 @@ interface LicenseGateProps {
  * Shows email entry, trial expired, or subscription expired screens as needed.
  * Lets the app render normally when licensed or in trial.
  */
-export default function LicenseGate({ children }: LicenseGateProps) {
+export default function LicenseGate({ children, onNavigateToAccount }: LicenseGateProps) {
   const [status, setStatus] = useState<LicenseStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAccountDialog, setShowAccountDialog] = useState(false);
@@ -90,10 +91,6 @@ export default function LicenseGate({ children }: LicenseGateProps) {
     api.openPurchaseUrl();
   }
 
-  function handleManageSubscription() {
-    api.openBillingPortal();
-  }
-
   async function handleSignOut() {
     await api.deactivateLicense();
     setShowAccountDialog(false);
@@ -167,7 +164,7 @@ export default function LicenseGate({ children }: LicenseGateProps) {
             <button className="license-btn-primary" onClick={handlePurchase}>
               Renew — $39/year
             </button>
-            <button className="license-btn-secondary" onClick={handleManageSubscription}>
+            <button className="license-btn-secondary" onClick={() => { onNavigateToAccount?.(); }}>
               Manage Subscription
             </button>
             <button className="license-btn-secondary" onClick={handleActivate} disabled={activating}>
@@ -204,7 +201,7 @@ export default function LicenseGate({ children }: LicenseGateProps) {
               </div>
             )}
             {status?.state === 'licensed' && (
-              <button className="license-btn-secondary" style={{ width: '100%', marginBottom: 8 }} onClick={() => { handleManageSubscription(); setShowAccountDialog(false); }}>
+              <button className="license-btn-secondary" style={{ width: '100%', marginBottom: 8 }} onClick={() => { setShowAccountDialog(false); onNavigateToAccount?.(); }}>
                 Manage Subscription
               </button>
             )}
