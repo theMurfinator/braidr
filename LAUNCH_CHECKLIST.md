@@ -11,7 +11,8 @@
   - [x] `ADMIN_API_KEY`
   - [x] `BASE_URL` (`https://braidr-api.vercel.app`)
   - [x] `CRON_SECRET`
-  - [x] `REDIS_URL` (Vercel KV)
+  - [x] `REDIS_URL` (Redis Labs — used by ioredis for user storage)
+  - [x] `BLOB_READ_WRITE_TOKEN` (Vercel Blob — feedback storage)
 - [x] Verify all API endpoints working:
   - [x] `GET /api/license` — subscription status check
   - [x] `POST /api/checkout` — Stripe Checkout session creation
@@ -19,7 +20,7 @@
   - [x] `POST /api/subscription?action=cancel` — cancel at period end
   - [x] `POST /api/subscription?action=reactivate` — undo cancel
   - [x] `POST /api/webhooks/stripe` — webhook handler
-  - [x] `POST /api/users?action=register` — trial user registration
+  - [x] `POST /api/users?action=register` — trial user registration (fixed: swapped @vercel/kv → ioredis)
   - [x] `GET /api/cron/trial-emails` — drip email cron (daily 2pm UTC)
   - [x] `POST /api/portal/billing` — Stripe billing portal session
 
@@ -55,15 +56,18 @@
 - [x] Auto-release on merge to main (GitHub Actions)
 - [x] Builds for macOS (.dmg), Windows (.exe), Linux (.AppImage)
 - [x] Code signing and notarization working
-- [x] Latest release: v1.5.1+ with AccountView, scratchpad persistence
+- [x] Latest release: v1.5.7+ with AccountView, scratchpad persistence, sign out
 - [ ] Verify auto-updater works (install older version, confirm it detects new release)
 
 ## In-App Features
 - [x] Email-based trial (14 days, no license key needed)
 - [x] Stripe checkout from app (opens in BrowserWindow)
 - [x] Native Account view (subscription details, invoices, cancel/reactivate)
+- [x] Sign Out in settings dropdown + Account view
+- [x] License refresh on window focus after checkout (no more stale cache)
 - [x] LicenseGate flow: unlicensed → enter email → trial → subscribe/expired
 - [x] Scratchpad persistence (saved to timeline.json)
+- [x] Font settings apply to editor scene headers (fixed CSS var mismatch)
 
 ## Website (getbraidr.com)
 - [x] Landing page live with hero, features, pricing ($39/year)

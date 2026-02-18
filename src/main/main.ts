@@ -5,7 +5,7 @@ import * as crypto from 'crypto';
 import { autoUpdater } from 'electron-updater';
 import windowStateKeeper from 'electron-window-state';
 import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
-import { getLicenseStatus, activateLicense, deactivateLicense, startTrial, openPurchaseUrl, openBillingPortal, getStoredEmail, getApiBase } from './license';
+import { getLicenseStatus, activateLicense, deactivateLicense, startTrial, openPurchaseUrl, openBillingPortal, refreshLicenseStatus, getStoredEmail, getApiBase } from './license';
 import { initPostHog, captureEvent, identifyUser, aliasUser, getSessionDurationMs, shutdownPostHog } from './posthog';
 
 let mainWindow: BrowserWindow | null = null;
@@ -1024,6 +1024,15 @@ ipcMain.handle(IPC_CHANNELS.DEACTIVATE_LICENSE, async () => {
   try {
     const status = deactivateLicense();
     captureEvent('license_deactivated');
+    return { success: true, data: status };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.REFRESH_LICENSE_STATUS, async () => {
+  try {
+    const status = await refreshLicenseStatus();
     return { success: true, data: status };
   } catch (error) {
     return { success: false, error: String(error) };

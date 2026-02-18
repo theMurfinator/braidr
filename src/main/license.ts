@@ -197,9 +197,19 @@ export function deactivateLicense(): LicenseStatus {
   delete data.licenseKey;
   delete data.lastValidation;
   delete data.cachedStatus;
+  delete data.trialStartDate;
   writeLicenseData(data);
 
   return { state: 'unlicensed' };
+}
+
+export async function refreshLicenseStatus(): Promise<LicenseStatus> {
+  const data = readLicenseData();
+  // Clear cache to force re-validation
+  delete data.lastValidation;
+  delete data.cachedStatus;
+  writeLicenseData(data);
+  return getLicenseStatus();
 }
 
 export async function openPurchaseUrl(): Promise<void> {

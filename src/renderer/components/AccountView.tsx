@@ -80,6 +80,16 @@ export default function AccountView({ licenseStatus, onLicenseChange }: AccountV
 
   function handleSubscribe() {
     api.openPurchaseUrl();
+    // When user returns from Stripe checkout, refresh license status
+    const onFocus = async () => {
+      window.removeEventListener('focus', onFocus);
+      const result = await api.refreshLicenseStatus();
+      if (result.success) {
+        onLicenseChange();
+        fetchDetails();
+      }
+    };
+    window.addEventListener('focus', onFocus);
   }
 
   function handleUpdatePayment() {

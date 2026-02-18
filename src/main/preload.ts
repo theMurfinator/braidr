@@ -33,6 +33,7 @@ const IPC_CHANNELS = {
   OPEN_PURCHASE_URL: 'open-purchase-url',
   OPEN_BILLING_PORTAL: 'open-billing-portal',
   OPEN_FEEDBACK_EMAIL: 'open-feedback-email',
+  REFRESH_LICENSE_STATUS: 'refresh-license-status',
   GET_SUBSCRIPTION_DETAILS: 'get-subscription-details',
   CANCEL_SUBSCRIPTION: 'cancel-subscription',
   REACTIVATE_SUBSCRIPTION: 'reactivate-subscription',
@@ -85,6 +86,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deactivateLicense: () => ipcRenderer.invoke(IPC_CHANNELS.DEACTIVATE_LICENSE),
   openPurchaseUrl: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_PURCHASE_URL),
   openBillingPortal: () => ipcRenderer.invoke(IPC_CHANNELS.OPEN_BILLING_PORTAL),
+  refreshLicenseStatus: () => ipcRenderer.invoke(IPC_CHANNELS.REFRESH_LICENSE_STATUS),
   openFeedbackEmail: (category: string, message: string) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_FEEDBACK_EMAIL, category, message),
   // Subscription management
   getSubscriptionDetails: () => ipcRenderer.invoke(IPC_CHANNELS.GET_SUBSCRIPTION_DETAILS),

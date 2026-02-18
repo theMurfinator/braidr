@@ -244,6 +244,7 @@ export const IPC_CHANNELS = {
   OPEN_PURCHASE_URL: 'open-purchase-url',
   OPEN_BILLING_PORTAL: 'open-billing-portal',
   OPEN_FEEDBACK_EMAIL: 'open-feedback-email',
+  REFRESH_LICENSE_STATUS: 'refresh-license-status',
   // Subscription management
   GET_SUBSCRIPTION_DETAILS: 'get-subscription-details',
   CANCEL_SUBSCRIPTION: 'cancel-subscription',
