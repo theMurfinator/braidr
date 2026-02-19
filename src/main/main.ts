@@ -115,6 +115,10 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 // Auto-updater configuration
 autoUpdater.autoDownload = false; // Don't auto-download, let user confirm
 autoUpdater.autoInstallOnAppQuit = true;
+// Skip Authenticode signature verification on Windows (exe is not code-signed yet)
+if (process.platform === 'win32') {
+  (autoUpdater as any).verifyUpdateCodeSignature = () => Promise.resolve(null);
+}
 
 // Flag to bypass graceful quit handler when installing updates
 let isInstallingUpdate = false;
