@@ -41,6 +41,13 @@
 - [ ] Test welcome email delivery (triggered by real checkout)
 - [ ] Test drip email delivery (triggered by cron)
 
+## Inbound Email
+- [ ] Set up ImprovMX (free) for email forwarding on getbraidr.com
+- [ ] Add MX records in Vercel DNS
+- [ ] help@getbraidr.com → personal Gmail
+- [ ] brian@getbraidr.com → personal Gmail
+- [ ] Set up Gmail "Send as" with Resend SMTP (smtp.resend.com:587) to reply from help@
+
 ## Apple Code Signing & Notarization
 - [x] Enroll in Apple Developer Program
 - [x] Create Developer ID Application certificate
