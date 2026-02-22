@@ -13866,15 +13866,32 @@ textarea.table-cell-input {
   z-index: 2;
   user-select: none;
   white-space: nowrap;
+  position: relative;
+}
+
+.task-col-resize {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 3;
+}
+
+.task-col-resize:hover,
+.task-col-resize.active {
+  background: var(--accent);
+  opacity: 0.5;
 }
 
 .tasks-table td {
   padding: 6px 12px;
   border-bottom: 1px solid var(--border-light, var(--border));
-  vertical-align: middle;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  vertical-align: top;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   transition: background 0.1s;
 }
 

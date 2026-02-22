@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useRef, useCallback } from 'react';
 import type { Task, TaskFieldDef, Character, Scene, Tag, TimeEntry } from '../../../shared/types';
 import TaskRow from './TaskRow';
 import TaskFieldManager from './TaskFieldManager';
@@ -155,6 +155,43 @@ export default function TaskTable({
 }: TaskTableProps) {
   const [showFieldManager, setShowFieldManager] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  // Column widths: keyed by column id, initialized from defaults
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+    const widths: Record<string, number> = {};
+    for (const col of BUILTIN_COLUMNS) widths[col.id] = col.width;
+    for (const def of taskFieldDefs) widths[def.id] = def.width || 120;
+    return widths;
+  });
+  const resizingRef = useRef<{ colId: string; startX: number; startWidth: number } | null>(null);
+
+  const handleResizeStart = useCallback((colId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = columnWidths[colId] || 120;
+    resizingRef.current = { colId, startX, startWidth };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const delta = ev.clientX - resizingRef.current.startX;
+      const newWidth = Math.max(50, resizingRef.current.startWidth + delta);
+      setColumnWidths(prev => ({ ...prev, [resizingRef.current!.colId]: newWidth }));
+    };
+
+    const onMouseUp = () => {
+      resizingRef.current = null;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [columnWidths]);
 
   const columns = visibleColumns
     ? BUILTIN_COLUMNS.filter(c => visibleColumns.includes(c.id))
@@ -326,21 +363,29 @@ export default function TaskTable({
             {columns.map((col) => (
               <th
                 key={col.id}
-                style={{ width: col.width, cursor: onSortChange ? 'pointer' : undefined }}
+                style={{ width: columnWidths[col.id] || col.width, cursor: onSortChange ? 'pointer' : undefined }}
                 onClick={() => handleColumnHeaderClick(col.id)}
               >
                 {col.name}
                 {renderSortIndicator(col.id)}
+                <div
+                  className="task-col-resize"
+                  onMouseDown={(e) => handleResizeStart(col.id, e)}
+                />
               </th>
             ))}
             {visibleFieldDefs.map((def) => (
               <th
                 key={def.id}
-                style={{ width: def.width || 120, cursor: onSortChange ? 'pointer' : undefined }}
+                style={{ width: columnWidths[def.id] || def.width || 120, cursor: onSortChange ? 'pointer' : undefined }}
                 onClick={() => handleColumnHeaderClick(def.id)}
               >
                 {def.name}
                 {renderSortIndicator(def.id)}
+                <div
+                  className="task-col-resize"
+                  onMouseDown={(e) => handleResizeStart(def.id, e)}
+                />
               </th>
             ))}
             <th style={{ width: 60 }}></th>
