@@ -1,13 +1,13 @@
-import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex } from '../../shared/types';
+import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment } from '../../shared/types';
 import { parseOutlineFile, serializeOutline, createTagsFromStrings, extractTags } from './parser';
 
 // Data service interface - this abstraction allows swapping to a web API later
 export interface DataService {
   selectProjectFolder(): Promise<string | null>;
-  loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string> }>;
+  loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]> }>;
   saveCharacterOutline(character: Character, plotPoints: PlotPoint[], scenes: Scene[]): Promise<void>;
   createCharacter(folderPath: string, name: string): Promise<Character>;
-  saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], draftContent?: Record<string, string>, metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, drafts?: Record<string, DraftVersion[]>, wordCountGoal?: number, allFontSettings?: AllFontSettings, scratchpad?: Record<string, string>): Promise<void>;
+  saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], draftContent?: Record<string, string>, metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, drafts?: Record<string, DraftVersion[]>, wordCountGoal?: number, allFontSettings?: AllFontSettings, scratchpad?: Record<string, string>, sceneComments?: Record<string, SceneComment[]>): Promise<void>;
   getRecentProjects(): Promise<RecentProject[]>;
   addRecentProject(project: RecentProject): Promise<void>;
   selectSaveLocation(): Promise<string | null>;
@@ -39,7 +39,7 @@ class ElectronDataService implements DataService {
     return path;
   }
 
-  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string> }> {
+  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]> }> {
     this.projectPath = folderPath;
     const result = await window.electronAPI.readProject(folderPath);
 
@@ -110,6 +110,7 @@ class ElectronDataService implements DataService {
       drafts: timelineData.drafts || {},
       wordCountGoal: timelineData.wordCountGoal || 0,
       scratchpad: timelineData.scratchpad || {},
+      sceneComments: timelineData.sceneComments || {},
     };
   }
 
@@ -178,12 +179,12 @@ class ElectronDataService implements DataService {
     return character;
   }
 
-  async saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], draftContent?: Record<string, string>, metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, drafts?: Record<string, DraftVersion[]>, wordCountGoal?: number, allFontSettings?: AllFontSettings, scratchpad?: Record<string, string>): Promise<void> {
+  async saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], draftContent?: Record<string, string>, metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, drafts?: Record<string, DraftVersion[]>, wordCountGoal?: number, allFontSettings?: AllFontSettings, scratchpad?: Record<string, string>, sceneComments?: Record<string, SceneComment[]>): Promise<void> {
     if (!this.projectPath) {
       throw new Error('No project loaded');
     }
 
-    const result = await window.electronAPI.saveTimeline(this.projectPath, { positions, connections, chapters, characterColors, wordCounts, fontSettings, archivedScenes, draftContent, metadataFieldDefs, sceneMetadata, drafts, wordCountGoal, allFontSettings, scratchpad });
+    const result = await window.electronAPI.saveTimeline(this.projectPath, { positions, connections, chapters, characterColors, wordCounts, fontSettings, archivedScenes, draftContent, metadataFieldDefs, sceneMetadata, drafts, wordCountGoal, allFontSettings, scratchpad, sceneComments });
     if (!result.success) {
       throw new Error(result.error || 'Failed to save timeline');
     }

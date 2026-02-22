@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -99,6 +99,8 @@ function App() {
   const draftContentRef = useRef<Record<string, string>>({});
   const [scratchpadContent, setScratchpadContent] = useState<Record<string, string>>({});
   const scratchpadContentRef = useRef<Record<string, string>>({});
+  const [sceneComments, setSceneComments] = useState<Record<string, SceneComment[]>>({});
+  const sceneCommentsRef = useRef<Record<string, SceneComment[]>>({});
   const [drafts, setDrafts] = useState<Record<string, DraftVersion[]>>({});
   const draftsRef = useRef<Record<string, DraftVersion[]>>({});
   const [metadataFieldDefs, setMetadataFieldDefs] = useState<MetadataFieldDef[]>([]);
@@ -784,6 +786,7 @@ function App() {
     const loadedDraft = data.draftContent || {};
     const loadedDrafts = data.drafts || {};
     const loadedScratchpad = data.scratchpad || {};
+    const loadedComments = data.sceneComments || {};
     const loadedMetaDefs = data.metadataFieldDefs || [];
     setMetadataFieldDefs(loadedMetaDefs);
     metadataFieldDefsRef.current = loadedMetaDefs;
@@ -797,6 +800,7 @@ function App() {
       ...Object.keys(loadedDraft),
       ...Object.keys(loadedDrafts),
       ...Object.keys(loadedScratchpad),
+      ...Object.keys(loadedComments),
       ...Object.keys(loadedMetaData),
     ]);
     const orphanedKeys = [...allStoredKeys].filter(k => !validKeys.has(k));
@@ -805,6 +809,7 @@ function App() {
         delete loadedDraft[key];
         delete loadedDrafts[key];
         delete loadedScratchpad[key];
+        delete loadedComments[key];
         delete loadedMetaData[key];
       }
       console.log('Cleaned up orphaned scene keys:', orphanedKeys);
@@ -816,6 +821,8 @@ function App() {
     draftContentRef.current = loadedDraft;
     setScratchpadContent(loadedScratchpad);
     scratchpadContentRef.current = loadedScratchpad;
+    setSceneComments(loadedComments);
+    sceneCommentsRef.current = loadedComments;
     setDrafts(loadedDrafts);
     draftsRef.current = loadedDrafts;
 
@@ -1222,7 +1229,7 @@ function App() {
         }
       }
 
-      await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current);
+      await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current);
     }
   };
 
@@ -1389,6 +1396,10 @@ function App() {
     const newScratchpad = remap(scratchpadContentRef.current);
     setScratchpadContent(newScratchpad);
     scratchpadContentRef.current = newScratchpad;
+
+    const newComments = remap(sceneCommentsRef.current);
+    setSceneComments(newComments);
+    sceneCommentsRef.current = newComments;
   };
 
   // Build oldKey->newKey map from scenes before and after renumbering.
@@ -2011,7 +2022,7 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -2253,6 +2264,27 @@ function App() {
     const updated = { ...scratchpadContentRef.current, [sceneKey]: html };
     setScratchpadContent(updated);
     scratchpadContentRef.current = updated;
+  };
+
+  const handleAddComment = (sceneKey: string, text: string) => {
+    isDirtyRef.current = true;
+    const existing = sceneCommentsRef.current[sceneKey] || [];
+    const comment: SceneComment = {
+      id: Math.random().toString(36).substring(2, 11),
+      text,
+      createdAt: Date.now(),
+    };
+    const updated = { ...sceneCommentsRef.current, [sceneKey]: [comment, ...existing] };
+    setSceneComments(updated);
+    sceneCommentsRef.current = updated;
+  };
+
+  const handleDeleteComment = (sceneKey: string, commentId: string) => {
+    isDirtyRef.current = true;
+    const existing = sceneCommentsRef.current[sceneKey] || [];
+    const updated = { ...sceneCommentsRef.current, [sceneKey]: existing.filter(c => c.id !== commentId) };
+    setSceneComments(updated);
+    sceneCommentsRef.current = updated;
   };
 
   const handleSaveDraft = async (sceneKey: string, content: string) => {
@@ -3329,6 +3361,9 @@ function App() {
                 onGoToNote={(noteId: string) => { setPendingNoteId(noteId); setViewMode('notes'); }}
                 scratchpad={scratchpadContent}
                 onScratchpadChange={handleScratchpadChange}
+                sceneComments={sceneComments}
+                onAddComment={handleAddComment}
+                onDeleteComment={handleDeleteComment}
                 onDeleteScene={handleArchiveScene}
                 onDuplicateScene={handleDuplicateScene}
                 typewriterMode={typewriterMode}

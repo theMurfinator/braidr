@@ -109,10 +109,18 @@ export interface TimelineData {
   drafts?: Record<string, DraftVersion[]>;
   // Scratchpad content keyed by "characterId:sceneNumber"
   scratchpad?: Record<string, string>;
+  // Comments keyed by "characterId:sceneNumber"
+  sceneComments?: Record<string, SceneComment[]>;
   // Saved table view configurations
   tableViews?: TableViewConfig[];
   // Word count goal for the project
   wordCountGoal?: number;
+}
+
+export interface SceneComment {
+  id: string;
+  text: string;
+  createdAt: number;
 }
 
 export interface BraidedChapter {

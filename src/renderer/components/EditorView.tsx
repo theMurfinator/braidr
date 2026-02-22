@@ -7,7 +7,7 @@ import Heading from '@tiptap/extension-heading';
 import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion, NoteMetadata } from '../../shared/types';
+import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion, NoteMetadata, SceneComment } from '../../shared/types';
 import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
 import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
@@ -56,6 +56,9 @@ interface EditorViewProps {
   onGoToNote?: (noteId: string) => void;
   scratchpad?: Record<string, string>;
   onScratchpadChange?: (sceneKey: string, html: string) => void;
+  sceneComments?: Record<string, SceneComment[]>;
+  onAddComment?: (sceneKey: string, text: string) => void;
+  onDeleteComment?: (sceneKey: string, commentId: string) => void;
   onDeleteScene?: (sceneId: string) => void;
   onDuplicateScene?: (sceneId: string) => void;
   typewriterMode?: boolean;
@@ -164,6 +167,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   onGoToNote,
   scratchpad: scratchpadProp,
   onScratchpadChange,
+  sceneComments: sceneCommentsProp,
+  onAddComment,
+  onDeleteComment,
   onDeleteScene,
   onDuplicateScene,
   typewriterMode: typewriterModeProp = false,
@@ -210,6 +216,42 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const [navContextMenu, setNavContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
   const navContextMenuRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sidebar section management
+  const DEFAULT_SECTION_ORDER = ['status', 'wordCount', 'tags', 'synopsis', 'scratchpad', 'comments', 'changes', 'linkedNotes', 'timeTracked'];
+  const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('sidebarSectionOrder');
+      if (saved) {
+        const parsed = JSON.parse(saved) as string[];
+        // Merge in any new sections not in saved order
+        const merged = [...parsed];
+        for (const id of DEFAULT_SECTION_ORDER) {
+          if (!merged.includes(id)) merged.push(id);
+        }
+        return merged;
+      }
+    } catch {}
+    return DEFAULT_SECTION_ORDER;
+  });
+  const [sectionHidden, setSectionHidden] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('sidebarSectionHidden');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
+  const [sectionCollapsed, setSectionCollapsed] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('sidebarSectionCollapsed');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
+  const [showSectionSettings, setShowSectionSettings] = useState(false);
+  const sectionSettingsRef = useRef<HTMLDivElement>(null);
+  const [dragSectionId, setDragSectionId] = useState<string | null>(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
   // Timer state is now lifted to App — use props
   const isTimerForThisScene = timerSceneKeyProp !== null && selectedSceneKey !== null && timerSceneKeyProp === selectedSceneKey;
@@ -376,6 +418,29 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   useEffect(() => {
     localStorage.setItem('editor-show-toolbar', JSON.stringify(showToolbar));
   }, [showToolbar]);
+
+  // Persist sidebar section prefs
+  useEffect(() => {
+    localStorage.setItem('sidebarSectionOrder', JSON.stringify(sectionOrder));
+  }, [sectionOrder]);
+  useEffect(() => {
+    localStorage.setItem('sidebarSectionHidden', JSON.stringify(sectionHidden));
+  }, [sectionHidden]);
+  useEffect(() => {
+    localStorage.setItem('sidebarSectionCollapsed', JSON.stringify(sectionCollapsed));
+  }, [sectionCollapsed]);
+
+  // Close section settings popover on outside click
+  useEffect(() => {
+    if (!showSectionSettings) return;
+    const handleClick = (e: MouseEvent) => {
+      if (sectionSettingsRef.current && !sectionSettingsRef.current.contains(e.target as Node)) {
+        setShowSectionSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showSectionSettings]);
 
   // Close nav context menu on outside click
   useEffect(() => {
@@ -876,6 +941,75 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     return tag?.category || 'people';
   };
 
+  // Relative time formatting for comments
+  const formatRelativeTime = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  // Section drag handlers
+  const handleSectionDragStart = (e: React.DragEvent, sectionId: string) => {
+    setDragSectionId(sectionId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', sectionId);
+  };
+
+  const handleSectionDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetIdx(idx);
+  };
+
+  const handleSectionDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (!dragSectionId) return;
+    const visibleOrder = sectionOrder.filter(id => !sectionHidden[id]);
+    const dragIdx = visibleOrder.indexOf(dragSectionId);
+    if (dragIdx === -1 || dragIdx === targetIdx) {
+      setDragSectionId(null);
+      setDropTargetIdx(null);
+      return;
+    }
+    // Build new full order by removing dragged item and inserting at target position
+    const newOrder = [...sectionOrder];
+    const fromFullIdx = newOrder.indexOf(dragSectionId);
+    newOrder.splice(fromFullIdx, 1);
+    // Find the full-order index of the target position
+    const targetSectionId = visibleOrder[targetIdx];
+    const toFullIdx = targetSectionId ? newOrder.indexOf(targetSectionId) : newOrder.length;
+    newOrder.splice(dragIdx < targetIdx ? toFullIdx : toFullIdx, 0, dragSectionId);
+    setSectionOrder(newOrder);
+    setDragSectionId(null);
+    setDropTargetIdx(null);
+  };
+
+  const handleSectionDragEnd = () => {
+    setDragSectionId(null);
+    setDropTargetIdx(null);
+  };
+
+  const toggleSectionCollapse = (sectionId: string) => {
+    setSectionCollapsed(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+  };
+
+  const toggleSectionHidden = (sectionId: string) => {
+    setSectionHidden(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+  };
+
+  const resetSectionSettings = () => {
+    setSectionOrder(DEFAULT_SECTION_ORDER);
+    setSectionHidden({});
+    setSectionCollapsed({});
+  };
+
   // Metadata
   const currentMeta = selectedSceneKey ? (sceneMetadata[selectedSceneKey] || {}) : {};
   const statusFieldDef = metadataFieldDefs.find(f => f.id === '_status');
@@ -1181,6 +1315,40 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
             className={`editor-meta-tab ${metaTab === 'meta' ? 'active' : ''}`}
             onClick={() => setMetaTab('meta')}
           >Meta</button>
+          <div className="sidebar-settings-wrap" ref={sectionSettingsRef}>
+            <button
+              className="sidebar-settings-btn"
+              onClick={() => setShowSectionSettings(!showSectionSettings)}
+              title="Section settings"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+              </svg>
+            </button>
+            {showSectionSettings && (
+              <div className="sidebar-settings-popover">
+                <div className="sidebar-settings-title">Visible Sections</div>
+                {sectionOrder.map(id => {
+                  const labels: Record<string, string> = {
+                    status: 'Status', wordCount: 'Word Count', tags: 'Tags',
+                    synopsis: 'Synopsis', scratchpad: 'Scratchpad', comments: 'Comments',
+                    changes: 'Changes Needed', linkedNotes: 'Linked Notes', timeTracked: 'Time Tracking',
+                  };
+                  return (
+                    <label key={id} className="sidebar-settings-item">
+                      <input
+                        type="checkbox"
+                        checked={!sectionHidden[id]}
+                        onChange={() => toggleSectionHidden(id)}
+                      />
+                      <span>{labels[id] || id}</span>
+                    </label>
+                  );
+                })}
+                <button className="sidebar-settings-reset" onClick={resetSectionSettings}>Reset to Default</button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Multi-select indicator */}
@@ -1191,178 +1359,257 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
         )}
 
         {/* ===== SCENE TAB ===== */}
-        {metaTab === 'scene' && (
-          <>
-            {/* Status */}
-            <div className="editor-meta-section">
-              <div className="editor-meta-label-row">
-                <h4 className="editor-meta-label">Status</h4>
-                <button className="editor-meta-edit-btn" onClick={openStatusEditor}>Edit</button>
-              </div>
-              <div className="editor-meta-status-pill-wrap">
-                <button
-                  className="editor-meta-status-pill"
-                  style={{ '--status-color': (statusOptions.find(s => s.value === (currentMeta['_status'] as string))?.color) || '#9e9e9e' } as React.CSSProperties}
-                  onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                >
-                  {(currentMeta['_status'] as string) || 'No status'}
-                </button>
-                {showStatusDropdown && (
-                  <div className="editor-meta-status-dropdown">
-                    {statusOptions.map(s => (
-                      <button
-                        key={s.value}
-                        className={`editor-meta-status-option ${(currentMeta['_status'] as string) === s.value ? 'active' : ''}`}
-                        onClick={() => { handleMetaChange('_status', s.value); setShowStatusDropdown(false); }}
-                      >
-                        <span className="editor-meta-status-dot" style={{ background: s.color }} />
-                        {s.value}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+        {metaTab === 'scene' && (() => {
+          const sceneKey = selectedScene ? `${selectedScene.characterId}:${selectedScene.sceneNumber}` : '';
+          const comments = sceneKey ? (sceneCommentsProp?.[sceneKey] || []) : [];
 
-            {/* Word Count & Reading Time */}
-            <div className="editor-meta-section editor-meta-stats">
-              <div className="editor-meta-stat-row">
-                <span className="editor-meta-stat-label">Words</span>
-                <span className="editor-meta-stat-value">
-                  {isMultiSelect
-                    ? `${totalWordCount.toLocaleString()} (${selectedSceneKeys.length} scenes)`
-                    : singleWordCount.toLocaleString()}
-                </span>
-              </div>
-              <div className="editor-meta-stat-row">
-                <span className="editor-meta-stat-label">Reading Time</span>
-                <span className="editor-meta-stat-value">{Math.max(1, Math.round((isMultiSelect ? totalWordCount : singleWordCount) / 250))} min</span>
-              </div>
-            </div>
-
-            {/* Tags */}
-            <div className="editor-meta-section">
-              <h4 className="editor-meta-label">Tags</h4>
-              <div className="editor-meta-tags">
-                {selectedScene && selectedScene.tags.map(tagName => (
-                  <span
-                    key={tagName}
-                    className={`tag ${getTagCategory(tagName)} clickable`}
-                    onClick={() => handleToggleTag(tagName)}
-                    title="Click to remove"
+          const sectionDefs: { id: string; label: string; headerExtra?: React.ReactNode; render: () => React.ReactElement | null }[] = [
+            {
+              id: 'status',
+              label: 'Status',
+              headerExtra: <button className="editor-meta-edit-btn" onClick={openStatusEditor}>Edit</button>,
+              render: () => (
+                <div className="editor-meta-status-pill-wrap">
+                  <button
+                    className="editor-meta-status-pill"
+                    style={{ '--status-color': (statusOptions.find(s => s.value === (currentMeta['_status'] as string))?.color) || '#9e9e9e' } as React.CSSProperties}
+                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
                   >
-                    #{tagName}
-                  </span>
-                ))}
-                <div className="tag-picker-container" ref={tagPickerRef}>
-                  <button className="add-tag-btn" onClick={() => setShowTagPicker(!showTagPicker)}>+</button>
-                  {showTagPicker && (
-                    <div className="tag-picker-dropdown">
-                      <div className="tag-picker-create">
-                        <input
-                          type="text"
-                          placeholder="Search or create..."
-                          value={newTagName}
-                          onChange={e => setNewTagName(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateNewTag(); } }}
-                          autoFocus
-                        />
-                        <select
-                          className="tag-picker-category"
-                          value={newTagCategory}
-                          onChange={e => setNewTagCategory(e.target.value as typeof newTagCategory)}
-                          title="Tag category"
+                    {(currentMeta['_status'] as string) || 'No status'}
+                  </button>
+                  {showStatusDropdown && (
+                    <div className="editor-meta-status-dropdown">
+                      {statusOptions.map(s => (
+                        <button
+                          key={s.value}
+                          className={`editor-meta-status-option ${(currentMeta['_status'] as string) === s.value ? 'active' : ''}`}
+                          onClick={() => { handleMetaChange('_status', s.value); setShowStatusDropdown(false); }}
                         >
-                          <option value="people">Person</option>
-                          <option value="locations">Location</option>
-                          <option value="arcs">Arc</option>
-                          <option value="things">Thing</option>
-                          <option value="time">Time</option>
-                        </select>
-                        <button onClick={handleCreateNewTag} disabled={!newTagName.trim()}>Add</button>
-                      </div>
-                      {tags
-                        .filter(t => !(selectedScene?.tags || []).includes(t.name))
-                        .filter(t => !newTagName.trim() || t.name.toLowerCase().includes(newTagName.trim().toLowerCase()))
-                        .map(tag => (
-                          <div key={tag.id} className={`tag-picker-item ${tag.category}`} onClick={() => { handleToggleTag(tag.name); setShowTagPicker(false); setNewTagName(''); }}>
-                            #{tag.name}
-                          </div>
-                        ))}
+                          <span className="editor-meta-status-dot" style={{ background: s.color }} />
+                          {s.value}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
-
-            {/* Scene Synopsis */}
-            <div className="editor-meta-section">
-              <h4 className="editor-meta-label">Scene Synopsis</h4>
-              <EditorContent editor={notesEditor} className="editor-meta-notes-editor" />
-            </div>
-
-            {/* Scratchpad */}
-            <div className="editor-meta-section">
-              <h4 className="editor-meta-label">Scratchpad</h4>
-              <EditorContent editor={scratchpadEditor} className="editor-meta-scratchpad-editor" />
-            </div>
-
-            {/* Changes Needed */}
-            {selectedScene && (() => {
-              const charName = characters.find(c => c.id === selectedScene.characterId)?.name || '';
-              const sceneKey = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
-              const matchingTodos = getTodosForScene(sceneTodos, selectedScene.characterId, charName, selectedScene.sceneNumber);
-              return (
-                <div className="editor-meta-section">
-                  <h4 className="editor-meta-label">Changes Needed</h4>
-                  <div className="editor-meta-todos-list">
-                    {matchingTodos.map((todo) => (
-                      <div key={todo.todoId} className={`editor-meta-todo-item ${todo.done ? 'done' : ''}`}>
-                        <input
-                          type="checkbox"
-                          checked={todo.done}
-                          onChange={() => onTodoToggle?.(todo)}
-                          className="editor-meta-todo-checkbox"
-                        />
-                        <span className="editor-meta-todo-text">{todo.description || '(no description)'}</span>
-                        {todo.isInline ? (
+              ),
+            },
+            {
+              id: 'wordCount',
+              label: 'Word Count',
+              render: () => (
+                <div className="editor-meta-stats">
+                  <div className="editor-meta-stat-row">
+                    <span className="editor-meta-stat-label">Words</span>
+                    <span className="editor-meta-stat-value">
+                      {isMultiSelect
+                        ? `${totalWordCount.toLocaleString()} (${selectedSceneKeys.length} scenes)`
+                        : singleWordCount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="editor-meta-stat-row">
+                    <span className="editor-meta-stat-label">Reading Time</span>
+                    <span className="editor-meta-stat-value">{Math.max(1, Math.round((isMultiSelect ? totalWordCount : singleWordCount) / 250))} min</span>
+                  </div>
+                </div>
+              ),
+            },
+            {
+              id: 'tags',
+              label: 'Tags',
+              render: () => (
+                <div className="editor-meta-tags">
+                  {selectedScene && selectedScene.tags.map(tagName => (
+                    <span
+                      key={tagName}
+                      className={`tag ${getTagCategory(tagName)} clickable`}
+                      onClick={() => handleToggleTag(tagName)}
+                      title="Click to remove"
+                    >
+                      #{tagName}
+                    </span>
+                  ))}
+                  <div className="tag-picker-container" ref={tagPickerRef}>
+                    <button className="add-tag-btn" onClick={() => setShowTagPicker(!showTagPicker)}>+</button>
+                    {showTagPicker && (
+                      <div className="tag-picker-dropdown">
+                        <div className="tag-picker-create">
+                          <input
+                            type="text"
+                            placeholder="Search or create..."
+                            value={newTagName}
+                            onChange={e => setNewTagName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateNewTag(); } }}
+                            autoFocus
+                          />
+                          <select
+                            className="tag-picker-category"
+                            value={newTagCategory}
+                            onChange={e => setNewTagCategory(e.target.value as typeof newTagCategory)}
+                            title="Tag category"
+                          >
+                            <option value="people">Person</option>
+                            <option value="locations">Location</option>
+                            <option value="arcs">Arc</option>
+                            <option value="things">Thing</option>
+                            <option value="time">Time</option>
+                          </select>
+                          <button onClick={handleCreateNewTag} disabled={!newTagName.trim()}>Add</button>
+                        </div>
+                        {tags
+                          .filter(t => !(selectedScene?.tags || []).includes(t.name))
+                          .filter(t => !newTagName.trim() || t.name.toLowerCase().includes(newTagName.trim().toLowerCase()))
+                          .map(tag => (
+                            <div key={tag.id} className={`tag-picker-item ${tag.category}`} onClick={() => { handleToggleTag(tag.name); setShowTagPicker(false); setNewTagName(''); }}>
+                              #{tag.name}
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ),
+            },
+            {
+              id: 'synopsis',
+              label: 'Scene Synopsis',
+              render: () => <EditorContent editor={notesEditor} className="editor-meta-notes-editor" />,
+            },
+            {
+              id: 'scratchpad',
+              label: 'Scratchpad',
+              render: () => <EditorContent editor={scratchpadEditor} className="editor-meta-scratchpad-editor" />,
+            },
+            {
+              id: 'comments',
+              label: 'Comments',
+              render: () => (
+                <div className="sidebar-comments-section">
+                  <div className="sidebar-comments-list">
+                    {comments.map(c => (
+                      <div key={c.id} className="sidebar-comment">
+                        <div className="sidebar-comment-text">{c.text}</div>
+                        <div className="sidebar-comment-footer">
+                          <span className="sidebar-comment-timestamp">{formatRelativeTime(c.createdAt)}</span>
                           <button
-                            className="editor-meta-todo-remove"
-                            onClick={() => onRemoveInlineTodo?.(sceneKey, todo.todoId)}
-                            title="Remove"
+                            className="sidebar-comment-delete"
+                            onClick={() => onDeleteComment?.(sceneKey, c.id)}
+                            title="Delete comment"
                           >×</button>
-                        ) : (
-                          <span className="editor-meta-todo-source" title={`From note: ${todo.noteTitle}`}>{todo.noteTitle}</span>
-                        )}
+                        </div>
                       </div>
                     ))}
                   </div>
                   <form
-                    className="editor-meta-todo-add"
+                    className="sidebar-comment-form"
                     onSubmit={(e) => {
                       e.preventDefault();
-                      const input = (e.target as HTMLFormElement).elements.namedItem('todoInput') as HTMLInputElement;
+                      const input = (e.target as HTMLFormElement).elements.namedItem('commentInput') as HTMLInputElement;
                       const val = input.value.trim();
-                      if (val && onAddInlineTodo) {
-                        onAddInlineTodo(sceneKey, val);
+                      if (val && onAddComment && sceneKey) {
+                        onAddComment(sceneKey, val);
                         input.value = '';
                       }
                     }}
                   >
                     <input
-                      name="todoInput"
-                      className="editor-meta-todo-input"
-                      placeholder="Add a change…"
+                      name="commentInput"
+                      className="sidebar-comment-input"
+                      placeholder="Add a comment..."
                       autoComplete="off"
                     />
                   </form>
                 </div>
-              );
-            })()}
-
-            {/* Time Tracking */}
-            <div className="editor-meta-section editor-timer-section">
-              {selectedScene && (() => {
+              ),
+            },
+            {
+              id: 'changes',
+              label: 'Changes Needed',
+              render: () => {
+                if (!selectedScene) return null;
+                const charName = characters.find(c => c.id === selectedScene.characterId)?.name || '';
+                const matchingTodos = getTodosForScene(sceneTodos, selectedScene.characterId, charName, selectedScene.sceneNumber);
+                return (
+                  <>
+                    <div className="editor-meta-todos-list">
+                      {matchingTodos.map((todo) => (
+                        <div key={todo.todoId} className={`editor-meta-todo-item ${todo.done ? 'done' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={todo.done}
+                            onChange={() => onTodoToggle?.(todo)}
+                            className="editor-meta-todo-checkbox"
+                          />
+                          <span className="editor-meta-todo-text">{todo.description || '(no description)'}</span>
+                          {todo.isInline ? (
+                            <button
+                              className="editor-meta-todo-remove"
+                              onClick={() => onRemoveInlineTodo?.(sceneKey, todo.todoId)}
+                              title="Remove"
+                            >×</button>
+                          ) : (
+                            <span className="editor-meta-todo-source" title={`From note: ${todo.noteTitle}`}>{todo.noteTitle}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <form
+                      className="editor-meta-todo-add"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const input = (e.target as HTMLFormElement).elements.namedItem('todoInput') as HTMLInputElement;
+                        const val = input.value.trim();
+                        if (val && onAddInlineTodo) {
+                          onAddInlineTodo(sceneKey, val);
+                          input.value = '';
+                        }
+                      }}
+                    >
+                      <input
+                        name="todoInput"
+                        className="editor-meta-todo-input"
+                        placeholder="Add a change…"
+                        autoComplete="off"
+                      />
+                    </form>
+                  </>
+                );
+              },
+            },
+            {
+              id: 'linkedNotes',
+              label: 'Linked Notes',
+              render: () => {
+                if (!selectedScene) return null;
+                const linkedNotes = notesIndex.filter(n => n.sceneLinks?.includes(sceneKey));
+                if (linkedNotes.length === 0) return null;
+                return (
+                  <div className="editor-meta-linked-notes">
+                    {linkedNotes.map(note => (
+                      <button
+                        key={note.id}
+                        className="editor-meta-linked-note"
+                        onClick={() => onGoToNote?.(note.id)}
+                        title={`Open "${note.title}" in Notes`}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                          <line x1="16" y1="13" x2="8" y2="13"/>
+                          <line x1="16" y1="17" x2="8" y2="17"/>
+                        </svg>
+                        <span>{note.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              },
+            },
+            {
+              id: 'timeTracked',
+              label: 'Time Tracking',
+              render: () => {
+                if (!selectedScene) return null;
                 const key = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
                 const totals = getSceneSessionTotals(sceneSessions, key);
                 const totalHrs = Math.floor(totals.totalMs / 3600000);
@@ -1371,13 +1618,10 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                 const sessions = sceneSessionsList ? sceneSessionsList(key) : [];
                 return (
                   <>
-                    {/* Total time header */}
                     <div className="time-track-header">
                       <span className="time-track-total">{totalStr}</span>
                       <span className="time-track-total-label">total tracked</span>
                     </div>
-
-                    {/* Timer + manual add row */}
                     <div className="time-track-actions">
                       <div className="time-track-timer-row">
                         <div className="editor-timer-display">
@@ -1399,7 +1643,6 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                           )}
                         </div>
                       </div>
-                      {/* Manual time entry */}
                       {!showManualTimeInput ? (
                         <button className="editor-manual-time-toggle" onClick={() => setShowManualTimeInput(true)}>
                           + Add time
@@ -1445,8 +1688,6 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                         </div>
                       )}
                     </div>
-
-                    {/* Session list (scrollable) */}
                     {sessions.length > 0 && (
                       <div className="time-track-sessions">
                         <div className="time-track-sessions-header">
@@ -1494,39 +1735,71 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     )}
                   </>
                 );
-              })()}
-            </div>
+              },
+            },
+          ];
 
-            {/* Linked Notes */}
-            {selectedScene && (() => {
-              const sceneKey = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
-              const linkedNotes = notesIndex.filter(n => n.sceneLinks?.includes(sceneKey));
-              return linkedNotes.length > 0 ? (
-                <div className="editor-meta-section">
-                  <h4 className="editor-meta-label">Linked Notes</h4>
-                  <div className="editor-meta-linked-notes">
-                    {linkedNotes.map(note => (
-                      <button
-                        key={note.id}
-                        className="editor-meta-linked-note"
-                        onClick={() => onGoToNote?.(note.id)}
-                        title={`Open "${note.title}" in Notes`}
+          const visibleSections = sectionOrder
+            .filter(id => !sectionHidden[id])
+            .map(id => sectionDefs.find(s => s.id === id))
+            .filter(Boolean) as typeof sectionDefs;
+
+          return (
+            <div className="sidebar-sections-container">
+              {visibleSections.map((section, idx) => {
+                const isCollapsed = !!sectionCollapsed[section.id];
+                const isDragging = dragSectionId === section.id;
+                const content = section.render();
+                if (content === null && section.id === 'linkedNotes') return null;
+                return (
+                  <React.Fragment key={section.id}>
+                    {dropTargetIdx === idx && dragSectionId && dragSectionId !== section.id && (
+                      <div className="sidebar-drop-indicator" />
+                    )}
+                    <div
+                      className={`sidebar-section-wrapper ${isDragging ? 'dragging' : ''}`}
+                      onDragOver={(e) => handleSectionDragOver(e, idx)}
+                      onDrop={(e) => handleSectionDrop(e, idx)}
+                    >
+                      <div
+                        className="sidebar-section-header"
+                        draggable
+                        onDragStart={(e) => handleSectionDragStart(e, section.id)}
+                        onDragEnd={handleSectionDragEnd}
+                        onClick={() => toggleSectionCollapse(section.id)}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                          <polyline points="14 2 14 8 20 8"/>
-                          <line x1="16" y1="13" x2="8" y2="13"/>
-                          <line x1="16" y1="17" x2="8" y2="17"/>
-                        </svg>
-                        <span>{note.title}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null;
-            })()}
-          </>
-        )}
+                        <span className="sidebar-grip" title="Drag to reorder">
+                          <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
+                            <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
+                            <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
+                            <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
+                          </svg>
+                        </span>
+                        <h4 className="editor-meta-label">{section.label}</h4>
+                        {section.headerExtra && <span className="sidebar-section-header-extra" onClick={e => e.stopPropagation()}>{section.headerExtra}</span>}
+                        <span className={`sidebar-chevron ${isCollapsed ? 'collapsed' : ''}`}>
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M2.5 3.5L5 6L7.5 3.5"/>
+                          </svg>
+                        </span>
+                      </div>
+                      <div className={`sidebar-section-body ${isCollapsed ? 'collapsed' : ''}`}>
+                        {content}
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+              {dropTargetIdx === visibleSections.length && dragSectionId && (
+                <div
+                  className="sidebar-drop-indicator"
+                  onDragOver={(e) => handleSectionDragOver(e, visibleSections.length)}
+                  onDrop={(e) => handleSectionDrop(e, visibleSections.length)}
+                />
+              )}
+            </div>
+          );
+        })()}
 
         {/* ===== META TAB ===== */}
         {metaTab === 'meta' && (
