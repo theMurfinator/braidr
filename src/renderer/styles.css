@@ -14381,6 +14381,147 @@ textarea.table-cell-input {
   margin-left: 4px;
 }
 
+/* ── Task Saved Views ────────────────────────────────────────────────────── */
+
+.tasks-view-switcher {
+  position: relative;
+}
+
+.tasks-view-switcher-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: none;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tasks-view-switcher-btn:hover {
+  color: var(--accent);
+}
+
+.tasks-view-switcher-btn .chevron {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.tasks-view-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.tasks-view-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tasks-view-option:hover {
+  background: var(--bg-tertiary);
+}
+
+.tasks-view-option.active {
+  font-weight: 600;
+  background: var(--bg-secondary);
+}
+
+.tasks-view-option-delete {
+  padding: 2px 6px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0;
+}
+
+.tasks-view-option:hover .tasks-view-option-delete {
+  opacity: 1;
+}
+
+.tasks-view-option-delete:hover {
+  color: #f44336;
+}
+
+.tasks-save-as-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tasks-save-as-input input {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  width: 140px;
+}
+
+.tasks-columns-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 220px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  padding: 8px 0;
+  max-height: 360px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.tasks-column-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tasks-column-toggle:hover {
+  background: var(--bg-tertiary);
+}
+
+.tasks-column-toggle input[type="checkbox"] {
+  margin: 0;
+}
+
 /* ── Task Timer ──────────────────────────────────────────────────────────── */
 
 .task-timer-display {

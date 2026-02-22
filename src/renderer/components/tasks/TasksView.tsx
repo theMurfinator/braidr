@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Task, TaskFilter, TaskFieldDef, TaskViewConfig, Tag, Character, Scene, TimeEntry } from '../../../shared/types';
-import TaskTable from './TaskTable';
+import TaskTable, { BUILTIN_COLUMNS } from './TaskTable';
 import TaskToolbar from './TaskToolbar';
 import TaskFilterBar from './TaskFilterBar';
 
@@ -56,6 +56,8 @@ interface TasksViewProps {
   onTaskViewsChange: (views: TaskViewConfig[]) => void;
 }
 
+const defaultVisibleColumns = BUILTIN_COLUMNS.map(c => c.id);
+
 export default function TasksView({
   tasks,
   taskFieldDefs,
@@ -72,6 +74,8 @@ export default function TasksView({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [filters, setFilters] = useState<TaskFilter[]>([]);
   const [showFilter, setShowFilter] = useState(false);
+  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(defaultVisibleColumns);
 
   // Timer state
   const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
@@ -135,9 +139,79 @@ export default function TasksView({
     setSortDir(dir);
   }
 
-  // Suppress unused variable warnings for props used in future tasks
-  void taskViews;
-  void onTaskViewsChange;
+  // ── View management ────────────────────────────────────────────────────
+
+  const handleViewSelect = (viewId: string | null) => {
+    setActiveViewId(viewId);
+    if (!viewId) {
+      // Reset to defaults
+      setGroupBy(undefined);
+      setSortBy(undefined);
+      setSortDir('asc');
+      setFilters([]);
+      setVisibleColumns(defaultVisibleColumns);
+      return;
+    }
+    const view = taskViews.find(v => v.id === viewId);
+    if (view) {
+      setGroupBy(view.groupBy);
+      setSortBy(view.sortBy);
+      setSortDir(view.sortDir || 'asc');
+      setFilters(view.filters || []);
+      setVisibleColumns(view.visibleColumns || defaultVisibleColumns);
+    }
+  };
+
+  const handleViewSave = () => {
+    if (!activeViewId) return;
+    const updated = taskViews.map(v =>
+      v.id === activeViewId
+        ? { ...v, groupBy, sortBy, sortDir, filters, visibleColumns }
+        : v
+    );
+    onTaskViewsChange(updated);
+  };
+
+  const handleViewSaveAs = (name: string) => {
+    const newView: TaskViewConfig = {
+      id: crypto.randomUUID(),
+      name,
+      groupBy,
+      sortBy,
+      sortDir,
+      filters,
+      visibleColumns,
+    };
+    onTaskViewsChange([...taskViews, newView]);
+    setActiveViewId(newView.id);
+  };
+
+  const handleViewDelete = (viewId: string) => {
+    onTaskViewsChange(taskViews.filter(v => v.id !== viewId));
+    if (activeViewId === viewId) {
+      setActiveViewId(null);
+      // Reset to defaults
+      setGroupBy(undefined);
+      setSortBy(undefined);
+      setSortDir('asc');
+      setFilters([]);
+      setVisibleColumns(defaultVisibleColumns);
+    }
+  };
+
+  // Detect whether the current config differs from the saved view
+  const viewHasChanges = useMemo(() => {
+    if (!activeViewId) return false;
+    const view = taskViews.find(v => v.id === activeViewId);
+    if (!view) return false;
+    if (view.groupBy !== groupBy) return true;
+    if (view.sortBy !== sortBy) return true;
+    if ((view.sortDir || 'asc') !== sortDir) return true;
+    if (JSON.stringify(view.filters || []) !== JSON.stringify(filters)) return true;
+    const savedCols = view.visibleColumns || defaultVisibleColumns;
+    if (JSON.stringify(savedCols) !== JSON.stringify(visibleColumns)) return true;
+    return false;
+  }, [activeViewId, taskViews, groupBy, sortBy, sortDir, filters, visibleColumns]);
 
   const filteredTasks = filterTasks(tasks, filters, characters);
 
@@ -158,6 +232,15 @@ export default function TasksView({
         activeTimerTaskTitle={activeTimerTaskTitle}
         timerElapsed={timerElapsed}
         onStopTimer={stopTimer}
+        taskViews={taskViews}
+        activeViewId={activeViewId}
+        onViewSelect={handleViewSelect}
+        onViewSave={handleViewSave}
+        onViewSaveAs={handleViewSaveAs}
+        onViewDelete={handleViewDelete}
+        visibleColumns={visibleColumns}
+        onVisibleColumnsChange={setVisibleColumns}
+        viewHasChanges={viewHasChanges}
       />
       {showFilter && (
         <TaskFilterBar
@@ -185,6 +268,7 @@ export default function TasksView({
           onStartTimer={startTimer}
           onStopTimer={stopTimer}
           onAddTimeEntry={handleAddTimeEntry}
+          visibleColumns={visibleColumns}
         />
       </div>
     </div>

@@ -31,6 +31,7 @@ interface TaskTableProps {
   onStartTimer: (taskId: string) => void;
   onStopTimer: () => void;
   onAddTimeEntry: (taskId: string, entry: TimeEntry) => void;
+  visibleColumns?: string[];
 }
 
 function groupTasks(
@@ -148,11 +149,20 @@ export default function TaskTable({
   onStartTimer,
   onStopTimer,
   onAddTimeEntry,
+  visibleColumns,
 }: TaskTableProps) {
   const [showFieldManager, setShowFieldManager] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
-  const totalColumns = BUILTIN_COLUMNS.length + taskFieldDefs.length + 1;
+  const columns = visibleColumns
+    ? BUILTIN_COLUMNS.filter(c => visibleColumns.includes(c.id))
+    : BUILTIN_COLUMNS;
+
+  const visibleFieldDefs = visibleColumns
+    ? taskFieldDefs.filter(d => visibleColumns.includes(d.id))
+    : taskFieldDefs;
+
+  const totalColumns = columns.length + visibleFieldDefs.length + 1;
 
   function handleCreateField(field: TaskFieldDef) {
     onTaskFieldDefsChange([...taskFieldDefs, field]);
@@ -238,6 +248,7 @@ export default function TaskTable({
         onStartTimer={onStartTimer}
         onStopTimer={onStopTimer}
         onAddTimeEntry={onAddTimeEntry}
+        visibleColumns={visibleColumns}
       />
     ));
   }
@@ -247,7 +258,7 @@ export default function TaskTable({
       <table className="tasks-table">
         <thead>
           <tr>
-            {BUILTIN_COLUMNS.map((col) => (
+            {columns.map((col) => (
               <th
                 key={col.id}
                 style={{ width: col.width, cursor: onSortChange ? 'pointer' : undefined }}
@@ -257,7 +268,7 @@ export default function TaskTable({
                 {renderSortIndicator(col.id)}
               </th>
             ))}
-            {taskFieldDefs.map((def) => (
+            {visibleFieldDefs.map((def) => (
               <th
                 key={def.id}
                 style={{ width: def.width || 120, cursor: onSortChange ? 'pointer' : undefined }}

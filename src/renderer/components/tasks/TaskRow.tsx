@@ -21,6 +21,7 @@ interface TaskRowProps {
   onStartTimer: (taskId: string) => void;
   onStopTimer: () => void;
   onAddTimeEntry: (taskId: string, entry: TimeEntry) => void;
+  visibleColumns?: string[];
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -78,7 +79,9 @@ export default function TaskRow({
   onStartTimer,
   onStopTimer,
   onAddTimeEntry,
+  visibleColumns,
 }: TaskRowProps) {
+  const isVisible = (colId: string) => !visibleColumns || visibleColumns.includes(colId);
   const [editingColumn, setEditingColumn] = useState<string | null>(null);
   const [showTimePopover, setShowTimePopover] = useState(false);
   const [manualHours, setManualHours] = useState(0);
@@ -145,6 +148,7 @@ export default function TaskRow({
   return (
     <tr>
       {/* Title */}
+      {isVisible('title') && (
       <td
         className={`task-title-cell${editingColumn === 'title' ? ' task-cell-editing' : ''}`}
         onClick={() => editingColumn !== 'title' && setEditingColumn('title')}
@@ -160,8 +164,10 @@ export default function TaskRow({
           task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>
         )}
       </td>
+      )}
 
       {/* Status */}
+      {isVisible('status') && (
       <td
         className={editingColumn === 'status' ? 'task-cell-editing' : undefined}
         onClick={() => editingColumn !== 'status' && setEditingColumn('status')}
@@ -182,8 +188,10 @@ export default function TaskRow({
           </span>
         )}
       </td>
+      )}
 
       {/* Priority */}
+      {isVisible('priority') && (
       <td
         className={editingColumn === 'priority' ? 'task-cell-editing' : undefined}
         onClick={() => editingColumn !== 'priority' && setEditingColumn('priority')}
@@ -204,8 +212,10 @@ export default function TaskRow({
           </span>
         )}
       </td>
+      )}
 
       {/* Tags */}
+      {isVisible('tags') && (
       <td
         className={editingColumn === 'tags' ? 'task-cell-editing' : undefined}
         onClick={() => editingColumn !== 'tags' && setEditingColumn('tags')}
@@ -234,8 +244,10 @@ export default function TaskRow({
           ))
         )}
       </td>
+      )}
 
       {/* Characters */}
+      {isVisible('characters') && (
       <td
         className={editingColumn === 'characters' ? 'task-cell-editing' : undefined}
         onClick={() => editingColumn !== 'characters' && setEditingColumn('characters')}
@@ -259,8 +271,10 @@ export default function TaskRow({
           ))
         )}
       </td>
+      )}
 
       {/* Scene */}
+      {isVisible('scene') && (
       <td
         className={editingColumn === 'scene' ? 'task-cell-editing' : undefined}
         onClick={() => editingColumn !== 'scene' && setEditingColumn('scene')}
@@ -277,8 +291,10 @@ export default function TaskRow({
           sceneLabel
         )}
       </td>
+      )}
 
       {/* Due Date */}
+      {isVisible('dueDate') && (
       <td
         className={editingColumn === 'dueDate' ? 'task-cell-editing' : undefined}
         onClick={() => editingColumn !== 'dueDate' && setEditingColumn('dueDate')}
@@ -293,8 +309,10 @@ export default function TaskRow({
           task.dueDate ? new Date(task.dueDate).toLocaleDateString() : ''
         )}
       </td>
+      )}
 
       {/* Time Tracked */}
+      {isVisible('timeTracked') && (
       <td style={{ position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button
@@ -369,8 +387,10 @@ export default function TaskRow({
           </div>
         )}
       </td>
+      )}
 
       {/* Time Estimate — number input in hours, stored as ms */}
+      {isVisible('timeEstimate') && (
       <td
         className={editingColumn === 'timeEstimate' ? 'task-cell-editing' : undefined}
         onClick={() => editingColumn !== 'timeEstimate' && setEditingColumn('timeEstimate')}
@@ -385,9 +405,10 @@ export default function TaskRow({
           task.timeEstimate ? formatDuration(task.timeEstimate) : ''
         )}
       </td>
+      )}
 
       {/* Custom fields */}
-      {taskFieldDefs.map((def) => {
+      {taskFieldDefs.filter(def => isVisible(def.id)).map((def) => {
         const value = task.customFields[def.id];
         const isEditing = editingColumn === `custom:${def.id}`;
 
