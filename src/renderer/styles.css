@@ -13951,3 +13951,76 @@ textarea.table-cell-input {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
+
+.task-cell-editing {
+  position: relative;
+}
+
+.task-inline-input {
+  width: 100%;
+  padding: 2px 4px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.task-inline-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 160px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  overflow: hidden;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.task-inline-dropdown-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.task-inline-dropdown-option:hover {
+  background: var(--bg-tertiary);
+}
+
+.task-inline-dropdown-option.active {
+  font-weight: 600;
+}
+
+.task-picker-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.task-picker-checkbox:hover {
+  background: var(--bg-tertiary);
+}

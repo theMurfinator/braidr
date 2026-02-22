@@ -1,4 +1,14 @@
+import { useState } from 'react';
 import type { Task, TaskFieldDef, Character, Scene, Tag } from '../../../shared/types';
+import {
+  InlineTextInput,
+  InlineNumberInput,
+  InlineDropdown,
+  InlineDatePicker,
+  TagPicker,
+  CharacterPicker,
+  ScenePicker,
+} from './TaskCellEditors';
 
 interface TaskRowProps {
   task: Task;
@@ -31,6 +41,20 @@ const TAG_CATEGORY_COLORS: Record<string, string> = {
   time: '#D4820A',
 };
 
+const STATUS_OPTIONS = [
+  { value: 'open', label: 'Open', color: STATUS_COLORS.open },
+  { value: 'in-progress', label: 'In Progress', color: STATUS_COLORS['in-progress'] },
+  { value: 'done', label: 'Done', color: STATUS_COLORS.done },
+];
+
+const PRIORITY_OPTIONS = [
+  { value: 'none', label: 'None', color: PRIORITY_COLORS.none },
+  { value: 'low', label: 'Low', color: PRIORITY_COLORS.low },
+  { value: 'medium', label: 'Medium', color: PRIORITY_COLORS.medium },
+  { value: 'high', label: 'High', color: PRIORITY_COLORS.high },
+  { value: 'urgent', label: 'Urgent', color: PRIORITY_COLORS.urgent },
+];
+
 function formatDuration(ms: number): string {
   if (!ms) return '0m';
   const hours = Math.floor(ms / 3600000);
@@ -45,7 +69,10 @@ export default function TaskRow({
   scenes,
   tags,
   taskFieldDefs,
+  onTaskUpdate,
 }: TaskRowProps) {
+  const [editingColumn, setEditingColumn] = useState<string | null>(null);
+
   // Resolve tag objects
   const resolvedTags = task.tags
     .map((tagId) => tags.find((t) => t.id === tagId || t.name === tagId))
@@ -70,89 +97,278 @@ export default function TaskRow({
   // Time tracked
   const totalTime = task.timeEntries.reduce((sum, e) => sum + e.duration, 0);
 
+  function commitField(field: string, value: unknown) {
+    const updated = { ...task, [field]: value, updatedAt: Date.now() };
+    onTaskUpdate(updated);
+    setEditingColumn(null);
+  }
+
+  function commitCustomField(fieldId: string, value: unknown) {
+    const updated = {
+      ...task,
+      customFields: { ...task.customFields, [fieldId]: value },
+      updatedAt: Date.now(),
+    };
+    onTaskUpdate(updated);
+    setEditingColumn(null);
+  }
+
+  function cancelEdit() {
+    setEditingColumn(null);
+  }
+
   return (
     <tr>
       {/* Title */}
-      <td className="task-title-cell">{task.title}</td>
+      <td
+        className={`task-title-cell${editingColumn === 'title' ? ' task-cell-editing' : ''}`}
+        onClick={() => editingColumn !== 'title' && setEditingColumn('title')}
+      >
+        {editingColumn === 'title' ? (
+          <InlineTextInput
+            value={task.title}
+            placeholder="Task title..."
+            onCommit={(v) => commitField('title', v)}
+            onCancel={cancelEdit}
+          />
+        ) : (
+          task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>
+        )}
+      </td>
 
       {/* Status */}
-      <td>
-        <span
-          className="task-status-pill"
-          style={{ background: STATUS_COLORS[task.status] || '#9e9e9e' }}
-        >
-          {task.status}
-        </span>
+      <td
+        className={editingColumn === 'status' ? 'task-cell-editing' : undefined}
+        onClick={() => editingColumn !== 'status' && setEditingColumn('status')}
+      >
+        {editingColumn === 'status' ? (
+          <InlineDropdown
+            options={STATUS_OPTIONS}
+            value={task.status}
+            onCommit={(v) => commitField('status', v)}
+            onCancel={cancelEdit}
+          />
+        ) : (
+          <span
+            className="task-status-pill"
+            style={{ background: STATUS_COLORS[task.status] || '#9e9e9e' }}
+          >
+            {task.status}
+          </span>
+        )}
       </td>
 
       {/* Priority */}
-      <td>
-        <span
-          className="task-priority-badge"
-          style={{ background: PRIORITY_COLORS[task.priority] || '#9e9e9e' }}
-        >
-          {task.priority}
-        </span>
+      <td
+        className={editingColumn === 'priority' ? 'task-cell-editing' : undefined}
+        onClick={() => editingColumn !== 'priority' && setEditingColumn('priority')}
+      >
+        {editingColumn === 'priority' ? (
+          <InlineDropdown
+            options={PRIORITY_OPTIONS}
+            value={task.priority}
+            onCommit={(v) => commitField('priority', v)}
+            onCancel={cancelEdit}
+          />
+        ) : (
+          <span
+            className="task-priority-badge"
+            style={{ background: PRIORITY_COLORS[task.priority] || '#9e9e9e' }}
+          >
+            {task.priority}
+          </span>
+        )}
       </td>
 
       {/* Tags */}
-      <td>
-        {resolvedTags.map((tag) => (
-          <span
-            key={tag!.id}
-            className="task-tag-pill"
-            style={{
-              background: TAG_CATEGORY_COLORS[tag!.category]
-                ? `${TAG_CATEGORY_COLORS[tag!.category]}18`
-                : undefined,
-              color: TAG_CATEGORY_COLORS[tag!.category] || undefined,
-            }}
-          >
-            {tag!.name}
-          </span>
-        ))}
+      <td
+        className={editingColumn === 'tags' ? 'task-cell-editing' : undefined}
+        onClick={() => editingColumn !== 'tags' && setEditingColumn('tags')}
+      >
+        {editingColumn === 'tags' ? (
+          <TagPicker
+            selectedTags={task.tags}
+            availableTags={tags}
+            onCommit={(v) => commitField('tags', v)}
+            onCancel={cancelEdit}
+          />
+        ) : (
+          resolvedTags.map((tag) => (
+            <span
+              key={tag!.id}
+              className="task-tag-pill"
+              style={{
+                background: TAG_CATEGORY_COLORS[tag!.category]
+                  ? `${TAG_CATEGORY_COLORS[tag!.category]}18`
+                  : undefined,
+                color: TAG_CATEGORY_COLORS[tag!.category] || undefined,
+              }}
+            >
+              {tag!.name}
+            </span>
+          ))
+        )}
       </td>
 
       {/* Characters */}
-      <td>
-        {resolvedCharacters.map((char) => (
-          <span
-            key={char!.id}
-            className="task-character-pill"
-            style={{ background: char!.color || '#666' }}
-          >
-            {char!.name}
-          </span>
-        ))}
+      <td
+        className={editingColumn === 'characters' ? 'task-cell-editing' : undefined}
+        onClick={() => editingColumn !== 'characters' && setEditingColumn('characters')}
+      >
+        {editingColumn === 'characters' ? (
+          <CharacterPicker
+            selectedIds={task.characterIds}
+            characters={characters}
+            onCommit={(v) => commitField('characterIds', v)}
+            onCancel={cancelEdit}
+          />
+        ) : (
+          resolvedCharacters.map((char) => (
+            <span
+              key={char!.id}
+              className="task-character-pill"
+              style={{ background: char!.color || '#666' }}
+            >
+              {char!.name}
+            </span>
+          ))
+        )}
       </td>
 
       {/* Scene */}
-      <td>{sceneLabel}</td>
-
-      {/* Due Date */}
-      <td>
-        {task.dueDate
-          ? new Date(task.dueDate).toLocaleDateString()
-          : ''}
+      <td
+        className={editingColumn === 'scene' ? 'task-cell-editing' : undefined}
+        onClick={() => editingColumn !== 'scene' && setEditingColumn('scene')}
+      >
+        {editingColumn === 'scene' ? (
+          <ScenePicker
+            value={task.sceneKey}
+            scenes={scenes}
+            characters={characters}
+            onCommit={(v) => commitField('sceneKey', v)}
+            onCancel={cancelEdit}
+          />
+        ) : (
+          sceneLabel
+        )}
       </td>
 
-      {/* Time Tracked */}
+      {/* Due Date */}
+      <td
+        className={editingColumn === 'dueDate' ? 'task-cell-editing' : undefined}
+        onClick={() => editingColumn !== 'dueDate' && setEditingColumn('dueDate')}
+      >
+        {editingColumn === 'dueDate' ? (
+          <InlineDatePicker
+            value={task.dueDate}
+            onCommit={(v) => commitField('dueDate', v)}
+            onCancel={cancelEdit}
+          />
+        ) : (
+          task.dueDate ? new Date(task.dueDate).toLocaleDateString() : ''
+        )}
+      </td>
+
+      {/* Time Tracked — no editor (Task 9) */}
       <td>{formatDuration(totalTime)}</td>
 
-      {/* Time Estimate */}
-      <td>{task.timeEstimate ? formatDuration(task.timeEstimate) : ''}</td>
+      {/* Time Estimate — number input in hours, stored as ms */}
+      <td
+        className={editingColumn === 'timeEstimate' ? 'task-cell-editing' : undefined}
+        onClick={() => editingColumn !== 'timeEstimate' && setEditingColumn('timeEstimate')}
+      >
+        {editingColumn === 'timeEstimate' ? (
+          <InlineNumberInput
+            value={task.timeEstimate ? task.timeEstimate / 3600000 : undefined}
+            onCommit={(v) => commitField('timeEstimate', v !== undefined ? v * 3600000 : undefined)}
+            onCancel={cancelEdit}
+          />
+        ) : (
+          task.timeEstimate ? formatDuration(task.timeEstimate) : ''
+        )}
+      </td>
 
       {/* Custom fields */}
       {taskFieldDefs.map((def) => {
         const value = task.customFields[def.id];
+        const isEditing = editingColumn === `custom:${def.id}`;
+
+        if (def.type === 'checkbox') {
+          return (
+            <td
+              key={def.id}
+              onClick={() => {
+                commitCustomField(def.id, !value);
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <input type="checkbox" checked={!!value} readOnly style={{ pointerEvents: 'none' }} />
+            </td>
+          );
+        }
+
         return (
-          <td key={def.id} style={def.type === 'number' ? { textAlign: 'right' } : undefined}>
-            {renderCustomField(def, value)}
+          <td
+            key={def.id}
+            className={isEditing ? 'task-cell-editing' : undefined}
+            style={def.type === 'number' ? { textAlign: 'right' } : undefined}
+            onClick={() => !isEditing && setEditingColumn(`custom:${def.id}`)}
+          >
+            {isEditing ? (
+              renderCustomEditor(def, value, commitCustomField, cancelEdit)
+            ) : (
+              renderCustomField(def, value)
+            )}
           </td>
         );
       })}
     </tr>
   );
+}
+
+function renderCustomEditor(
+  def: TaskFieldDef,
+  value: unknown,
+  onCommit: (fieldId: string, value: unknown) => void,
+  onCancel: () => void,
+) {
+  switch (def.type) {
+    case 'text':
+      return (
+        <InlineTextInput
+          value={String(value ?? '')}
+          onCommit={(v) => onCommit(def.id, v)}
+          onCancel={onCancel}
+        />
+      );
+    case 'number':
+      return (
+        <InlineNumberInput
+          value={value !== undefined && value !== null ? Number(value) : undefined}
+          onCommit={(v) => onCommit(def.id, v)}
+          onCancel={onCancel}
+        />
+      );
+    case 'dropdown':
+      return (
+        <InlineDropdown
+          options={(def.options || []).map((opt) => ({ value: opt, label: opt }))}
+          value={String(value ?? '')}
+          onCommit={(v) => onCommit(def.id, v)}
+          onCancel={onCancel}
+        />
+      );
+    case 'date':
+      return (
+        <InlineDatePicker
+          value={value as number | undefined}
+          onCommit={(v) => onCommit(def.id, v)}
+          onCancel={onCancel}
+        />
+      );
+    default:
+      return null;
+  }
 }
 
 function renderCustomField(def: TaskFieldDef, value: unknown) {
