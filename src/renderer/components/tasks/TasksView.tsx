@@ -254,6 +254,7 @@ export default function TasksView({
       <div className="tasks-table-wrap">
         <TaskTable
           tasks={filteredTasks}
+          allTaskCount={tasks.length}
           characters={characters}
           scenes={scenes}
           tags={tags}

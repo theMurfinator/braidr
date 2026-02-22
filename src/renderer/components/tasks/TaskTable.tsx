@@ -17,6 +17,7 @@ export const BUILTIN_COLUMNS = [
 
 interface TaskTableProps {
   tasks: Task[];
+  allTaskCount: number;
   characters: Character[];
   scenes: Scene[];
   tags: Tag[];
@@ -135,6 +136,7 @@ function sortTasks(
 
 export default function TaskTable({
   tasks,
+  allTaskCount,
   characters,
   scenes,
   tags,
@@ -253,6 +255,23 @@ export default function TaskTable({
     );
   }
 
+  function handleCreateFirstTask() {
+    const newTask: Task = {
+      id: crypto.randomUUID(),
+      title: '',
+      status: 'open',
+      priority: 'none',
+      tags: [],
+      characterIds: [],
+      timeEntries: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      order: 0,
+      customFields: {},
+    };
+    onTasksChange([newTask]);
+  }
+
   function renderTaskRows(taskList: Task[]) {
     return taskList.map((task) => (
       <TaskRow
@@ -272,6 +291,31 @@ export default function TaskTable({
         visibleColumns={visibleColumns}
       />
     ));
+  }
+
+  // Empty state: no tasks at all
+  if (tasks.length === 0 && allTaskCount === 0) {
+    return (
+      <div className="tasks-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4 }}>
+          <path d="M9 11l3 3L22 4" />
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+        <h3>No tasks yet</h3>
+        <p>Create your first task to start tracking your writing work.</p>
+        <button className="tasks-empty-btn" onClick={handleCreateFirstTask}>+ Create Task</button>
+      </div>
+    );
+  }
+
+  // Empty state: all tasks filtered out
+  if (tasks.length === 0 && allTaskCount > 0) {
+    return (
+      <div className="tasks-empty">
+        <h3>No matching tasks</h3>
+        <p>Try adjusting your filters.</p>
+      </div>
+    );
   }
 
   return (
