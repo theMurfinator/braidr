@@ -13804,3 +13804,40 @@ textarea.table-cell-input {
 .sidebar-comment-input::placeholder {
   color: var(--text-muted);
 }
+
+/* ─── Tasks View ─────────────────────────────────────────────────────────── */
+
+.tasks-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tasks-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tasks-toolbar-title {
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.tasks-toolbar-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+}
+
+.tasks-table-wrap {
+  flex: 1;
+  overflow: auto;
+}

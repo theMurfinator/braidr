@@ -14,6 +14,7 @@ import TableView from './components/TableView';
 import FloatingEditor from './components/FloatingEditor';
 import FontPicker from './components/FontPicker';
 import NotesView from './components/notes/NotesView';
+import TasksView from './components/tasks/TasksView';
 import WordCountDashboard from './components/WordCountDashboard';
 import AccountView from './components/AccountView';
 import SearchOverlay from './components/SearchOverlay';
@@ -2975,6 +2976,18 @@ function App() {
           <span className="app-sidebar-label">Notes</span>
         </button>
         <button
+          className={`app-sidebar-btn ${viewMode === 'tasks' ? 'active' : ''}`}
+          onClick={() => setViewMode('tasks')}
+          title="Tasks"
+          aria-label="Tasks view"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 11l3 3L22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+          <span className="app-sidebar-label">Tasks</span>
+        </button>
+        <button
           className={`app-sidebar-btn ${viewMode === 'analytics' ? 'active' : ''}`}
           onClick={() => setViewMode('analytics')}
           title="Analytics"
@@ -3317,7 +3330,7 @@ function App() {
 
       <div
         className={`main-content main-content--${viewMode}`}
-        style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'account'
+        style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'tasks' || viewMode === 'account'
           ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, overflow: 'hidden' }
           : undefined}
       >
@@ -3327,7 +3340,7 @@ function App() {
           <div
             className={`scene-list scene-list--${viewMode}`}
             ref={sceneListRef}
-            style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'account'
+            style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'tasks' || viewMode === 'account'
               ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, margin: 0, maxWidth: 'none', minHeight: 0 }
               : undefined}
           >
@@ -3363,6 +3376,18 @@ function App() {
                 tags={projectData.tags}
                 initialNoteId={pendingNoteId}
                 onNoteNavigated={() => setPendingNoteId(null)}
+              />
+            ) : viewMode === 'tasks' ? (
+              <TasksView
+                tasks={tasks}
+                taskFieldDefs={taskFieldDefs}
+                taskViews={taskViews}
+                tags={projectData.tags}
+                characters={projectData.characters}
+                scenes={projectData.scenes}
+                onTasksChange={handleTasksChange}
+                onTaskFieldDefsChange={handleTaskFieldDefsChange}
+                onTaskViewsChange={handleTaskViewsChange}
               />
             ) : viewMode === 'editor' ? (
               <EditorView
