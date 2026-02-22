@@ -732,6 +732,8 @@ function App() {
     setAllFontSettings(loadedAllFonts);
     allFontSettingsRef.current = loadedAllFonts;
     applyFontSettings(loadedAllFonts.global);
+    // Apply per-screen overrides immediately (the viewMode effect already ran on mount with empty settings)
+    applyScreenFontOverrides(viewMode, loadedAllFonts);
 
     // Load archived scenes
     const loadedArchived = data.archivedScenes || [];
@@ -1175,6 +1177,14 @@ function App() {
     applyScreenFontOverrides(viewMode, allFontSettingsRef.current);
   }, [viewMode]);
 
+  // Reapply global + screen font settings whenever allFontSettings state changes
+  // (covers HMR, Fast Refresh, or any state restoration that bypasses loadProjectFromPath)
+  useEffect(() => {
+    if (Object.keys(allFontSettings.global).length > 0) {
+      applyFontSettings(allFontSettings.global);
+      applyScreenFontOverrides(viewMode, allFontSettings);
+    }
+  }, [allFontSettings]);
 
   // Handle font settings change (now receives AllFontSettings)
   const handleFontSettingsChange = async (settings: AllFontSettings) => {
@@ -1185,51 +1195,56 @@ function App() {
 
     // Save to timeline data
     if (projectData) {
-      const positions: Record<string, number> = {};
-      projectData.scenes.forEach(scene => {
-        if (scene.timelinePosition !== null) {
-          positions[`${scene.characterId}:${scene.sceneNumber}`] = scene.timelinePosition;
-        }
-      });
+      try {
+        const positions: Record<string, number> = {};
+        projectData.scenes.forEach(scene => {
+          if (scene.timelinePosition !== null) {
+            positions[`${scene.characterId}:${scene.sceneNumber}`] = scene.timelinePosition;
+          }
+        });
 
-      // Convert connections from scene IDs to keys
-      const connectionKeys: Record<string, string[]> = {};
-      for (const [sourceId, targetIds] of Object.entries(sceneConnections)) {
-        const sourceScene = projectData.scenes.find(s => s.id === sourceId);
-        if (sourceScene) {
-          const sourceKey = `${sourceScene.characterId}:${sourceScene.sceneNumber}`;
-          connectionKeys[sourceKey] = targetIds
-            .map(targetId => {
-              const targetScene = projectData.scenes.find(s => s.id === targetId);
-              return targetScene ? `${targetScene.characterId}:${targetScene.sceneNumber}` : null;
-            })
-            .filter((key): key is string => key !== null);
+        // Convert connections from scene IDs to keys
+        const connectionKeys: Record<string, string[]> = {};
+        for (const [sourceId, targetIds] of Object.entries(sceneConnections)) {
+          const sourceScene = projectData.scenes.find(s => s.id === sourceId);
+          if (sourceScene) {
+            const sourceKey = `${sourceScene.characterId}:${sourceScene.sceneNumber}`;
+            connectionKeys[sourceKey] = targetIds
+              .map(targetId => {
+                const targetScene = projectData.scenes.find(s => s.id === targetId);
+                return targetScene ? `${targetScene.characterId}:${targetScene.sceneNumber}` : null;
+              })
+              .filter((key): key is string => key !== null);
+          }
         }
+
+        // Get word counts
+        const wordCounts: Record<string, number> = {};
+        projectData.scenes.forEach(scene => {
+          if (scene.wordCount !== undefined) {
+            wordCounts[`${scene.characterId}:${scene.sceneNumber}`] = scene.wordCount;
+          }
+        });
+
+        // Merge inline todos into sceneMetadata for persistence
+        const metaWithTodos = { ...sceneMetadataRef.current };
+        for (const [sceneKey, todos] of Object.entries(inlineTodosRef.current)) {
+          if (!metaWithTodos[sceneKey]) metaWithTodos[sceneKey] = {};
+          metaWithTodos[sceneKey] = { ...metaWithTodos[sceneKey], _inlineTodos: JSON.stringify(todos) };
+        }
+        // Clean up empty inline todo entries
+        for (const key of Object.keys(metaWithTodos)) {
+          if (!inlineTodosRef.current[key] && metaWithTodos[key]?._inlineTodos) {
+            const { _inlineTodos, ...rest } = metaWithTodos[key];
+            metaWithTodos[key] = rest;
+          }
+        }
+
+        await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current);
+      } catch (err) {
+        console.error('Failed to save font settings:', err);
+        addToast('Failed to save font settings');
       }
-
-      // Get word counts
-      const wordCounts: Record<string, number> = {};
-      projectData.scenes.forEach(scene => {
-        if (scene.wordCount !== undefined) {
-          wordCounts[`${scene.characterId}:${scene.sceneNumber}`] = scene.wordCount;
-        }
-      });
-
-      // Merge inline todos into sceneMetadata for persistence
-      const metaWithTodos = { ...sceneMetadataRef.current };
-      for (const [sceneKey, todos] of Object.entries(inlineTodosRef.current)) {
-        if (!metaWithTodos[sceneKey]) metaWithTodos[sceneKey] = {};
-        metaWithTodos[sceneKey] = { ...metaWithTodos[sceneKey], _inlineTodos: JSON.stringify(todos) };
-      }
-      // Clean up empty inline todo entries
-      for (const key of Object.keys(metaWithTodos)) {
-        if (!inlineTodosRef.current[key] && metaWithTodos[key]?._inlineTodos) {
-          const { _inlineTodos, ...rest } = metaWithTodos[key];
-          metaWithTodos[key] = rest;
-        }
-      }
-
-      await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current);
     }
   };
 
