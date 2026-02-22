@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Scene, Character, PlotPoint, MetadataFieldDef } from '../../shared/types';
-import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages } from '../utils/analyticsStore';
+import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages } from '../utils/analyticsStore';
 import { track } from '../utils/posthogTracker';
 
 interface WordCountDashboardProps {
@@ -16,6 +16,7 @@ interface WordCountDashboardProps {
   onGoalChange: (goal: number) => void;
   onClose?: () => void; // optional — unused when inline
   sceneSessions?: SceneSession[];
+  customCheckinCategories?: CustomCheckinCategory[];
 }
 
 function countWords(html: string): number {
@@ -29,7 +30,7 @@ function getSceneKey(scene: Scene): string {
   return `${scene.characterId}:${scene.sceneNumber}`;
 }
 
-export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [] }: WordCountDashboardProps) {
+export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [], customCheckinCategories = [] }: WordCountDashboardProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(wordCountGoal || ''));
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -672,6 +673,29 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
                   </div>
                 </div>
               ))}
+              {/* Custom category averages */}
+              {checkinAvgs.custom && customCheckinCategories.map(cat => {
+                const data = checkinAvgs.custom![cat.id];
+                if (!data) return null;
+                return (
+                  <div key={cat.id} className="analytics-checkin-row">
+                    <div className="analytics-checkin-label">
+                      <span className="analytics-checkin-name">{cat.label}</span>
+                      <span className="analytics-checkin-score">{data.avg.toFixed(1)}</span>
+                    </div>
+                    <div className="analytics-checkin-bar-track">
+                      <div
+                        className="analytics-checkin-bar-fill custom"
+                        style={{ width: `${(data.avg / 5) * 100}%` }}
+                      />
+                    </div>
+                    <div className="analytics-checkin-range">
+                      <span>{cat.lowLabel}</span>
+                      <span>{cat.highLabel}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

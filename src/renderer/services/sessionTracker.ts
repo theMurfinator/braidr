@@ -209,7 +209,7 @@ export function mergeSessionIntoAnalytics(
   analytics: AnalyticsData,
   summary: SessionSummary,
   totalProjectWords: number,
-  checkin?: { energy: number; focus: number; mood: number } | null,
+  checkin?: { energy: number; focus: number; mood: number; custom?: Record<string, number> } | null,
 ): AnalyticsData {
   const minutes = Math.max(1, Math.round(summary.durationMs / 60000));
   const wordsWritten = Math.max(0, summary.wordsNet); // only count net positive

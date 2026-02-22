@@ -17,7 +17,19 @@ export interface SceneSession {
   endTime: number;         // epoch ms
   durationMs: number;      // active writing time
   wordsNet: number;        // net word delta
-  checkin?: { energy: number; focus: number; mood: number } | null;
+  checkin?: {
+    energy: number;
+    focus: number;
+    mood: number;
+    custom?: Record<string, number>;
+  } | null;
+}
+
+export interface CustomCheckinCategory {
+  id: string;        // e.g. "cat-abc123"
+  label: string;     // e.g. "Creativity"
+  lowLabel: string;  // e.g. "Blocked"
+  highLabel: string; // e.g. "Flowing"
 }
 
 export interface DailyGoal {
@@ -48,6 +60,7 @@ export interface AnalyticsData {
   currentStreak: number;
   longestStreak: number;
   lastWritingDate: string | null;
+  customCheckinCategories?: CustomCheckinCategory[];
 }
 
 const DEFAULT_ANALYTICS: AnalyticsData = {
@@ -303,17 +316,36 @@ export function getSceneSessionsList(
 
 /**
  * Get average check-in scores across all sessions with check-in data.
+ * Includes custom category averages keyed by category ID.
  */
 export function getCheckinAverages(
   sceneSessions: SceneSession[],
-): { energy: number; focus: number; mood: number; count: number } | null {
+): { energy: number; focus: number; mood: number; count: number; custom?: Record<string, { avg: number; count: number }> } | null {
   const withCheckins = sceneSessions.filter(s => s.checkin);
   if (withCheckins.length === 0) return null;
   const count = withCheckins.length;
+
+  // Compute custom category averages
+  const customTotals: Record<string, { sum: number; count: number }> = {};
+  for (const s of withCheckins) {
+    if (s.checkin?.custom) {
+      for (const [catId, score] of Object.entries(s.checkin.custom)) {
+        if (!customTotals[catId]) customTotals[catId] = { sum: 0, count: 0 };
+        customTotals[catId].sum += score;
+        customTotals[catId].count += 1;
+      }
+    }
+  }
+  const custom: Record<string, { avg: number; count: number }> = {};
+  for (const [catId, data] of Object.entries(customTotals)) {
+    custom[catId] = { avg: data.sum / data.count, count: data.count };
+  }
+
   return {
     energy: withCheckins.reduce((s, x) => s + x.checkin!.energy, 0) / count,
     focus: withCheckins.reduce((s, x) => s + x.checkin!.focus, 0) / count,
     mood: withCheckins.reduce((s, x) => s + x.checkin!.mood, 0) / count,
     count,
+    ...(Object.keys(custom).length > 0 ? { custom } : {}),
   };
 }

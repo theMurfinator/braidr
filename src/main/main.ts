@@ -176,9 +176,19 @@ ipcMain.on('update-download', async () => {
 });
 
 ipcMain.on('update-install', () => {
-  // Set flag so the graceful quit handler doesn't block the restart
+  // Set flag so safe-to-close handler knows to quitAndInstall
   isInstallingUpdate = true;
-  autoUpdater.quitAndInstall(false, true);
+
+  if (mainWindow) {
+    // Ask renderer to flush saves before installing the update
+    mainWindow.webContents.send('app-closing');
+    // Safety timeout: install even if renderer doesn't respond
+    setTimeout(() => {
+      autoUpdater.quitAndInstall(false, true);
+    }, 3000);
+  } else {
+    autoUpdater.quitAndInstall(false, true);
+  }
 });
 
 function createMenu() {
@@ -402,12 +412,16 @@ function createWindow() {
     }
   });
 
-  ipcMain.once('safe-to-close', () => {
+  ipcMain.on('safe-to-close', () => {
     isReadyToClose = true;
-    if (mainWindow) {
-      mainWindow.close();
+    if (isInstallingUpdate) {
+      autoUpdater.quitAndInstall(false, true);
+    } else {
+      if (mainWindow) {
+        mainWindow.close();
+      }
+      app.quit();
     }
-    app.quit();
   });
 
   mainWindow.on('closed', () => {
@@ -1138,6 +1152,33 @@ ipcMain.handle(IPC_CHANNELS.OPEN_FEEDBACK_EMAIL, async (_event, category: string
       appVersion: app.getVersion(),
       platform: process.platform,
     });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Print Preview: render HTML in a hidden window, trigger native print dialog with preview
+ipcMain.handle(IPC_CHANNELS.PRINT_PREVIEW, async (_event, html: string) => {
+  try {
+    const printWindow = new BrowserWindow({
+      width: 800,
+      height: 900,
+      show: false,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+    await printWindow.loadURL(dataUrl);
+
+    // Wait for content to render
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Open native macOS print dialog (has built-in preview sidebar)
+    printWindow.webContents.print({ silent: false, printBackground: true }, () => {
+      printWindow.destroy();
+    });
+
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };

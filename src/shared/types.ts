@@ -185,8 +185,25 @@ export interface NoteMetadata {
   folderPath?: string;
 }
 
+export interface ArchivedNote {
+  id: string;
+  title: string;
+  content: string;          // HTML stored inline so file can be deleted from disk
+  parentId: string | null;
+  tags: string[];
+  outgoingLinks: string[];
+  sceneLinks: string[];
+  archivedAt: number;       // timestamp
+  originalMetadata: {
+    order: number;
+    createdAt: number;
+    modifiedAt: number;
+  };
+}
+
 export interface NotesIndex {
   notes: NoteMetadata[];
+  archivedNotes?: ArchivedNote[];
   version?: number;        // 2 = nested notes; absent/1 = legacy folder-based
 }
 
@@ -233,6 +250,7 @@ export const IPC_CHANNELS = {
   SELECT_NOTE_IMAGE: 'select-note-image',
   // PDF export
   PRINT_TO_PDF: 'print-to-pdf',
+  PRINT_PREVIEW: 'print-preview',
   // Analytics
   READ_ANALYTICS: 'read-analytics',
   SAVE_ANALYTICS: 'save-analytics',

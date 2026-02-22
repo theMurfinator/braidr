@@ -24,6 +24,7 @@ const IPC_CHANNELS = {
   SAVE_NOTE_IMAGE: 'save-note-image',
   SELECT_NOTE_IMAGE: 'select-note-image',
   PRINT_TO_PDF: 'print-to-pdf',
+  PRINT_PREVIEW: 'print-preview',
   READ_ANALYTICS: 'read-analytics',
   SAVE_ANALYTICS: 'save-analytics',
   GET_LICENSE_STATUS: 'get-license-status',
@@ -76,6 +77,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveNoteImage: (projectPath: string, imageData: string, fileName: string) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_NOTE_IMAGE, projectPath, imageData, fileName),
   selectNoteImage: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.SELECT_NOTE_IMAGE, projectPath),
   printToPDF: (html: string) => ipcRenderer.invoke(IPC_CHANNELS.PRINT_TO_PDF, html),
+  printPreview: (html: string) => ipcRenderer.invoke(IPC_CHANNELS.PRINT_PREVIEW, html),
   // Analytics
   readAnalytics: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.READ_ANALYTICS, projectPath),
   saveAnalytics: (projectPath: string, data: any) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_ANALYTICS, projectPath, data),
