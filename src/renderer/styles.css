@@ -13841,3 +13841,113 @@ textarea.table-cell-input {
   flex: 1;
   overflow: auto;
 }
+
+.tasks-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  table-layout: fixed;
+}
+
+.tasks-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary);
+  z-index: 2;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.tasks-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-light, var(--border));
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tasks-table tr:hover td {
+  background: var(--bg-secondary);
+}
+
+.task-title-cell {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.task-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.task-priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.task-tag-pill {
+  display: inline-flex;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  margin-right: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.task-character-pill {
+  display: inline-flex;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  margin-right: 4px;
+  color: #fff;
+  font-weight: 500;
+}
+
+.task-add-row {
+  padding: 8px 12px;
+}
+
+.task-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.task-add-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}

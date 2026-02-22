@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import type { Task, TaskFieldDef, TaskViewConfig, Tag, Character, Scene } from '../../../shared/types';
+import TaskTable from './TaskTable';
 
 interface TasksViewProps {
   tasks: Task[];
@@ -31,9 +31,14 @@ export default function TasksView({
         <span className="tasks-toolbar-count">{tasks.length} tasks</span>
       </div>
       <div className="tasks-table-wrap">
-        <p style={{ padding: 24, color: 'var(--text-secondary)' }}>
-          Task table coming soon. {tasks.length} tasks loaded.
-        </p>
+        <TaskTable
+          tasks={tasks}
+          characters={characters}
+          scenes={scenes}
+          tags={tags}
+          taskFieldDefs={taskFieldDefs}
+          onTasksChange={onTasksChange}
+        />
       </div>
     </div>
   );
