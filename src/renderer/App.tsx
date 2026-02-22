@@ -870,8 +870,41 @@ function App() {
 
     // Load tasks
     const loadedTasks: Task[] = (data as any).tasks || [];
-    setTasks(loadedTasks);
-    tasksRef.current = loadedTasks;
+
+    // Migrate inline todos to tasks (one-time, only if no tasks exist yet)
+    if (!loadedTasks.length) {
+      const migratedTasks: Task[] = [];
+      let order = 0;
+      for (const [sk, todos] of Object.entries(loadedInlineTodos)) {
+        for (const todo of todos) {
+          migratedTasks.push({
+            id: todo.todoId || crypto.randomUUID(),
+            title: todo.description,
+            status: todo.done ? 'done' : 'open',
+            priority: 'none',
+            tags: [],
+            characterIds: [sk.split(':')[0]],
+            sceneKey: sk,
+            timeEntries: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            order: order++,
+            customFields: {},
+          });
+        }
+      }
+      if (migratedTasks.length) {
+        setTasks(migratedTasks);
+        tasksRef.current = migratedTasks;
+        isDirtyRef.current = true; // trigger save to persist migration
+      } else {
+        setTasks(loadedTasks);
+        tasksRef.current = loadedTasks;
+      }
+    } else {
+      setTasks(loadedTasks);
+      tasksRef.current = loadedTasks;
+    }
     const loadedTaskFieldDefs: TaskFieldDef[] = (data as any).taskFieldDefs || [];
     setTaskFieldDefs(loadedTaskFieldDefs);
     taskFieldDefsRef.current = loadedTaskFieldDefs;
@@ -3445,6 +3478,8 @@ function App() {
                 onDeleteScene={handleArchiveScene}
                 onDuplicateScene={handleDuplicateScene}
                 typewriterMode={typewriterMode}
+                tasks={tasks}
+                onTasksChange={handleTasksChange}
               />
             ) : viewMode === 'pov' ? (
               // POV View with plot points and table of contents
