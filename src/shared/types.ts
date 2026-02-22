@@ -115,6 +115,66 @@ export interface TimelineData {
   tableViews?: TableViewConfig[];
   // Word count goal for the project
   wordCountGoal?: number;
+  // Task management
+  tasks?: Task[];
+  taskFieldDefs?: TaskFieldDef[];
+  taskViews?: TaskViewConfig[];
+}
+
+// ── Task Management ──────────────────────────────────────────────────────────
+
+export type TaskStatus = 'open' | 'in-progress' | 'done';
+export type TaskPriority = 'none' | 'low' | 'medium' | 'high' | 'urgent';
+
+export interface TimeEntry {
+  id: string;
+  startedAt: number;
+  duration: number;
+  description?: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  tags: string[];
+  characterIds: string[];
+  sceneKey?: string;
+  timeEntries: TimeEntry[];
+  timeEstimate?: number;
+  dueDate?: number;
+  createdAt: number;
+  updatedAt: number;
+  order: number;
+  customFields: Record<string, unknown>;
+}
+
+export type TaskFieldType = 'text' | 'number' | 'checkbox' | 'dropdown' | 'date';
+
+export interface TaskFieldDef {
+  id: string;
+  name: string;
+  type: TaskFieldType;
+  options?: string[];
+  width?: number;
+}
+
+export interface TaskViewConfig {
+  id: string;
+  name: string;
+  groupBy?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  filters?: TaskFilter[];
+  visibleColumns?: string[];
+}
+
+export interface TaskFilter {
+  field: string;
+  operator: 'is' | 'is_not' | 'contains' | 'is_set' | 'is_not_set';
+  value?: string | string[];
 }
 
 export interface SceneComment {
