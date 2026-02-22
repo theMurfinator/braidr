@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { TaskFieldDef } from '../../../shared/types';
 import { BUILTIN_COLUMNS } from './TaskTable';
+import TaskTimer from './TaskTimer';
 
 interface TaskToolbarProps {
   groupBy: string | undefined;
@@ -13,6 +14,10 @@ interface TaskToolbarProps {
   showFilter: boolean;
   onToggleFilter: () => void;
   filterCount: number;
+  activeTimerTaskId: string | null;
+  activeTimerTaskTitle: string;
+  timerElapsed: number;
+  onStopTimer: () => void;
 }
 
 const GROUP_OPTIONS: { id: string; name: string }[] = [
@@ -34,6 +39,10 @@ export default function TaskToolbar({
   showFilter,
   onToggleFilter,
   filterCount,
+  activeTimerTaskId,
+  activeTimerTaskTitle,
+  timerElapsed,
+  onStopTimer,
 }: TaskToolbarProps) {
   const [groupOpen, setGroupOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -159,6 +168,13 @@ export default function TaskToolbar({
       </button>
 
       <span className="tasks-toolbar-count">{taskCount} tasks</span>
+
+      <TaskTimer
+        activeTaskId={activeTimerTaskId}
+        activeTaskTitle={activeTimerTaskTitle}
+        elapsed={timerElapsed}
+        onStop={onStopTimer}
+      />
     </div>
   );
 }

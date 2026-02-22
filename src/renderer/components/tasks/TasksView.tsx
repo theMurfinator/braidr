@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { Task, TaskFilter, TaskFieldDef, TaskViewConfig, Tag, Character, Scene } from '../../../shared/types';
+import { useState, useEffect } from 'react';
+import type { Task, TaskFilter, TaskFieldDef, TaskViewConfig, Tag, Character, Scene, TimeEntry } from '../../../shared/types';
 import TaskTable from './TaskTable';
 import TaskToolbar from './TaskToolbar';
 import TaskFilterBar from './TaskFilterBar';
@@ -73,6 +73,63 @@ export default function TasksView({
   const [filters, setFilters] = useState<TaskFilter[]>([]);
   const [showFilter, setShowFilter] = useState(false);
 
+  // Timer state
+  const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
+  const [timerStart, setTimerStart] = useState<number | null>(null);
+  const [timerElapsed, setTimerElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!timerStart) return;
+    const interval = setInterval(() => {
+      setTimerElapsed(Date.now() - timerStart);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timerStart]);
+
+  const startTimer = (taskId: string) => {
+    // If another timer is running, stop it first
+    if (activeTimerTaskId) {
+      stopTimer();
+    }
+    setActiveTimerTaskId(taskId);
+    setTimerStart(Date.now());
+    setTimerElapsed(0);
+  };
+
+  const stopTimer = () => {
+    if (!activeTimerTaskId || !timerStart) return;
+    const duration = Date.now() - timerStart;
+    const entry: TimeEntry = {
+      id: crypto.randomUUID(),
+      startedAt: timerStart,
+      duration,
+    };
+    // Update the task's timeEntries
+    const updated = tasks.map(t =>
+      t.id === activeTimerTaskId
+        ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
+        : t
+    );
+    onTasksChange(updated);
+    setActiveTimerTaskId(null);
+    setTimerStart(null);
+    setTimerElapsed(0);
+  };
+
+  const handleAddTimeEntry = (taskId: string, entry: TimeEntry) => {
+    const updated = tasks.map(t =>
+      t.id === taskId
+        ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
+        : t
+    );
+    onTasksChange(updated);
+  };
+
+  // Get active timer task title
+  const activeTimerTaskTitle = activeTimerTaskId
+    ? tasks.find(t => t.id === activeTimerTaskId)?.title || 'Untitled'
+    : '';
+
   function handleSortChange(field: string | undefined, dir: 'asc' | 'desc') {
     setSortBy(field);
     setSortDir(dir);
@@ -97,6 +154,10 @@ export default function TasksView({
         showFilter={showFilter}
         onToggleFilter={() => setShowFilter(!showFilter)}
         filterCount={filters.length}
+        activeTimerTaskId={activeTimerTaskId}
+        activeTimerTaskTitle={activeTimerTaskTitle}
+        timerElapsed={timerElapsed}
+        onStopTimer={stopTimer}
       />
       {showFilter && (
         <TaskFilterBar
@@ -120,6 +181,10 @@ export default function TasksView({
           sortBy={sortBy}
           sortDir={sortDir}
           onSortChange={handleSortChange}
+          activeTimerTaskId={activeTimerTaskId}
+          onStartTimer={startTimer}
+          onStopTimer={stopTimer}
+          onAddTimeEntry={handleAddTimeEntry}
         />
       </div>
     </div>

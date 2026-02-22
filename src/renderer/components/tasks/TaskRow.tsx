@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { Task, TaskFieldDef, Character, Scene, Tag } from '../../../shared/types';
+import { useState, useRef, useEffect } from 'react';
+import type { Task, TaskFieldDef, Character, Scene, Tag, TimeEntry } from '../../../shared/types';
 import {
   InlineTextInput,
   InlineNumberInput,
@@ -17,6 +17,10 @@ interface TaskRowProps {
   tags: Tag[];
   taskFieldDefs: TaskFieldDef[];
   onTaskUpdate: (updated: Task) => void;
+  activeTimerTaskId: string | null;
+  onStartTimer: (taskId: string) => void;
+  onStopTimer: () => void;
+  onAddTimeEntry: (taskId: string, entry: TimeEntry) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -70,8 +74,29 @@ export default function TaskRow({
   tags,
   taskFieldDefs,
   onTaskUpdate,
+  activeTimerTaskId,
+  onStartTimer,
+  onStopTimer,
+  onAddTimeEntry,
 }: TaskRowProps) {
   const [editingColumn, setEditingColumn] = useState<string | null>(null);
+  const [showTimePopover, setShowTimePopover] = useState(false);
+  const [manualHours, setManualHours] = useState(0);
+  const [manualMinutes, setManualMinutes] = useState(0);
+  const [manualDescription, setManualDescription] = useState('');
+  const timePopoverRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to close time entry popover
+  useEffect(() => {
+    if (!showTimePopover) return;
+    function handleClick(e: MouseEvent) {
+      if (timePopoverRef.current && !timePopoverRef.current.contains(e.target as Node)) {
+        setShowTimePopover(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showTimePopover]);
 
   // Resolve tag objects
   const resolvedTags = task.tags
@@ -269,8 +294,81 @@ export default function TaskRow({
         )}
       </td>
 
-      {/* Time Tracked — no editor (Task 9) */}
-      <td>{formatDuration(totalTime)}</td>
+      {/* Time Tracked */}
+      <td style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            className={`task-play-btn ${activeTimerTaskId === task.id ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (activeTimerTaskId === task.id) {
+                onStopTimer();
+              } else {
+                onStartTimer(task.id);
+              }
+            }}
+          >
+            {activeTimerTaskId === task.id ? '■' : '▶'}
+          </button>
+          <span
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTimePopover(!showTimePopover);
+            }}
+          >
+            {formatDuration(totalTime)}
+          </span>
+        </div>
+        {showTimePopover && (
+          <div className="task-time-entry-popover" ref={timePopoverRef}>
+            <div className="task-time-entry-row">
+              <input
+                type="number"
+                min={0}
+                value={manualHours}
+                onChange={(e) => setManualHours(Math.max(0, parseInt(e.target.value) || 0))}
+              />
+              <label>h</label>
+              <input
+                type="number"
+                min={0}
+                max={59}
+                value={manualMinutes}
+                onChange={(e) => setManualMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+              />
+              <label>m</label>
+            </div>
+            <input
+              className="task-time-entry-desc"
+              type="text"
+              placeholder="Description (optional)"
+              value={manualDescription}
+              onChange={(e) => setManualDescription(e.target.value)}
+            />
+            <button
+              className="task-time-entry-add-btn"
+              onClick={() => {
+                const duration = (manualHours * 3600000) + (manualMinutes * 60000);
+                if (duration <= 0) return;
+                const entry: TimeEntry = {
+                  id: crypto.randomUUID(),
+                  startedAt: Date.now(),
+                  duration,
+                  description: manualDescription || undefined,
+                };
+                onAddTimeEntry(task.id, entry);
+                setManualHours(0);
+                setManualMinutes(0);
+                setManualDescription('');
+                setShowTimePopover(false);
+              }}
+            >
+              Add
+            </button>
+          </div>
+        )}
+      </td>
 
       {/* Time Estimate — number input in hours, stored as ms */}
       <td
