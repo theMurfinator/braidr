@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -14,6 +14,7 @@ import TableView from './components/TableView';
 import FloatingEditor from './components/FloatingEditor';
 import FontPicker from './components/FontPicker';
 import NotesView from './components/notes/NotesView';
+import TasksView from './components/tasks/TasksView';
 import WordCountDashboard from './components/WordCountDashboard';
 import AccountView from './components/AccountView';
 import SearchOverlay from './components/SearchOverlay';
@@ -31,7 +32,7 @@ import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 import { track } from './utils/posthogTracker';
 
-type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'analytics' | 'account';
+type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
 
 function App() {
@@ -230,6 +231,14 @@ function App() {
   const [inlineTodos, setInlineTodos] = useState<Record<string, SceneTodo[]>>({});
   const inlineTodosRef = useRef<Record<string, SceneTodo[]>>({});
 
+  // Task board state
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const tasksRef = useRef<Task[]>([]);
+  const [taskFieldDefs, setTaskFieldDefs] = useState<TaskFieldDef[]>([]);
+  const taskFieldDefsRef = useRef<TaskFieldDef[]>([]);
+  const [taskViews, setTaskViews] = useState<TaskViewConfig[]>([]);
+  const taskViewsRef = useRef<TaskViewConfig[]>([]);
+
   // Combined todos: note-linked + inline
   const allSceneTodos = useMemo(() => {
     const inline = Object.values(inlineTodos).flat();
@@ -300,6 +309,25 @@ function App() {
       isDirtyRef.current = true;
       return updated;
     });
+  }, []);
+
+  // Task mutation callbacks
+  const handleTasksChange = useCallback((newTasks: Task[]) => {
+    setTasks(newTasks);
+    tasksRef.current = newTasks;
+    isDirtyRef.current = true;
+  }, []);
+
+  const handleTaskFieldDefsChange = useCallback((newDefs: TaskFieldDef[]) => {
+    setTaskFieldDefs(newDefs);
+    taskFieldDefsRef.current = newDefs;
+    isDirtyRef.current = true;
+  }, []);
+
+  const handleTaskViewsChange = useCallback((newViews: TaskViewConfig[]) => {
+    setTaskViews(newViews);
+    taskViewsRef.current = newViews;
+    isDirtyRef.current = true;
   }, []);
 
   // Welcome screen state
@@ -840,6 +868,50 @@ function App() {
     setInlineTodos(loadedInlineTodos);
     inlineTodosRef.current = loadedInlineTodos;
 
+    // Load tasks
+    const loadedTasks: Task[] = (data as any).tasks || [];
+
+    // Migrate inline todos to tasks (one-time, only if no tasks exist yet)
+    if (!loadedTasks.length) {
+      const migratedTasks: Task[] = [];
+      let order = 0;
+      for (const [sk, todos] of Object.entries(loadedInlineTodos)) {
+        for (const todo of todos) {
+          migratedTasks.push({
+            id: todo.todoId || crypto.randomUUID(),
+            title: todo.description,
+            status: todo.done ? 'done' : 'open',
+            priority: 'none',
+            tags: [],
+            characterIds: [sk.split(':')[0]],
+            sceneKey: sk,
+            timeEntries: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            order: order++,
+            customFields: {},
+          });
+        }
+      }
+      if (migratedTasks.length) {
+        setTasks(migratedTasks);
+        tasksRef.current = migratedTasks;
+        isDirtyRef.current = true; // trigger save to persist migration
+      } else {
+        setTasks(loadedTasks);
+        tasksRef.current = loadedTasks;
+      }
+    } else {
+      setTasks(loadedTasks);
+      tasksRef.current = loadedTasks;
+    }
+    const loadedTaskFieldDefs: TaskFieldDef[] = (data as any).taskFieldDefs || [];
+    setTaskFieldDefs(loadedTaskFieldDefs);
+    taskFieldDefsRef.current = loadedTaskFieldDefs;
+    const loadedTaskViews: TaskViewConfig[] = (data as any).taskViews || [];
+    setTaskViews(loadedTaskViews);
+    taskViewsRef.current = loadedTaskViews;
+
     // Select first character by default
     if (data.characters.length > 0) {
       setSelectedCharacterId(data.characters[0].id);
@@ -847,7 +919,7 @@ function App() {
 
     // Restore last view mode
     const savedViewMode = localStorage.getItem('braidr-last-view-mode') as ViewMode | null;
-    if (savedViewMode && ['pov', 'braided', 'editor', 'notes', 'analytics', 'account'].includes(savedViewMode)) {
+    if (savedViewMode && ['pov', 'braided', 'editor', 'notes', 'tasks', 'analytics', 'account'].includes(savedViewMode)) {
       _setViewMode(savedViewMode);
     }
 
@@ -1240,7 +1312,7 @@ function App() {
           }
         }
 
-        await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current);
+        await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current);
       } catch (err) {
         console.error('Failed to save font settings:', err);
         addToast('Failed to save font settings');
@@ -2037,7 +2109,7 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -2937,6 +3009,18 @@ function App() {
           <span className="app-sidebar-label">Notes</span>
         </button>
         <button
+          className={`app-sidebar-btn ${viewMode === 'tasks' ? 'active' : ''}`}
+          onClick={() => setViewMode('tasks')}
+          title="Tasks"
+          aria-label="Tasks view"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 11l3 3L22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+          <span className="app-sidebar-label">Tasks</span>
+        </button>
+        <button
           className={`app-sidebar-btn ${viewMode === 'analytics' ? 'active' : ''}`}
           onClick={() => setViewMode('analytics')}
           title="Analytics"
@@ -3279,7 +3363,7 @@ function App() {
 
       <div
         className={`main-content main-content--${viewMode}`}
-        style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'account'
+        style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'tasks' || viewMode === 'account'
           ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, overflow: 'hidden' }
           : undefined}
       >
@@ -3289,7 +3373,7 @@ function App() {
           <div
             className={`scene-list scene-list--${viewMode}`}
             ref={sceneListRef}
-            style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'account'
+            style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'tasks' || viewMode === 'account'
               ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, margin: 0, maxWidth: 'none', minHeight: 0 }
               : undefined}
           >
@@ -3325,6 +3409,18 @@ function App() {
                 tags={projectData.tags}
                 initialNoteId={pendingNoteId}
                 onNoteNavigated={() => setPendingNoteId(null)}
+              />
+            ) : viewMode === 'tasks' ? (
+              <TasksView
+                tasks={tasks}
+                taskFieldDefs={taskFieldDefs}
+                taskViews={taskViews}
+                tags={projectData.tags}
+                characters={projectData.characters}
+                scenes={projectData.scenes}
+                onTasksChange={handleTasksChange}
+                onTaskFieldDefsChange={handleTaskFieldDefsChange}
+                onTaskViewsChange={handleTaskViewsChange}
               />
             ) : viewMode === 'editor' ? (
               <EditorView
@@ -3382,6 +3478,8 @@ function App() {
                 onDeleteScene={handleArchiveScene}
                 onDuplicateScene={handleDuplicateScene}
                 typewriterMode={typewriterMode}
+                tasks={tasks}
+                onTasksChange={handleTasksChange}
               />
             ) : viewMode === 'pov' ? (
               // POV View with plot points and table of contents

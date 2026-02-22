@@ -7,7 +7,7 @@ import Heading from '@tiptap/extension-heading';
 import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion, NoteMetadata, SceneComment } from '../../shared/types';
+import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion, NoteMetadata, SceneComment, Task, TaskStatus } from '../../shared/types';
 import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
 import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
@@ -62,6 +62,8 @@ interface EditorViewProps {
   onDeleteScene?: (sceneId: string) => void;
   onDuplicateScene?: (sceneId: string) => void;
   typewriterMode?: boolean;
+  tasks?: Task[];
+  onTasksChange?: (tasks: Task[]) => void;
 }
 
 export interface EditorViewHandle {
@@ -173,6 +175,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   onDeleteScene,
   onDuplicateScene,
   typewriterMode: typewriterModeProp = false,
+  tasks,
+  onTasksChange,
 }, ref) {
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<Set<string>>(new Set());
@@ -1527,40 +1531,89 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               label: 'Changes Needed',
               render: () => {
                 if (!selectedScene) return null;
+
+                // Tasks from the new task system linked to this scene
+                const sceneTasks = (tasks || []).filter(t => t.sceneKey === sceneKey);
+
+                // Legacy note-linked todos
                 const charName = characters.find(c => c.id === selectedScene.characterId)?.name || '';
-                const matchingTodos = getTodosForScene(sceneTodos, selectedScene.characterId, charName, selectedScene.sceneNumber);
+                const noteTodos = getTodosForScene(sceneTodos, selectedScene.characterId, charName, selectedScene.sceneNumber);
+
                 return (
                   <>
+                    {/* Task-system tasks */}
                     <div className="editor-meta-todos-list">
-                      {matchingTodos.map((todo) => (
-                        <div key={todo.todoId} className={`editor-meta-todo-item ${todo.done ? 'done' : ''}`}>
+                      {sceneTasks.map(task => (
+                        <div key={task.id} className={`editor-meta-todo-item ${task.status === 'done' ? 'done' : ''}`}>
                           <input
                             type="checkbox"
-                            checked={todo.done}
-                            onChange={() => onTodoToggle?.(todo)}
                             className="editor-meta-todo-checkbox"
+                            checked={task.status === 'done'}
+                            onChange={() => {
+                              if (onTasksChange && tasks) {
+                                const updated = tasks.map(t =>
+                                  t.id === task.id
+                                    ? { ...t, status: (t.status === 'done' ? 'open' : 'done') as TaskStatus, updatedAt: Date.now() }
+                                    : t
+                                );
+                                onTasksChange(updated);
+                              }
+                            }}
                           />
-                          <span className="editor-meta-todo-text">{todo.description || '(no description)'}</span>
-                          {todo.isInline ? (
-                            <button
-                              className="editor-meta-todo-remove"
-                              onClick={() => onRemoveInlineTodo?.(sceneKey, todo.todoId)}
-                              title="Remove"
-                            >×</button>
-                          ) : (
-                            <span className="editor-meta-todo-source" title={`From note: ${todo.noteTitle}`}>{todo.noteTitle}</span>
-                          )}
+                          <span className="editor-meta-todo-text">{task.title || '(untitled)'}</span>
                         </div>
                       ))}
                     </div>
+
+                    {/* Note-linked todos (legacy, from notes) */}
+                    {noteTodos.length > 0 && (
+                      <div className="editor-meta-todos-list" style={{ marginTop: sceneTasks.length ? 8 : 0 }}>
+                        {noteTodos.map((todo) => (
+                          <div key={todo.todoId} className={`editor-meta-todo-item ${todo.done ? 'done' : ''}`}>
+                            <input
+                              type="checkbox"
+                              checked={todo.done}
+                              onChange={() => onTodoToggle?.(todo)}
+                              className="editor-meta-todo-checkbox"
+                            />
+                            <span className="editor-meta-todo-text">{todo.description || '(no description)'}</span>
+                            {todo.isInline ? (
+                              <button
+                                className="editor-meta-todo-remove"
+                                onClick={() => onRemoveInlineTodo?.(sceneKey, todo.todoId)}
+                                title="Remove"
+                              >×</button>
+                            ) : (
+                              <span className="editor-meta-todo-source" title={`From note: ${todo.noteTitle}`}>{todo.noteTitle}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add task form - creates a task linked to this scene */}
                     <form
                       className="editor-meta-todo-add"
                       onSubmit={(e) => {
                         e.preventDefault();
                         const input = (e.target as HTMLFormElement).elements.namedItem('todoInput') as HTMLInputElement;
                         const val = input.value.trim();
-                        if (val && onAddInlineTodo) {
-                          onAddInlineTodo(sceneKey, val);
+                        if (val && selectedScene) {
+                          const newTask: Task = {
+                            id: crypto.randomUUID(),
+                            title: val,
+                            status: 'open',
+                            priority: 'none',
+                            tags: [],
+                            characterIds: [selectedScene.characterId],
+                            sceneKey,
+                            timeEntries: [],
+                            createdAt: Date.now(),
+                            updatedAt: Date.now(),
+                            order: (tasks || []).length,
+                            customFields: {},
+                          };
+                          onTasksChange?.([...(tasks || []), newTask]);
                           input.value = '';
                         }
                       }}
