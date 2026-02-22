@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -31,7 +31,7 @@ import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 import { track } from './utils/posthogTracker';
 
-type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'analytics' | 'account';
+type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
 
 function App() {
@@ -230,6 +230,14 @@ function App() {
   const [inlineTodos, setInlineTodos] = useState<Record<string, SceneTodo[]>>({});
   const inlineTodosRef = useRef<Record<string, SceneTodo[]>>({});
 
+  // Task board state
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const tasksRef = useRef<Task[]>([]);
+  const [taskFieldDefs, setTaskFieldDefs] = useState<TaskFieldDef[]>([]);
+  const taskFieldDefsRef = useRef<TaskFieldDef[]>([]);
+  const [taskViews, setTaskViews] = useState<TaskViewConfig[]>([]);
+  const taskViewsRef = useRef<TaskViewConfig[]>([]);
+
   // Combined todos: note-linked + inline
   const allSceneTodos = useMemo(() => {
     const inline = Object.values(inlineTodos).flat();
@@ -300,6 +308,25 @@ function App() {
       isDirtyRef.current = true;
       return updated;
     });
+  }, []);
+
+  // Task mutation callbacks
+  const handleTasksChange = useCallback((newTasks: Task[]) => {
+    setTasks(newTasks);
+    tasksRef.current = newTasks;
+    isDirtyRef.current = true;
+  }, []);
+
+  const handleTaskFieldDefsChange = useCallback((newDefs: TaskFieldDef[]) => {
+    setTaskFieldDefs(newDefs);
+    taskFieldDefsRef.current = newDefs;
+    isDirtyRef.current = true;
+  }, []);
+
+  const handleTaskViewsChange = useCallback((newViews: TaskViewConfig[]) => {
+    setTaskViews(newViews);
+    taskViewsRef.current = newViews;
+    isDirtyRef.current = true;
   }, []);
 
   // Welcome screen state
@@ -840,6 +867,17 @@ function App() {
     setInlineTodos(loadedInlineTodos);
     inlineTodosRef.current = loadedInlineTodos;
 
+    // Load tasks
+    const loadedTasks: Task[] = (data as any).tasks || [];
+    setTasks(loadedTasks);
+    tasksRef.current = loadedTasks;
+    const loadedTaskFieldDefs: TaskFieldDef[] = (data as any).taskFieldDefs || [];
+    setTaskFieldDefs(loadedTaskFieldDefs);
+    taskFieldDefsRef.current = loadedTaskFieldDefs;
+    const loadedTaskViews: TaskViewConfig[] = (data as any).taskViews || [];
+    setTaskViews(loadedTaskViews);
+    taskViewsRef.current = loadedTaskViews;
+
     // Select first character by default
     if (data.characters.length > 0) {
       setSelectedCharacterId(data.characters[0].id);
@@ -847,7 +885,7 @@ function App() {
 
     // Restore last view mode
     const savedViewMode = localStorage.getItem('braidr-last-view-mode') as ViewMode | null;
-    if (savedViewMode && ['pov', 'braided', 'editor', 'notes', 'analytics', 'account'].includes(savedViewMode)) {
+    if (savedViewMode && ['pov', 'braided', 'editor', 'notes', 'tasks', 'analytics', 'account'].includes(savedViewMode)) {
       _setViewMode(savedViewMode);
     }
 
@@ -1240,7 +1278,7 @@ function App() {
           }
         }
 
-        await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current);
+        await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current);
       } catch (err) {
         console.error('Failed to save font settings:', err);
         addToast('Failed to save font settings');
@@ -2037,7 +2075,7 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
