@@ -151,6 +151,7 @@ function dateStringToTimestamp(s: string): number | undefined {
 }
 
 export function InlineDatePicker({ value, onCommit, onCancel }: InlineDatePickerProps) {
+  const [draft, setDraft] = useState(timestampToDateString(value));
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -163,9 +164,20 @@ export function InlineDatePicker({ value, onCommit, onCancel }: InlineDatePicker
       ref={inputRef}
       type="date"
       className="task-inline-input"
-      value={timestampToDateString(value)}
-      onChange={(e) => onCommit(dateStringToTimestamp(e.target.value))}
-      onBlur={() => onCancel()}
+      value={draft}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        if (e.target.value) {
+          onCommit(dateStringToTimestamp(e.target.value));
+        }
+      }}
+      onBlur={() => {
+        if (draft) {
+          onCommit(dateStringToTimestamp(draft));
+        } else {
+          onCommit(undefined);
+        }
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Escape') onCancel();
       }}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import type { TaskFieldDef, TaskFieldType } from '../../../shared/types';
 
 interface TaskFieldManagerProps {
@@ -49,7 +49,7 @@ export default function TaskFieldManager({ onClose, onCreate }: TaskFieldManager
     setOptions(next);
   }
 
-  function handleOverlayClick(e: React.MouseEvent) {
+  function handleOverlayClick(e: MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) {
       onClose();
     }

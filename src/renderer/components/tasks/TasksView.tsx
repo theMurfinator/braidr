@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Task, TaskFilter, TaskFieldDef, TaskViewConfig, Tag, Character, Scene, TimeEntry } from '../../../shared/types';
 import TaskTable, { BUILTIN_COLUMNS } from './TaskTable';
 import TaskToolbar from './TaskToolbar';
@@ -82,6 +82,16 @@ export default function TasksView({
   const [timerStart, setTimerStart] = useState<number | null>(null);
   const [timerElapsed, setTimerElapsed] = useState(0);
 
+  // Refs to avoid stale closures in stopTimer
+  const tasksLocalRef = useRef(tasks);
+  useEffect(() => { tasksLocalRef.current = tasks; }, [tasks]);
+
+  const activeTimerTaskIdRef = useRef(activeTimerTaskId);
+  useEffect(() => { activeTimerTaskIdRef.current = activeTimerTaskId; }, [activeTimerTaskId]);
+
+  const timerStartRef = useRef(timerStart);
+  useEffect(() => { timerStartRef.current = timerStart; }, [timerStart]);
+
   useEffect(() => {
     if (!timerStart) return;
     const interval = setInterval(() => {
@@ -101,16 +111,18 @@ export default function TasksView({
   };
 
   const stopTimer = () => {
-    if (!activeTimerTaskId || !timerStart) return;
-    const duration = Date.now() - timerStart;
+    const currentTaskId = activeTimerTaskIdRef.current;
+    const currentTimerStart = timerStartRef.current;
+    if (!currentTaskId || !currentTimerStart) return;
+    const duration = Date.now() - currentTimerStart;
     const entry: TimeEntry = {
       id: crypto.randomUUID(),
-      startedAt: timerStart,
+      startedAt: currentTimerStart,
       duration,
     };
     // Update the task's timeEntries
-    const updated = tasks.map(t =>
-      t.id === activeTimerTaskId
+    const updated = tasksLocalRef.current.map(t =>
+      t.id === currentTaskId
         ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
         : t
     );
