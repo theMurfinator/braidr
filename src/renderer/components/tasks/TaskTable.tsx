@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import type { Task, TaskFieldDef, Character, Scene, Tag } from '../../../shared/types';
+import type { Task, TaskFieldDef, Character, Scene, Tag, TimeEntry } from '../../../shared/types';
 import TaskRow from './TaskRow';
 import TaskFieldManager from './TaskFieldManager';
 
@@ -27,6 +27,10 @@ interface TaskTableProps {
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
   onSortChange?: (field: string | undefined, dir: 'asc' | 'desc') => void;
+  activeTimerTaskId: string | null;
+  onStartTimer: (taskId: string) => void;
+  onStopTimer: () => void;
+  onAddTimeEntry: (taskId: string, entry: TimeEntry) => void;
 }
 
 function groupTasks(
@@ -140,6 +144,10 @@ export default function TaskTable({
   sortBy,
   sortDir = 'asc',
   onSortChange,
+  activeTimerTaskId,
+  onStartTimer,
+  onStopTimer,
+  onAddTimeEntry,
 }: TaskTableProps) {
   const [showFieldManager, setShowFieldManager] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -226,6 +234,10 @@ export default function TaskTable({
         tags={tags}
         taskFieldDefs={taskFieldDefs}
         onTaskUpdate={handleTaskUpdate}
+        activeTimerTaskId={activeTimerTaskId}
+        onStartTimer={onStartTimer}
+        onStopTimer={onStopTimer}
+        onAddTimeEntry={onAddTimeEntry}
       />
     ));
   }
