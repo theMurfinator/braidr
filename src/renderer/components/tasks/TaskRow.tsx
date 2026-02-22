@@ -17,6 +17,8 @@ interface TaskRowProps {
   tags: Tag[];
   taskFieldDefs: TaskFieldDef[];
   onTaskUpdate: (updated: Task) => void;
+  onDeleteTask: (taskId: string) => void;
+  onDuplicateTask: (taskId: string) => void;
   activeTimerTaskId: string | null;
   onStartTimer: (taskId: string) => void;
   onStopTimer: () => void;
@@ -75,6 +77,8 @@ export default function TaskRow({
   tags,
   taskFieldDefs,
   onTaskUpdate,
+  onDeleteTask,
+  onDuplicateTask,
   activeTimerTaskId,
   onStartTimer,
   onStopTimer,
@@ -83,6 +87,7 @@ export default function TaskRow({
 }: TaskRowProps) {
   const isVisible = (colId: string) => !visibleColumns || visibleColumns.includes(colId);
   const [editingColumn, setEditingColumn] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTimePopover, setShowTimePopover] = useState(false);
   const [manualHours, setManualHours] = useState(0);
   const [manualMinutes, setManualMinutes] = useState(0);
@@ -441,6 +446,44 @@ export default function TaskRow({
           </td>
         );
       })}
+
+      {/* Row actions */}
+      <td>
+        {showDeleteConfirm ? (
+          <div className="task-delete-confirm">
+            Delete?
+            <button
+              className="task-delete-confirm-btn danger"
+              onClick={() => onDeleteTask(task.id)}
+            >
+              Yes
+            </button>
+            <button
+              className="task-delete-confirm-btn"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
+              No
+            </button>
+          </div>
+        ) : (
+          <div className="task-row-actions">
+            <button
+              className="task-row-action-btn"
+              title="Duplicate task"
+              onClick={() => onDuplicateTask(task.id)}
+            >
+              &#x29C9;
+            </button>
+            <button
+              className="task-row-action-btn danger"
+              title="Delete task"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              &times;
+            </button>
+          </div>
+        )}
+      </td>
     </tr>
   );
 }

@@ -162,7 +162,7 @@ export default function TaskTable({
     ? taskFieldDefs.filter(d => visibleColumns.includes(d.id))
     : taskFieldDefs;
 
-  const totalColumns = columns.length + visibleFieldDefs.length + 1;
+  const totalColumns = columns.length + visibleFieldDefs.length + 2;
 
   function handleCreateField(field: TaskFieldDef) {
     onTaskFieldDefsChange([...taskFieldDefs, field]);
@@ -188,6 +188,25 @@ export default function TaskTable({
 
   function handleTaskUpdate(updated: Task) {
     onTasksChange(tasks.map((t) => (t.id === updated.id ? updated : t)));
+  }
+
+  function handleDeleteTask(taskId: string) {
+    onTasksChange(tasks.filter(t => t.id !== taskId));
+  }
+
+  function handleDuplicateTask(taskId: string) {
+    const original = tasks.find(t => t.id === taskId);
+    if (!original) return;
+    const duplicate: Task = {
+      ...original,
+      id: crypto.randomUUID(),
+      title: `${original.title} (copy)`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      order: tasks.length,
+      timeEntries: [],
+    };
+    onTasksChange([...tasks, duplicate]);
   }
 
   function toggleGroupCollapse(label: string) {
@@ -244,6 +263,8 @@ export default function TaskTable({
         tags={tags}
         taskFieldDefs={taskFieldDefs}
         onTaskUpdate={handleTaskUpdate}
+        onDeleteTask={handleDeleteTask}
+        onDuplicateTask={handleDuplicateTask}
         activeTimerTaskId={activeTimerTaskId}
         onStartTimer={onStartTimer}
         onStopTimer={onStopTimer}
@@ -278,6 +299,7 @@ export default function TaskTable({
                 {renderSortIndicator(def.id)}
               </th>
             ))}
+            <th style={{ width: 60 }}></th>
             <th className="task-add-field-th">
               <button
                 className="task-add-field-btn"

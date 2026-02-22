@@ -14654,3 +14654,64 @@ textarea.table-cell-input {
   font-family: var(--font-ui);
   cursor: pointer;
 }
+
+.task-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tasks-table tr:hover .task-row-actions {
+  opacity: 1;
+}
+
+.task-row-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.task-row-action-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.task-row-action-btn.danger:hover {
+  color: #f44336;
+}
+
+.task-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+}
+
+.task-delete-confirm-btn {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  background: none;
+  color: var(--text-primary);
+}
+
+.task-delete-confirm-btn.danger {
+  background: #f44336;
+  color: #fff;
+  border-color: #f44336;
+}
