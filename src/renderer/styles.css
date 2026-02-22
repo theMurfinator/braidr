@@ -13589,7 +13589,7 @@ textarea.table-cell-input {
 
 /* --- Section Body --- */
 .sidebar-section-body {
-  overflow: hidden;
+  overflow: visible;
   max-height: 2000px;
   transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.2s ease;
   opacity: 1;
