@@ -10,6 +10,9 @@ interface TaskToolbarProps {
   taskCount: number;
   onGroupByChange: (field: string | undefined) => void;
   onSortChange: (field: string | undefined, dir: 'asc' | 'desc') => void;
+  showFilter: boolean;
+  onToggleFilter: () => void;
+  filterCount: number;
 }
 
 const GROUP_OPTIONS: { id: string; name: string }[] = [
@@ -28,6 +31,9 @@ export default function TaskToolbar({
   taskCount,
   onGroupByChange,
   onSortChange,
+  showFilter,
+  onToggleFilter,
+  filterCount,
 }: TaskToolbarProps) {
   const [groupOpen, setGroupOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -140,6 +146,17 @@ export default function TaskToolbar({
           </div>
         )}
       </div>
+
+      {/* Filter toggle button */}
+      <button
+        className={`tasks-toolbar-btn${showFilter || filterCount > 0 ? ' active' : ''}`}
+        onClick={onToggleFilter}
+      >
+        Filter
+        {filterCount > 0 && (
+          <span className="tasks-toolbar-badge">{filterCount}</span>
+        )}
+      </button>
 
       <span className="tasks-toolbar-count">{taskCount} tasks</span>
     </div>
