@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, MetadataFieldDef, DraftVersion, NoteMetadata, LicenseStatus } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -21,7 +21,7 @@ import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
-import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate, deleteSceneSession, getSceneSessionsList, appendSceneSession, getTodayStr } from './utils/analyticsStore';
+import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate, deleteSceneSession, getSceneSessionsList, appendSceneSession, getTodayStr } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import { UpdateBanner } from './components/UpdateBanner';
@@ -90,6 +90,11 @@ function App() {
   const [archivedScenes, setArchivedScenes] = useState<ArchivedScene[]>([]);
   const archivedScenesRef = useRef<ArchivedScene[]>([]);
   const [showArchivePanel, setShowArchivePanel] = useState(false);
+  const [archivedNotes, setArchivedNotes] = useState<ArchivedNote[]>([]);
+  const [typewriterMode, setTypewriterMode] = useState(() => {
+    const saved = localStorage.getItem('editor-typewriter-mode');
+    return saved === 'true';
+  });
   const [draftContent, setDraftContent] = useState<Record<string, string>>({});
   const draftContentRef = useRef<Record<string, string>>({});
   const [scratchpadContent, setScratchpadContent] = useState<Record<string, string>>({});
@@ -448,7 +453,7 @@ function App() {
   }, [projectData?.projectPath]);
 
   // Check-in modal handlers
-  const handleCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number }) => {
+  const handleCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number; custom?: Record<string, number> }) => {
     const summary = pendingSessionRef.current;
     if (!summary || !analyticsRef.current || !projectData) return;
 
@@ -488,7 +493,7 @@ function App() {
   }, [projectData]);
 
   // Manual (standalone) check-in handler
-  const handleManualCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number }) => {
+  const handleManualCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number; custom?: Record<string, number> }) => {
     if (!analyticsRef.current || !projectData) return;
     const session: SceneSession = {
       id: `ss-manual-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -505,6 +510,29 @@ function App() {
     setSceneSessions(updated.sceneSessions || []);
     saveAnalytics(projectData.projectPath, updated);
     setShowManualCheckin(false);
+  }, [projectData]);
+
+  // Custom check-in category management
+  const handleAddCheckinCategory = useCallback((category: CustomCheckinCategory) => {
+    if (!analyticsRef.current || !projectData) return;
+    const existing = analyticsRef.current.customCheckinCategories || [];
+    const updated = {
+      ...analyticsRef.current,
+      customCheckinCategories: [...existing, category],
+    };
+    analyticsRef.current = updated;
+    saveAnalytics(projectData.projectPath, updated);
+  }, [projectData]);
+
+  const handleRemoveCheckinCategory = useCallback((categoryId: string) => {
+    if (!analyticsRef.current || !projectData) return;
+    const existing = analyticsRef.current.customCheckinCategories || [];
+    const updated = {
+      ...analyticsRef.current,
+      customCheckinCategories: existing.filter(c => c.id !== categoryId),
+    };
+    analyticsRef.current = updated;
+    saveAnalytics(projectData.projectPath, updated);
   }, [projectData]);
 
   // End session when switching away from editor view
@@ -707,6 +735,12 @@ function App() {
     const loadedArchived = data.archivedScenes || [];
     setArchivedScenes(loadedArchived);
     archivedScenesRef.current = loadedArchived;
+
+    // Load archived notes count for badge
+    try {
+      const notesIdx = await dataService.loadNotesIndex(folderPath);
+      setArchivedNotes(notesIdx.archivedNotes || []);
+    } catch {}
 
     // Load word count goal
     const loadedGoal = data.wordCountGoal || 0;
@@ -2391,6 +2425,78 @@ function App() {
     }
   };
 
+  // Load archived notes when archive panel opens
+  useEffect(() => {
+    if (showArchivePanel && projectData) {
+      (async () => {
+        try {
+          const index = await dataService.loadNotesIndex(projectData.projectPath);
+          setArchivedNotes(index.archivedNotes || []);
+        } catch {}
+      })();
+    }
+  }, [showArchivePanel]);
+
+  const handleRestoreNote = async (archived: ArchivedNote) => {
+    if (!projectData) return;
+    const fileName = `${archived.id}.html`;
+
+    try {
+      // Recreate the .html file
+      await dataService.createNote(projectData.projectPath, fileName);
+      await dataService.saveNote(projectData.projectPath, fileName, archived.content);
+
+      // Load current notes index, add note back as root, remove from archive
+      const index = await dataService.loadNotesIndex(projectData.projectPath);
+      const rootNotes = (index.notes || []).filter(n => !n.parentId);
+      const maxOrder = rootNotes.reduce((max, n) => Math.max(max, n.order ?? 0), -1);
+
+      const restoredMeta: NoteMetadata = {
+        id: archived.id,
+        title: archived.title,
+        fileName,
+        parentId: null, // Restore as root — original parent may not exist
+        order: maxOrder + 1,
+        createdAt: archived.originalMetadata.createdAt,
+        modifiedAt: Date.now(),
+        outgoingLinks: archived.outgoingLinks,
+        sceneLinks: archived.sceneLinks,
+        tags: archived.tags,
+      };
+
+      const updatedIndex: NotesIndex = {
+        ...index,
+        notes: [...(index.notes || []), restoredMeta],
+        archivedNotes: (index.archivedNotes || []).filter(a => a.id !== archived.id),
+        version: 2,
+      };
+      await dataService.saveNotesIndex(projectData.projectPath, updatedIndex);
+      setArchivedNotes(updatedIndex.archivedNotes || []);
+      addToast(`Restored "${archived.title}"`);
+      track('note_restored');
+    } catch (err) {
+      addToast('Couldn\u2019t restore note');
+    }
+  };
+
+  const handlePermanentlyDeleteNote = async (archived: ArchivedNote) => {
+    const confirmed = window.confirm(`Permanently delete "${archived.title}"? This cannot be undone.`);
+    if (!confirmed || !projectData) return;
+
+    try {
+      const index = await dataService.loadNotesIndex(projectData.projectPath);
+      const updatedIndex: NotesIndex = {
+        ...index,
+        archivedNotes: (index.archivedNotes || []).filter(a => a.id !== archived.id),
+        version: 2,
+      };
+      await dataService.saveNotesIndex(projectData.projectPath, updatedIndex);
+      setArchivedNotes(updatedIndex.archivedNotes || []);
+    } catch (err) {
+      addToast('Couldn\u2019t delete note');
+    }
+  };
+
   const handleDuplicateScene = async (sceneId: string) => {
     if (!projectData) return;
 
@@ -2809,6 +2915,18 @@ function App() {
           </svg>
           <span className="app-sidebar-label">Search</span>
         </button>
+        <button
+          className={`app-sidebar-btn ${viewMode === 'account' ? 'active' : ''}`}
+          onClick={() => setViewMode('account')}
+          title="Account"
+          aria-label="Account"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span className="app-sidebar-label">Account</span>
+        </button>
       </nav>
 
       <div className="app-body">
@@ -2990,33 +3108,6 @@ function App() {
             </button>
             {showSettingsMenu && (
               <div className="settings-dropdown">
-                {licenseStatus && (
-                  <>
-                    <div className="settings-account-header" style={{ cursor: 'pointer' }} onClick={() => { setViewMode('account'); setShowSettingsMenu(false); }}>
-                      <div className="settings-account-icon">
-                        {licenseStatus.email ? licenseStatus.email.charAt(0).toUpperCase() : 'B'}
-                      </div>
-                      <div className="settings-account-info">
-                        <span className="settings-account-email">
-                          {licenseStatus.email || 'Braidr'}
-                        </span>
-                        <span className="settings-account-status">
-                          {licenseStatus.state === 'licensed'
-                            ? (licenseStatus.cancelAtPeriodEnd && licenseStatus.expiresAt
-                                ? `Cancels ${new Date(licenseStatus.expiresAt).toLocaleDateString()}`
-                                : licenseStatus.expiresAt
-                                  ? `Renews ${new Date(licenseStatus.expiresAt).toLocaleDateString()}`
-                                  : 'Active')
-                            : licenseStatus.state === 'trial' ? `Trial \u2014 ${licenseStatus.trialDaysRemaining} day${licenseStatus.trialDaysRemaining !== 1 ? 's' : ''} left` :
-                           licenseStatus.state === 'expired' ? 'Expired' :
-                           'Free'}
-                          {' \u00B7 v' + (__APP_VERSION__)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="settings-dropdown-divider" />
-                  </>
-                )}
                 <button onClick={() => { setShowCompileModal(true); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -3072,7 +3163,7 @@ function App() {
                     <rect x="1" y="3" width="22" height="5"/>
                     <line x1="10" y1="12" x2="14" y2="12"/>
                   </svg>
-                  Archive{archivedScenes.length > 0 ? ` (${archivedScenes.length})` : ''}
+                  Archive{(archivedScenes.length + archivedNotes.length) > 0 ? ` (${archivedScenes.length + archivedNotes.length})` : ''}
                 </button>
                 <div className="settings-dropdown-divider" />
                 <button onClick={() => { handleBackupProject(); setShowSettingsMenu(false); }}>
@@ -3082,6 +3173,25 @@ function App() {
                     <polyline points="7 3 15 3 15 7"/>
                   </svg>
                   Backup
+                </button>
+                {viewMode === 'editor' && (
+                  <button onClick={() => { editorViewRef.current?.print(); setShowSettingsMenu(false); }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="6 9 6 2 18 2 18 9"/>
+                      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                      <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                    Print
+                  </button>
+                )}
+                <button onClick={() => { setTypewriterMode(!typewriterMode); localStorage.setItem('editor-typewriter-mode', String(!typewriterMode)); setShowSettingsMenu(false); }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="4" width="20" height="14" rx="2"/>
+                    <line x1="6" y1="22" x2="18" y2="22"/>
+                    <line x1="12" y1="18" x2="12" y2="22"/>
+                    <line x1="6" y1="11" x2="18" y2="11" strokeOpacity="0.4"/>
+                  </svg>
+                  Typewriter Mode {typewriterMode ? 'On' : 'Off'}
                 </button>
                 <button onClick={async () => {
                   if (isDirtyRef.current) {
@@ -3100,25 +3210,6 @@ function App() {
                   Switch Project
                 </button>
                 <div className="settings-dropdown-divider" />
-                <button onClick={() => { setViewMode('account'); setShowSettingsMenu(false); }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                      <circle cx="12" cy="7" r="4"/>
-                    </svg>
-                    Account
-                  </button>
-                <button onClick={async () => {
-                  setShowSettingsMenu(false);
-                  await window.electronAPI.deactivateLicense();
-                  window.location.reload();
-                }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
-                  </svg>
-                  Sign Out
-                </button>
                 <button onClick={() => { setShowTour(true); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10"/>
@@ -3177,6 +3268,7 @@ function App() {
                 projectPath={projectData.projectPath}
                 onGoalChange={handleWordCountGoalChange}
                 sceneSessions={sceneSessions}
+                customCheckinCategories={analyticsRef.current?.customCheckinCategories}
               />
             ) : viewMode === 'notes' ? (
               <NotesView
@@ -3237,6 +3329,9 @@ function App() {
                 onGoToNote={(noteId: string) => { setPendingNoteId(noteId); setViewMode('notes'); }}
                 scratchpad={scratchpadContent}
                 onScratchpadChange={handleScratchpadChange}
+                onDeleteScene={handleArchiveScene}
+                onDuplicateScene={handleDuplicateScene}
+                typewriterMode={typewriterMode}
               />
             ) : viewMode === 'pov' ? (
               // POV View with plot points and table of contents
@@ -3973,8 +4068,11 @@ function App() {
       {showManualCheckin && (
         <CheckinModal
           standalone
+          customCategories={analyticsRef.current?.customCheckinCategories}
           onSubmit={handleManualCheckinSubmit}
           onSkip={() => setShowManualCheckin(false)}
+          onAddCategory={handleAddCheckinCategory}
+          onRemoveCategory={handleRemoveCheckinCategory}
         />
       )}
 
@@ -3990,8 +4088,11 @@ function App() {
             sceneLabel={sceneLabel}
             durationMs={pendingSession.durationMs}
             wordsNet={pendingSession.wordsNet}
+            customCategories={analyticsRef.current?.customCheckinCategories}
             onSubmit={handleCheckinSubmit}
             onSkip={handleCheckinSkip}
+            onAddCategory={handleAddCheckinCategory}
+            onRemoveCategory={handleRemoveCheckinCategory}
           />
         );
       })()}
@@ -4005,34 +4106,78 @@ function App() {
               <button className="modal-close-btn" onClick={() => setShowArchivePanel(false)}>×</button>
             </div>
             <div className="archive-modal-body">
-              {archivedScenes.length === 0 ? (
-                <p className="archive-empty">No archived scenes. Archived scenes appear here and can be restored at any time.</p>
+              {archivedNotes.length === 0 && archivedScenes.length === 0 ? (
+                <p className="archive-empty">No archived items. Archived notes and scenes appear here and can be restored at any time.</p>
               ) : (
-                <div className="archive-scenes-list">
-                  {[...archivedScenes].sort((a, b) => b.archivedAt - a.archivedAt).map(archived => {
-                    const charName = projectData?.characters.find(c => c.id === archived.characterId)?.name || 'Unknown';
-                    const cleanContent = archived.content
-                      .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
-                      .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
-                    const archivedDate = new Date(archived.archivedAt).toLocaleDateString();
-                    return (
-                      <div key={archived.id} className="archive-scene-item">
-                        <div className="archive-scene-info">
-                          <span className="archive-scene-char">{charName}</span>
-                          <span className="archive-scene-num">Scene {archived.originalSceneNumber}</span>
-                          <span className="archive-scene-date">{archivedDate}</span>
-                        </div>
-                        <p className="archive-scene-content">{cleanContent || 'Untitled scene'}</p>
-                        {archived.notes.length > 0 && (
-                          <p className="archive-scene-notes">{archived.notes.length} note{archived.notes.length !== 1 ? 's' : ''}</p>
-                        )}
-                        <button className="archive-restore-btn" onClick={() => handleRestoreScene(archived)}>
-                          Restore
-                        </button>
+                <>
+                  {archivedNotes.length > 0 && (
+                    <>
+                      <div className="archive-section-header">Notes</div>
+                      <div className="archive-scenes-list">
+                        {[...archivedNotes].sort((a, b) => b.archivedAt - a.archivedAt).map(archived => {
+                          const preview = archived.content
+                            .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+                            .slice(0, 120);
+                          const archivedDate = new Date(archived.archivedAt).toLocaleDateString();
+                          return (
+                            <div key={archived.id} className="archive-note-item">
+                              <div className="archive-scene-info">
+                                <span className="archive-scene-char">{archived.title || 'Untitled'}</span>
+                                <span className="archive-scene-date">{archivedDate}</span>
+                              </div>
+                              {preview && <p className="archive-scene-content">{preview}</p>}
+                              {archived.tags.length > 0 && (
+                                <div className="archive-note-tags">
+                                  {archived.tags.slice(0, 4).map(t => (
+                                    <span key={t} className="note-tag-pill">#{t}</span>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="archive-note-actions">
+                                <button className="archive-restore-btn" onClick={() => handleRestoreNote(archived)}>
+                                  Restore
+                                </button>
+                                <button className="archive-delete-btn" onClick={() => handlePermanentlyDeleteNote(archived)}>
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
+                    </>
+                  )}
+                  {archivedScenes.length > 0 && (
+                    <>
+                      {archivedNotes.length > 0 && <div className="archive-section-header">Scenes</div>}
+                      <div className="archive-scenes-list">
+                        {[...archivedScenes].sort((a, b) => b.archivedAt - a.archivedAt).map(archived => {
+                          const charName = projectData?.characters.find(c => c.id === archived.characterId)?.name || 'Unknown';
+                          const cleanContent = archived.content
+                            .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
+                            .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
+                          const archivedDate = new Date(archived.archivedAt).toLocaleDateString();
+                          return (
+                            <div key={archived.id} className="archive-scene-item">
+                              <div className="archive-scene-info">
+                                <span className="archive-scene-char">{charName}</span>
+                                <span className="archive-scene-num">Scene {archived.originalSceneNumber}</span>
+                                <span className="archive-scene-date">{archivedDate}</span>
+                              </div>
+                              <p className="archive-scene-content">{cleanContent || 'Untitled scene'}</p>
+                              {archived.notes.length > 0 && (
+                                <p className="archive-scene-notes">{archived.notes.length} note{archived.notes.length !== 1 ? 's' : ''}</p>
+                              )}
+                              <button className="archive-restore-btn" onClick={() => handleRestoreScene(archived)}>
+                                Restore
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </>
               )}
             </div>
           </div>

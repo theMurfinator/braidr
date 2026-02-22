@@ -455,7 +455,7 @@ export default function NotesSidebar({
           <button className="notes-context-menu-delete" onClick={() => {
             onDeleteNote(contextMenu.noteId);
             setContextMenu(null);
-          }}>Delete</button>
+          }}>Archive</button>
         </div>
       )}
     </div>

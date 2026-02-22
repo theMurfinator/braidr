@@ -524,9 +524,11 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
               <h4>What to compile</h4>
               {previewItems.map((item, idx) => (
                 item.type === 'chapter' ? (
-                  <div key={`ch-${idx}`} className="compile-preview-chapter" style={{ opacity: includeChapterHeadings ? 1 : 0.4 }}>
-                    {item.chapterTitle}
-                  </div>
+                  chapterHasContent(previewItems, idx) ? (
+                    <div key={`ch-${idx}`} className="compile-preview-chapter" style={{ opacity: includeChapterHeadings ? 1 : 0.4 }}>
+                      {item.chapterTitle}
+                    </div>
+                  ) : null
                 ) : (
                   <div key={`sc-${item.scene!.id}`} className={`compile-preview-scene ${item.hasDraft ? 'has-draft' : 'no-draft'} ${item.isSelected ? 'selected' : ''}`} style={{ borderLeftColor: characterColors[item.scene!.characterId] || 'transparent' }}>
                     <input

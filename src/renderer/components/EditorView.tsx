@@ -56,10 +56,14 @@ interface EditorViewProps {
   onGoToNote?: (noteId: string) => void;
   scratchpad?: Record<string, string>;
   onScratchpadChange?: (sceneKey: string, html: string) => void;
+  onDeleteScene?: (sceneId: string) => void;
+  onDuplicateScene?: (sceneId: string) => void;
+  typewriterMode?: boolean;
 }
 
 export interface EditorViewHandle {
   flush: () => void;
+  print: () => void;
 }
 
 const DEFAULT_STATUSES = [
@@ -160,6 +164,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   onGoToNote,
   scratchpad: scratchpadProp,
   onScratchpadChange,
+  onDeleteScene,
+  onDuplicateScene,
+  typewriterMode: typewriterModeProp = false,
 }, ref) {
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<Set<string>>(new Set());
@@ -200,6 +207,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const draggingRef = useRef<{ panel: 'nav' | 'meta'; startX: number; initialWidth: number } | null>(null);
   const pendingContentRef = useRef<{ key: string; html: string } | null>(null);
   const settingContentRef = useRef(false);
+  const [navContextMenu, setNavContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
+  const navContextMenuRef = useRef<HTMLDivElement>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   // Timer state is now lifted to App — use props
   const isTimerForThisScene = timerSceneKeyProp !== null && selectedSceneKey !== null && timerSceneKeyProp === selectedSceneKey;
@@ -226,6 +236,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
         pendingContentRef.current = null;
       }
     },
+    print: () => { handlePrint(); },
   }), [onDraftChange]);
   const wordCountDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showDiffModal, setShowDiffModal] = useState(false);
@@ -365,6 +376,18 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   useEffect(() => {
     localStorage.setItem('editor-show-toolbar', JSON.stringify(showToolbar));
   }, [showToolbar]);
+
+  // Close nav context menu on outside click
+  useEffect(() => {
+    if (!navContextMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (navContextMenuRef.current && !navContextMenuRef.current.contains(e.target as Node)) {
+        setNavContextMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [navContextMenu]);
 
   // Draggable panel resize
   useEffect(() => {
@@ -554,6 +577,63 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       settingContentRef.current = false;
     }
   }, [selectedSceneKey]);
+
+  // Typewriter mode: keep cursor vertically centered
+  // Print: build HTML from selected scenes, generate PDF, open in Preview
+  const handlePrint = async () => {
+    const scenesToPrint = isMultiSelect ? selectedScenesOrdered : (selectedScene ? [selectedScene] : []);
+    if (scenesToPrint.length === 0) return;
+
+    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print</title>
+<style>
+  body { font-family: 'Georgia', serif; max-width: 700px; margin: 0 auto; padding: 40px 20px; line-height: 1.8; color: #222; }
+  h2 { font-size: 18px; margin: 0 0 4px; }
+  .char-label { font-style: italic; color: #777; margin-bottom: 16px; font-size: 14px; }
+  .scene-break { text-align: center; color: #999; margin: 32px 0; }
+  @media print { body { padding: 0; } }
+</style></head><body>\n`;
+
+    scenesToPrint.forEach((scene, idx) => {
+      const key = getSceneKey(scene);
+      const charName = characters.find(c => c.id === scene.characterId)?.name || '';
+      const content = draftContent[key] || '';
+      const cleanTitle = scene.content
+        .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
+        .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
+
+      html += `<h2>${cleanTitle || 'Untitled scene'}</h2>\n`;
+      html += `<p class="char-label">${charName} &middot; Scene ${scene.sceneNumber}</p>\n`;
+      html += content;
+      if (idx < scenesToPrint.length - 1) {
+        html += `\n<p class="scene-break">* * *</p>\n`;
+      }
+    });
+
+    html += `</body></html>`;
+
+    try {
+      await (window as any).electronAPI.printPreview(html);
+    } catch {}
+  };
+
+  const typewriterRef = useRef(typewriterModeProp);
+  typewriterRef.current = typewriterModeProp;
+  useEffect(() => {
+    if (!editor) return;
+    const scrollToCursor = () => {
+      if (!typewriterRef.current) return;
+      const container = editorContainerRef.current;
+      if (!container) return;
+      const { view } = editor;
+      const coords = view.coordsAtPos(view.state.selection.from);
+      const containerRect = container.getBoundingClientRect();
+      const cursorY = coords.top - containerRect.top + container.scrollTop;
+      const targetScroll = cursorY - container.clientHeight / 2;
+      container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+    };
+    editor.on('selectionUpdate', scrollToCursor);
+    return () => { editor.off('selectionUpdate', scrollToCursor); };
+  }, [editor]);
 
   // Notes editor
   const selectedSceneRef = useRef(selectedScene);
@@ -951,6 +1031,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     className={`editor-nav-item ${isPrimary ? 'active' : ''} ${isActive && !isPrimary ? 'multi-selected' : ''} ${hasDraft ? 'has-draft' : ''}`}
                     style={isActive ? { borderLeftColor: charColor, backgroundColor: `${charColor}12` } : undefined}
                     onClick={(e) => handleSceneClick(key, e)}
+                    onContextMenu={(e) => { e.preventDefault(); setNavContextMenu({ x: e.clientX, y: e.clientY, sceneId: scene.id }); }}
                   >
                     <div className="editor-nav-item-stack">
                       <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
@@ -978,6 +1059,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                         className={`editor-nav-item ${isPrimary ? 'active' : ''} ${isActive && !isPrimary ? 'multi-selected' : ''} ${hasDraft ? 'has-draft' : ''}`}
                         style={isActive ? { borderLeftColor: charColor, backgroundColor: `${charColor}12` } : undefined}
                         onClick={(e) => handleSceneClick(key, e)}
+                        onContextMenu={(e) => { e.preventDefault(); setNavContextMenu({ x: e.clientX, y: e.clientY, sceneId: scene.id }); }}
                       >
                         <div className="editor-nav-item-stack">
                           <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
@@ -991,6 +1073,20 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               )}
             </>
         </div>
+        {navContextMenu && (
+          <div
+            ref={navContextMenuRef}
+            className="notes-context-menu"
+            style={{ top: navContextMenu.y, left: navContextMenu.x }}
+          >
+            {onDuplicateScene && (
+              <button onClick={() => { onDuplicateScene(navContextMenu.sceneId); setNavContextMenu(null); }}>Duplicate</button>
+            )}
+            {onDeleteScene && (
+              <button className="notes-context-menu-delete" onClick={() => { onDeleteScene(navContextMenu.sceneId); setNavContextMenu(null); }}>Archive</button>
+            )}
+          </div>
+        )}
       </div>}
       {showNav && <div className="editor-resize-handle" onMouseDown={e => handleResizeStart(e, 'nav')} />}
 
@@ -1039,7 +1135,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
         ) : (
           <>
             {/* Single scene mode: original behavior */}
-            <div className="editor-draft-editor">
+            <div className="editor-draft-editor" ref={editorContainerRef}>
               {selectedScene && (
                 <div className="editor-draft-scene-header">
                   {isEditingTitle ? (

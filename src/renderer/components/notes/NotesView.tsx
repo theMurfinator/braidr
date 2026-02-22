@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { NoteMetadata, NotesIndex, Scene, Character, Tag } from '../../../shared/types';
+import { NoteMetadata, NotesIndex, ArchivedNote, Scene, Character, Tag } from '../../../shared/types';
 import { dataService } from '../../services/dataService';
 import { useToast } from '../ToastContext';
 import { track } from '../../utils/posthogTracker';
@@ -358,7 +358,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     }
   }, [projectPath, saveIndex]);
 
-  const handleDeleteNote = useCallback(async (noteId: string) => {
+  const handleArchiveNote = useCallback(async (noteId: string) => {
     const note = indexRef.current.notes.find(n => n.id === noteId);
     if (!note) return;
 
@@ -367,17 +367,43 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     const totalCount = 1 + descendantIds.length;
 
     const message = totalCount > 1
-      ? `Delete "${note.title}" and ${descendantIds.length} sub-note${descendantIds.length !== 1 ? 's' : ''}? This cannot be undone.`
-      : `Delete "${note.title}"? This cannot be undone.`;
+      ? `Archive "${note.title}" and ${descendantIds.length} sub-note${descendantIds.length !== 1 ? 's' : ''}? You can restore from the Archive panel.`
+      : `Archive "${note.title}"? You can restore it from the Archive panel.`;
 
     const confirmed = window.confirm(message);
     if (!confirmed) return;
 
-    const allIdsToDelete = [noteId, ...descendantIds];
+    const allIdsToArchive = [noteId, ...descendantIds];
 
     try {
-      // Delete all note files
-      for (const id of allIdsToDelete) {
+      // Read content for each note and build archive entries
+      const archivedEntries: ArchivedNote[] = [];
+      for (const id of allIdsToArchive) {
+        const n = indexRef.current.notes.find(nn => nn.id === id);
+        if (!n) continue;
+        let content = '<p></p>';
+        try {
+          content = await dataService.readNote(projectPath, n.fileName);
+        } catch {}
+        archivedEntries.push({
+          id: n.id,
+          title: n.title,
+          content,
+          parentId: n.parentId,
+          tags: n.tags || [],
+          outgoingLinks: n.outgoingLinks,
+          sceneLinks: n.sceneLinks,
+          archivedAt: Date.now(),
+          originalMetadata: {
+            order: n.order,
+            createdAt: n.createdAt,
+            modifiedAt: n.modifiedAt,
+          },
+        });
+      }
+
+      // Delete files from disk
+      for (const id of allIdsToArchive) {
         const n = indexRef.current.notes.find(nn => nn.id === id);
         if (n) {
           try {
@@ -386,10 +412,12 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
         }
       }
 
-      const deleteSet = new Set(allIdsToDelete);
+      const deleteSet = new Set(allIdsToArchive);
+      const existingArchived = indexRef.current.archivedNotes || [];
       const newIndex: NotesIndex = {
         ...indexRef.current,
         notes: indexRef.current.notes.filter(n => !deleteSet.has(n.id)),
+        archivedNotes: [...existingArchived, ...archivedEntries],
         version: 2,
       };
       await saveIndex(newIndex);
@@ -397,8 +425,9 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
         setSelectedNoteId(null);
         setNoteContent('<p></p>');
       }
+      track('note_archived', { count: allIdsToArchive.length });
     } catch (err) {
-      addToast('Couldn\u2019t delete note');
+      addToast('Couldn\u2019t archive note');
     }
   }, [projectPath, selectedNoteId, saveIndex]);
 
@@ -578,7 +607,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             selectedNoteId={selectedNoteId}
             onSelectNote={setSelectedNoteId}
             onCreateNote={handleCreateNote}
-            onDeleteNote={handleDeleteNote}
+            onDeleteNote={handleArchiveNote}
             onRenameNote={handleRenameNote}
             onMoveNote={handleMoveNote}
             width={sidebarWidth}
