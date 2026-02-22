@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { Task, TaskFieldDef, TaskViewConfig, Tag, Character, Scene } from '../../../shared/types';
 import TaskTable from './TaskTable';
+import TaskToolbar from './TaskToolbar';
 
 interface TasksViewProps {
   tasks: Task[];
@@ -24,12 +26,30 @@ export default function TasksView({
   onTaskFieldDefsChange,
   onTaskViewsChange,
 }: TasksViewProps) {
+  const [groupBy, setGroupBy] = useState<string | undefined>(undefined);
+  const [sortBy, setSortBy] = useState<string | undefined>(undefined);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  function handleSortChange(field: string | undefined, dir: 'asc' | 'desc') {
+    setSortBy(field);
+    setSortDir(dir);
+  }
+
+  // Suppress unused variable warnings for props used in future tasks
+  void taskViews;
+  void onTaskViewsChange;
+
   return (
     <div className="tasks-view">
-      <div className="tasks-toolbar">
-        <h2 className="tasks-toolbar-title">Tasks</h2>
-        <span className="tasks-toolbar-count">{tasks.length} tasks</span>
-      </div>
+      <TaskToolbar
+        groupBy={groupBy}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        taskFieldDefs={taskFieldDefs}
+        taskCount={tasks.length}
+        onGroupByChange={setGroupBy}
+        onSortChange={handleSortChange}
+      />
       <div className="tasks-table-wrap">
         <TaskTable
           tasks={tasks}
@@ -39,6 +59,10 @@ export default function TasksView({
           taskFieldDefs={taskFieldDefs}
           onTasksChange={onTasksChange}
           onTaskFieldDefsChange={onTaskFieldDefsChange}
+          groupBy={groupBy}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          onSortChange={handleSortChange}
         />
       </div>
     </div>

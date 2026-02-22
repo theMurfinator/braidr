@@ -14175,3 +14175,101 @@ textarea.table-cell-input {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
+
+.tasks-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tasks-toolbar-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.tasks-toolbar-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.tasks-toolbar-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 180px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  overflow: hidden;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.tasks-toolbar-dropdown-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tasks-toolbar-dropdown-option:hover {
+  background: var(--bg-tertiary);
+}
+
+.tasks-toolbar-dropdown-option.active {
+  font-weight: 600;
+}
+
+.tasks-toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
+
+.task-group-header td {
+  padding: 10px 12px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.task-group-header .task-group-count {
+  font-weight: 400;
+  margin-left: 8px;
+  color: var(--text-tertiary, var(--text-secondary));
+}
+
+.task-sort-indicator {
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.tasks-toolbar-section {
+  position: relative;
+}
