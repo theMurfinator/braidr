@@ -14024,3 +14024,154 @@ textarea.table-cell-input {
 .task-picker-checkbox:hover {
   background: var(--bg-tertiary);
 }
+
+.task-field-manager-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.task-field-manager {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 360px;
+  max-width: 480px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.task-field-manager h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+}
+
+.task-field-manager-row {
+  margin-bottom: 12px;
+}
+
+.task-field-manager-row label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  font-family: var(--font-ui);
+}
+
+.task-field-manager-row input,
+.task-field-manager-row select {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-ui);
+}
+
+.task-field-manager-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.task-field-manager-option-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-field-manager-option-row input {
+  flex: 1;
+}
+
+.task-field-manager-option-remove {
+  padding: 2px 6px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.task-field-manager-option-remove:hover {
+  color: #f44336;
+}
+
+.task-field-manager-add-option {
+  padding: 4px 8px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.task-field-manager-add-option:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.task-field-manager-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.task-field-manager-actions button {
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+
+.task-field-manager-actions .primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.task-field-manager-actions .secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.task-add-field-th {
+  width: 40px;
+  text-align: center;
+}
+
+.task-add-field-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.task-add-field-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}

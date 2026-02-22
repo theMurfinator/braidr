@@ -38,6 +38,7 @@ export default function TasksView({
           tags={tags}
           taskFieldDefs={taskFieldDefs}
           onTasksChange={onTasksChange}
+          onTaskFieldDefsChange={onTaskFieldDefsChange}
         />
       </div>
     </div>
