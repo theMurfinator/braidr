@@ -534,6 +534,85 @@ function SceneCard({
                 <>
                   <EditorContent editor={editor} className="notes-editor" />
 
+                  {/* Inline Metadata Fields */}
+                  {inlineMetadataFields.length > 0 && onMetadataChange && (
+                    <div className="inline-metadata-fields">
+                      {metadataFieldDefs
+                        .filter(f => inlineMetadataFields.includes(f.id))
+                        .sort((a, b) => {
+                          const aIdx = inlineMetadataFields.indexOf(a.id);
+                          const bIdx = inlineMetadataFields.indexOf(b.id);
+                          return aIdx - bIdx;
+                        })
+                        .map(field => {
+                          const value = sceneMetadata[field.id];
+                          return (
+                            <div key={field.id} className="inline-metadata-row">
+                              {showInlineLabels && (
+                                <span className="inline-metadata-label">{field.label}:</span>
+                              )}
+                              {field.type === 'text' && (
+                                <textarea
+                                  className="inline-metadata-text"
+                                  value={(value as string) || ''}
+                                  onChange={(e) => onMetadataChange(scene.id, field.id, e.target.value)}
+                                  placeholder="—"
+                                  rows={1}
+                                  onInput={(e) => {
+                                    const el = e.currentTarget;
+                                    el.style.height = 'auto';
+                                    el.style.height = el.scrollHeight + 'px';
+                                  }}
+                                  ref={(el) => {
+                                    if (el) {
+                                      el.style.height = 'auto';
+                                      el.style.height = el.scrollHeight + 'px';
+                                    }
+                                  }}
+                                />
+                              )}
+                              {field.type === 'dropdown' && (
+                                <select
+                                  className="inline-metadata-select"
+                                  value={(value as string) || ''}
+                                  onChange={(e) => onMetadataChange(scene.id, field.id, e.target.value)}
+                                >
+                                  <option value="">—</option>
+                                  {field.options?.map(option => (
+                                    <option key={option} value={option}>
+                                      {option}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                              {field.type === 'multiselect' && (
+                                <div className="inline-metadata-chips">
+                                  {field.options?.map(option => {
+                                    const selected = Array.isArray(value) && value.includes(option);
+                                    const color = field.optionColors?.[option];
+                                    return (
+                                      <button
+                                        key={option}
+                                        className={`scene-metadata-chip ${selected ? 'selected' : ''}`}
+                                        onClick={() => toggleMultiselect(field.id, option)}
+                                        style={color ? {
+                                          backgroundColor: selected ? color : 'transparent',
+                                          borderColor: color,
+                                          color: selected ? '#fff' : color,
+                                        } : undefined}
+                                      >
+                                        {option}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+
               {/* Metadata Properties Section */}
               {onMetadataChange && onMetadataFieldDefsChange && (
                 <div className="scene-metadata-section">
