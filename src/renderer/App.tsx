@@ -3677,6 +3677,8 @@ function App() {
                     onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
                     inlineMetadataFields={inlineMetadataFields}
                     showInlineLabels={showInlineLabels}
+                    onWordCountChange={handleWordCountChange}
+                    onOpenInEditor={handleOpenInEditor}
                   />
                 ))}
                 {/* Add Section button */}
