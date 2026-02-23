@@ -320,6 +320,12 @@ interface ScenePickerProps {
 
 export function ScenePicker({ value, scenes, characters, onCommit, onCancel }: ScenePickerProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -342,30 +348,65 @@ export function ScenePicker({ value, scenes, characters, onCommit, onCancel }: S
     grouped.set(scene.characterId, list);
   }
 
+  // Filter by search term
+  const query = search.toLowerCase();
+
   return (
-    <div ref={ref} className="task-inline-dropdown">
-      <button
-        className={`task-inline-dropdown-option${!value ? ' active' : ''}`}
-        onClick={() => onCommit(undefined)}
-      >
-        None
-      </button>
-      {Array.from(grouped.entries()).map(([charId, charScenes]) => {
-        const char = charMap.get(charId);
-        const charName = char?.name || charId;
-        return charScenes.map((scene) => {
-          const sceneKey = `${charId}:${scene.sceneNumber}`;
-          return (
-            <button
-              key={sceneKey}
-              className={`task-inline-dropdown-option${sceneKey === value ? ' active' : ''}`}
-              onClick={() => onCommit(sceneKey)}
-            >
-              {charName} &mdash; Scene #{scene.sceneNumber}: {scene.title}
-            </button>
-          );
-        });
-      })}
+    <div ref={ref} className="task-inline-dropdown" style={{ minWidth: 260 }}>
+      <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>
+        <input
+          ref={inputRef}
+          type="text"
+          className="task-inline-input"
+          placeholder="Search scenes..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onCancel();
+          }}
+        />
+      </div>
+      <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+        {!search && (
+          <button
+            className={`task-inline-dropdown-option${!value ? ' active' : ''}`}
+            onClick={() => onCommit(undefined)}
+          >
+            None
+          </button>
+        )}
+        {Array.from(grouped.entries()).map(([charId, charScenes]) => {
+          const char = charMap.get(charId);
+          const charName = char?.name || charId;
+          const filtered = charScenes.filter((scene) => {
+            if (!query) return true;
+            const label = `${charName} scene ${scene.sceneNumber} ${scene.title}`.toLowerCase();
+            return label.includes(query);
+          });
+          if (filtered.length === 0) return null;
+          return filtered.map((scene) => {
+            const sceneKey = `${charId}:${scene.sceneNumber}`;
+            return (
+              <button
+                key={sceneKey}
+                className={`task-inline-dropdown-option${sceneKey === value ? ' active' : ''}`}
+                onClick={() => onCommit(sceneKey)}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: char?.color || '#666',
+                    flexShrink: 0,
+                  }}
+                />
+                {charName} &mdash; Scene #{scene.sceneNumber}: {scene.title}
+              </button>
+            );
+          });
+        })}
+      </div>
     </div>
   );
 }
