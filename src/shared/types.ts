@@ -119,6 +119,9 @@ export interface TimelineData {
   tasks?: Task[];
   taskFieldDefs?: TaskFieldDef[];
   taskViews?: TaskViewConfig[];
+  // Inline metadata display preferences (POV view)
+  inlineMetadataFields?: string[];
+  showInlineLabels?: boolean;
 }
 
 // ── Task Management ──────────────────────────────────────────────────────────
