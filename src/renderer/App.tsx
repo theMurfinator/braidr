@@ -61,6 +61,10 @@ function App() {
   const [showPovColors, setShowPovColors] = useState(true);
   const [allNotesExpanded, setAllNotesExpanded] = useState<boolean | null>(null);
   const [hideSectionHeaders, setHideSectionHeaders] = useState(false);
+  const [inlineMetadataFields, setInlineMetadataFields] = useState<string[]>([]);
+  const inlineMetadataFieldsRef = useRef<string[]>([]);
+  const [showInlineLabels, setShowInlineLabels] = useState(true);
+  const showInlineLabelsRef = useRef(true);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionSource, setConnectionSource] = useState<string | null>(null);
@@ -820,6 +824,12 @@ function App() {
     const loadedMetaDefs = data.metadataFieldDefs || [];
     setMetadataFieldDefs(loadedMetaDefs);
     metadataFieldDefsRef.current = loadedMetaDefs;
+    const loadedInlineFields = data.inlineMetadataFields || [];
+    setInlineMetadataFields(loadedInlineFields);
+    inlineMetadataFieldsRef.current = loadedInlineFields;
+    const loadedShowLabels = data.showInlineLabels !== undefined ? data.showInlineLabels : true;
+    setShowInlineLabels(loadedShowLabels);
+    showInlineLabelsRef.current = loadedShowLabels;
     const loadedMetaData = data.sceneMetadata || {};
 
     // Reconcile scene-keyed data: remove orphaned keys that don't match any current scene.
@@ -1312,7 +1322,7 @@ function App() {
           }
         }
 
-        await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current);
+        await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current);
       } catch (err) {
         console.error('Failed to save font settings:', err);
         addToast('Failed to save font settings');
@@ -2109,7 +2119,7 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -2399,6 +2409,22 @@ function App() {
     sceneMetadataRef.current = updated;
     if (projectData) {
       await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+    }
+  };
+
+  const handleInlineMetadataFieldsChange = (fields: string[]) => {
+    setInlineMetadataFields(fields);
+    inlineMetadataFieldsRef.current = fields;
+    if (projectData) {
+      saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+    }
+  };
+
+  const handleShowInlineLabelsChange = (show: boolean) => {
+    setShowInlineLabels(show);
+    showInlineLabelsRef.current = show;
+    if (projectData) {
+      saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
     }
   };
 
