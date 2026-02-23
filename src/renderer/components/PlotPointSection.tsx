@@ -46,9 +46,12 @@ interface PlotPointSectionProps {
   sceneMetadata?: Record<string, Record<string, string | string[]>>;
   onMetadataChange?: (sceneId: string, fieldId: string, value: string | string[]) => void;
   onMetadataFieldDefsChange?: (defs: MetadataFieldDef[]) => void;
+  // Inline metadata display
+  inlineMetadataFields?: string[];
+  showInlineLabels?: boolean;
 }
 
-function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange }: PlotPointSectionProps) {
+function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange, inlineMetadataFields, showInlineLabels }: PlotPointSectionProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingCount, setIsEditingCount] = useState(false);
   // Ensure title always has a fallback value
@@ -397,6 +400,8 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
               sceneMetadata={sceneMetadata?.[`${scene.characterId}:${scene.sceneNumber}`]}
               onMetadataChange={onMetadataChange}
               onMetadataFieldDefsChange={onMetadataFieldDefsChange}
+              inlineMetadataFields={inlineMetadataFields}
+              showInlineLabels={showInlineLabels}
             />
           </div>
         </div>

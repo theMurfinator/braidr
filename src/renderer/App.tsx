@@ -3624,6 +3624,8 @@ function App() {
                       }
                     }}
                     onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                    inlineMetadataFields={inlineMetadataFields}
+                    showInlineLabels={showInlineLabels}
                     onSceneClick={(sceneId) => {
                       // Handle completing a connection in POV view
                       if (isConnecting && connectionSource && connectionSource !== sceneId && projectData) {
@@ -3664,6 +3666,17 @@ function App() {
                       setIsConnecting(true);
                     }}
                     onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
+                    metadataFieldDefs={metadataFieldDefs}
+                    sceneMetadata={sceneMetadata[`${scene.characterId}:${scene.sceneNumber}`]}
+                    onMetadataChange={(sceneId, fieldId, value) => {
+                      const s = projectData.scenes.find(sc => sc.id === sceneId);
+                      if (s) {
+                        handleMetadataChange(`${s.characterId}:${s.sceneNumber}`, fieldId, value);
+                      }
+                    }}
+                    onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                    inlineMetadataFields={inlineMetadataFields}
+                    showInlineLabels={showInlineLabels}
                   />
                 ))}
                 {/* Add Section button */}

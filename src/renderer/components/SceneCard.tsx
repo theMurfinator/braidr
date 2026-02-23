@@ -42,6 +42,9 @@ interface SceneCardProps {
   sceneMetadata?: Record<string, string | string[]>;
   onMetadataChange?: (sceneId: string, fieldId: string, value: string | string[]) => void;
   onMetadataFieldDefsChange?: (defs: MetadataFieldDef[]) => void;
+  // Inline metadata display
+  inlineMetadataFields?: string[];
+  showInlineLabels?: boolean;
 }
 
 function SceneCard({
@@ -76,6 +79,8 @@ function SceneCard({
   sceneMetadata = {},
   onMetadataChange,
   onMetadataFieldDefsChange,
+  inlineMetadataFields = [],
+  showInlineLabels = true,
 }: SceneCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(scene.content);
