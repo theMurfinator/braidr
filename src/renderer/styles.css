@@ -798,6 +798,59 @@
   opacity: 1;
 }
 
+/* Fields dropdown in POV toolbar */
+.toolbar-dropdown-container {
+  position: relative;
+}
+
+.toolbar-fields-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 6px 0;
+  min-width: 180px;
+  z-index: 100;
+}
+
+.toolbar-fields-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.toolbar-fields-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.toolbar-fields-item input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.toolbar-fields-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.toolbar-fields-empty {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .toolbar-compile-btn {
   padding: 6px 16px;
   background: transparent;

@@ -65,6 +65,8 @@ function App() {
   const inlineMetadataFieldsRef = useRef<string[]>([]);
   const [showInlineLabels, setShowInlineLabels] = useState(true);
   const showInlineLabelsRef = useRef(true);
+  const [showFieldsDropdown, setShowFieldsDropdown] = useState(false);
+  const fieldsDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionSource, setConnectionSource] = useState<string | null>(null);
@@ -360,6 +362,19 @@ function App() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showSettingsMenu]);
+
+  // Close fields dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (fieldsDropdownRef.current && !fieldsDropdownRef.current.contains(e.target as Node)) {
+        setShowFieldsDropdown(false);
+      }
+    };
+    if (showFieldsDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showFieldsDropdown]);
 
   // Fetch license status for account display
   useEffect(() => {
@@ -3144,6 +3159,52 @@ function App() {
               >
                 Sections
               </button>
+              <div className="toolbar-dropdown-container" ref={fieldsDropdownRef}>
+                <button
+                  className={`toolbar-btn ${inlineMetadataFields.length > 0 ? 'active' : ''}`}
+                  onClick={() => setShowFieldsDropdown(!showFieldsDropdown)}
+                  title="Choose metadata fields to show inline"
+                >
+                  Fields
+                </button>
+                {showFieldsDropdown && (
+                  <div className="toolbar-fields-dropdown">
+                    {metadataFieldDefs.filter(f => f.id !== '_status').length === 0 ? (
+                      <div className="toolbar-fields-empty">No metadata fields defined yet</div>
+                    ) : (
+                      <>
+                        {metadataFieldDefs
+                          .filter(f => f.id !== '_status')
+                          .sort((a, b) => a.order - b.order)
+                          .map(field => (
+                            <label key={field.id} className="toolbar-fields-item">
+                              <input
+                                type="checkbox"
+                                checked={inlineMetadataFields.includes(field.id)}
+                                onChange={() => {
+                                  const updated = inlineMetadataFields.includes(field.id)
+                                    ? inlineMetadataFields.filter(id => id !== field.id)
+                                    : [...inlineMetadataFields, field.id];
+                                  handleInlineMetadataFieldsChange(updated);
+                                }}
+                              />
+                              {field.label}
+                            </label>
+                          ))}
+                        <div className="toolbar-fields-divider" />
+                        <label className="toolbar-fields-item">
+                          <input
+                            type="checkbox"
+                            checked={showInlineLabels}
+                            onChange={() => handleShowInlineLabelsChange(!showInlineLabels)}
+                          />
+                          Show Labels
+                        </label>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </>
           )}
           {viewMode === 'braided' && (
