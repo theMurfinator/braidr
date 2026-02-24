@@ -15104,6 +15104,200 @@ textarea.table-cell-input {
   font-size: 13px;
 }
 
+/* ── Timeline Detail Panel ───────────────────────────────────────────────── */
+
+.timeline-detail-panel {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  flex-shrink: 0;
+  max-height: 50%;
+}
+
+.timeline-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.timeline-detail-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.timeline-detail-field input,
+.timeline-detail-field textarea {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.timeline-detail-field input:focus,
+.timeline-detail-field textarea:focus {
+  border-color: var(--accent);
+}
+
+.timeline-detail-field textarea {
+  resize: vertical;
+  min-height: 48px;
+}
+
+.timeline-detail-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  padding: 4px 0;
+}
+
+/* ── Linked Scenes ───────────────────────────────────────────────────────── */
+
+.timeline-linked-scenes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeline-linked-scenes > label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.timeline-scene-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.timeline-scene-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+
+.timeline-chip-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.timeline-chip-remove:hover {
+  color: var(--text-primary);
+}
+
+/* ── Link Scene Dropdown ─────────────────────────────────────────────────── */
+
+.timeline-link-scene-wrapper {
+  position: relative;
+}
+
+.timeline-link-scene-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.timeline-link-scene-btn:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+.timeline-link-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.timeline-link-dropdown input {
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.timeline-link-dropdown-list {
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.timeline-link-dropdown-item {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.timeline-link-dropdown-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.timeline-link-dropdown-empty {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Delete Button ───────────────────────────────────────────────────────── */
+
+.timeline-delete-btn {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: #c0392b;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+.timeline-delete-btn:hover {
+  border-color: #c0392b;
+  background: #fff5f5;
+}
+
 .timeline-grid {
   height: 100%;
   overflow: auto;
