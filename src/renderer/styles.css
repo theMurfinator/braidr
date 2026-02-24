@@ -15298,10 +15298,296 @@ textarea.table-cell-input {
   background: #fff5f5;
 }
 
+/* ── Timeline Grid ──────────────────────────────────────────────────────── */
+
 .timeline-grid {
   height: 100%;
   overflow: auto;
+  position: relative;
 }
+
+.timeline-grid-table {
+  min-width: 100%;
+  min-height: 100%;
+}
+
+/* Corner cell — top-left, sticky in both directions */
+.tg-corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 12;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  min-height: 44px;
+}
+
+/* Date header cells — sticky top */
+.tg-date-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--bg-tertiary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 2px;
+  min-height: 44px;
+  user-select: none;
+}
+
+.tg-date-header.weekend {
+  background: var(--bg-secondary);
+}
+
+.tg-date-day {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1;
+}
+
+.tg-date-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+/* Lane labels — sticky left */
+.tg-lane-label {
+  position: sticky;
+  left: 0;
+  z-index: 8;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: 48px;
+  white-space: nowrap;
+}
+
+.tg-lane-label.tg-world-label {
+  border-bottom: 2px solid var(--border);
+}
+
+.tg-lane-color {
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.tg-lane-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Grid cells */
+.tg-cell {
+  border-right: 1px solid var(--bg-tertiary);
+  border-bottom: 1px solid var(--bg-tertiary);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 48px;
+  transition: background 0.12s ease;
+}
+
+.tg-cell:hover {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.tg-cell.empty {
+  /* Subtle diagonal hatching for empty cells */
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 6px,
+    var(--bg-tertiary) 6px,
+    var(--bg-tertiary) 7px
+  );
+  background-size: 10px 10px;
+  opacity: 0.5;
+}
+
+.tg-cell.empty:hover {
+  opacity: 0.8;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* World event cells — slightly different styling */
+.tg-world-cell {
+  border-bottom: 2px solid var(--border);
+}
+
+/* ── Scene Cards ───────────────────────────────────────────────────────── */
+
+.tg-scene-card {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-left: 3px solid #888;
+  border-radius: 3px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  text-align: left;
+  color: var(--text-secondary);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tg-scene-card:hover {
+  border-color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.tg-scene-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm);
+  background: var(--bg-secondary);
+}
+
+.tg-scene-num {
+  font-weight: 700;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  font-size: 10px;
+  min-width: 14px;
+}
+
+.tg-scene-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* ── World Event Cards ────────────────────────────────────────────────── */
+
+.tg-world-event-card {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  text-align: left;
+  color: var(--text-secondary);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tg-world-event-card:hover {
+  border-color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.tg-world-event-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm);
+  background: var(--bg-secondary);
+}
+
+.tg-event-diamond {
+  color: var(--text-muted);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.tg-event-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* ── Unassigned Pool ──────────────────────────────────────────────────── */
+
+.tg-unassigned {
+  border-top: 2px solid var(--border);
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+}
+
+.tg-unassigned-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.tg-unassigned-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tg-unassigned-cards .tg-scene-card {
+  max-width: 180px;
+}
+
+/* ── Empty State ──────────────────────────────────────────────────────── */
+
+.tg-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 300px;
+  padding: 40px;
+  text-align: center;
+}
+
+.tg-empty-icon {
+  color: var(--text-muted);
+  opacity: 0.4;
+  margin-bottom: 16px;
+}
+
+.tg-empty-state p {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.tg-empty-state p:first-of-type {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ── Canvas placeholder ──────────────────────────────────────────────── */
 
 .timeline-canvas-placeholder {
   display: flex;
