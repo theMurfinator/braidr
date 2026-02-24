@@ -10,6 +10,7 @@ interface SceneDetailPanelProps {
   tags: Tag[];
   characterName: string;
   plotPointTitle?: string;
+  timelineDate?: string;
   connectedScenes: { id: string; label: string }[];
   onClose: () => void;
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
@@ -17,6 +18,7 @@ interface SceneDetailPanelProps {
   onCreateTag: (name: string, category: TagCategory) => void;
   onStartConnection?: () => void;
   onRemoveConnection?: (targetId: string) => void;
+  onTimelineDateChange?: (date: string) => void;
 }
 
 function SceneDetailPanel({
@@ -24,6 +26,7 @@ function SceneDetailPanel({
   tags,
   characterName,
   plotPointTitle,
+  timelineDate,
   connectedScenes,
   onClose,
   onSceneChange,
@@ -31,13 +34,11 @@ function SceneDetailPanel({
   onCreateTag,
   onStartConnection,
   onRemoveConnection,
+  onTimelineDateChange,
 }: SceneDetailPanelProps) {
-  const [editContent, setEditContent] = useState(scene.content);
-  const [isEditingContent, setIsEditingContent] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagCategory, setNewTagCategory] = useState<'people' | 'locations' | 'arcs' | 'things' | 'time'>('people');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const tagPickerRef = useRef<HTMLDivElement>(null);
 
   const editor = useEditor({
@@ -52,25 +53,16 @@ function SceneDetailPanel({
       const html = editor.getHTML();
       const notes = htmlToNotes(html);
       if (JSON.stringify(notes) !== JSON.stringify(scene.notes)) {
-        onSceneChange(scene.id, editContent, notes);
+        onSceneChange(scene.id, scene.content, notes);
       }
     },
   });
 
   useEffect(() => {
-    setEditContent(scene.content);
     if (editor && !editor.isFocused) {
       editor.commands.setContent(notesToHtml(scene.notes));
     }
-  }, [scene.id, scene.content, scene.notes, editor]);
-
-  useEffect(() => {
-    if (isEditingContent && textareaRef.current) {
-      textareaRef.current.focus();
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
-    }
-  }, [isEditingContent]);
+  }, [scene.id, scene.notes, editor]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -114,59 +106,31 @@ function SceneDetailPanel({
     setShowTagPicker(false);
   };
 
-  const handleContentBlur = () => {
-    setIsEditingContent(false);
-    if (editContent !== scene.content) {
-      onSceneChange(scene.id, editContent, scene.notes);
-    }
-  };
-
-  const cleanContent = (text: string) => text
-    .replace(/==\*\*/g, '')
-    .replace(/\*\*==/g, '')
-    .replace(/==/g, '')
-    .replace(/#[a-zA-Z0-9_]+/g, '')  // Strip tags
-    .replace(/\s+/g, ' ')            // Collapse multiple spaces
-    .trim();
 
   return (
     <div className="scene-detail-panel">
       <div className="scene-detail-header">
         <div className="scene-detail-meta">
-          <span className="scene-detail-character">{characterName}</span>
-          <span className="scene-detail-number">Scene {scene.sceneNumber}</span>
+          <span className="scene-detail-character">{scene.title || `Scene ${scene.sceneNumber}`}</span>
+          <span className="scene-detail-number">{characterName} &middot; Scene {scene.sceneNumber}</span>
           {plotPointTitle && <span className="scene-detail-plotpoint">{plotPointTitle}</span>}
         </div>
         <button className="close-btn" onClick={onClose}>×</button>
       </div>
 
       <div className="scene-detail-content">
-        <div className="scene-detail-section">
-          <label>Scene Description</label>
-          {isEditingContent ? (
-            <textarea
-              ref={textareaRef}
-              className="scene-detail-textarea"
-              value={editContent}
-              onChange={(e) => {
-                setEditContent(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = e.target.scrollHeight + 'px';
-              }}
-              onBlur={handleContentBlur}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setEditContent(scene.content);
-                  setIsEditingContent(false);
-                }
-              }}
+
+        {onTimelineDateChange && (
+          <div className="scene-detail-section">
+            <label>Timeline Date</label>
+            <input
+              type="date"
+              className="scene-detail-date-input"
+              value={timelineDate || ''}
+              onChange={e => onTimelineDateChange(e.target.value)}
             />
-          ) : (
-            <div className="scene-detail-text" onClick={() => setIsEditingContent(true)}>
-              {cleanContent(editContent)}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="scene-detail-section">
           <label>Tags</label>

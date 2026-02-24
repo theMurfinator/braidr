@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, type DragEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, type DragEvent } from 'react';
 import type { Scene, Character, WorldEvent } from '../../../shared/types';
 
 interface TimelineGridProps {
@@ -13,14 +13,12 @@ interface TimelineGridProps {
   selectedEventId: string | null;
   onSelectScene: (key: string | null) => void;
   onSelectEvent: (id: string | null) => void;
-}
-
-/** Produce "YYYY-MM-DD" for a Date object (local time). */
-function toDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  labelWidth: number;
+  onLabelWidthChange: (w: number) => void;
+  colWidth: number;
+  onColWidthChange: (w: number) => void;
+  dateRange: string[];
+  onExtendRange: () => void;
 }
 
 /** Short weekday abbreviation from a date string. */
@@ -35,9 +33,13 @@ function shortDate(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-const BASE_COL_WIDTH = 40;
-const BUSY_COL_WIDTH = 100;
-const LABEL_COL_WIDTH = 120;
+/** Full date label like "03-14-2026". */
+function fullDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${mm}-${dd}-${d.getFullYear()}`;
+}
 
 export default function TimelineGrid({
   scenes,
@@ -50,52 +52,67 @@ export default function TimelineGrid({
   onSelectScene,
   onSelectEvent,
   onTimelineDatesChange,
+  labelWidth,
+  onLabelWidthChange,
+  colWidth,
+  onColWidthChange,
+  dateRange,
+  onExtendRange,
 }: TimelineGridProps) {
-  // ── Derive sorted date range (fill gaps) ─────────────────────────────────
-  const dateRange = useMemo(() => {
-    const dateSet = new Set<string>();
-    for (const d of Object.values(timelineDates)) {
-      if (d) dateSet.add(d);
-    }
-    for (const ev of worldEvents) {
-      if (ev.date) dateSet.add(ev.date);
-    }
-    if (dateSet.size === 0) return [];
+  const resizeDragRef = useRef<{ startX: number; initialWidth: number; target: 'label' | 'col' } | null>(null);
 
-    const sorted = [...dateSet].sort();
-    const minDate = new Date(sorted[0] + 'T00:00:00');
-    const maxDate = new Date(sorted[sorted.length - 1] + 'T00:00:00');
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      const drag = resizeDragRef.current;
+      if (!drag) return;
+      const delta = e.clientX - drag.startX;
+      if (drag.target === 'label') {
+        onLabelWidthChange(drag.initialWidth + delta);
+      } else {
+        onColWidthChange(drag.initialWidth + delta);
+      }
+    };
+    const onMouseUp = () => {
+      resizeDragRef.current = null;
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [onLabelWidthChange, onColWidthChange]);
 
-    const range: string[] = [];
-    const cur = new Date(minDate);
-    while (cur <= maxDate) {
-      range.push(toDateStr(cur));
-      cur.setDate(cur.getDate() + 1);
-    }
-    return range;
-  }, [timelineDates, worldEvents]);
+  const handleLabelResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeDragRef.current = { startX: e.clientX, initialWidth: labelWidth, target: 'label' };
+    document.body.style.userSelect = 'none';
+  }, [labelWidth]);
 
+  const handleColResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeDragRef.current = { startX: e.clientX, initialWidth: colWidth, target: 'col' };
+    document.body.style.userSelect = 'none';
+  }, [colWidth]);
   // ── Build lookup: sceneKey -> date ────────────────────────────────────────
   // timelineDates is keyed "characterId:sceneNumber" -> "YYYY-MM-DD"
 
   // ── Build lookup: date -> scenes per character ────────────────────────────
-  const { sceneDateMap, unassignedScenes } = useMemo(() => {
+  const sceneDateMap = useMemo(() => {
     const map: Record<string, Record<string, string[]>> = {};
-    const unassigned: string[] = [];
 
     for (const scene of scenes) {
       const key = `${scene.characterId}:${scene.sceneNumber}`;
       const date = timelineDates[key];
-      if (!date) {
-        unassigned.push(key);
-        continue;
-      }
+      if (!date) continue;
       if (!map[date]) map[date] = {};
       if (!map[date][scene.characterId]) map[date][scene.characterId] = [];
       map[date][scene.characterId].push(key);
     }
 
-    return { sceneDateMap: map, unassignedScenes: unassigned };
+    return map;
   }, [scenes, timelineDates]);
 
   // ── Build lookup: date -> world events ────────────────────────────────────
@@ -109,20 +126,6 @@ export default function TimelineGrid({
     return map;
   }, [worldEvents]);
 
-  // ── Column widths ────────────────────────────────────────────────────────
-  const columnWidths = useMemo(() => {
-    return dateRange.map((date) => {
-      const charMap = sceneDateMap[date] || {};
-      const evCount = (worldEventsByDate[date] || []).length;
-      // Max scenes stacked in any one lane
-      let maxStack = 0;
-      for (const keys of Object.values(charMap)) {
-        if (keys.length > maxStack) maxStack = keys.length;
-      }
-      maxStack = Math.max(maxStack, evCount);
-      return maxStack >= 2 ? BUSY_COL_WIDTH : BASE_COL_WIDTH;
-    });
-  }, [dateRange, sceneDateMap, worldEventsByDate]);
 
   // ── Scene lookup by key ──────────────────────────────────────────────────
   const sceneByKey = useMemo(() => {
@@ -168,28 +171,6 @@ export default function TimelineGrid({
     onTimelineDatesChange(updated);
   }, [timelineDates, onTimelineDatesChange]);
 
-  const handleUnassignedDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    (e.currentTarget as HTMLElement).classList.add('drag-over');
-  }, []);
-
-  const handleUnassignedDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
-    const related = e.relatedTarget as Node | null;
-    if (related && e.currentTarget.contains(related)) return;
-    (e.currentTarget as HTMLElement).classList.remove('drag-over');
-  }, []);
-
-  const handleUnassignedDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).classList.remove('drag-over');
-    const sceneKey = e.dataTransfer.getData('text/plain');
-    if (!sceneKey) return;
-    const updated = { ...timelineDates };
-    delete updated[sceneKey];
-    onTimelineDatesChange(updated);
-  }, [timelineDates, onTimelineDatesChange]);
-
   // ── Keyboard shortcuts ──────────────────────────────────────────────────
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -212,12 +193,13 @@ export default function TimelineGrid({
 
   // ── Grid template columns ────────────────────────────────────────────────
   const gridTemplateCols = useMemo(() => {
-    if (dateRange.length === 0) return `${LABEL_COL_WIDTH}px`;
-    return `${LABEL_COL_WIDTH}px ${columnWidths.map((w) => `${w}px`).join(' ')}`;
-  }, [dateRange, columnWidths]);
+    if (dateRange.length === 0) return `${labelWidth}px`;
+    const cols = dateRange.map(() => `${colWidth}px`).join(' ');
+    return `${labelWidth}px ${cols} 36px`;
+  }, [dateRange, colWidth, labelWidth]);
 
   // ── Empty state ──────────────────────────────────────────────────────────
-  if (dateRange.length === 0 && unassignedScenes.length === 0 && worldEvents.length === 0) {
+  if (dateRange.length === 0 && worldEvents.length === 0) {
     return (
       <div className="timeline-grid">
         <div className="tg-empty-state">
@@ -245,6 +227,8 @@ export default function TimelineGrid({
       ? scene.title.slice(0, 30) + (scene.title.length > 30 ? '...' : '')
       : `Scene ${scene.sceneNumber}`;
     const isSelected = selectedSceneKey === sceneKey;
+    const date = timelineDates[sceneKey];
+    const dateLabel = date ? shortDate(date) : null;
 
     return (
       <button
@@ -260,8 +244,13 @@ export default function TimelineGrid({
         }}
         title={scene.title || `Scene ${scene.sceneNumber}`}
       >
-        <span className="tg-scene-num">{scene.sceneNumber}</span>
-        <span className="tg-scene-title">{title}</span>
+        <div className="tg-scene-card-content">
+          <div className="tg-scene-card-top">
+            <span className="tg-scene-num">{scene.sceneNumber}</span>
+            <span className="tg-scene-title">{title}</span>
+          </div>
+          {dateLabel && <span className="tg-scene-date">{dateLabel}</span>}
+        </div>
       </button>
     );
   }
@@ -289,10 +278,9 @@ export default function TimelineGrid({
     );
   }
 
-  // ── Total grid rows: 1 header + 1 world-events + characters + 1 unassigned
-  // Always include the unassigned row so it's available as a drop target
-  const totalRows = 1 + 1 + characters.length + 1;
-  const gridTemplateRows = `auto auto ${characters.map(() => 'auto').join(' ')} auto`;
+  // ── Total grid rows: 1 header + 1 world-events + characters
+  const totalRows = 1 + 1 + characters.length;
+  const gridTemplateRows = `auto auto ${characters.map(() => 'auto').join(' ')}`;
 
   return (
     <div className="timeline-grid">
@@ -307,6 +295,12 @@ export default function TimelineGrid({
         {/* ── Row 1: Date headers ──────────────────────────────────────────── */}
         {/* Corner cell */}
         <div className="tg-corner" style={{ gridRow: 1, gridColumn: 1 }} />
+        {/* Label column resize handle */}
+        <div
+          className="tg-label-resize-handle"
+          style={{ gridRow: `1 / ${totalRows + 1}`, gridColumn: 1 }}
+          onMouseDown={handleLabelResizeStart}
+        />
 
         {dateRange.map((date, i) => {
           const isWeekend = (() => {
@@ -321,10 +315,27 @@ export default function TimelineGrid({
               style={{ gridRow: 1, gridColumn: i + 2 }}
             >
               <span className="tg-date-day">{dayAbbr(date)}</span>
-              <span className="tg-date-num">{shortDate(date)}</span>
+              <span className="tg-date-num">{fullDate(date)}</span>
+              <div className="tg-col-resize-handle" onMouseDown={handleColResizeStart} />
             </div>
           );
         })}
+
+        {/* Extend range "+" button */}
+        {dateRange.length > 0 && (
+          <div
+            className="tg-date-header tg-extend-col"
+            style={{ gridRow: 1, gridColumn: dateRange.length + 2 }}
+          >
+            <button
+              className="tg-extend-btn"
+              onClick={onExtendRange}
+              title="Add 7 more days"
+            >
+              +
+            </button>
+          </div>
+        )}
 
         {/* ── Row 2: World events ──────────────────────────────────────────── */}
         <div className="tg-lane-label tg-world-label" style={{ gridRow: 2, gridColumn: 1 }}>
@@ -378,27 +389,6 @@ export default function TimelineGrid({
           );
         })}
 
-        {/* ── Unassigned pool ──────────────────────────────────────────────── */}
-        {/* Always show unassigned pool as a drop target */}
-        <div
-          className="tg-unassigned"
-          style={{
-            gridRow: totalRows,
-            gridColumn: `1 / -1`,
-          }}
-          onDragOver={handleUnassignedDragOver}
-          onDragLeave={handleUnassignedDragLeave}
-          onDrop={handleUnassignedDrop}
-        >
-          <div className="tg-unassigned-label">
-            {unassignedScenes.length > 0 ? 'Unassigned Scenes' : 'Drop here to unassign'}
-          </div>
-          {unassignedScenes.length > 0 && (
-            <div className="tg-unassigned-cards">
-              {unassignedScenes.map((sk) => renderSceneCard(sk))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

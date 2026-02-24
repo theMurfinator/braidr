@@ -3633,11 +3633,16 @@ function App() {
                 characters={projectData.characters}
                 characterColors={characterColors}
                 tags={projectData.tags}
+                plotPoints={projectData.plotPoints}
                 timelineDates={timelineDates}
                 worldEvents={worldEvents}
                 connections={sceneConnections}
                 onTimelineDatesChange={handleTimelineDatesChange}
                 onWorldEventsChange={handleWorldEventsChange}
+                onSceneChange={handleSceneChange}
+                onTagsChange={handleTagsChange}
+                onCreateTag={handleCreateTag}
+                onRemoveConnection={handleRemoveConnection}
               />
             ) : viewMode === 'editor' ? (
               <EditorView

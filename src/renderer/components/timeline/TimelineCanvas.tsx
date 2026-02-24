@@ -3,33 +3,31 @@ import type { Scene, Character, WorldEvent } from '../../../shared/types';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const LANE_HEIGHT = 90;
-const DAY_WIDTH = 130;
-const CARD_W = 115;
+const CARD_W = 140;
 const CARD_H = 44;
 const EVENT_HEIGHT = 32;
 const LANE_GAP = 8;
 const TOP_MARGIN = 50;
-const LABEL_WIDTH = 80;
 
 // ── Light-theme color palette ─────────────────────────────────────────────────
 const COLORS = {
-  background: '#FAFAFA',
-  dayColumnActive: 'rgba(0, 0, 0, 0.03)',
-  laneStripeEven: 'rgba(0, 0, 0, 0.02)',
+  background: '#FAFAF8',
+  dayColumnActive: 'rgba(0, 0, 0, 0.025)',
+  laneStripeEven: 'rgba(0, 0, 0, 0.015)',
   laneStripeOdd: 'transparent',
-  cardFill: '#FFFFFF',
+  cardFill: '#FDFCFA',
   cardText: '#1A1A1A',
-  cardStroke: '#E8E8E8',
+  cardStroke: 'rgba(0, 0, 0, 0.08)',
   dayLabelText: '#A0A0A0',
-  dayLabelMuted: '#CCCCCC',
-  connectionLine: 'rgba(0, 0, 0, 0.15)',
-  connectionHighlight: 'rgba(0, 0, 0, 0.45)',
-  worldEventFill: '#FFF8E0',
+  dayLabelMuted: '#D0CEC8',
+  connectionLine: 'rgba(0, 0, 0, 0.12)',
+  connectionHighlight: 'rgba(0, 0, 0, 0.4)',
+  worldEventFill: '#FFF9E8',
   worldEventStroke: '#D4A83A',
-  worldEventText: '#8B7000',
-  worldEventDashDefault: 'rgba(180, 150, 50, 0.2)',
-  worldEventDashSelected: 'rgba(180, 150, 50, 0.5)',
-  selectedGlow: 'rgba(0, 0, 0, 0.08)',
+  worldEventText: '#6B5A2A',
+  worldEventDashDefault: 'rgba(212, 168, 58, 0.15)',
+  worldEventDashSelected: 'rgba(212, 168, 58, 0.45)',
+  selectedGlow: 'rgba(0, 0, 0, 0.06)',
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -44,6 +42,9 @@ interface TimelineCanvasProps {
   selectedEventId: string | null;
   onSelectScene: (key: string | null) => void;
   onSelectEvent: (id: string | null) => void;
+  labelWidth: number;
+  colWidth: number;
+  dateRange: string[];
 }
 
 interface HitResult {
@@ -101,11 +102,21 @@ export default function TimelineCanvas({
   selectedEventId,
   onSelectScene,
   onSelectEvent,
+  labelWidth,
+  colWidth,
+  dateRange,
 }: TimelineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Keep labelWidth and colWidth in refs so draw/dayX can read them without being deps
+  const labelWidthRef = useRef(labelWidth);
+  useEffect(() => { labelWidthRef.current = labelWidth; }, [labelWidth]);
+
+  const colWidthRef = useRef(colWidth);
+  useEffect(() => { colWidthRef.current = colWidth; }, [colWidth]);
+
   // Transient interaction state — refs to avoid re-renders
-  const panRef = useRef({ x: LABEL_WIDTH + 20, y: 20 });
+  const panRef = useRef({ x: labelWidth + 20, y: 20 });
   const zoomRef = useRef(1);
   const hoverRef = useRef<HitResult | null>(null);
   const dragRef = useRef({
@@ -124,31 +135,6 @@ export default function TimelineCanvas({
   useEffect(() => { selectedEventRef.current = selectedEventId; }, [selectedEventId]);
 
   // ── Derived data ────────────────────────────────────────────────────────────
-
-  // Build the full date range (fill gaps between min and max)
-  const dateRange = useMemo(() => {
-    const dateSet = new Set<string>();
-    for (const d of Object.values(timelineDates)) {
-      if (d) dateSet.add(d);
-    }
-    for (const ev of worldEvents) {
-      if (ev.date) dateSet.add(ev.date);
-    }
-    if (dateSet.size === 0) return [];
-    const sorted = [...dateSet].sort();
-    const minDate = new Date(sorted[0] + 'T00:00:00');
-    const maxDate = new Date(sorted[sorted.length - 1] + 'T00:00:00');
-    const range: string[] = [];
-    const cur = new Date(minDate);
-    while (cur <= maxDate) {
-      const y = cur.getFullYear();
-      const m = String(cur.getMonth() + 1).padStart(2, '0');
-      const day = String(cur.getDate()).padStart(2, '0');
-      range.push(`${y}-${m}-${day}`);
-      cur.setDate(cur.getDate() + 1);
-    }
-    return range;
-  }, [timelineDates, worldEvents]);
 
   // sceneKey -> Scene lookup
   const sceneByKey = useMemo(() => {
@@ -206,7 +192,7 @@ export default function TimelineCanvas({
 
   const dayX = useCallback((dateStr: string): number => {
     const idx = dateRange.indexOf(dateStr);
-    return LABEL_WIDTH + (idx >= 0 ? idx : 0) * DAY_WIDTH;
+    return labelWidthRef.current + (idx >= 0 ? idx : 0) * colWidthRef.current;
   }, [dateRange]);
 
   const laneY = useCallback((charIndex: number): number => {
@@ -319,7 +305,7 @@ export default function TimelineCanvas({
         ctx.fillRect(
           x - 8,
           TOP_MARGIN - 10,
-          DAY_WIDTH - 10,
+          colWidthRef.current - 10,
           totalLaneHeight + EVENT_HEIGHT + LANE_GAP + 20,
         );
       }
@@ -355,7 +341,7 @@ export default function TimelineCanvas({
       ctx.fillRect(
         -20,
         y,
-        dateRange.length * DAY_WIDTH + LABEL_WIDTH + 40,
+        dateRange.length * colWidthRef.current + labelWidthRef.current + 40,
         LANE_HEIGHT,
       );
     }
@@ -369,14 +355,14 @@ export default function TimelineCanvas({
       const y = laneY(i);
       // 60% opacity: append '99' (hex for ~60%)
       ctx.fillStyle = color + '99';
-      ctx.fillText(char.name, LABEL_WIDTH - 12, y + LANE_HEIGHT / 2 + 4);
+      ctx.fillText(char.name, labelWidthRef.current - 12, y + LANE_HEIGHT / 2 + 4);
     }
 
     // 7. World events row label
     ctx.fillStyle = COLORS.worldEventStroke + '99';
     ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
     ctx.textAlign = 'right';
-    ctx.fillText('World', LABEL_WIDTH - 12, TOP_MARGIN + EVENT_HEIGHT / 2 + 4);
+    ctx.fillText('World', labelWidthRef.current - 12, TOP_MARGIN + EVENT_HEIGHT / 2 + 4);
 
     // 8. Connection lines (Bezier curves between connected scenes)
     ctx.setLineDash([]);
@@ -769,10 +755,10 @@ export default function TimelineCanvas({
     };
   }, [draw, hitTest, onSelectScene, onSelectEvent]);
 
-  // Redraw when selection changes from outside (e.g. sidebar click)
+  // Redraw when selection, label width, or column width changes from outside
   useEffect(() => {
     draw();
-  }, [selectedSceneKey, selectedEventId, draw]);
+  }, [selectedSceneKey, selectedEventId, labelWidth, colWidth, draw]);
 
   // ── Empty state ─────────────────────────────────────────────────────────────
   if (dateRange.length === 0 && worldEvents.length === 0) {

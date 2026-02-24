@@ -1,82 +1,126 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, type DragEvent } from 'react';
 import type { Scene, Character, WorldEvent } from '../../../shared/types';
 
 interface TimelineSidebarProps {
   worldEvents: WorldEvent[];
   scenes: Scene[];
   characters: Character[];
+  characterColors: Record<string, string>;
   timelineDates: Record<string, string>;
   selectedSceneKey: string | null;
   selectedEventId: string | null;
+  onSelectScene: (key: string | null) => void;
   onSelectEvent: (id: string | null) => void;
   onWorldEventsChange: (events: WorldEvent[]) => void;
   onTimelineDatesChange: (dates: Record<string, string>) => void;
-}
-
-function getSceneLabel(sceneKey: string, characters: Character[]): string {
-  const [charId, sceneNum] = sceneKey.split(':');
-  const character = characters.find(c => c.id === charId);
-  const charName = character?.name ?? charId;
-  return `${charName} #${sceneNum}`;
 }
 
 export default function TimelineSidebar({
   worldEvents,
   scenes,
   characters,
+  characterColors,
   timelineDates,
   selectedSceneKey,
   selectedEventId,
+  onSelectScene,
   onSelectEvent,
   onWorldEventsChange,
+  onTimelineDatesChange,
 }: TimelineSidebarProps) {
-  const [linkDropdownOpen, setLinkDropdownOpen] = useState(false);
-  const [linkSearch, setLinkSearch] = useState('');
-  const titleInputRef = useRef<HTMLInputElement>(null);
-  const justCreatedRef = useRef(false);
-  const linkWrapperRef = useRef<HTMLDivElement>(null);
 
-  // Focus title input when a new event is created
-  useEffect(() => {
-    if (justCreatedRef.current && selectedEventId && titleInputRef.current) {
-      titleInputRef.current.focus();
-      titleInputRef.current.select();
-      justCreatedRef.current = false;
-    }
-  }, [selectedEventId]);
+  // ── Unassigned scenes ──────────────────────────────────────────────────────
+  type UnassignedSortMode = 'narrative' | 'character';
+  const [unassignedSort, setUnassignedSort] = useState<UnassignedSortMode>('narrative');
+  const [unassignedCharFilter, setUnassignedCharFilter] = useState<string>('all');
 
-  // Close link dropdown on click outside
-  useEffect(() => {
-    if (!linkDropdownOpen) return;
-    function handleMouseDown(e: MouseEvent) {
-      if (linkWrapperRef.current && !linkWrapperRef.current.contains(e.target as Node)) {
-        setLinkDropdownOpen(false);
-        setLinkSearch('');
+  const unassignedScenes = useMemo(() => {
+    return scenes.filter(s => {
+      const key = `${s.characterId}:${s.sceneNumber}`;
+      return !timelineDates[key];
+    });
+  }, [scenes, timelineDates]);
+
+  // Narrative order: flat list sorted by timelinePosition (nulls at end)
+  const unassignedNarrative = useMemo(() => {
+    return [...unassignedScenes].sort((a, b) => {
+      const posA = a.timelinePosition ?? Infinity;
+      const posB = b.timelinePosition ?? Infinity;
+      if (posA !== posB) return posA - posB;
+      const charIdxA = characters.findIndex(c => c.id === a.characterId);
+      const charIdxB = characters.findIndex(c => c.id === b.characterId);
+      if (charIdxA !== charIdxB) return charIdxA - charIdxB;
+      return a.sceneNumber - b.sceneNumber;
+    });
+  }, [unassignedScenes, characters]);
+
+  // Group unassigned scenes by character
+  const unassignedByCharacter = useMemo(() => {
+    const groups: { character: Character; scenes: Scene[] }[] = [];
+    const charMap = new Map<string, Scene[]>();
+    for (const scene of unassignedScenes) {
+      const existing = charMap.get(scene.characterId);
+      if (existing) {
+        existing.push(scene);
+      } else {
+        charMap.set(scene.characterId, [scene]);
       }
     }
-    document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, [linkDropdownOpen]);
+    for (const char of characters) {
+      const charScenes = charMap.get(char.id);
+      if (charScenes) {
+        charScenes.sort((a, b) => a.sceneNumber - b.sceneNumber);
+        groups.push({ character: char, scenes: charScenes });
+      }
+    }
+    return groups;
+  }, [unassignedScenes, characters]);
+
+  const filteredUnassignedGroups = useMemo(() => {
+    if (unassignedCharFilter === 'all') return unassignedByCharacter;
+    return unassignedByCharacter.filter(g => g.character.id === unassignedCharFilter);
+  }, [unassignedByCharacter, unassignedCharFilter]);
+
+  const filteredUnassignedCount = unassignedSort === 'narrative'
+    ? unassignedScenes.length
+    : filteredUnassignedGroups.reduce((sum, g) => sum + g.scenes.length, 0);
+
+  const characterById = useMemo(() => {
+    const m: Record<string, Character> = {};
+    for (const c of characters) m[c.id] = c;
+    return m;
+  }, [characters]);
+
+  const handleUnassignedDragStart = useCallback((e: DragEvent<HTMLButtonElement>, sceneKey: string) => {
+    e.dataTransfer.setData('text/plain', sceneKey);
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleUnassignedDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    (e.currentTarget as HTMLElement).classList.add('drag-over');
+  }, []);
+
+  const handleUnassignedDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    const related = e.relatedTarget as Node | null;
+    if (related && e.currentTarget.contains(related)) return;
+    (e.currentTarget as HTMLElement).classList.remove('drag-over');
+  }, []);
+
+  const handleUnassignedDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).classList.remove('drag-over');
+    const sceneKey = e.dataTransfer.getData('text/plain');
+    if (!sceneKey) return;
+    const updated = { ...timelineDates };
+    delete updated[sceneKey];
+    onTimelineDatesChange(updated);
+  }, [timelineDates, onTimelineDatesChange]);
 
   const sortedEvents = [...worldEvents].sort((a, b) => a.date.localeCompare(b.date));
-  const selectedEvent = selectedEventId
-    ? worldEvents.find(e => e.id === selectedEventId) ?? null
-    : null;
 
-  // Build scene key for selected scene info
-  const selectedSceneInfo = selectedSceneKey
-    ? (() => {
-        const [charId, sceneNum] = selectedSceneKey.split(':');
-        const character = characters.find(c => c.id === charId);
-        const scene = scenes.find(
-          s => s.characterId === charId && String(s.sceneNumber) === sceneNum
-        );
-        const date = timelineDates[selectedSceneKey] ?? null;
-        return { character, scene, date, key: selectedSceneKey };
-      })()
-    : null;
-
-  // ── Create ──────────────────────────────────────────────────────────────────
+  // ── Create event ──────────────────────────────────────────────────────────
   function handleCreate() {
     const now = Date.now();
     const today = new Date().toISOString().slice(0, 10);
@@ -93,59 +137,8 @@ export default function TimelineSidebar({
     };
     onWorldEventsChange([...worldEvents, newEvent]);
     onSelectEvent(newEvent.id);
-    justCreatedRef.current = true;
   }
 
-  // ── Update ──────────────────────────────────────────────────────────────────
-  function updateEvent(id: string, patch: Partial<WorldEvent>) {
-    const updated = worldEvents.map(e =>
-      e.id === id ? { ...e, ...patch, updatedAt: Date.now() } : e
-    );
-    onWorldEventsChange(updated);
-  }
-
-  // ── Delete ──────────────────────────────────────────────────────────────────
-  function handleDelete(id: string) {
-    if (!window.confirm('Delete this world event?')) return;
-    onWorldEventsChange(worldEvents.filter(e => e.id !== id));
-    onSelectEvent(null);
-  }
-
-  // ── Link / Unlink Scene ─────────────────────────────────────────────────────
-  function linkScene(eventId: string, sceneKey: string) {
-    const event = worldEvents.find(e => e.id === eventId);
-    if (!event || event.linkedSceneKeys.includes(sceneKey)) return;
-    updateEvent(eventId, {
-      linkedSceneKeys: [...event.linkedSceneKeys, sceneKey],
-    });
-    setLinkDropdownOpen(false);
-    setLinkSearch('');
-  }
-
-  function unlinkScene(eventId: string, sceneKey: string) {
-    const event = worldEvents.find(e => e.id === eventId);
-    if (!event) return;
-    updateEvent(eventId, {
-      linkedSceneKeys: event.linkedSceneKeys.filter(k => k !== sceneKey),
-    });
-  }
-
-  // ── Available scenes for linking ────────────────────────────────────────────
-  function getAvailableScenes(): { key: string; label: string }[] {
-    if (!selectedEvent) return [];
-    const linked = new Set(selectedEvent.linkedSceneKeys);
-    const results: { key: string; label: string }[] = [];
-    for (const scene of scenes) {
-      const key = `${scene.characterId}:${scene.sceneNumber}`;
-      if (linked.has(key)) continue;
-      const label = getSceneLabel(key, characters);
-      if (linkSearch && !label.toLowerCase().includes(linkSearch.toLowerCase())) continue;
-      results.push({ key, label });
-    }
-    return results;
-  }
-
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="timeline-sidebar">
       {/* ── Top: Event List ─────────────────────────────────────────────── */}
@@ -172,148 +165,129 @@ export default function TimelineSidebar({
         )}
       </div>
 
-      {/* ── Bottom: Detail Panel ────────────────────────────────────────── */}
-      {selectedEvent && (
-        <div className="timeline-detail-panel">
-          <div className="timeline-detail-field">
-            <label>Title</label>
-            <input
-              ref={titleInputRef}
-              type="text"
-              value={selectedEvent.title}
-              onChange={e => updateEvent(selectedEvent.id, { title: e.target.value })}
-            />
-          </div>
-
-          <div className="timeline-detail-field">
-            <label>Date</label>
-            <input
-              type="date"
-              value={selectedEvent.date}
-              onChange={e => updateEvent(selectedEvent.id, { date: e.target.value })}
-            />
-          </div>
-
-          <div className="timeline-detail-field">
-            <label>Description</label>
-            <textarea
-              rows={3}
-              value={selectedEvent.description}
-              onChange={e => updateEvent(selectedEvent.id, { description: e.target.value })}
-            />
-          </div>
-
-          <div className="timeline-detail-field">
-            <label>Tags</label>
-            <input
-              type="text"
-              value={selectedEvent.tags.join(', ')}
-              placeholder="comma-separated tags"
-              onChange={e => {
-                const tags = e.target.value
-                  .split(',')
-                  .map(t => t.trim())
-                  .filter(Boolean);
-                updateEvent(selectedEvent.id, { tags });
-              }}
-            />
-          </div>
-
-          {/* ── Linked Scenes ──────────────────────────────────────────── */}
-          <div className="timeline-linked-scenes">
-            <label>Linked Scenes</label>
-            <div className="timeline-scene-chips">
-              {selectedEvent.linkedSceneKeys.map(key => {
-                const [charId] = key.split(':');
-                const character = characters.find(c => c.id === charId);
-                const color = character?.color ?? 'var(--accent)';
-                return (
-                  <span
-                    key={key}
-                    className="timeline-scene-chip"
-                    style={{ borderColor: color }}
-                  >
-                    {getSceneLabel(key, characters)}
-                    <button
-                      className="timeline-chip-remove"
-                      onClick={() => unlinkScene(selectedEvent.id, key)}
-                    >
-                      &times;
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-            <div className="timeline-link-scene-wrapper" ref={linkWrapperRef}>
+      {/* ── Unassigned Scenes ─────────────────────────────────────────────── */}
+      <div
+        className="timeline-unassigned-sidebar"
+        onDragOver={handleUnassignedDragOver}
+        onDragLeave={handleUnassignedDragLeave}
+        onDrop={handleUnassignedDrop}
+      >
+        <div className="timeline-sidebar-header">
+          <h3>Unassigned ({filteredUnassignedCount})</h3>
+          <div className="timeline-unassigned-controls">
+            <div className="timeline-unassigned-sort-toggle">
               <button
-                className="timeline-link-scene-btn"
-                onClick={() => setLinkDropdownOpen(!linkDropdownOpen)}
+                className={unassignedSort === 'narrative' ? 'active' : ''}
+                onClick={() => setUnassignedSort('narrative')}
+                title="Narrative order"
               >
-                + Link Scene
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v1.5H2zm0 4h9v1.5H2zm0 4h11v1.5H2z"/></svg>
               </button>
-              {linkDropdownOpen && (() => {
-                const available = getAvailableScenes();
-                return (
-                  <div className="timeline-link-dropdown">
-                    <input
-                      type="text"
-                      placeholder="Search scenes..."
-                      value={linkSearch}
-                      onChange={e => setLinkSearch(e.target.value)}
-                      autoFocus
-                    />
-                    <div className="timeline-link-dropdown-list">
-                      {available.map(({ key, label }) => (
-                        <div
-                          key={key}
-                          className="timeline-link-dropdown-item"
-                          onClick={() => linkScene(selectedEvent.id, key)}
-                        >
-                          {label}
-                        </div>
-                      ))}
-                      {available.length === 0 && (
-                        <div className="timeline-link-dropdown-empty">No scenes available</div>
-                      )}
+              <button
+                className={unassignedSort === 'character' ? 'active' : ''}
+                onClick={() => setUnassignedSort('character')}
+                title="Group by character"
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2h6v5H1zm8 0h6v2H9zm0 3h6v2H9zm-8 4h6v5H1zm8 0h6v2H9zm0 3h6v2H9z"/></svg>
+              </button>
+            </div>
+            {unassignedSort === 'character' && unassignedByCharacter.length > 1 && (
+              <select
+                className="timeline-unassigned-filter"
+                value={unassignedCharFilter}
+                onChange={e => setUnassignedCharFilter(e.target.value)}
+              >
+                <option value="all">All</option>
+                {unassignedByCharacter.map(g => (
+                  <option key={g.character.id} value={g.character.id}>
+                    {g.character.name} ({g.scenes.length})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+
+        {unassignedScenes.length === 0 ? (
+          <div className="timeline-empty">Drop here to unassign</div>
+        ) : unassignedSort === 'narrative' ? (
+          <div className="timeline-unassigned-cards">
+            {unassignedNarrative.map(scene => {
+              const key = `${scene.characterId}:${scene.sceneNumber}`;
+              const color = characterColors[scene.characterId] || '#888';
+              const char = characterById[scene.characterId];
+              const charName = char?.name ?? '?';
+              const title = scene.title
+                ? scene.title.slice(0, 24) + (scene.title.length > 24 ? '...' : '')
+                : `Scene ${scene.sceneNumber}`;
+              const isSelected = selectedSceneKey === key;
+              return (
+                <button
+                  key={key}
+                  className={`tg-scene-card${isSelected ? ' selected' : ''}`}
+                  style={{ borderLeftColor: color }}
+                  draggable="true"
+                  onDragStart={(e) => handleUnassignedDragStart(e, key)}
+                  onClick={() => onSelectScene(isSelected ? null : key)}
+                  title={`${charName} #${scene.sceneNumber}: ${scene.title || 'Untitled'}`}
+                >
+                  <div className="tg-scene-card-content">
+                    <div className="tg-scene-card-top">
+                      <span className="tg-scene-num">{scene.sceneNumber}</span>
+                      <span className="tg-scene-title">{title}</span>
                     </div>
+                    <span className="tg-scene-date">{charName}</span>
                   </div>
-                );
-              })()}
-            </div>
+                </button>
+              );
+            })}
           </div>
-
-          <button
-            className="timeline-delete-btn"
-            onClick={() => handleDelete(selectedEvent.id)}
-          >
-            Delete Event
-          </button>
-        </div>
-      )}
-
-      {/* ── Scene Info (when no event selected) ─────────────────────────── */}
-      {!selectedEvent && selectedSceneInfo && selectedSceneInfo.scene && (
-        <div className="timeline-detail-panel">
-          <div className="timeline-detail-field">
-            <label>Character</label>
-            <div className="timeline-detail-value">
-              {selectedSceneInfo.character?.name ?? 'Unknown'}
-            </div>
+        ) : filteredUnassignedGroups.length === 0 ? (
+          <div className="timeline-empty">No scenes for this character</div>
+        ) : (
+          <div className="timeline-unassigned-groups">
+            {filteredUnassignedGroups.map(({ character, scenes: charScenes }) => {
+              const color = characterColors[character.id] || '#888';
+              return (
+                <div key={character.id} className="timeline-unassigned-group">
+                  <div className="timeline-unassigned-group-header">
+                    <span className="tg-lane-color" style={{ background: color }} />
+                    <span className="timeline-unassigned-group-name">{character.name}</span>
+                    <span className="timeline-unassigned-group-count">{charScenes.length}</span>
+                  </div>
+                  <div className="timeline-unassigned-cards">
+                    {charScenes.map(scene => {
+                      const key = `${scene.characterId}:${scene.sceneNumber}`;
+                      const title = scene.title
+                        ? scene.title.slice(0, 30) + (scene.title.length > 30 ? '...' : '')
+                        : `Scene ${scene.sceneNumber}`;
+                      const isSelected = selectedSceneKey === key;
+                      return (
+                        <button
+                          key={key}
+                          className={`tg-scene-card${isSelected ? ' selected' : ''}`}
+                          style={{ borderLeftColor: color }}
+                          draggable="true"
+                          onDragStart={(e) => handleUnassignedDragStart(e, key)}
+                          onClick={() => onSelectScene(isSelected ? null : key)}
+                          title={scene.title || `Scene ${scene.sceneNumber}`}
+                        >
+                          <div className="tg-scene-card-content">
+                            <div className="tg-scene-card-top">
+                              <span className="tg-scene-num">{scene.sceneNumber}</span>
+                              <span className="tg-scene-title">{title}</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="timeline-detail-field">
-            <label>Scene</label>
-            <div className="timeline-detail-value">
-              {selectedSceneInfo.scene.title || `Scene ${selectedSceneInfo.scene.sceneNumber}`}
-            </div>
-          </div>
-          {selectedSceneInfo.date && (
-            <div className="timeline-detail-field">
-              <label>Date</label>
-              <div className="timeline-detail-value">{selectedSceneInfo.date}</div>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

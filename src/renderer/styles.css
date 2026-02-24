@@ -3479,41 +3479,64 @@ textarea.scene-metadata-field-input {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 20px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  background: var(--bg-primary);
+  background: linear-gradient(180deg, #FDFCFA 0%, var(--bg-primary) 100%);
   z-index: 10;
 }
 
 .scene-detail-meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .scene-detail-character {
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
   color: var(--text-primary);
   font-family: var(--font-section-title);
+  line-height: 1.3;
 }
 
 .scene-detail-number {
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-family: var(--font-ui);
-}
-
-.scene-detail-plotpoint {
   font-size: 12px;
   color: var(--text-muted);
   font-family: var(--font-ui);
+  letter-spacing: 0.2px;
+}
+
+.scene-detail-plotpoint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-style: italic;
+}
+
+.scene-detail-date-input {
+  font-size: 13px;
+  font-family: var(--font-ui);
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.scene-detail-date-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(44, 44, 44, 0.06);
 }
 
 .scene-detail-content {
-  padding: 20px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -3521,12 +3544,12 @@ textarea.scene-metadata-field-input {
 
 .scene-detail-section label {
   display: block;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-family: var(--font-ui);
 }
 
@@ -3570,11 +3593,12 @@ textarea.scene-metadata-field-input {
 }
 
 .scene-detail-notes {
-  padding: 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
+  padding: 14px;
+  background: #FDFCFA;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 6px;
   min-height: 100px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .scene-detail-notes .notes-editor {
@@ -14999,51 +15023,55 @@ textarea.table-cell-input {
 .timeline-toolbar {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border);
-  gap: 12px;
+  background: linear-gradient(180deg, var(--bg-primary) 0%, #FBFAF8 100%);
+  gap: 14px;
   flex-shrink: 0;
 }
 
 .timeline-sub-toggle {
   display: flex;
-  gap: 2px;
-  background: var(--bg-tertiary);
-  border-radius: 6px;
-  padding: 2px;
+  gap: 1px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  padding: 3px;
 }
 
 .timeline-sub-toggle button {
-  padding: 4px 14px;
+  padding: 5px 16px;
   border: none;
   background: transparent;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
-  font-weight: 500;
-  transition: all 0.15s;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  transition: all 0.2s ease;
 }
 
 .timeline-sub-toggle button:hover:not(.active) {
   color: var(--text-primary);
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .timeline-sub-toggle button.active {
   background: var(--bg-primary);
   color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 /* Toolbar info */
 .timeline-toolbar-info {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
 }
 
 .timeline-toolbar-stat {
@@ -15057,12 +15085,31 @@ textarea.table-cell-input {
 .timeline-toolbar-divider {
   color: var(--border);
   user-select: none;
+  opacity: 0.5;
 }
 
 .timeline-content {
   display: flex;
   flex: 1;
   overflow: hidden;
+}
+
+.timeline-content.has-detail {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+}
+
+.timeline-content.has-detail .timeline-sidebar {
+  display: none;
+}
+
+.timeline-detail-panel {
+  background: #FDFCFA;
+  border-left: 1px solid var(--border);
+  height: calc(100vh - 130px);
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
 }
 
 .timeline-main {
@@ -15077,7 +15124,7 @@ textarea.table-cell-input {
   flex-direction: column;
   overflow-y: auto;
   flex-shrink: 0;
-  background: var(--bg-primary);
+  background: #FAFAF8;
   transition: width 0.2s ease;
 }
 
@@ -15085,30 +15132,35 @@ textarea.table-cell-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
 }
 
 .timeline-sidebar-header h3 {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-family: var(--font-ui);
 }
 
 .timeline-add-event-btn {
   padding: 4px 10px;
   background: transparent;
-  border: 1px dashed var(--border);
+  border: 1px dashed rgba(0, 0, 0, 0.15);
   border-radius: 4px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .timeline-add-event-btn:hover {
   border-color: var(--accent);
+  border-style: solid;
   color: var(--accent);
   background: rgba(0, 0, 0, 0.02);
 }
@@ -15120,44 +15172,50 @@ textarea.table-cell-input {
 
 .timeline-event-item {
   padding: 10px 16px;
-  border-bottom: 1px solid var(--bg-tertiary);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.15s ease;
 }
 
 .timeline-event-item:hover {
-  background: var(--bg-tertiary);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .timeline-event-item.selected {
-  background: var(--bg-tertiary);
+  background: rgba(0, 0, 0, 0.04);
   border-left: 3px solid var(--accent);
 }
 
 .timeline-event-date {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
 }
 
 .timeline-event-title {
   font-size: 13px;
   color: var(--text-primary);
+  font-family: var(--font-body);
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .timeline-empty {
-  padding: 20px 16px;
+  padding: 24px 16px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
+  font-style: italic;
 }
 
 /* ── Timeline Detail Panel ───────────────────────────────────────────────── */
 
 .timeline-detail-panel {
   border-top: 1px solid var(--border);
-  padding: 12px 16px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   overflow-y: auto;
   flex-shrink: 0;
   max-height: 50%;
@@ -15166,38 +15224,40 @@ textarea.table-cell-input {
 .timeline-detail-field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 5px;
 }
 
 .timeline-detail-field label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.8px;
 }
 
 .timeline-detail-field input,
 .timeline-detail-field textarea {
-  padding: 6px 8px;
+  padding: 7px 10px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-size: 13px;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .timeline-detail-field input:focus,
 .timeline-detail-field textarea:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(44, 44, 44, 0.06);
 }
 
 .timeline-detail-field textarea {
   resize: vertical;
-  min-height: 48px;
+  min-height: 56px;
 }
 
 .timeline-detail-value {
@@ -15232,12 +15292,18 @@ textarea.table-cell-input {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border: 1px solid var(--accent);
+  padding: 3px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 12px;
   font-size: 11px;
   color: var(--text-secondary);
-  background: var(--bg-tertiary);
+  background: #F8F7F5;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+
+.timeline-scene-chip:hover {
+  background: #F0EFED;
 }
 
 .timeline-chip-remove {
@@ -15327,16 +15393,17 @@ textarea.table-cell-input {
 /* ── Delete Button ───────────────────────────────────────────────────────── */
 
 .timeline-delete-btn {
-  padding: 6px 12px;
+  padding: 6px 14px;
   background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  border: 1px solid rgba(192, 57, 43, 0.2);
+  border-radius: 5px;
   color: #c0392b;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s ease;
   align-self: flex-start;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 
 .timeline-delete-btn:hover {
@@ -15350,6 +15417,7 @@ textarea.table-cell-input {
   height: 100%;
   overflow: auto;
   position: relative;
+  background: #FAFAF8;
 }
 
 .timeline-grid-table {
@@ -15364,10 +15432,10 @@ textarea.table-cell-input {
   top: 0;
   left: 0;
   z-index: 12;
-  background: var(--bg-primary);
+  background: #F8F7F5;
   border-bottom: 2px solid var(--border);
   border-right: 1px solid var(--border);
-  min-height: 44px;
+  min-height: 48px;
 }
 
 /* Date header cells — sticky top */
@@ -15375,36 +15443,56 @@ textarea.table-cell-input {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--bg-primary);
+  background: linear-gradient(180deg, #FBFAF8 0%, #F6F5F3 100%);
   border-bottom: 2px solid var(--border);
-  border-right: 1px solid var(--bg-tertiary);
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6px 2px;
-  min-height: 44px;
+  padding: 8px 4px;
+  min-height: 48px;
   user-select: none;
+  position: relative;
 }
 
 .tg-date-header.weekend {
-  background: var(--bg-secondary);
+  background: linear-gradient(180deg, #F5F3EF 0%, #F0EEEA 100%);
+}
+
+.tg-col-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 11;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.tg-col-resize-handle:hover {
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .tg-date-day {
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
   line-height: 1;
+  margin-bottom: 2px;
 }
 
 .tg-date-num {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   line-height: 1.3;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Lane labels — sticky left */
@@ -15412,15 +15500,30 @@ textarea.table-cell-input {
   position: sticky;
   left: 0;
   z-index: 8;
-  background: var(--bg-primary);
+  background: #FDFCFA;
   border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--bg-tertiary);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  min-height: 48px;
+  gap: 10px;
+  padding: 8px 14px;
+  min-height: 52px;
   white-space: nowrap;
+}
+
+.tg-label-resize-handle {
+  position: sticky;
+  left: 0;
+  width: 4px;
+  margin-left: auto;
+  cursor: col-resize;
+  z-index: 15;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.tg-label-resize-handle:hover {
+  background: var(--border);
 }
 
 .tg-lane-label.tg-world-label {
@@ -15428,30 +15531,32 @@ textarea.table-cell-input {
 }
 
 .tg-lane-color {
-  width: 4px;
-  height: 20px;
-  border-radius: 2px;
+  width: 3px;
+  height: 26px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
 
 .tg-lane-name {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: 0.15px;
+  font-family: var(--font-ui);
 }
 
 /* Grid cells */
 .tg-cell {
-  border-right: 1px solid var(--bg-tertiary);
-  border-bottom: 1px solid var(--bg-tertiary);
-  padding: 4px;
+  border-right: 1px solid rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  padding: 6px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-height: 48px;
-  transition: background 0.12s ease;
+  gap: 5px;
+  min-height: 60px;
+  transition: background 0.15s ease;
 }
 
 .tg-cell:hover {
@@ -15459,68 +15564,90 @@ textarea.table-cell-input {
 }
 
 .tg-cell.empty {
-  /* Subtle diagonal hatching for empty cells */
-  background-image: repeating-linear-gradient(
-    135deg,
-    transparent,
-    transparent 6px,
-    var(--bg-tertiary) 6px,
-    var(--bg-tertiary) 7px
-  );
-  background-size: 10px 10px;
+  /* Subtle dot pattern for empty cells */
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  background-size: 14px 14px;
   opacity: 0.5;
 }
 
 .tg-cell.empty:hover {
   opacity: 0.8;
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: rgba(0, 0, 0, 0.01);
 }
 
 /* World event cells — slightly different styling */
 .tg-world-cell {
   border-bottom: 2px solid var(--border);
+  background: rgba(212, 168, 58, 0.02);
 }
 
 /* ── Scene Cards ───────────────────────────────────────────────────────── */
 
 .tg-scene-card {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 6px;
-  border: 1px solid var(--border);
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
   border-left: 3px solid #888;
-  border-radius: 3px;
-  background: var(--bg-primary);
+  border-radius: 4px;
+  background: linear-gradient(135deg, #FFFFFF 0%, #FDFCFA 100%);
   cursor: pointer;
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: 12px;
   text-align: left;
   color: var(--text-secondary);
-  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
-  line-height: 1.3;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  line-height: 1.35;
   min-width: 0;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.tg-cell .tg-scene-card {
+  width: 100%;
 }
 
 .tg-scene-card:hover {
-  border-color: var(--text-muted);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.07);
+  transform: translateY(-2px);
 }
 
 .tg-scene-card.selected {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm);
-  background: var(--bg-secondary);
+  box-shadow: 0 0 0 2px rgba(44, 44, 44, 0.1), 0 3px 8px rgba(0, 0, 0, 0.06);
+  background: linear-gradient(135deg, #F8F7F5 0%, #F5F4F2 100%);
 }
 
 .tg-scene-num {
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text-primary);
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: 11px;
   min-width: 14px;
+  opacity: 0.7;
+}
+
+.tg-scene-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tg-scene-card-top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.tg-scene-date {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .tg-scene-title {
@@ -15528,6 +15655,8 @@ textarea.table-cell-input {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 /* ── World Event Cards ────────────────────────────────────────────────── */
@@ -15535,37 +15664,39 @@ textarea.table-cell-input {
 .tg-world-event-card {
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px 6px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: var(--bg-primary);
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid rgba(212, 168, 58, 0.25);
+  border-left: 2px solid #D4A83A;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #FFFDF5 0%, #FFF9E8 100%);
   cursor: pointer;
   font-family: var(--font-ui);
   font-size: 11px;
   text-align: left;
-  color: var(--text-secondary);
-  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  color: #6B5A2A;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
   line-height: 1.3;
   min-width: 0;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(212, 168, 58, 0.08);
 }
 
 .tg-world-event-card:hover {
-  border-color: var(--text-muted);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  border-color: rgba(212, 168, 58, 0.4);
+  box-shadow: 0 3px 8px rgba(212, 168, 58, 0.12);
+  transform: translateY(-2px);
 }
 
 .tg-world-event-card.selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm);
-  background: var(--bg-secondary);
+  border-color: #D4A83A;
+  box-shadow: 0 0 0 2px rgba(212, 168, 58, 0.15), 0 3px 8px rgba(212, 168, 58, 0.12);
+  background: linear-gradient(135deg, #FFF9E0 0%, #FFF4CC 100%);
 }
 
 .tg-event-diamond {
-  color: var(--text-muted);
-  font-size: 9px;
+  color: #D4A83A;
+  font-size: 10px;
   flex-shrink: 0;
 }
 
@@ -15574,44 +15705,136 @@ textarea.table-cell-input {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  font-weight: 500;
 }
 
-/* ── Unassigned Pool ──────────────────────────────────────────────────── */
+/* ── Unassigned Scenes (sidebar) ──────────────────────────────────────── */
 
-.tg-unassigned {
-  border-top: 2px solid var(--border);
-  padding: 12px 16px;
-  background: var(--bg-secondary);
+.timeline-unassigned-sidebar {
+  border-top: 1px solid var(--border);
+  padding: 0 0 12px;
+  min-height: 60px;
   transition: background 0.15s ease;
+  flex-shrink: 0;
 }
 
-.tg-unassigned-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
+.timeline-unassigned-sidebar.drag-over {
+  background: var(--bg-tertiary);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
 }
 
-.tg-unassigned-cards {
+.timeline-unassigned-controls {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
-.tg-unassigned-cards .tg-scene-card {
-  max-width: 180px;
+.timeline-unassigned-sort-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.timeline-unassigned-sort-toggle button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  border: none;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.timeline-unassigned-sort-toggle button:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.timeline-unassigned-sort-toggle button:hover:not(.active) {
+  background: var(--bg-secondary);
+}
+
+.timeline-unassigned-sort-toggle button.active {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.timeline-unassigned-filter {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  cursor: pointer;
+  max-width: 140px;
+}
+
+.timeline-unassigned-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.timeline-unassigned-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timeline-unassigned-group {
+  padding: 0 0 4px;
+}
+
+.timeline-unassigned-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.timeline-unassigned-group-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-unassigned-group-count {
+  margin-left: auto;
+  font-weight: 500;
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.timeline-unassigned-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 12px;
+}
+
+.timeline-unassigned-cards .tg-scene-card {
+  max-width: 100%;
 }
 
 /* ── Drag-and-drop feedback ──────────────────────────────────────────── */
 
 .tg-cell.drag-over {
-  background: var(--bg-tertiary) !important;
+  background: rgba(44, 44, 44, 0.06) !important;
   outline: 2px dashed var(--accent);
   outline-offset: -2px;
   opacity: 1 !important;
   background-image: none !important;
+  border-radius: 2px;
 }
 
 .tg-scene-card[draggable="true"] {
@@ -15623,11 +15846,6 @@ textarea.table-cell-input {
   cursor: grabbing;
 }
 
-.tg-unassigned.drag-over {
-  background: var(--bg-tertiary);
-  outline: 2px dashed var(--accent);
-  outline-offset: -2px;
-}
 
 /* ── Empty State ──────────────────────────────────────────────────────── */
 
@@ -15638,30 +15856,143 @@ textarea.table-cell-input {
   justify-content: center;
   height: 100%;
   min-height: 300px;
-  padding: 48px 40px;
+  padding: 60px 40px;
   text-align: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .tg-empty-icon {
   color: var(--text-muted);
-  opacity: 0.35;
-  margin-bottom: 20px;
+  opacity: 0.25;
+  margin-bottom: 24px;
 }
 
 .tg-empty-state p {
   margin: 0 0 4px;
   font-size: 14px;
   color: var(--text-muted);
-  line-height: 1.6;
-  max-width: 320px;
+  line-height: 1.7;
+  max-width: 340px;
+  font-family: var(--font-body);
 }
 
 .tg-empty-state p:first-of-type {
   color: var(--text-secondary);
   font-weight: 600;
-  font-size: 15px;
-  margin-bottom: 2px;
+  font-size: 16px;
+  margin-bottom: 4px;
+  font-family: var(--font-section-title);
+}
+
+/* ── Setup Prompt ────────────────────────────────────────────────────── */
+
+.timeline-setup-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 300px;
+  padding: 60px 40px;
+  text-align: center;
+  gap: 6px;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.01) 0%, transparent 70%);
+}
+
+.timeline-setup-title {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 18px;
+  margin: 0 0 4px;
+  font-family: var(--font-section-title);
+}
+
+.timeline-setup-desc {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  font-family: var(--font-body);
+}
+
+.timeline-setup-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.timeline-setup-date {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.timeline-setup-date:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(44, 44, 44, 0.08);
+}
+
+.timeline-setup-btn {
+  padding: 8px 18px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.timeline-setup-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.timeline-setup-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Extend Range Button ────────────────────────────────────────────── */
+
+.tg-extend-col {
+  border-right: none;
+  padding: 0;
+}
+
+.tg-extend-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px dashed rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  font-weight: 400;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.tg-extend-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-secondary);
+  border-color: var(--text-muted);
+  border-style: solid;
+  transform: scale(1.05);
 }
 
 /* ── Canvas placeholder ──────────────────────────────────────────────── */
