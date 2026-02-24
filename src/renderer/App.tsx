@@ -3744,6 +3744,17 @@ function App() {
                     onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
                     inlineMetadataFields={inlineMetadataFields}
                     showInlineLabels={showInlineLabels}
+                    timelineDates={timelineDates}
+                    onDateChange={(sceneId, date) => {
+                      const scene = projectData.scenes.find(s => s.id === sceneId);
+                      if (scene) {
+                        const key = `${scene.characterId}:${scene.sceneNumber}`;
+                        const updated = { ...timelineDates };
+                        if (date) updated[key] = date;
+                        else delete updated[key];
+                        handleTimelineDatesChange(updated);
+                      }
+                    }}
                     onSceneClick={(sceneId) => {
                       // Handle completing a connection in POV view
                       if (isConnecting && connectionSource && connectionSource !== sceneId && projectData) {
@@ -3797,6 +3808,17 @@ function App() {
                     showInlineLabels={showInlineLabels}
                     onWordCountChange={handleWordCountChange}
                     onOpenInEditor={handleOpenInEditor}
+                    sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
+                    onDateChange={(sceneId, date) => {
+                      const scene = projectData.scenes.find(s => s.id === sceneId);
+                      if (scene) {
+                        const key = `${scene.characterId}:${scene.sceneNumber}`;
+                        const updated = { ...timelineDates };
+                        if (date) updated[key] = date;
+                        else delete updated[key];
+                        handleTimelineDatesChange(updated);
+                      }
+                    }}
                   />
                 ))}
                 {/* Add Section button */}
@@ -4171,6 +4193,17 @@ function App() {
                               onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
                               inlineMetadataFields={inlineMetadataFields}
                               showInlineLabels={showInlineLabels}
+                              sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
+                              onDateChange={(sceneId, date) => {
+                                const scene = projectData.scenes.find(s => s.id === sceneId);
+                                if (scene) {
+                                  const key = `${scene.characterId}:${scene.sceneNumber}`;
+                                  const updated = { ...timelineDates };
+                                  if (date) updated[key] = date;
+                                  else delete updated[key];
+                                  handleTimelineDatesChange(updated);
+                                }
+                              }}
                             />
                           </div>
                         </div>

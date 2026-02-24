@@ -49,9 +49,12 @@ interface PlotPointSectionProps {
   // Inline metadata display
   inlineMetadataFields?: string[];
   showInlineLabels?: boolean;
+  // Timeline date
+  timelineDates?: Record<string, string>;
+  onDateChange?: (sceneId: string, date: string | undefined) => void;
 }
 
-function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange, inlineMetadataFields, showInlineLabels }: PlotPointSectionProps) {
+function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange, inlineMetadataFields, showInlineLabels, timelineDates, onDateChange }: PlotPointSectionProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingCount, setIsEditingCount] = useState(false);
   // Ensure title always has a fallback value
@@ -402,6 +405,8 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
               onMetadataFieldDefsChange={onMetadataFieldDefsChange}
               inlineMetadataFields={inlineMetadataFields}
               showInlineLabels={showInlineLabels}
+              sceneDate={timelineDates?.[`${scene.characterId}:${scene.sceneNumber}`]}
+              onDateChange={onDateChange}
             />
           </div>
         </div>

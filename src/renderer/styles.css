@@ -4278,6 +4278,20 @@ textarea.scene-metadata-field-input {
   border-color: var(--text-secondary);
 }
 
+.scene-date-input {
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  outline: none;
+}
+
+.scene-date-input:focus {
+  border-color: var(--accent);
+}
+
 .connect-search-container {
   position: relative;
 }

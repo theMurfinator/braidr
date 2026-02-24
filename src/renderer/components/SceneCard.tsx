@@ -45,6 +45,9 @@ interface SceneCardProps {
   // Inline metadata display
   inlineMetadataFields?: string[];
   showInlineLabels?: boolean;
+  // Timeline date
+  sceneDate?: string;
+  onDateChange?: (sceneId: string, date: string | undefined) => void;
 }
 
 function SceneCard({
@@ -81,6 +84,8 @@ function SceneCard({
   onMetadataFieldDefsChange,
   inlineMetadataFields = [],
   showInlineLabels = true,
+  sceneDate,
+  onDateChange,
 }: SceneCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(scene.content);
@@ -90,6 +95,8 @@ function SceneCard({
   const [newTagCategory, setNewTagCategory] = useState<'people' | 'locations' | 'arcs' | 'things' | 'time'>('people');
   const [isEditingWordCount, setIsEditingWordCount] = useState(false);
   const [editWordCount, setEditWordCount] = useState(scene.wordCount?.toString() ?? '');
+  const [isEditingDate, setIsEditingDate] = useState(false);
+  const [editDate, setEditDate] = useState(sceneDate || '');
   const [showConnectSearch, setShowConnectSearch] = useState(false);
   const [connectSearchText, setConnectSearchText] = useState('');
   const connectSearchRef = useRef<HTMLDivElement>(null);
@@ -156,6 +163,10 @@ function SceneCard({
       setEditWordCount(scene.wordCount?.toString() ?? '');
     }
   }, [scene.wordCount, isEditingWordCount]);
+
+  useEffect(() => {
+    setEditDate(sceneDate || '');
+  }, [sceneDate]);
 
   useEffect(() => {
     setNotesExpanded(!collapsedNotes);
@@ -609,9 +620,45 @@ function SceneCard({
                     </div>
                   )}
 
-              {/* Thin actions bar: Connect, Words, Status */}
-              {(onStartConnection || connectedScenes || onWordCountChange || metadataFieldDefs.some(f => f.id === '_status')) && (
+              {/* Thin actions bar: Date, Connect, Words, Status */}
+              {(onDateChange || onStartConnection || connectedScenes || onWordCountChange || metadataFieldDefs.some(f => f.id === '_status')) && (
                 <div className="scene-actions-bar">
+                  {onDateChange && (
+                    isEditingDate ? (
+                      <input
+                        type="date"
+                        className="scene-date-input"
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        onBlur={() => {
+                          setIsEditingDate(false);
+                          onDateChange(scene.id, editDate || undefined);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            setIsEditingDate(false);
+                            onDateChange(scene.id, editDate || undefined);
+                          } else if (e.key === 'Escape') {
+                            setEditDate(sceneDate || '');
+                            setIsEditingDate(false);
+                          }
+                        }}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <button
+                        className="scene-actions-bar-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsEditingDate(true);
+                        }}
+                      >
+                        {sceneDate || 'Date'}
+                      </button>
+                    )
+                  )}
                   {connectedScenes && connectedScenes.length > 0 && (
                     <div className="connected-scenes-list">
                       {connectedScenes.map(conn => (
