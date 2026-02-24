@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react';
+import { Fragment, useCallback, useMemo, type DragEvent } from 'react';
 import type { Scene, Character, WorldEvent } from '../../../shared/types';
 
 interface TimelineGridProps {
@@ -49,6 +49,7 @@ export default function TimelineGrid({
   selectedEventId,
   onSelectScene,
   onSelectEvent,
+  onTimelineDatesChange,
 }: TimelineGridProps) {
   // ── Derive sorted date range (fill gaps) ─────────────────────────────────
   const dateRange = useMemo(() => {
@@ -132,6 +133,59 @@ export default function TimelineGrid({
     return m;
   }, [scenes]);
 
+  // ── Drag-and-drop handlers ──────────────────────────────────────────────
+  const handleDragStart = useCallback((e: DragEvent<HTMLButtonElement>, sceneKey: string) => {
+    e.dataTransfer.setData('text/plain', sceneKey);
+    e.dataTransfer.effectAllowed = 'move';
+    // Add dragging class after a tick so the drag image captures normal state
+    requestAnimationFrame(() => {
+      (e.target as HTMLElement).classList.add('dragging');
+    });
+  }, []);
+
+  const handleDragEnd = useCallback((e: DragEvent<HTMLButtonElement>) => {
+    (e.target as HTMLElement).classList.remove('dragging');
+  }, []);
+
+  const handleCellDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    (e.currentTarget as HTMLElement).classList.add('drag-over');
+  }, []);
+
+  const handleCellDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    (e.currentTarget as HTMLElement).classList.remove('drag-over');
+  }, []);
+
+  const handleCellDrop = useCallback((e: DragEvent<HTMLDivElement>, date: string) => {
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).classList.remove('drag-over');
+    const sceneKey = e.dataTransfer.getData('text/plain');
+    if (!sceneKey) return;
+    const updated = { ...timelineDates, [sceneKey]: date };
+    onTimelineDatesChange(updated);
+  }, [timelineDates, onTimelineDatesChange]);
+
+  const handleUnassignedDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    (e.currentTarget as HTMLElement).classList.add('drag-over');
+  }, []);
+
+  const handleUnassignedDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    (e.currentTarget as HTMLElement).classList.remove('drag-over');
+  }, []);
+
+  const handleUnassignedDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).classList.remove('drag-over');
+    const sceneKey = e.dataTransfer.getData('text/plain');
+    if (!sceneKey) return;
+    const updated = { ...timelineDates };
+    delete updated[sceneKey];
+    onTimelineDatesChange(updated);
+  }, [timelineDates, onTimelineDatesChange]);
+
   // ── Grid template columns ────────────────────────────────────────────────
   const gridTemplateCols = useMemo(() => {
     if (dateRange.length === 0) return `${LABEL_COL_WIDTH}px`;
@@ -173,6 +227,9 @@ export default function TimelineGrid({
         key={sceneKey}
         className={`tg-scene-card${isSelected ? ' selected' : ''}`}
         style={{ borderLeftColor: color }}
+        draggable="true"
+        onDragStart={(e) => handleDragStart(e, sceneKey)}
+        onDragEnd={handleDragEnd}
         onClick={(e) => {
           e.stopPropagation();
           onSelectScene(isSelected ? null : sceneKey);
@@ -209,8 +266,9 @@ export default function TimelineGrid({
   }
 
   // ── Total grid rows: 1 header + 1 world-events + characters + 1 unassigned
-  const totalRows = 1 + 1 + characters.length + (unassignedScenes.length > 0 ? 1 : 0);
-  const gridTemplateRows = `auto auto ${characters.map(() => 'auto').join(' ')}${unassignedScenes.length > 0 ? ' auto' : ''}`;
+  // Always include the unassigned row so it's available as a drop target
+  const totalRows = 1 + 1 + characters.length + 1;
+  const gridTemplateRows = `auto auto ${characters.map(() => 'auto').join(' ')} auto`;
 
   return (
     <div className="timeline-grid">
@@ -284,6 +342,9 @@ export default function TimelineGrid({
                     key={`${char.id}-${date}`}
                     className={`tg-cell${sceneKeys.length === 0 ? ' empty' : ''}`}
                     style={{ gridRow, gridColumn: colIdx + 2 }}
+                    onDragOver={handleCellDragOver}
+                    onDragLeave={handleCellDragLeave}
+                    onDrop={(e) => handleCellDrop(e, date)}
                   >
                     {sceneKeys.map((sk) => renderSceneCard(sk))}
                   </div>
@@ -294,20 +355,26 @@ export default function TimelineGrid({
         })}
 
         {/* ── Unassigned pool ──────────────────────────────────────────────── */}
-        {unassignedScenes.length > 0 && (
-          <div
-            className="tg-unassigned"
-            style={{
-              gridRow: totalRows,
-              gridColumn: `1 / -1`,
-            }}
-          >
-            <div className="tg-unassigned-label">Unassigned Scenes</div>
+        {/* Always show unassigned pool as a drop target */}
+        <div
+          className="tg-unassigned"
+          style={{
+            gridRow: totalRows,
+            gridColumn: `1 / -1`,
+          }}
+          onDragOver={handleUnassignedDragOver}
+          onDragLeave={handleUnassignedDragLeave}
+          onDrop={handleUnassignedDrop}
+        >
+          <div className="tg-unassigned-label">
+            {unassignedScenes.length > 0 ? 'Unassigned Scenes' : 'Drop here to unassign'}
+          </div>
+          {unassignedScenes.length > 0 && (
             <div className="tg-unassigned-cards">
               {unassignedScenes.map((sk) => renderSceneCard(sk))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

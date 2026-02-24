@@ -15556,6 +15556,26 @@ textarea.table-cell-input {
   max-width: 180px;
 }
 
+/* ── Drag-and-drop feedback ──────────────────────────────────────────── */
+
+.tg-cell.drag-over {
+  background: var(--bg-tertiary) !important;
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  opacity: 1 !important;
+  background-image: none !important;
+}
+
+.tg-scene-card.dragging {
+  opacity: 0.4;
+}
+
+.tg-unassigned.drag-over {
+  background: var(--bg-tertiary);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
 /* ── Empty State ──────────────────────────────────────────────────────── */
 
 .tg-empty-state {
