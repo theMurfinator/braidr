@@ -32,7 +32,7 @@ import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 import { track } from './utils/posthogTracker';
 
-type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'analytics' | 'account';
+type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
 
 function App() {
@@ -986,7 +986,7 @@ function App() {
 
     // Restore last view mode
     const savedViewMode = localStorage.getItem('braidr-last-view-mode') as ViewMode | null;
-    if (savedViewMode && ['pov', 'braided', 'editor', 'notes', 'tasks', 'analytics', 'account'].includes(savedViewMode)) {
+    if (savedViewMode && ['pov', 'braided', 'editor', 'notes', 'tasks', 'timeline', 'analytics', 'account'].includes(savedViewMode)) {
       _setViewMode(savedViewMode);
     }
 
@@ -3104,6 +3104,20 @@ function App() {
           <span className="app-sidebar-label">Tasks</span>
         </button>
         <button
+          className={`app-sidebar-btn ${viewMode === 'timeline' ? 'active' : ''}`}
+          onClick={() => setViewMode('timeline')}
+          title="Timeline"
+          aria-label="Timeline view"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <circle cx="7" cy="12" r="2"/>
+            <circle cx="14" cy="12" r="2"/>
+            <circle cx="19" cy="12" r="2"/>
+          </svg>
+          <span className="app-sidebar-label">Timeline</span>
+        </button>
+        <button
           className={`app-sidebar-btn ${viewMode === 'analytics' ? 'active' : ''}`}
           onClick={() => setViewMode('analytics')}
           title="Analytics"
@@ -3538,7 +3552,7 @@ function App() {
 
       <div
         className={`main-content main-content--${viewMode}`}
-        style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'tasks' || viewMode === 'account'
+        style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'tasks' || viewMode === 'timeline' || viewMode === 'account'
           ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, overflow: 'hidden' }
           : undefined}
       >
@@ -3548,7 +3562,7 @@ function App() {
           <div
             className={`scene-list scene-list--${viewMode}`}
             ref={sceneListRef}
-            style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'tasks' || viewMode === 'account'
+            style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'tasks' || viewMode === 'timeline' || viewMode === 'account'
               ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, margin: 0, maxWidth: 'none', minHeight: 0 }
               : undefined}
           >
@@ -3600,6 +3614,11 @@ function App() {
                 initialVisibleColumns={taskVisibleColumns}
                 onColumnConfigChange={handleTaskColumnConfigChange}
               />
+            ) : viewMode === 'timeline' ? (
+              <div style={{ padding: 40, color: 'var(--text-muted)' }}>
+                <h2>Timeline View</h2>
+                <p>Coming soon — {worldEvents.length} world events, {Object.keys(timelineDates).length} dated scenes</p>
+              </div>
             ) : viewMode === 'editor' ? (
               <EditorView
                 ref={editorViewRef}
