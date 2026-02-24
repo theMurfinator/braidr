@@ -33,6 +33,8 @@ interface TaskTableProps {
   onStopTimer: () => void;
   onAddTimeEntry: (taskId: string, entry: TimeEntry) => void;
   visibleColumns?: string[];
+  columnWidths: Record<string, number>;
+  onColumnWidthsChange: (widths: Record<string, number>) => void;
 }
 
 function groupTasks(
@@ -152,31 +154,29 @@ export default function TaskTable({
   onStopTimer,
   onAddTimeEntry,
   visibleColumns,
+  columnWidths,
+  onColumnWidthsChange,
 }: TaskTableProps) {
   const [showFieldManager, setShowFieldManager] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
-  // Column widths: keyed by column id, initialized from defaults
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
-    const widths: Record<string, number> = {};
-    for (const col of BUILTIN_COLUMNS) widths[col.id] = col.width;
-    for (const def of taskFieldDefs) widths[def.id] = def.width || 120;
-    return widths;
-  });
   const resizingRef = useRef<{ colId: string; startX: number; startWidth: number } | null>(null);
+
+  const columnWidthsRef = useRef(columnWidths);
+  columnWidthsRef.current = columnWidths;
 
   const handleResizeStart = useCallback((colId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const startX = e.clientX;
-    const startWidth = columnWidths[colId] || 120;
+    const startWidth = columnWidthsRef.current[colId] || 120;
     resizingRef.current = { colId, startX, startWidth };
 
     const onMouseMove = (ev: MouseEvent) => {
       if (!resizingRef.current) return;
       const delta = ev.clientX - resizingRef.current.startX;
       const newWidth = Math.max(50, resizingRef.current.startWidth + delta);
-      setColumnWidths(prev => ({ ...prev, [resizingRef.current!.colId]: newWidth }));
+      onColumnWidthsChange({ ...columnWidthsRef.current, [resizingRef.current!.colId]: newWidth });
     };
 
     const onMouseUp = () => {
@@ -191,7 +191,7 @@ export default function TaskTable({
     document.addEventListener('mouseup', onMouseUp);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-  }, [columnWidths]);
+  }, [onColumnWidthsChange]);
 
   const columns = visibleColumns
     ? BUILTIN_COLUMNS.filter(c => visibleColumns.includes(c.id))

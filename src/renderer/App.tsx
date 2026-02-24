@@ -244,6 +244,10 @@ function App() {
   const taskFieldDefsRef = useRef<TaskFieldDef[]>([]);
   const [taskViews, setTaskViews] = useState<TaskViewConfig[]>([]);
   const taskViewsRef = useRef<TaskViewConfig[]>([]);
+  const [taskColumnWidths, setTaskColumnWidths] = useState<Record<string, number>>({});
+  const taskColumnWidthsRef = useRef<Record<string, number>>({});
+  const [taskVisibleColumns, setTaskVisibleColumns] = useState<string[] | undefined>(undefined);
+  const taskVisibleColumnsRef = useRef<string[] | undefined>(undefined);
 
   // Combined todos: note-linked + inline
   const allSceneTodos = useMemo(() => {
@@ -333,6 +337,14 @@ function App() {
   const handleTaskViewsChange = useCallback((newViews: TaskViewConfig[]) => {
     setTaskViews(newViews);
     taskViewsRef.current = newViews;
+    isDirtyRef.current = true;
+  }, []);
+
+  const handleTaskColumnConfigChange = useCallback((widths: Record<string, number>, visible: string[]) => {
+    setTaskColumnWidths(widths);
+    taskColumnWidthsRef.current = widths;
+    setTaskVisibleColumns(visible);
+    taskVisibleColumnsRef.current = visible;
     isDirtyRef.current = true;
   }, []);
 
@@ -936,6 +948,12 @@ function App() {
     const loadedTaskViews: TaskViewConfig[] = (data as any).taskViews || [];
     setTaskViews(loadedTaskViews);
     taskViewsRef.current = loadedTaskViews;
+    const loadedTaskColumnWidths: Record<string, number> = (data as any).taskColumnWidths || {};
+    setTaskColumnWidths(loadedTaskColumnWidths);
+    taskColumnWidthsRef.current = loadedTaskColumnWidths;
+    const loadedTaskVisibleColumns: string[] | undefined = (data as any).taskVisibleColumns;
+    setTaskVisibleColumns(loadedTaskVisibleColumns);
+    taskVisibleColumnsRef.current = loadedTaskVisibleColumns;
 
     // Select first character by default
     if (data.characters.length > 0) {
@@ -1337,7 +1355,7 @@ function App() {
           }
         }
 
-        await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current);
+        await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current);
       } catch (err) {
         console.error('Failed to save font settings:', err);
         addToast('Failed to save font settings');
@@ -2134,7 +2152,7 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -3226,6 +3244,52 @@ function App() {
                   Links
                 </button>
               )}
+              <div className="toolbar-dropdown-container" ref={fieldsDropdownRef}>
+                <button
+                  className={`toolbar-btn ${inlineMetadataFields.length > 0 ? 'active' : ''}`}
+                  onClick={() => setShowFieldsDropdown(!showFieldsDropdown)}
+                  title="Choose metadata fields to show inline"
+                >
+                  Fields
+                </button>
+                {showFieldsDropdown && (
+                  <div className="toolbar-fields-dropdown">
+                    {metadataFieldDefs.filter(f => f.id !== '_status').length === 0 ? (
+                      <div className="toolbar-fields-empty">No metadata fields defined yet</div>
+                    ) : (
+                      <>
+                        {metadataFieldDefs
+                          .filter(f => f.id !== '_status')
+                          .sort((a, b) => a.order - b.order)
+                          .map(field => (
+                            <label key={field.id} className="toolbar-fields-item">
+                              <input
+                                type="checkbox"
+                                checked={inlineMetadataFields.includes(field.id)}
+                                onChange={() => {
+                                  const updated = inlineMetadataFields.includes(field.id)
+                                    ? inlineMetadataFields.filter(id => id !== field.id)
+                                    : [...inlineMetadataFields, field.id];
+                                  handleInlineMetadataFieldsChange(updated);
+                                }}
+                              />
+                              {field.label}
+                            </label>
+                          ))}
+                        <div className="toolbar-fields-divider" />
+                        <label className="toolbar-fields-item">
+                          <input
+                            type="checkbox"
+                            checked={showInlineLabels}
+                            onChange={() => handleShowInlineLabelsChange(!showInlineLabels)}
+                          />
+                          Show Labels
+                        </label>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -3508,6 +3572,9 @@ function App() {
                 onTasksChange={handleTasksChange}
                 onTaskFieldDefsChange={handleTaskFieldDefsChange}
                 onTaskViewsChange={handleTaskViewsChange}
+                initialColumnWidths={taskColumnWidths}
+                initialVisibleColumns={taskVisibleColumns}
+                onColumnConfigChange={handleTaskColumnConfigChange}
               />
             ) : viewMode === 'editor' ? (
               <EditorView
@@ -4051,6 +4118,8 @@ function App() {
                                 }
                               }}
                               onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                              inlineMetadataFields={inlineMetadataFields}
+                              showInlineLabels={showInlineLabels}
                             />
                           </div>
                         </div>

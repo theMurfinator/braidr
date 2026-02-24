@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { Task, TaskFilter, TaskFieldDef, TaskViewConfig, Tag, Character, Scene, TimeEntry } from '../../../shared/types';
 import TaskTable, { BUILTIN_COLUMNS } from './TaskTable';
 import TaskToolbar from './TaskToolbar';
@@ -54,9 +54,20 @@ interface TasksViewProps {
   onTasksChange: (tasks: Task[]) => void;
   onTaskFieldDefsChange: (defs: TaskFieldDef[]) => void;
   onTaskViewsChange: (views: TaskViewConfig[]) => void;
+  initialColumnWidths?: Record<string, number>;
+  initialVisibleColumns?: string[];
+  onColumnConfigChange?: (widths: Record<string, number>, visible: string[]) => void;
 }
 
 const defaultVisibleColumns = BUILTIN_COLUMNS.map(c => c.id);
+
+function buildDefaultWidths(taskFieldDefs: TaskFieldDef[], saved?: Record<string, number>): Record<string, number> {
+  const widths: Record<string, number> = {};
+  for (const col of BUILTIN_COLUMNS) widths[col.id] = col.width;
+  for (const def of taskFieldDefs) widths[def.id] = def.width || 120;
+  if (saved) Object.assign(widths, saved);
+  return widths;
+}
 
 export default function TasksView({
   tasks,
@@ -68,6 +79,9 @@ export default function TasksView({
   onTasksChange,
   onTaskFieldDefsChange,
   onTaskViewsChange,
+  initialColumnWidths,
+  initialVisibleColumns,
+  onColumnConfigChange,
 }: TasksViewProps) {
   const [groupBy, setGroupBy] = useState<string | undefined>(undefined);
   const [sortBy, setSortBy] = useState<string | undefined>(undefined);
@@ -75,7 +89,21 @@ export default function TasksView({
   const [filters, setFilters] = useState<TaskFilter[]>([]);
   const [showFilter, setShowFilter] = useState(false);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
-  const [visibleColumns, setVisibleColumns] = useState<string[]>(defaultVisibleColumns);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(initialVisibleColumns || defaultVisibleColumns);
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() =>
+    buildDefaultWidths(taskFieldDefs, initialColumnWidths)
+  );
+
+  // Propagate column config changes (widths & visibility) to parent for persistence
+  const handleColumnWidthsChange = useCallback((widths: Record<string, number>) => {
+    setColumnWidths(widths);
+    onColumnConfigChange?.(widths, visibleColumns);
+  }, [visibleColumns, onColumnConfigChange]);
+
+  const handleVisibleColumnsChange = useCallback((cols: string[]) => {
+    setVisibleColumns(cols);
+    onColumnConfigChange?.(columnWidths, cols);
+  }, [columnWidths, onColumnConfigChange]);
 
   // Timer state
   const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
@@ -161,7 +189,8 @@ export default function TasksView({
       setSortBy(undefined);
       setSortDir('asc');
       setFilters([]);
-      setVisibleColumns(defaultVisibleColumns);
+      setVisibleColumns(initialVisibleColumns || defaultVisibleColumns);
+      setColumnWidths(buildDefaultWidths(taskFieldDefs, initialColumnWidths));
       return;
     }
     const view = taskViews.find(v => v.id === viewId);
@@ -171,6 +200,7 @@ export default function TasksView({
       setSortDir(view.sortDir || 'asc');
       setFilters(view.filters || []);
       setVisibleColumns(view.visibleColumns || defaultVisibleColumns);
+      if (view.columnWidths) setColumnWidths(buildDefaultWidths(taskFieldDefs, view.columnWidths));
     }
   };
 
@@ -178,7 +208,7 @@ export default function TasksView({
     if (!activeViewId) return;
     const updated = taskViews.map(v =>
       v.id === activeViewId
-        ? { ...v, groupBy, sortBy, sortDir, filters, visibleColumns }
+        ? { ...v, groupBy, sortBy, sortDir, filters, visibleColumns, columnWidths }
         : v
     );
     onTaskViewsChange(updated);
@@ -193,6 +223,7 @@ export default function TasksView({
       sortDir,
       filters,
       visibleColumns,
+      columnWidths,
     };
     onTaskViewsChange([...taskViews, newView]);
     setActiveViewId(newView.id);
@@ -207,7 +238,8 @@ export default function TasksView({
       setSortBy(undefined);
       setSortDir('asc');
       setFilters([]);
-      setVisibleColumns(defaultVisibleColumns);
+      setVisibleColumns(initialVisibleColumns || defaultVisibleColumns);
+      setColumnWidths(buildDefaultWidths(taskFieldDefs, initialColumnWidths));
     }
   };
 
@@ -222,8 +254,9 @@ export default function TasksView({
     if (JSON.stringify(view.filters || []) !== JSON.stringify(filters)) return true;
     const savedCols = view.visibleColumns || defaultVisibleColumns;
     if (JSON.stringify(savedCols) !== JSON.stringify(visibleColumns)) return true;
+    if (JSON.stringify(view.columnWidths || {}) !== JSON.stringify(columnWidths)) return true;
     return false;
-  }, [activeViewId, taskViews, groupBy, sortBy, sortDir, filters, visibleColumns]);
+  }, [activeViewId, taskViews, groupBy, sortBy, sortDir, filters, visibleColumns, columnWidths]);
 
   const filteredTasks = filterTasks(tasks, filters, characters);
 
@@ -251,7 +284,7 @@ export default function TasksView({
         onViewSaveAs={handleViewSaveAs}
         onViewDelete={handleViewDelete}
         visibleColumns={visibleColumns}
-        onVisibleColumnsChange={setVisibleColumns}
+        onVisibleColumnsChange={handleVisibleColumnsChange}
         viewHasChanges={viewHasChanges}
       />
       {showFilter && (
@@ -282,6 +315,8 @@ export default function TasksView({
           onStopTimer={stopTimer}
           onAddTimeEntry={handleAddTimeEntry}
           visibleColumns={visibleColumns}
+          columnWidths={columnWidths}
+          onColumnWidthsChange={handleColumnWidthsChange}
         />
       </div>
     </div>

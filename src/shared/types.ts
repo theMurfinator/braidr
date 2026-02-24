@@ -119,6 +119,9 @@ export interface TimelineData {
   tasks?: Task[];
   taskFieldDefs?: TaskFieldDef[];
   taskViews?: TaskViewConfig[];
+  // Default task column configuration (when no view is active)
+  taskColumnWidths?: Record<string, number>;
+  taskVisibleColumns?: string[];
   // Inline metadata display preferences (POV view)
   inlineMetadataFields?: string[];
   showInlineLabels?: boolean;
@@ -172,6 +175,7 @@ export interface TaskViewConfig {
   sortDir?: 'asc' | 'desc';
   filters?: TaskFilter[];
   visibleColumns?: string[];
+  columnWidths?: Record<string, number>;
 }
 
 export interface TaskFilter {
