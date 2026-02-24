@@ -234,7 +234,7 @@ export default function TimelineCanvas({
   const eventRect = useCallback((ev: WorldEvent): Rect | null => {
     if (!ev.date) return null;
     const x = dayX(ev.date);
-    const y = TOP_MARGIN + (EVENT_HEIGHT - EVENT_HEIGHT) / 2;
+    const y = TOP_MARGIN;
     return { x, y, w: CARD_W, h: EVENT_HEIGHT };
   }, [dayX]);
 
