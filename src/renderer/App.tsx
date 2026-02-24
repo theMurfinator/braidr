@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -249,6 +249,12 @@ function App() {
   const [taskVisibleColumns, setTaskVisibleColumns] = useState<string[] | undefined>(undefined);
   const taskVisibleColumnsRef = useRef<string[] | undefined>(undefined);
 
+  // Timeline state
+  const [timelineDates, setTimelineDates] = useState<Record<string, string>>({});
+  const timelineDatesRef = useRef<Record<string, string>>({});
+  const [worldEvents, setWorldEvents] = useState<WorldEvent[]>([]);
+  const worldEventsRef = useRef<WorldEvent[]>([]);
+
   // Combined todos: note-linked + inline
   const allSceneTodos = useMemo(() => {
     const inline = Object.values(inlineTodos).flat();
@@ -345,6 +351,18 @@ function App() {
     taskColumnWidthsRef.current = widths;
     setTaskVisibleColumns(visible);
     taskVisibleColumnsRef.current = visible;
+    isDirtyRef.current = true;
+  }, []);
+
+  const handleTimelineDatesChange = useCallback((dates: Record<string, string>) => {
+    setTimelineDates(dates);
+    timelineDatesRef.current = dates;
+    isDirtyRef.current = true;
+  }, []);
+
+  const handleWorldEventsChange = useCallback((events: WorldEvent[]) => {
+    setWorldEvents(events);
+    worldEventsRef.current = events;
     isDirtyRef.current = true;
   }, []);
 
@@ -954,6 +972,12 @@ function App() {
     const loadedTaskVisibleColumns: string[] | undefined = (data as any).taskVisibleColumns;
     setTaskVisibleColumns(loadedTaskVisibleColumns);
     taskVisibleColumnsRef.current = loadedTaskVisibleColumns;
+    const loadedTimelineDates: Record<string, string> = (data as any).timelineDates || {};
+    setTimelineDates(loadedTimelineDates);
+    timelineDatesRef.current = loadedTimelineDates;
+    const loadedWorldEvents: WorldEvent[] = (data as any).worldEvents || [];
+    setWorldEvents(loadedWorldEvents);
+    worldEventsRef.current = loadedWorldEvents;
 
     // Select first character by default
     if (data.characters.length > 0) {
@@ -2152,7 +2176,7 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
