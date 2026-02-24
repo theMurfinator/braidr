@@ -15,6 +15,7 @@ import FloatingEditor from './components/FloatingEditor';
 import FontPicker from './components/FontPicker';
 import NotesView from './components/notes/NotesView';
 import TasksView from './components/tasks/TasksView';
+import TimelineView from './components/timeline/TimelineView';
 import WordCountDashboard from './components/WordCountDashboard';
 import AccountView from './components/AccountView';
 import SearchOverlay from './components/SearchOverlay';
@@ -3615,10 +3616,17 @@ function App() {
                 onColumnConfigChange={handleTaskColumnConfigChange}
               />
             ) : viewMode === 'timeline' ? (
-              <div style={{ padding: 40, color: 'var(--text-muted)' }}>
-                <h2>Timeline View</h2>
-                <p>Coming soon — {worldEvents.length} world events, {Object.keys(timelineDates).length} dated scenes</p>
-              </div>
+              <TimelineView
+                scenes={projectData.scenes}
+                characters={projectData.characters}
+                characterColors={characterColors}
+                tags={projectData.tags}
+                timelineDates={timelineDates}
+                worldEvents={worldEvents}
+                connections={sceneConnections}
+                onTimelineDatesChange={handleTimelineDatesChange}
+                onWorldEventsChange={handleWorldEventsChange}
+              />
             ) : viewMode === 'editor' ? (
               <EditorView
                 ref={editorViewRef}
