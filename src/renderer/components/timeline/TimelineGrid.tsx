@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, type DragEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, type DragEvent } from 'react';
 import type { Scene, Character, WorldEvent } from '../../../shared/types';
 
 interface TimelineGridProps {
@@ -189,6 +189,25 @@ export default function TimelineGrid({
     delete updated[sceneKey];
     onTimelineDatesChange(updated);
   }, [timelineDates, onTimelineDatesChange]);
+
+  // ── Keyboard shortcuts ──────────────────────────────────────────────────
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        onSelectScene(null);
+        onSelectEvent(null);
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSceneKey) {
+        // Only if not in an input/textarea
+        if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+        const updated = { ...timelineDates };
+        delete updated[selectedSceneKey];
+        onTimelineDatesChange(updated);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedSceneKey, onSelectScene, onSelectEvent, timelineDates, onTimelineDatesChange]);
 
   // ── Grid template columns ────────────────────────────────────────────────
   const gridTemplateCols = useMemo(() => {

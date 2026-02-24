@@ -15025,10 +15025,38 @@ textarea.table-cell-input {
   transition: all 0.15s;
 }
 
+.timeline-sub-toggle button:hover:not(.active) {
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.04);
+}
+
 .timeline-sub-toggle button.active {
   background: var(--bg-primary);
   color: var(--text-primary);
   box-shadow: var(--shadow-sm);
+}
+
+/* Toolbar info */
+.timeline-toolbar-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.timeline-toolbar-stat {
+  white-space: nowrap;
+}
+
+.timeline-toolbar-daterange {
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-toolbar-divider {
+  color: var(--border);
+  user-select: none;
 }
 
 .timeline-content {
@@ -15049,6 +15077,8 @@ textarea.table-cell-input {
   flex-direction: column;
   overflow-y: auto;
   flex-shrink: 0;
+  background: var(--bg-primary);
+  transition: width 0.2s ease;
 }
 
 .timeline-sidebar-header {
@@ -15074,11 +15104,13 @@ textarea.table-cell-input {
   color: var(--text-muted);
   font-size: 12px;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .timeline-add-event-btn:hover {
-  border-color: var(--text-secondary);
-  color: var(--text-secondary);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .timeline-events-list {
@@ -15323,6 +15355,7 @@ textarea.table-cell-input {
 .timeline-grid-table {
   min-width: 100%;
   min-height: 100%;
+  border-collapse: collapse;
 }
 
 /* Corner cell — top-left, sticky in both directions */
@@ -15332,7 +15365,7 @@ textarea.table-cell-input {
   left: 0;
   z-index: 12;
   background: var(--bg-primary);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
   border-right: 1px solid var(--border);
   min-height: 44px;
 }
@@ -15343,7 +15376,7 @@ textarea.table-cell-input {
   top: 0;
   z-index: 10;
   background: var(--bg-primary);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
   border-right: 1px solid var(--bg-tertiary);
   display: flex;
   flex-direction: column;
@@ -15549,6 +15582,7 @@ textarea.table-cell-input {
   border-top: 2px solid var(--border);
   padding: 12px 16px;
   background: var(--bg-secondary);
+  transition: background 0.15s ease;
 }
 
 .tg-unassigned-label {
@@ -15604,26 +15638,30 @@ textarea.table-cell-input {
   justify-content: center;
   height: 100%;
   min-height: 300px;
-  padding: 40px;
+  padding: 48px 40px;
   text-align: center;
+  gap: 4px;
 }
 
 .tg-empty-icon {
   color: var(--text-muted);
-  opacity: 0.4;
-  margin-bottom: 16px;
+  opacity: 0.35;
+  margin-bottom: 20px;
 }
 
 .tg-empty-state p {
   margin: 0 0 4px;
   font-size: 14px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.6;
+  max-width: 320px;
 }
 
 .tg-empty-state p:first-of-type {
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 2px;
 }
 
 /* ── Canvas placeholder ──────────────────────────────────────────────── */
