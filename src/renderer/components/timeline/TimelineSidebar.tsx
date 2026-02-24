@@ -27,7 +27,7 @@ export default function TimelineSidebar({
         {worldEvents.length === 0 ? (
           <div className="timeline-empty">No world events yet</div>
         ) : (
-          worldEvents
+          [...worldEvents]
             .sort((a, b) => a.date.localeCompare(b.date))
             .map(evt => (
               <div
