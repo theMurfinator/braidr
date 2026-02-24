@@ -154,6 +154,8 @@ export default function TimelineGrid({
   }, []);
 
   const handleCellDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    const related = e.relatedTarget as Node | null;
+    if (related && e.currentTarget.contains(related)) return;
     (e.currentTarget as HTMLElement).classList.remove('drag-over');
   }, []);
 
@@ -173,6 +175,8 @@ export default function TimelineGrid({
   }, []);
 
   const handleUnassignedDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    const related = e.relatedTarget as Node | null;
+    if (related && e.currentTarget.contains(related)) return;
     (e.currentTarget as HTMLElement).classList.remove('drag-over');
   }, []);
 

@@ -15566,8 +15566,13 @@ textarea.table-cell-input {
   background-image: none !important;
 }
 
+.tg-scene-card[draggable="true"] {
+  cursor: grab;
+}
+
 .tg-scene-card.dragging {
   opacity: 0.4;
+  cursor: grabbing;
 }
 
 .tg-unassigned.drag-over {
