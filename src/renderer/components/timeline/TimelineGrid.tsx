@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import type { Scene, Character, WorldEvent } from '../../../shared/types';
 
 interface TimelineGridProps {
@@ -268,28 +268,29 @@ export default function TimelineGrid({
           const color = characterColors[char.id] || '#888';
           const gridRow = rowIdx + 3; // 1-indexed: header=1, world=2, chars start at 3
 
-          return [
-            <div
-              key={`label-${char.id}`}
-              className="tg-lane-label"
-              style={{ gridRow, gridColumn: 1 }}
-            >
-              <span className="tg-lane-color" style={{ background: color }} />
-              <span className="tg-lane-name">{char.name}</span>
-            </div>,
-            ...dateRange.map((date, colIdx) => {
-              const sceneKeys = sceneDateMap[date]?.[char.id] || [];
-              return (
-                <div
-                  key={`${char.id}-${date}`}
-                  className={`tg-cell${sceneKeys.length === 0 ? ' empty' : ''}`}
-                  style={{ gridRow, gridColumn: colIdx + 2 }}
-                >
-                  {sceneKeys.map((sk) => renderSceneCard(sk))}
-                </div>
-              );
-            }),
-          ];
+          return (
+            <Fragment key={char.id}>
+              <div
+                className="tg-lane-label"
+                style={{ gridRow, gridColumn: 1 }}
+              >
+                <span className="tg-lane-color" style={{ background: color }} />
+                <span className="tg-lane-name">{char.name}</span>
+              </div>
+              {dateRange.map((date, colIdx) => {
+                const sceneKeys = sceneDateMap[date]?.[char.id] || [];
+                return (
+                  <div
+                    key={`${char.id}-${date}`}
+                    className={`tg-cell${sceneKeys.length === 0 ? ' empty' : ''}`}
+                    style={{ gridRow, gridColumn: colIdx + 2 }}
+                  >
+                    {sceneKeys.map((sk) => renderSceneCard(sk))}
+                  </div>
+                );
+              })}
+            </Fragment>
+          );
         })}
 
         {/* ── Unassigned pool ──────────────────────────────────────────────── */}
