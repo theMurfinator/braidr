@@ -15636,3 +15636,15 @@ textarea.table-cell-input {
   color: var(--text-muted);
   font-size: 14px;
 }
+
+/* ── Canvas visualization ────────────────────────────────────────────── */
+
+.timeline-canvas {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+.timeline-canvas:active {
+  cursor: grabbing;
+}

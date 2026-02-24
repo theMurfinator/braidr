@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Scene, Character, WorldEvent, Tag } from '../../../shared/types';
 import TimelineGrid from './TimelineGrid';
+import TimelineCanvas from './TimelineCanvas';
 import TimelineSidebar from './TimelineSidebar';
 
 type TimelineSubMode = 'grid' | 'canvas';
@@ -57,7 +58,18 @@ export default function TimelineView({
               onSelectEvent={setSelectedEventId}
             />
           ) : (
-            <div className="timeline-canvas-placeholder">Canvas mode — coming in Task 9</div>
+            <TimelineCanvas
+              scenes={scenes}
+              characters={characters}
+              characterColors={characterColors}
+              timelineDates={timelineDates}
+              worldEvents={worldEvents}
+              connections={connections}
+              selectedSceneKey={selectedSceneKey}
+              selectedEventId={selectedEventId}
+              onSelectScene={setSelectedSceneKey}
+              onSelectEvent={setSelectedEventId}
+            />
           )}
         </div>
         <TimelineSidebar
