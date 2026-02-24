@@ -367,6 +367,18 @@ function App() {
     isDirtyRef.current = true;
   }, []);
 
+  const handleSceneDateChange = useCallback((sceneId: string, date: string | undefined) => {
+    if (!projectData) return;
+    const s = projectData.scenes.find(sc => sc.id === sceneId);
+    if (s) {
+      const key = `${s.characterId}:${s.sceneNumber}`;
+      const updated = { ...timelineDatesRef.current };
+      if (date) updated[key] = date;
+      else delete updated[key];
+      handleTimelineDatesChange(updated);
+    }
+  }, [projectData, handleTimelineDatesChange]);
+
   // Welcome screen state
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [showNewProject, setShowNewProject] = useState(false);
@@ -3745,16 +3757,7 @@ function App() {
                     inlineMetadataFields={inlineMetadataFields}
                     showInlineLabels={showInlineLabels}
                     timelineDates={timelineDates}
-                    onDateChange={(sceneId, date) => {
-                      const scene = projectData.scenes.find(s => s.id === sceneId);
-                      if (scene) {
-                        const key = `${scene.characterId}:${scene.sceneNumber}`;
-                        const updated = { ...timelineDates };
-                        if (date) updated[key] = date;
-                        else delete updated[key];
-                        handleTimelineDatesChange(updated);
-                      }
-                    }}
+                    onDateChange={handleSceneDateChange}
                     onSceneClick={(sceneId) => {
                       // Handle completing a connection in POV view
                       if (isConnecting && connectionSource && connectionSource !== sceneId && projectData) {
@@ -3809,16 +3812,7 @@ function App() {
                     onWordCountChange={handleWordCountChange}
                     onOpenInEditor={handleOpenInEditor}
                     sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
-                    onDateChange={(sceneId, date) => {
-                      const scene = projectData.scenes.find(s => s.id === sceneId);
-                      if (scene) {
-                        const key = `${scene.characterId}:${scene.sceneNumber}`;
-                        const updated = { ...timelineDates };
-                        if (date) updated[key] = date;
-                        else delete updated[key];
-                        handleTimelineDatesChange(updated);
-                      }
-                    }}
+                    onDateChange={handleSceneDateChange}
                   />
                 ))}
                 {/* Add Section button */}
@@ -4194,16 +4188,7 @@ function App() {
                               inlineMetadataFields={inlineMetadataFields}
                               showInlineLabels={showInlineLabels}
                               sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
-                              onDateChange={(sceneId, date) => {
-                                const scene = projectData.scenes.find(s => s.id === sceneId);
-                                if (scene) {
-                                  const key = `${scene.characterId}:${scene.sceneNumber}`;
-                                  const updated = { ...timelineDates };
-                                  if (date) updated[key] = date;
-                                  else delete updated[key];
-                                  handleTimelineDatesChange(updated);
-                                }
-                              }}
+                              onDateChange={handleSceneDateChange}
                             />
                           </div>
                         </div>
