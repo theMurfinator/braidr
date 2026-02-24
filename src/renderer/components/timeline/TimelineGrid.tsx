@@ -197,12 +197,13 @@ export default function TimelineGrid({
         onSelectScene(null);
         onSelectEvent(null);
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSceneKey) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSceneKey && selectedSceneKey in timelineDates) {
         // Only if not in an input/textarea
         if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
         const updated = { ...timelineDates };
         delete updated[selectedSceneKey];
         onTimelineDatesChange(updated);
+        onSelectScene(null);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
