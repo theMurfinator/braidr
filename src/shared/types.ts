@@ -125,6 +125,10 @@ export interface TimelineData {
   // Inline metadata display preferences (POV view)
   inlineMetadataFields?: string[];
   showInlineLabels?: boolean;
+  // Scene dates keyed by "characterId:sceneNumber"
+  timelineDates?: Record<string, string>;
+  // World events
+  worldEvents?: WorldEvent[];
 }
 
 // ── Task Management ──────────────────────────────────────────────────────────
@@ -182,6 +186,20 @@ export interface TaskFilter {
   field: string;
   operator: 'is' | 'is_not' | 'contains' | 'is_set' | 'is_not_set';
   value?: string | string[];
+}
+
+// ── Timeline / World Events ─────────────────────────────────────────────────
+
+export interface WorldEvent {
+  id: string;
+  title: string;
+  date: string;                // "YYYY-MM-DD"
+  description: string;
+  tags: string[];
+  linkedSceneKeys: string[];   // ["characterId:sceneNumber", ...]
+  linkedNoteIds: string[];     // note IDs
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface SceneComment {
