@@ -34,6 +34,7 @@ export default function TimelineSidebar({
   const [linkSearch, setLinkSearch] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
   const justCreatedRef = useRef(false);
+  const linkWrapperRef = useRef<HTMLDivElement>(null);
 
   // Focus title input when a new event is created
   useEffect(() => {
@@ -43,6 +44,19 @@ export default function TimelineSidebar({
       justCreatedRef.current = false;
     }
   }, [selectedEventId]);
+
+  // Close link dropdown on click outside
+  useEffect(() => {
+    if (!linkDropdownOpen) return;
+    function handleMouseDown(e: MouseEvent) {
+      if (linkWrapperRef.current && !linkWrapperRef.current.contains(e.target as Node)) {
+        setLinkDropdownOpen(false);
+        setLinkSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [linkDropdownOpen]);
 
   const sortedEvents = [...worldEvents].sort((a, b) => a.date.localeCompare(b.date));
   const selectedEvent = selectedEventId
@@ -230,38 +244,41 @@ export default function TimelineSidebar({
                 );
               })}
             </div>
-            <div className="timeline-link-scene-wrapper">
+            <div className="timeline-link-scene-wrapper" ref={linkWrapperRef}>
               <button
                 className="timeline-link-scene-btn"
                 onClick={() => setLinkDropdownOpen(!linkDropdownOpen)}
               >
                 + Link Scene
               </button>
-              {linkDropdownOpen && (
-                <div className="timeline-link-dropdown">
-                  <input
-                    type="text"
-                    placeholder="Search scenes..."
-                    value={linkSearch}
-                    onChange={e => setLinkSearch(e.target.value)}
-                    autoFocus
-                  />
-                  <div className="timeline-link-dropdown-list">
-                    {getAvailableScenes().map(({ key, label }) => (
-                      <div
-                        key={key}
-                        className="timeline-link-dropdown-item"
-                        onClick={() => linkScene(selectedEvent.id, key)}
-                      >
-                        {label}
-                      </div>
-                    ))}
-                    {getAvailableScenes().length === 0 && (
-                      <div className="timeline-link-dropdown-empty">No scenes available</div>
-                    )}
+              {linkDropdownOpen && (() => {
+                const available = getAvailableScenes();
+                return (
+                  <div className="timeline-link-dropdown">
+                    <input
+                      type="text"
+                      placeholder="Search scenes..."
+                      value={linkSearch}
+                      onChange={e => setLinkSearch(e.target.value)}
+                      autoFocus
+                    />
+                    <div className="timeline-link-dropdown-list">
+                      {available.map(({ key, label }) => (
+                        <div
+                          key={key}
+                          className="timeline-link-dropdown-item"
+                          onClick={() => linkScene(selectedEvent.id, key)}
+                        >
+                          {label}
+                        </div>
+                      ))}
+                      {available.length === 0 && (
+                        <div className="timeline-link-dropdown-empty">No scenes available</div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
 
