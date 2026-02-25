@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, type CSSProperties } from 'react';
 import { Scene, Character, PlotPoint, BraidedChapter, MetadataFieldDef } from '../../shared/types';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
@@ -453,13 +453,13 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
           '--confetti-y': `${y}px`,
           '--confetti-r': `${rotation}deg`,
           animationDelay: `${Math.random() * 0.15}s`,
-        } as React.CSSProperties,
+        } as CSSProperties,
       };
     });
   }, [exportComplete]);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={exportComplete ? undefined : onClose}>
       <div className="modal compile-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>Compile Manuscript</h3>
