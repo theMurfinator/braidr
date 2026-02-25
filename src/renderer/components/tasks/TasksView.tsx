@@ -227,10 +227,6 @@ export default function TasksView({
         showFilter={showFilter}
         onToggleFilter={() => setShowFilter(!showFilter)}
         filterCount={filters.length}
-        activeTimerTaskId={activeTimerTaskId}
-        activeTimerTaskTitle={activeTimerTaskTitle}
-        timerElapsed={taskTimerElapsed}
-        onStopTimer={stopTimer}
         taskViews={taskViews}
         activeViewId={activeViewId}
         onViewSelect={handleViewSelect}
