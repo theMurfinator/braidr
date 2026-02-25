@@ -3713,6 +3713,10 @@ function App() {
                 initialColumnWidths={taskColumnWidths}
                 initialVisibleColumns={taskVisibleColumns}
                 onColumnConfigChange={handleTaskColumnConfigChange}
+                activeTimerTaskId={taskTimerTaskId}
+                taskTimerElapsed={taskTimerElapsed}
+                onStartTimer={handleStartTaskTimer}
+                onStopTimer={handleStopTaskTimer}
               />
             ) : viewMode === 'timeline' ? (
               <TimelineView

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Task, TaskFilter, TaskFieldDef, TaskViewConfig, Tag, Character, Scene, TimeEntry } from '../../../shared/types';
 import TaskTable, { BUILTIN_COLUMNS } from './TaskTable';
 import TaskToolbar from './TaskToolbar';
@@ -57,6 +57,11 @@ interface TasksViewProps {
   initialColumnWidths?: Record<string, number>;
   initialVisibleColumns?: string[];
   onColumnConfigChange?: (widths: Record<string, number>, visible: string[]) => void;
+  // Task timer (lifted to App.tsx)
+  activeTimerTaskId: string | null;
+  taskTimerElapsed: number;
+  onStartTimer: (taskId: string) => void;
+  onStopTimer: () => void;
 }
 
 const defaultVisibleColumns = BUILTIN_COLUMNS.map(c => c.id);
@@ -82,6 +87,10 @@ export default function TasksView({
   initialColumnWidths,
   initialVisibleColumns,
   onColumnConfigChange,
+  activeTimerTaskId,
+  taskTimerElapsed,
+  onStartTimer: startTimer,
+  onStopTimer: stopTimer,
 }: TasksViewProps) {
   const [groupBy, setGroupBy] = useState<string | undefined>(undefined);
   const [sortBy, setSortBy] = useState<string | undefined>(undefined);
@@ -104,61 +113,6 @@ export default function TasksView({
     setVisibleColumns(cols);
     onColumnConfigChange?.(columnWidths, cols);
   }, [columnWidths, onColumnConfigChange]);
-
-  // Timer state
-  const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
-  const [timerStart, setTimerStart] = useState<number | null>(null);
-  const [timerElapsed, setTimerElapsed] = useState(0);
-
-  // Refs to avoid stale closures in stopTimer
-  const tasksLocalRef = useRef(tasks);
-  useEffect(() => { tasksLocalRef.current = tasks; }, [tasks]);
-
-  const activeTimerTaskIdRef = useRef(activeTimerTaskId);
-  useEffect(() => { activeTimerTaskIdRef.current = activeTimerTaskId; }, [activeTimerTaskId]);
-
-  const timerStartRef = useRef(timerStart);
-  useEffect(() => { timerStartRef.current = timerStart; }, [timerStart]);
-
-  useEffect(() => {
-    if (!timerStart) return;
-    const interval = setInterval(() => {
-      setTimerElapsed(Date.now() - timerStart);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [timerStart]);
-
-  const startTimer = (taskId: string) => {
-    // If another timer is running, stop it first
-    if (activeTimerTaskId) {
-      stopTimer();
-    }
-    setActiveTimerTaskId(taskId);
-    setTimerStart(Date.now());
-    setTimerElapsed(0);
-  };
-
-  const stopTimer = () => {
-    const currentTaskId = activeTimerTaskIdRef.current;
-    const currentTimerStart = timerStartRef.current;
-    if (!currentTaskId || !currentTimerStart) return;
-    const duration = Date.now() - currentTimerStart;
-    const entry: TimeEntry = {
-      id: crypto.randomUUID(),
-      startedAt: currentTimerStart,
-      duration,
-    };
-    // Update the task's timeEntries
-    const updated = tasksLocalRef.current.map(t =>
-      t.id === currentTaskId
-        ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
-        : t
-    );
-    onTasksChange(updated);
-    setActiveTimerTaskId(null);
-    setTimerStart(null);
-    setTimerElapsed(0);
-  };
 
   const handleAddTimeEntry = (taskId: string, entry: TimeEntry) => {
     const updated = tasks.map(t =>
@@ -275,7 +229,7 @@ export default function TasksView({
         filterCount={filters.length}
         activeTimerTaskId={activeTimerTaskId}
         activeTimerTaskTitle={activeTimerTaskTitle}
-        timerElapsed={timerElapsed}
+        timerElapsed={taskTimerElapsed}
         onStopTimer={stopTimer}
         taskViews={taskViews}
         activeViewId={activeViewId}
