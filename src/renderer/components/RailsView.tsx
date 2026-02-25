@@ -193,6 +193,36 @@ export default function RailsView({
     charSceneRows.set(row.characterId, existing);
   });
 
+  // Pre-compute word gap between each pair of consecutive scenes for a character
+  // Key: "charId:rowIndex" for connector-through cells → total words of other characters' scenes in the gap
+  const gapWordCounts = new Map<string, number>();
+  charSceneRows.forEach((rows, charId) => {
+    for (let i = 0; i < rows.length - 1; i++) {
+      const fromRow = rows[i];
+      const toRow = rows[i + 1];
+      let wordSum = 0;
+      for (let r = fromRow + 1; r < toRow; r++) {
+        const rowScene = gridRows[r];
+        if (rowScene && rowScene.characterId !== charId) {
+          wordSum += rowScene.scene.wordCount || 0;
+        }
+      }
+      if (wordSum > 0) {
+        // Store on the midpoint row of the gap
+        const midRow = Math.floor((fromRow + toRow) / 2);
+        gapWordCounts.set(`${charId}:${midRow}`, wordSum);
+      }
+    }
+  });
+
+  const formatWordGap = (words: number): string => {
+    if (words >= 1000) {
+      const k = words / 1000;
+      return k % 1 === 0 ? `${k}k` : `${k.toFixed(1)}k`;
+    }
+    return String(words);
+  };
+
   // For a given row index and character, determine connector state
   const getCellConnector = (rowIndex: number, characterId: string): 'above' | 'below' | 'both' | 'through' | null => {
     const rows = charSceneRows.get(characterId);
@@ -415,6 +445,9 @@ export default function RailsView({
                         '--connector-color': connector ? getCharacterHexColor(char.id) : undefined,
                       } as React.CSSProperties}
                     >
+                      {connector === 'through' && gapWordCounts.has(`${char.id}:${index}`) && (
+                        <span className="rails-gap-words">{formatWordGap(gapWordCounts.get(`${char.id}:${index}`)!)}</span>
+                      )}
                       {char.id === row.characterId && (
                         <RailsSceneCard
                           scene={row.scene}

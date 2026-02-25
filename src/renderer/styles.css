@@ -5033,6 +5033,23 @@ textarea.scene-metadata-field-input {
   pointer-events: none;
 }
 
+/* Word gap label on connector lines */
+.rails-gap-words {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-primary);
+  padding: 1px 5px;
+  border-radius: 3px;
+  z-index: 7;
+  pointer-events: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+
 /* Rails Row Number - match cell height */
 .rails-row .rails-row-number {
   height: var(--row-height, 52px);
