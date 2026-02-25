@@ -3452,6 +3452,29 @@ function App() {
               title="Mood check-in"
             >Check in</button>
           )}
+          {taskTimerTaskId && (() => {
+            const activeTask = tasks.find(t => t.id === taskTimerTaskId);
+            const label = activeTask?.title || 'Task';
+            return (
+              <button
+                className={`toolbar-timer-pill ${taskTimerRunning ? 'running' : 'paused'}`}
+                onClick={() => {
+                  if (taskTimerRunning) {
+                    handleStopTaskTimer();
+                  } else {
+                    // Resume — restart from where we left off
+                    taskTimerStartRef.current = Date.now() - taskTimerElapsed;
+                    setTaskTimerRunning(true);
+                  }
+                }}
+                title={taskTimerRunning ? 'Stop task timer' : 'Resume task timer'}
+              >
+                <span className={`toolbar-timer-dot ${taskTimerRunning ? 'running' : ''}`} />
+                <span className="toolbar-timer-time">{formatTimer(Math.floor(taskTimerElapsed / 1000))}</span>
+                <span className="toolbar-timer-scene">{label}</span>
+              </button>
+            );
+          })()}
           <button
             className="icon-btn"
             onClick={() => setShowSearch(true)}
