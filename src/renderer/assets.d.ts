@@ -41,6 +41,7 @@ interface Window {
     saveNoteImage: (projectPath: string, imageData: string, fileName: string) => Promise<{ success: boolean; data?: string; error?: string }>;
     selectNoteImage: (projectPath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
     printToPDF: (html: string) => Promise<{ success: boolean; data?: number[]; error?: string }>;
+    exportFile: (data: number[], defaultName: string, filters: { name: string; extensions: string[] }[]) => Promise<{ success: boolean; cancelled?: boolean; filePath?: string; error?: string }>;
     readAnalytics: (projectPath: string) => Promise<{ success: boolean; data?: any; error?: string }>;
     saveAnalytics: (projectPath: string, data: any) => Promise<{ success: boolean; error?: string }>;
     openFeedbackEmail: (category: string, message: string) => Promise<{ success: boolean; error?: string }>;

@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, type CSSProperties } from 'react';
 import { Scene, Character, PlotPoint, BraidedChapter, MetadataFieldDef } from '../../shared/types';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
-import { saveAs } from 'file-saver';
 import { track } from '../utils/posthogTracker';
 
 interface CompileModalProps {
@@ -76,12 +75,6 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
   const [exportComplete, setExportComplete] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (exportComplete) {
-      const timer = setTimeout(() => onClose(), 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [exportComplete, onClose]);
 
   // Output toggle options
   const [includeChapterHeadings, setIncludeChapterHeadings] = useState(true);
@@ -239,7 +232,9 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
     return html;
   };
 
-  const exportMarkdown = () => {
+  const safeFileName = title.replace(/[^a-z0-9]/gi, '_');
+
+  const exportMarkdown = async () => {
     let md = `# ${title}\n\n`;
     if (authorName) {
       md += `*by ${authorName}*\n\n`;
@@ -266,24 +261,20 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
       }
     });
 
-    const blob = new Blob([md], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const data = Array.from(new TextEncoder().encode(md));
+    const result = await window.electronAPI.exportFile(data, `${safeFileName}.md`, [{ name: 'Markdown', extensions: ['md'] }]);
+    if (!result.success && !result.cancelled) throw new Error(result.error || 'Export failed');
+    if (result.cancelled) return false;
+    return true;
   };
 
-  const exportHTML = () => {
+  const exportHTML = async () => {
     const html = buildExportHTML();
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const data = Array.from(new TextEncoder().encode(html));
+    const result = await window.electronAPI.exportFile(data, `${safeFileName}.html`, [{ name: 'HTML', extensions: ['html'] }]);
+    if (!result.success && !result.cancelled) throw new Error(result.error || 'Export failed');
+    if (result.cancelled) return false;
+    return true;
   };
 
   const exportDocx = async () => {
@@ -357,23 +348,24 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
     });
 
     const blob = await Packer.toBlob(doc);
-    saveAs(blob, `${title.replace(/[^a-z0-9]/gi, '_')}.docx`);
+    const arrayBuf = await blob.arrayBuffer();
+    const data = Array.from(new Uint8Array(arrayBuf));
+    const result = await window.electronAPI.exportFile(data, `${safeFileName}.docx`, [{ name: 'Word Document', extensions: ['docx'] }]);
+    if (!result.success && !result.cancelled) throw new Error(result.error || 'Export failed');
+    if (result.cancelled) return false;
+    return true;
   };
 
   const exportPDF = async () => {
     const html = buildExportHTML();
-    const result = await window.electronAPI.printToPDF(html);
-    if (result.success && result.data) {
-      const blob = new Blob([new Uint8Array(result.data)], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } else {
-      throw new Error(result.error || 'PDF export failed');
+    const pdfResult = await window.electronAPI.printToPDF(html);
+    if (!pdfResult.success || !pdfResult.data) {
+      throw new Error(pdfResult.error || 'PDF export failed');
     }
+    const result = await window.electronAPI.exportFile(pdfResult.data, `${safeFileName}.pdf`, [{ name: 'PDF', extensions: ['pdf'] }]);
+    if (!result.success && !result.cancelled) throw new Error(result.error || 'Export failed');
+    if (result.cancelled) return false;
+    return true;
   };
 
   const handleExport = async () => {
@@ -381,16 +373,17 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
     setExporting(true);
     setExportError(null);
     try {
+      let saved = true;
       if (format === 'md') {
-        exportMarkdown();
+        saved = await exportMarkdown();
       } else if (format === 'docx') {
-        await exportDocx();
+        saved = await exportDocx();
       } else if (format === 'pdf') {
-        await exportPDF();
+        saved = await exportPDF();
       } else {
-        exportHTML();
+        saved = await exportHTML();
       }
-      setExportComplete(true);
+      if (saved) setExportComplete(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Export failed';
       setExportError(message);
@@ -490,6 +483,9 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
               </div>
               <div className="compile-completion-icon">🚀</div>
               <div className="compile-completion-message">Your compile is complete!</div>
+              <button className="compile-error-close-btn" style={{ animationDelay: '0.4s' }} onClick={onClose}>
+                Close
+              </button>
             </div>
           </div>
         ) : exportError ? (

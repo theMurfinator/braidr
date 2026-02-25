@@ -341,9 +341,10 @@ export const IPC_CHANNELS = {
   RENAME_NOTE: 'rename-note',
   SAVE_NOTE_IMAGE: 'save-note-image',
   SELECT_NOTE_IMAGE: 'select-note-image',
-  // PDF export
+  // Export
   PRINT_TO_PDF: 'print-to-pdf',
   PRINT_PREVIEW: 'print-preview',
+  EXPORT_FILE: 'export-file',
   // Analytics
   READ_ANALYTICS: 'read-analytics',
   SAVE_ANALYTICS: 'save-analytics',

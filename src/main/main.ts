@@ -1185,6 +1185,23 @@ ipcMain.handle(IPC_CHANNELS.PRINT_PREVIEW, async (_event, html: string) => {
   }
 });
 
+// Export file via native save dialog
+ipcMain.handle(IPC_CHANNELS.EXPORT_FILE, async (_event, data: number[], defaultName: string, filters: { name: string; extensions: string[] }[]) => {
+  try {
+    const result = await dialog.showSaveDialog(mainWindow!, {
+      defaultPath: defaultName,
+      filters,
+    });
+    if (result.canceled || !result.filePath) {
+      return { success: false, cancelled: true };
+    }
+    fs.writeFileSync(result.filePath, Buffer.from(data));
+    return { success: true, filePath: result.filePath };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
 // PDF Export via hidden BrowserWindow
 ipcMain.handle(IPC_CHANNELS.PRINT_TO_PDF, async (_event, html: string) => {
   let pdfWindow: BrowserWindow | null = null;
