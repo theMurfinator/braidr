@@ -1403,7 +1403,8 @@
 /* Full-width views: scene-list fills container */
 .scene-list--editor,
 .scene-list--braided,
-.scene-list--notes {
+.scene-list--notes,
+.scene-list--pov {
   max-width: none;
   padding: 0;
   margin: 0;
@@ -4096,11 +4097,12 @@ textarea.scene-metadata-field-input {
 .pov-toc {
   width: 200px;
   flex-shrink: 0;
+  margin-left: auto;
   position: sticky;
   top: 0;
   max-height: calc(100vh - 120px);
   overflow-y: auto;
-  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   padding: 16px 0;
 }
 
