@@ -85,6 +85,8 @@ export default function TableView({
   const [newViewName, setNewViewName] = useState('');
   const [showFilterBuilder, setShowFilterBuilder] = useState(false);
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
+  const [filterCharacter, setFilterCharacter] = useState<string>('all');
+  const [filterTags, setFilterTags] = useState<Set<string>>(new Set());
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('table-visible-columns');
     return saved ? new Set(JSON.parse(saved)) : new Set(['scene', 'character', 'status', 'words', 'plotPoint']);
