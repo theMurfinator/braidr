@@ -2952,6 +2952,7 @@ textarea.scene-metadata-field-input {
 .to-braid-inbox {
   width: 320px;
   flex-shrink: 0;
+  margin-left: auto;
   background: var(--bg-secondary);
   padding: 0;
   border-left: 1px solid var(--border);
