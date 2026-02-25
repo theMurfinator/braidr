@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Scene, Character, PlotPoint, BraidedChapter, MetadataFieldDef } from '../../shared/types';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
@@ -73,6 +73,15 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'preview'>('settings');
+  const [exportComplete, setExportComplete] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (exportComplete) {
+      const timer = setTimeout(() => onClose(), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [exportComplete, onClose]);
 
   // Output toggle options
   const [includeChapterHeadings, setIncludeChapterHeadings] = useState(true);
@@ -353,27 +362,24 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
 
   const exportPDF = async () => {
     const html = buildExportHTML();
-    try {
-      const result = await window.electronAPI.printToPDF(html);
-      if (result.success && result.data) {
-        const blob = new Blob([new Uint8Array(result.data)], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        alert('PDF export failed: ' + (result.error || 'Unknown error'));
-      }
-    } catch (err) {
-      alert('PDF export failed. Make sure you are running the desktop app.');
+    const result = await window.electronAPI.printToPDF(html);
+    if (result.success && result.data) {
+      const blob = new Blob([new Uint8Array(result.data)], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      throw new Error(result.error || 'PDF export failed');
     }
   };
 
   const handleExport = async () => {
     track('compile_started', { format });
     setExporting(true);
+    setExportError(null);
     try {
       if (format === 'md') {
         exportMarkdown();
@@ -384,6 +390,10 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
       } else {
         exportHTML();
       }
+      setExportComplete(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Export failed';
+      setExportError(message);
     } finally {
       setExporting(false);
     }
@@ -428,6 +438,26 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
     return html;
   }, [title, authorName, previewItems, includeChapterHeadings, includeCharacterNames, includeSceneBreaks, includeSceneNumbers, draftContent, characters]);
 
+  const confettiPieces = useMemo(() => {
+    const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#00bcd4', '#4caf50', '#ffeb3b', '#ff9800'];
+    return Array.from({ length: 24 }, (_, i) => {
+      const angle = (i / 24) * 360 + (Math.random() * 30 - 15);
+      const distance = 80 + Math.random() * 120;
+      const x = Math.cos((angle * Math.PI) / 180) * distance;
+      const y = Math.sin((angle * Math.PI) / 180) * distance;
+      const rotation = Math.random() * 720 - 360;
+      return {
+        color: colors[i % colors.length],
+        style: {
+          '--confetti-x': `${x}px`,
+          '--confetti-y': `${y}px`,
+          '--confetti-r': `${rotation}deg`,
+          animationDelay: `${Math.random() * 0.15}s`,
+        } as React.CSSProperties,
+      };
+    });
+  }, [exportComplete]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal compile-modal" onClick={e => e.stopPropagation()}>
@@ -446,7 +476,34 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
           <button className="modal-close-btn" onClick={onClose}>×</button>
         </div>
 
-        {activeTab === 'settings' ? (
+        {exportComplete ? (
+          <div className="compile-modal-body">
+            <div className="compile-completion-overlay">
+              <div className="compile-confetti-container">
+                {confettiPieces.map((piece, i) => (
+                  <span
+                    key={i}
+                    className="compile-confetti-piece"
+                    style={{ backgroundColor: piece.color, ...piece.style }}
+                  />
+                ))}
+              </div>
+              <div className="compile-completion-icon">🚀</div>
+              <div className="compile-completion-message">Your compile is complete!</div>
+            </div>
+          </div>
+        ) : exportError ? (
+          <div className="compile-modal-body">
+            <div className="compile-completion-overlay error">
+              <div className="compile-completion-icon">⚠️</div>
+              <div className="compile-completion-message">Export failed</div>
+              <div className="compile-error-detail">{exportError}</div>
+              <button className="compile-error-close-btn" onClick={() => setExportError(null)}>
+                Try Again
+              </button>
+            </div>
+          </div>
+        ) : activeTab === 'settings' ? (
           <div className="compile-modal-body">
             {/* Title + Export controls */}
             <div className="compile-controls">
