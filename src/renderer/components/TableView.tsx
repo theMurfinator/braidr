@@ -758,6 +758,19 @@ export default function TableView({
       {/* Table */}
       <div className="table-view-wrapper">
         <table className="table-view-table">
+          <colgroup>
+            {orderedColumns
+              .filter(col => visibleColumns.has(col.id))
+              .map(col => (
+                <col
+                  key={col.id}
+                  style={{
+                    width: columnWidths[col.id] || 'auto',
+                    minWidth: columnWidths[col.id] || 120,
+                  }}
+                />
+              ))}
+          </colgroup>
           <thead>
             <tr>
               {orderedColumns

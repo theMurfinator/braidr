@@ -196,7 +196,13 @@ interface TagPickerProps {
 
 export function TagPicker({ selectedTags, availableTags, onCommit, onCancel: _onCancel }: TagPickerProps) {
   const [selected, setSelected] = useState<string[]>([...selectedTags]);
+  const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -214,23 +220,48 @@ export function TagPicker({ selectedTags, availableTags, onCommit, onCancel: _on
     );
   }
 
+  const query = search.toLowerCase();
+  const filtered = availableTags.filter(
+    (tag) => !query || tag.name.toLowerCase().includes(query)
+  );
+
   return (
     <div ref={ref} className="task-inline-dropdown">
-      {availableTags.map((tag) => (
-        <button
-          key={tag.id}
-          className="task-picker-checkbox"
-          onClick={() => toggle(tag.id)}
-        >
-          <input
-            type="checkbox"
-            checked={selected.includes(tag.id)}
-            readOnly
-            style={{ pointerEvents: 'none' }}
-          />
-          {tag.name}
-        </button>
-      ))}
+      <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>
+        <input
+          ref={inputRef}
+          type="text"
+          className="task-inline-input"
+          placeholder="Search tags..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onCommit(selected);
+          }}
+        />
+      </div>
+      <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+        {filtered.map((tag) => (
+          <button
+            key={tag.id}
+            className="task-picker-checkbox"
+            onClick={() => toggle(tag.id)}
+          >
+            <input
+              type="checkbox"
+              checked={selected.includes(tag.id)}
+              readOnly
+              style={{ pointerEvents: 'none' }}
+            />
+            {tag.name}
+          </button>
+        ))}
+        {filtered.length === 0 && (
+          <div style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: 12 }}>
+            No matching tags
+          </div>
+        )}
+      </div>
       <button
         className="task-inline-dropdown-option"
         style={{ borderTop: '1px solid var(--border)', fontWeight: 600 }}
