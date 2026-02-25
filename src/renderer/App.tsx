@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, TimeEntry } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -149,6 +149,18 @@ function App() {
   const [timerElapsed, setTimerElapsed] = useState(0); // seconds
   const [timerSceneKey, setTimerSceneKey] = useState<string | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRunningRef = useRef(false);
+
+  // Global task timer (persists across view changes)
+  const [taskTimerRunning, setTaskTimerRunning] = useState(false);
+  const [taskTimerElapsed, setTaskTimerElapsed] = useState(0); // milliseconds
+  const [taskTimerTaskId, setTaskTimerTaskId] = useState<string | null>(null);
+  const taskTimerStartRef = useRef<number | null>(null);
+  const taskTimerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const taskTimerRunningRef = useRef(false);
+
+  useEffect(() => { timerRunningRef.current = timerRunning; }, [timerRunning]);
+  useEffect(() => { taskTimerRunningRef.current = taskTimerRunning; }, [taskTimerRunning]);
 
   useEffect(() => {
     if (timerRunning) {
@@ -164,6 +176,20 @@ function App() {
     };
   }, [timerRunning]);
 
+  useEffect(() => {
+    if (taskTimerRunning && taskTimerStartRef.current) {
+      taskTimerIntervalRef.current = setInterval(() => {
+        setTaskTimerElapsed(Date.now() - taskTimerStartRef.current!);
+      }, 1000);
+    } else if (taskTimerIntervalRef.current) {
+      clearInterval(taskTimerIntervalRef.current);
+      taskTimerIntervalRef.current = null;
+    }
+    return () => {
+      if (taskTimerIntervalRef.current) clearInterval(taskTimerIntervalRef.current);
+    };
+  }, [taskTimerRunning]);
+
   const formatTimer = (totalSec: number) => {
     const hrs = Math.floor(totalSec / 3600);
     const mins = Math.floor((totalSec % 3600) / 60);
@@ -171,12 +197,6 @@ function App() {
     if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     return `${mins}:${String(secs).padStart(2, '0')}`;
   };
-
-  const handleStartTimer = useCallback((sceneKey: string) => {
-    setTimerSceneKey(sceneKey);
-    setTimerElapsed(0);
-    setTimerRunning(true);
-  }, []);
 
   const handleStopTimer = useCallback(() => {
     setTimerRunning(false);
@@ -210,6 +230,50 @@ function App() {
     setTimerElapsed(0);
     setTimerSceneKey(null);
   }, []);
+
+  const handleStopTaskTimer = useCallback(() => {
+    if (!taskTimerTaskId || !taskTimerStartRef.current) return;
+    const duration = Date.now() - taskTimerStartRef.current;
+    const entry: TimeEntry = {
+      id: crypto.randomUUID(),
+      startedAt: taskTimerStartRef.current,
+      duration,
+    };
+    setTasks(prev => prev.map(t =>
+      t.id === taskTimerTaskId
+        ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
+        : t
+    ));
+    setTaskTimerTaskId(null);
+    taskTimerStartRef.current = null;
+    setTaskTimerElapsed(0);
+    setTaskTimerRunning(false);
+  }, [taskTimerTaskId]);
+
+  const handleStartTaskTimer = useCallback((taskId: string) => {
+    // Stop scene timer if running (mutual exclusivity)
+    if (timerRunningRef.current) {
+      handleStopTimer();
+    }
+    // Stop any existing task timer
+    if (taskTimerTaskId) {
+      handleStopTaskTimer();
+    }
+    setTaskTimerTaskId(taskId);
+    taskTimerStartRef.current = Date.now();
+    setTaskTimerElapsed(0);
+    setTaskTimerRunning(true);
+  }, [handleStopTimer, taskTimerTaskId, handleStopTaskTimer]);
+
+  const handleStartTimer = useCallback((sceneKey: string) => {
+    // Stop task timer if running (mutual exclusivity)
+    if (taskTimerRunningRef.current) {
+      handleStopTaskTimer();
+    }
+    setTimerSceneKey(sceneKey);
+    setTimerElapsed(0);
+    setTimerRunning(true);
+  }, [handleStopTaskTimer]);
 
   const handleAddManualTime = useCallback((sceneKey: string, minutes: number) => {
     if (!analyticsRef.current || !projectData) return;
