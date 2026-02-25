@@ -13,6 +13,7 @@ interface PlotPointSectionProps {
   onTagsChange?: (sceneId: string, tags: string[]) => void;
   onCreateTag?: (name: string, category: 'people' | 'locations' | 'arcs' | 'things' | 'time') => void;
   onPlotPointChange?: (plotPointId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
+  onDeletePlotPoint?: (plotPointId: string) => void;
   onAddScene?: (plotPointId: string, afterSceneNumber?: number) => void;
   onDeleteScene?: (sceneId: string) => void;
   onDuplicateScene?: (sceneId: string) => void;
@@ -54,7 +55,7 @@ interface PlotPointSectionProps {
   onDateChange?: (sceneId: string, date: string | undefined) => void;
 }
 
-function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange, inlineMetadataFields, showInlineLabels, timelineDates, onDateChange }: PlotPointSectionProps) {
+function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onDeletePlotPoint, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange, inlineMetadataFields, showInlineLabels, timelineDates, onDateChange }: PlotPointSectionProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingCount, setIsEditingCount] = useState(false);
   // Ensure title always has a fallback value
@@ -270,6 +271,15 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
                 <>({sortedScenes.length}/{plotPoint.expectedSceneCount ?? '?'})</>
               )}
             </span>
+            {onDeletePlotPoint && (
+              <button
+                className="section-delete-btn"
+                onClick={() => onDeletePlotPoint(plotPoint.id)}
+                title="Delete section (scenes will be kept)"
+              >
+                ×
+              </button>
+            )}
           </div>
         )}
 

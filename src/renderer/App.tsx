@@ -2105,6 +2105,36 @@ function App() {
     }
   };
 
+  const handleDeletePlotPoint = async (plotPointId: string) => {
+    if (!projectData) return;
+
+    const plotPoint = projectData.plotPoints.find(p => p.id === plotPointId);
+    if (!plotPoint) return;
+
+    // Unassign scenes from this section (set plotPointId to null so they float)
+    const updatedScenes = projectData.scenes.map(s =>
+      s.plotPointId === plotPointId ? { ...s, plotPointId: null } : s
+    );
+
+    // Remove the plot point
+    const updatedPlotPoints = projectData.plotPoints.filter(p => p.id !== plotPointId);
+
+    const updatedData = { ...projectData, scenes: updatedScenes, plotPoints: updatedPlotPoints };
+    setProjectData(updatedData);
+
+    // Save to file
+    const character = projectData.characters.find(c => c.id === plotPoint.characterId);
+    if (character) {
+      const charScenes = updatedScenes.filter(s => s.characterId === character.id);
+      const charPlotPoints = updatedPlotPoints.filter(p => p.characterId === character.id);
+      try {
+        await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+      } catch (err) {
+        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
+      }
+    }
+  };
+
   const handleAddScene = async (plotPointId: string, afterSceneNumber?: number) => {
     if (!projectData || !selectedCharacterId) return;
 
@@ -3813,6 +3843,7 @@ function App() {
                     onTagsChange={handleTagsChange}
                     onCreateTag={handleCreateTag}
                     onPlotPointChange={handlePlotPointChange}
+                    onDeletePlotPoint={handleDeletePlotPoint}
                     onAddScene={handleAddScene}
                     onDeleteScene={handleArchiveScene}
                     onDuplicateScene={handleDuplicateScene}

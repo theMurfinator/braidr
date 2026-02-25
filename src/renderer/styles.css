@@ -1553,6 +1553,28 @@
   cursor: default;
 }
 
+.section-delete-btn {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font-size: 16px;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  margin-left: 8px;
+  line-height: 1;
+}
+
+.plot-point-header:hover .section-delete-btn {
+  opacity: 0.5;
+}
+
+.section-delete-btn:hover {
+  opacity: 1 !important;
+  color: #e94560;
+}
+
 .plot-point-title {
   font-size: var(--font-section-title-size);
   font-weight: var(--font-section-title-weight);
