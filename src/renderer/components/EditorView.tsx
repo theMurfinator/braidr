@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { track } from '../utils/posthogTracker';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -222,6 +222,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   selectedSceneKeyRef.current = selectedSceneKey;
   const onScratchpadChangeRef = useRef(onScratchpadChange);
   onScratchpadChangeRef.current = onScratchpadChange;
+  // Preserve sidebar scroll position across re-renders (timer ticks cause full re-render)
+  const metaPanelRef = useRef<HTMLDivElement>(null);
+  const metaScrollTopRef = useRef(0);
   const [navContextMenu, setNavContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
   const navContextMenuRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -780,6 +783,12 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     }
   }, [selectedSceneKey]);
 
+  // Restore sidebar scroll position after re-renders (esp. timer-driven ones)
+  useLayoutEffect(() => {
+    const el = metaPanelRef.current;
+    if (el) el.scrollTop = metaScrollTopRef.current;
+  });
+
   // Live word count (single-select mode)
   const singleWordCount = editor ? editor.getText().split(/\s+/).filter(Boolean).length : 0;
 
@@ -1316,7 +1325,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
 
       {/* Right: Metadata Panel */}
       {showMeta && <div className="editor-resize-handle" onMouseDown={e => handleResizeStart(e, 'meta')} />}
-      {showMeta && <div className="editor-meta" style={{ width: metaWidth }}>
+      {showMeta && <div className="editor-meta" ref={metaPanelRef} onScroll={e => { metaScrollTopRef.current = e.currentTarget.scrollTop; }} style={{ width: metaWidth }}>
         {/* Tab switcher */}
         <div className="editor-meta-tabs">
           <button

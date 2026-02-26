@@ -1906,12 +1906,9 @@
   white-space: nowrap;
 }
 
-.scene-content {
-  color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.7;
-  margin-left: 36px;
-}
+/* Note: .scene-content structural styles are at line ~1752.
+   Text styling (color, font-size, line-height) for scene description
+   text is handled by .scene-description inline styles in SceneCard. */
 
 .scene-tags {
   display: flex;
