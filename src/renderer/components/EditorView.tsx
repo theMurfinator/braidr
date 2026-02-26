@@ -64,6 +64,7 @@ interface EditorViewProps {
   typewriterMode?: boolean;
   tasks?: Task[];
   onTasksChange?: (tasks: Task[]) => void;
+  storagePrefix?: string;
 }
 
 export interface EditorViewHandle {
@@ -177,7 +178,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   typewriterMode: typewriterModeProp = false,
   tasks,
   onTasksChange,
+  storagePrefix,
 }, ref) {
+  const sk = (key: string) => storagePrefix ? `${key}-${storagePrefix}` : key;
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<Set<string>>(new Set());
   const [showStatusFilterDropdown, setShowStatusFilterDropdown] = useState(false);
@@ -186,26 +189,26 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null);
   const [showMetaEditor, setShowMetaEditor] = useState(false);
   const [showMeta, setShowMeta] = useState(() => {
-    const saved = localStorage.getItem('editor-show-meta');
+    const saved = localStorage.getItem(sk('editor-show-meta'));
     return saved !== null ? JSON.parse(saved) : true;
   });
   const [metaTab, setMetaTab] = useState<'scene' | 'meta'>(() => {
-    const saved = localStorage.getItem('editor-meta-tab');
+    const saved = localStorage.getItem(sk('editor-meta-tab'));
     return (saved === 'scene' || saved === 'meta') ? saved : 'scene';
   });
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [showNav, setShowNav] = useState(() => {
-    const saved = localStorage.getItem('editor-show-nav');
+    const saved = localStorage.getItem(sk('editor-show-nav'));
     return saved !== null ? JSON.parse(saved) : true;
   });
   const [navWidth, setNavWidth] = useState(() => {
-    const saved = localStorage.getItem('editor-nav-width');
+    const saved = localStorage.getItem(sk('editor-nav-width'));
     return saved !== null ? parseInt(saved, 10) : 260;
   });
   const [metaWidth, setMetaWidth] = useState(() => {
-    const saved = localStorage.getItem('editor-meta-width');
+    const saved = localStorage.getItem(sk('editor-meta-width'));
     return saved !== null ? parseInt(saved, 10) : 240;
   });
   const scratchpad = scratchpadProp || {};
@@ -228,12 +231,13 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const [navContextMenu, setNavContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
   const navContextMenuRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+  const editorViewRef = useRef<HTMLDivElement>(null);
 
   // Sidebar section management
   const DEFAULT_SECTION_ORDER = ['status', 'wordCount', 'tags', 'synopsis', 'scratchpad', 'comments', 'changes', 'linkedNotes', 'timeTracked'];
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('sidebarSectionOrder');
+      const saved = localStorage.getItem(sk('sidebarSectionOrder'));
       if (saved) {
         const parsed = JSON.parse(saved) as string[];
         // Merge in any new sections not in saved order
@@ -248,14 +252,14 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   });
   const [sectionHidden, setSectionHidden] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('sidebarSectionHidden');
+      const saved = localStorage.getItem(sk('sidebarSectionHidden'));
       if (saved) return JSON.parse(saved);
     } catch {}
     return {};
   });
   const [sectionCollapsed, setSectionCollapsed] = useState<Record<string, boolean>>(() => {
     try {
-      const saved = localStorage.getItem('sidebarSectionCollapsed');
+      const saved = localStorage.getItem(sk('sidebarSectionCollapsed'));
       if (saved) return JSON.parse(saved);
     } catch {}
     return {};
@@ -302,7 +306,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const statusPillRef = useRef<HTMLDivElement>(null);
   const [showToolbar, setShowToolbar] = useState(() => {
-    const saved = localStorage.getItem('editor-show-toolbar');
+    const saved = localStorage.getItem(sk('editor-show-toolbar'));
     return saved !== null ? JSON.parse(saved) : true;
   });
 
@@ -408,38 +412,38 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
 
   // Persist panel state
   useEffect(() => {
-    localStorage.setItem('editor-show-nav', JSON.stringify(showNav));
+    localStorage.setItem(sk('editor-show-nav'), JSON.stringify(showNav));
   }, [showNav]);
 
   useEffect(() => {
-    localStorage.setItem('editor-show-meta', JSON.stringify(showMeta));
+    localStorage.setItem(sk('editor-show-meta'), JSON.stringify(showMeta));
   }, [showMeta]);
 
   useEffect(() => {
-    localStorage.setItem('editor-nav-width', navWidth.toString());
+    localStorage.setItem(sk('editor-nav-width'), navWidth.toString());
   }, [navWidth]);
 
   useEffect(() => {
-    localStorage.setItem('editor-meta-width', metaWidth.toString());
+    localStorage.setItem(sk('editor-meta-width'), metaWidth.toString());
   }, [metaWidth]);
 
   useEffect(() => {
-    localStorage.setItem('editor-meta-tab', metaTab);
+    localStorage.setItem(sk('editor-meta-tab'), metaTab);
   }, [metaTab]);
 
   useEffect(() => {
-    localStorage.setItem('editor-show-toolbar', JSON.stringify(showToolbar));
+    localStorage.setItem(sk('editor-show-toolbar'), JSON.stringify(showToolbar));
   }, [showToolbar]);
 
   // Persist sidebar section prefs
   useEffect(() => {
-    localStorage.setItem('sidebarSectionOrder', JSON.stringify(sectionOrder));
+    localStorage.setItem(sk('sidebarSectionOrder'), JSON.stringify(sectionOrder));
   }, [sectionOrder]);
   useEffect(() => {
-    localStorage.setItem('sidebarSectionHidden', JSON.stringify(sectionHidden));
+    localStorage.setItem(sk('sidebarSectionHidden'), JSON.stringify(sectionHidden));
   }, [sectionHidden]);
   useEffect(() => {
-    localStorage.setItem('sidebarSectionCollapsed', JSON.stringify(sectionCollapsed));
+    localStorage.setItem(sk('sidebarSectionCollapsed'), JSON.stringify(sectionCollapsed));
   }, [sectionCollapsed]);
 
   // Close section settings popover on outside click
@@ -871,9 +875,10 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showStatusFilterDropdown]);
 
-  // Keyboard shortcuts: Cmd+[ toggles nav, Cmd+] toggles meta
+  // Keyboard shortcuts: Cmd+[ toggles nav, Cmd+] toggles meta (only in active pane)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!editorViewRef.current?.closest('.leaf-pane.active')) return;
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? e.metaKey : e.ctrlKey;
       if (modifier && e.key === '[') {
@@ -1117,7 +1122,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   };
 
   return (
-    <div className="editor-view" style={{ display: 'flex', flex: 1, height: '100%', minHeight: 0, width: '100%' }}>
+    <div ref={editorViewRef} className="editor-view" style={{ display: 'flex', flex: 1, height: '100%', minHeight: 0, width: '100%' }}>
       {/* Left: Scene Navigator */}
       {showNav && <div className="editor-nav" style={{ width: navWidth }}>
         <div className="editor-nav-filter">

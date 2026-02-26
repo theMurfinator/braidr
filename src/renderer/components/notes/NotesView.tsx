@@ -14,6 +14,7 @@ interface NotesViewProps {
   tags: Tag[];
   initialNoteId?: string | null;
   onNoteNavigated?: () => void;
+  storagePrefix?: string;
 }
 
 // Remove wikilink spans with a given targetId from HTML
@@ -134,7 +135,8 @@ async function migrateNotesIndex(oldIndex: any, projectPath: string): Promise<No
   return { notes: newNotes, version: 2 };
 }
 
-export default function NotesView({ projectPath, scenes, characters, tags, initialNoteId, onNoteNavigated }: NotesViewProps) {
+export default function NotesView({ projectPath, scenes, characters, tags, initialNoteId, onNoteNavigated, storagePrefix }: NotesViewProps) {
+  const sk = (key: string) => storagePrefix ? `${key}-${storagePrefix}` : key;
   const { addToast } = useToast();
   const [notesIndex, setNotesIndex] = useState<NotesIndex>({ notes: [], version: 2 });
   const [selectedNoteId, _setSelectedNoteId] = useState<string | null>(
@@ -149,24 +151,25 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
   const [noteContentLoaded, setNoteContentLoaded] = useState(false);
   const [noteLoading, setNoteLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('braidr-notes-sidebar-collapsed');
+    const saved = localStorage.getItem(sk('braidr-notes-sidebar-collapsed'));
     return saved !== null ? saved === 'true' : false;
   });
   const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = localStorage.getItem('braidr-notes-sidebar-width');
+    const saved = localStorage.getItem(sk('braidr-notes-sidebar-width'));
     return saved ? parseInt(saved, 10) : 280;
   });
   const [backlinksPanelCollapsed, setBacklinksPanelCollapsed] = useState(() => {
-    const saved = localStorage.getItem('braidr-notes-backlinks-collapsed');
+    const saved = localStorage.getItem(sk('braidr-notes-backlinks-collapsed'));
     return saved !== null ? saved === 'true' : false;
   });
   const [backlinksWidth, setBacklinksWidth] = useState(() => {
-    const saved = localStorage.getItem('braidr-notes-backlinks-width');
+    const saved = localStorage.getItem(sk('braidr-notes-backlinks-width'));
     return saved ? parseInt(saved, 10) : 240;
   });
   const indexRef = useRef(notesIndex);
   indexRef.current = notesIndex;
   const draggingRef = useRef<{ panel: 'sidebar' | 'backlinks'; startX: number; initialWidth: number } | null>(null);
+  const notesViewRef = useRef<HTMLDivElement>(null);
 
   // Load notes index on mount
   useEffect(() => {
@@ -191,9 +194,10 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     }
   }, [initialNoteId, notesIndex.notes]);
 
-  // Keyboard shortcuts: Cmd+N new note, Cmd+[ toggle sidebar, Cmd+] toggle backlinks
+  // Keyboard shortcuts: Cmd+N new note, Cmd+[ toggle sidebar, Cmd+] toggle backlinks (only in active pane)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!notesViewRef.current?.closest('.leaf-pane.active')) return;
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? e.metaKey : e.ctrlKey;
       if (modifier && e.key === 'n') {
@@ -213,19 +217,19 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
 
   // Persist panel widths and collapsed states
   useEffect(() => {
-    localStorage.setItem('braidr-notes-sidebar-width', sidebarWidth.toString());
+    localStorage.setItem(sk('braidr-notes-sidebar-width'), sidebarWidth.toString());
   }, [sidebarWidth]);
 
   useEffect(() => {
-    localStorage.setItem('braidr-notes-backlinks-width', backlinksWidth.toString());
+    localStorage.setItem(sk('braidr-notes-backlinks-width'), backlinksWidth.toString());
   }, [backlinksWidth]);
 
   useEffect(() => {
-    localStorage.setItem('braidr-notes-sidebar-collapsed', String(sidebarCollapsed));
+    localStorage.setItem(sk('braidr-notes-sidebar-collapsed'), String(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
   useEffect(() => {
-    localStorage.setItem('braidr-notes-backlinks-collapsed', String(backlinksPanelCollapsed));
+    localStorage.setItem(sk('braidr-notes-backlinks-collapsed'), String(backlinksPanelCollapsed));
   }, [backlinksPanelCollapsed]);
 
   // Panel resize drag handling
@@ -599,7 +603,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
   const selectedNote = notesIndex.notes.find(n => n.id === selectedNoteId);
 
   return (
-    <div className="notes-view">
+    <div ref={notesViewRef} className="notes-view">
       {!sidebarCollapsed && (
         <>
           <NotesSidebar

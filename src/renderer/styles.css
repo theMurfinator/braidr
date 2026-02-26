@@ -16154,3 +16154,257 @@ textarea.table-cell-input {
     opacity: 0;
   }
 }
+
+/* ============================================
+   TAB BAR
+   ============================================ */
+
+.tab-bar {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  min-height: 34px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-bottom: 1px solid var(--border, #e0e0e0);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-app-region: no-drag;
+  padding: 0 4px;
+  gap: 1px;
+}
+
+.tab-bar::-webkit-scrollbar {
+  height: 0;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, sans-serif);
+  color: var(--text-muted, #888);
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  gap: 5px;
+  max-width: 180px;
+  position: relative;
+  transition: background 0.1s, color 0.1s;
+  user-select: none;
+}
+
+.tab-item:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+  color: var(--text-secondary, #555);
+}
+
+.tab-item.active {
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary, #222);
+  box-shadow: 0 1px 0 var(--bg-primary, #fff);
+}
+
+.tab-item.dragging {
+  opacity: 0.5;
+}
+
+.tab-item.drop-target {
+  border-left: 2px solid var(--accent, #4a9eff);
+}
+
+.tab-icon {
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.tab-item.active .tab-icon {
+  opacity: 0.8;
+}
+
+.tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  flex-shrink: 0;
+  color: var(--text-muted, #888);
+  transition: opacity 0.1s, background 0.1s;
+}
+
+.tab-item:hover .tab-close {
+  opacity: 0.6;
+}
+
+.tab-close:hover {
+  opacity: 1 !important;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.tab-bar-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+}
+
+.tab-bar-add:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+  color: var(--text-secondary, #555);
+}
+
+/* Pane containers (for Phase 2 split panes) */
+.leaf-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+
+.tab-content-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ===== Pane Manager & Split Panes ===== */
+
+.pane-manager {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.split-pane-container {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.split-pane-container.horizontal {
+  flex-direction: row;
+}
+
+.split-pane-container.vertical {
+  flex-direction: column;
+}
+
+.split-pane-child {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pane-resize-handle {
+  flex-shrink: 0;
+  background: var(--border-color, #e0e0e0);
+  transition: background-color 0.15s;
+  position: relative;
+  z-index: 5;
+}
+
+.pane-resize-handle.horizontal {
+  width: 3px;
+  cursor: col-resize;
+}
+
+.pane-resize-handle.vertical {
+  height: 3px;
+  cursor: row-resize;
+}
+
+.pane-resize-handle:hover,
+.pane-resize-handle:active {
+  background: var(--accent-color, #4a9eff);
+}
+
+/* Active pane indicator (only visible in split layout) */
+.split-pane-container .leaf-pane.active {
+  outline: 2px solid var(--accent-color, #4a9eff);
+  outline-offset: -2px;
+}
+
+/* Close pane button (visible in split layout) */
+.pane-close-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+/* When tab bar is visible, push close button below it */
+.leaf-pane:has(.tab-bar) > .pane-close-btn {
+  top: 40px;
+}
+
+.leaf-pane:hover > .pane-close-btn {
+  opacity: 1;
+}
+
+.pane-close-btn:hover {
+  background: var(--bg-hover, #e0e0e0);
+  color: var(--text-primary, #333);
+}
+
+/* Split button in tab bar */
+.tab-bar-split {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-muted, #888);
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  margin-left: 2px;
+  opacity: 0.6;
+}
+
+.tab-bar-split:hover {
+  background: var(--hover-bg, rgba(0,0,0,0.05));
+  opacity: 1;
+}

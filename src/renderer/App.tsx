@@ -32,6 +32,12 @@ import TourOverlay from './components/TourOverlay';
 import braidrIcon from './assets/braidr-icon.png';
 import braidrLogo from './assets/braidr-logo.png';
 import { track } from './utils/posthogTracker';
+import { TabParams, defaultTabTitle } from '../shared/paneTypes';
+import { PaneProvider } from './components/panes/PaneContext';
+import { ViewRendererProvider } from './components/panes/TabContent';
+import { usePaneLayout, createTab } from './components/panes/usePaneLayout';
+import { findLeafPane, findTabByType } from './components/panes/paneUtils';
+import PaneManager from './components/panes/PaneManager';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
@@ -47,9 +53,27 @@ function App() {
     canRedo,
   } = useHistory<ProjectData | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
-  const [viewMode, _setViewMode] = useState<ViewMode>('pov');
+
+  // Pane/tab system
+  const { layout: paneLayout, dispatch: paneDispatch } = usePaneLayout();
+  const activePane = findLeafPane(paneLayout.root, paneLayout.activePaneId);
+  const activePaneRef = activePane || (paneLayout.root as import('../shared/paneTypes').LeafPane);
+  const activeTab = activePaneRef.tabs.find(t => t.id === activePaneRef.activeTabId) || activePaneRef.tabs[0];
+
+  // Derive viewMode from active tab for backward compatibility
+  const viewMode = (activeTab?.params.type || 'pov') as ViewMode;
   const setViewMode = (mode: ViewMode) => {
-    _setViewMode(mode);
+    // Open or activate a tab of this type in the active pane
+    const pane = findLeafPane(paneLayout.root, paneLayout.activePaneId);
+    if (pane) {
+      const existingTabId = findTabByType(pane, mode);
+      if (existingTabId) {
+        paneDispatch({ type: 'SET_ACTIVE_TAB', paneId: pane.id, tabId: existingTabId });
+      } else {
+        const tab = createTab({ type: mode } as TabParams, defaultTabTitle(mode));
+        paneDispatch({ type: 'OPEN_TAB', paneId: pane.id, tab, makeActive: true });
+      }
+    }
     localStorage.setItem('braidr-last-view-mode', mode);
     track('screen_viewed', { screen: mode });
   };
@@ -61,7 +85,7 @@ function App() {
   const [showTagManager, setShowTagManager] = useState(false);
   const [showPovColors, setShowPovColors] = useState(true);
   const [allNotesExpanded, setAllNotesExpanded] = useState<boolean | null>(null);
-  const [hideSectionHeaders, setHideSectionHeaders] = useState(false);
+  const [hideSectionHeaders, setHideSectionHeaders] = useState<Record<string, boolean>>({});
   const [inlineMetadataFields, setInlineMetadataFields] = useState<string[]>([]);
   const inlineMetadataFieldsRef = useRef<string[]>([]);
   const [showInlineLabels, setShowInlineLabels] = useState(true);
@@ -91,7 +115,7 @@ function App() {
   const [braidedSubMode, setBraidedSubMode] = useState<BraidedSubMode>('list');
   const [showRailsConnections, setShowRailsConnections] = useState(true);
   const [listFloatingEditor, setListFloatingEditor] = useState<Scene | null>(null);
-  const [listInboxCharFilter, setListInboxCharFilter] = useState<string>('all');
+  const [listInboxCharFilter, setListInboxCharFilter] = useState<Record<string, string>>({});
   const [editorInitialSceneKey, setEditorInitialSceneKey] = useState<string | null>(null);
   const lastEditorSceneKeyRef = useRef<string | null>(localStorage.getItem('braidr-last-editor-scene'));
   const scrollToSceneIdRef = useRef<string | null>(null);
@@ -556,11 +580,62 @@ function App() {
         e.preventDefault();
         setShowSearch(prev => !prev);
       }
+
+      // Tab keyboard shortcuts
+      if (modifier && e.key === 't' && !e.shiftKey) {
+        // Cmd+T: New tab
+        e.preventDefault();
+        const tab = createTab({ type: 'editor' } as TabParams, defaultTabTitle('editor'));
+        paneDispatch({ type: 'OPEN_TAB', paneId: paneLayout.activePaneId, tab, makeActive: true });
+      }
+      if (modifier && e.key === 'r' && !e.shiftKey) {
+        // Cmd+R: Split right with new blank tab
+        e.preventDefault();
+        paneDispatch({ type: 'SPLIT_PANE', paneId: paneLayout.activePaneId, direction: 'horizontal' });
+      }
+      if (modifier && e.key === 'w' && e.shiftKey) {
+        // Cmd+Shift+W: Close active pane (unsplit)
+        e.preventDefault();
+        paneDispatch({ type: 'CLOSE_PANE', paneId: paneLayout.activePaneId });
+      }
+      if (modifier && e.key === 'w' && !e.shiftKey) {
+        // Cmd+W: Close active tab
+        e.preventDefault();
+        const pane = findLeafPane(paneLayout.root, paneLayout.activePaneId);
+        if (pane && pane.tabs.length > 1) {
+          paneDispatch({ type: 'CLOSE_TAB', paneId: pane.id, tabId: pane.activeTabId });
+        }
+      }
+      if (modifier && e.shiftKey && e.key === ']') {
+        // Cmd+Shift+]: Next tab
+        e.preventDefault();
+        const pane = findLeafPane(paneLayout.root, paneLayout.activePaneId);
+        if (pane && pane.tabs.length > 1) {
+          const idx = pane.tabs.findIndex(t => t.id === pane.activeTabId);
+          const nextIdx = (idx + 1) % pane.tabs.length;
+          paneDispatch({ type: 'SET_ACTIVE_TAB', paneId: pane.id, tabId: pane.tabs[nextIdx].id });
+        }
+      }
+      if (modifier && e.shiftKey && e.key === '[') {
+        // Cmd+Shift+[: Previous tab
+        e.preventDefault();
+        const pane = findLeafPane(paneLayout.root, paneLayout.activePaneId);
+        if (pane && pane.tabs.length > 1) {
+          const idx = pane.tabs.findIndex(t => t.id === pane.activeTabId);
+          const prevIdx = (idx - 1 + pane.tabs.length) % pane.tabs.length;
+          paneDispatch({ type: 'SET_ACTIVE_TAB', paneId: pane.id, tabId: pane.tabs[prevIdx].id });
+        }
+      }
+      if (modifier && e.key === '\\' && !e.shiftKey) {
+        // Cmd+\: Split pane horizontally (side-by-side)
+        e.preventDefault();
+        paneDispatch({ type: 'SPLIT_PANE', paneId: paneLayout.activePaneId, direction: 'horizontal' });
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [undoProjectData, redoProjectData]);
+  }, [undoProjectData, redoProjectData, paneLayout, paneDispatch]);
 
   // Initialize session tracker when project loads
   useEffect(() => {
@@ -1061,11 +1136,7 @@ function App() {
       setSelectedCharacterId(data.characters[0].id);
     }
 
-    // Restore last view mode
-    const savedViewMode = localStorage.getItem('braidr-last-view-mode') as ViewMode | null;
-    if (savedViewMode && ['pov', 'braided', 'editor', 'notes', 'tasks', 'timeline', 'analytics', 'account'].includes(savedViewMode)) {
-      _setViewMode(savedViewMode);
-    }
+    // View mode is now restored via the pane layout system (usePaneLayout)
 
     // Add to recent projects with summary stats
     const totalWordCount = data.wordCounts
@@ -3133,7 +3204,804 @@ function App() {
     }
   };
 
+  // Render function for pane system — maps TabParams to the appropriate view JSX
+  const renderView = (tabParams: TabParams, tabId: string): React.ReactElement | null => {
+    const mode = tabParams.type as ViewMode;
+    return (
+      <div
+        className={`main-content main-content--${mode}`}
+        style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account'
+          ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, overflow: 'hidden' }
+          : undefined}
+      >
+        {loading ? (
+          <div className="loading">Loading...</div>
+        ) : (
+          <div
+            className={`scene-list scene-list--${mode}`}
+            ref={mode === viewMode ? sceneListRef : undefined}
+            style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account'
+              ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, margin: 0, maxWidth: 'none', minHeight: 0 }
+              : undefined}
+          >
+            {mode === 'account' ? (
+              <AccountView
+                licenseStatus={licenseStatus}
+                onLicenseChange={() => {
+                  (window as any).electronAPI?.getLicenseStatus?.().then((result: any) => {
+                    if (result.success) setLicenseStatus(result.data);
+                  });
+                }}
+              />
+            ) : mode === 'analytics' ? (
+              <WordCountDashboard
+                scenes={projectData.scenes}
+                characters={projectData.characters}
+                plotPoints={projectData.plotPoints}
+                characterColors={characterColors}
+                draftContent={draftContent}
+                sceneMetadata={sceneMetadata}
+                metadataFieldDefs={metadataFieldDefs}
+                wordCountGoal={wordCountGoal}
+                projectPath={projectData.projectPath}
+                onGoalChange={handleWordCountGoalChange}
+                sceneSessions={sceneSessions}
+                customCheckinCategories={analyticsRef.current?.customCheckinCategories}
+              />
+            ) : mode === 'notes' ? (
+              <NotesView
+                projectPath={projectData.projectPath}
+                scenes={projectData.scenes}
+                characters={projectData.characters}
+                tags={projectData.tags}
+                initialNoteId={pendingNoteId}
+                onNoteNavigated={() => setPendingNoteId(null)}
+                storagePrefix={tabId}
+              />
+            ) : mode === 'tasks' ? (
+              <TasksView
+                tasks={tasks}
+                taskFieldDefs={taskFieldDefs}
+                taskViews={taskViews}
+                tags={projectData.tags}
+                characters={projectData.characters}
+                scenes={projectData.scenes}
+                onTasksChange={handleTasksChange}
+                onTaskFieldDefsChange={handleTaskFieldDefsChange}
+                onTaskViewsChange={handleTaskViewsChange}
+                initialColumnWidths={taskColumnWidths}
+                initialVisibleColumns={taskVisibleColumns}
+                onColumnConfigChange={handleTaskColumnConfigChange}
+                activeTimerTaskId={taskTimerTaskId}
+                taskTimerElapsed={taskTimerElapsed}
+                onStartTimer={handleStartTaskTimer}
+                onStopTimer={handleStopTaskTimer}
+              />
+            ) : mode === 'timeline' ? (
+              <TimelineView
+                scenes={projectData.scenes}
+                characters={projectData.characters}
+                characterColors={characterColors}
+                tags={projectData.tags}
+                plotPoints={projectData.plotPoints}
+                timelineDates={timelineDates}
+                worldEvents={worldEvents}
+                connections={sceneConnections}
+                onTimelineDatesChange={handleTimelineDatesChange}
+                onWorldEventsChange={handleWorldEventsChange}
+                onSceneChange={handleSceneChange}
+                onTagsChange={handleTagsChange}
+                onCreateTag={handleCreateTag}
+                onRemoveConnection={handleRemoveConnection}
+              />
+            ) : mode === 'editor' ? (
+              <EditorView
+                ref={editorViewRef}
+                storagePrefix={tabId}
+                scenes={projectData.scenes}
+                characters={projectData.characters}
+                plotPoints={projectData.plotPoints}
+                tags={projectData.tags}
+                characterColors={characterColors}
+                draftContent={draftContent}
+                sceneMetadata={sceneMetadata}
+                metadataFieldDefs={metadataFieldDefs}
+                drafts={drafts}
+                sceneSessions={sceneSessions}
+                onDraftChange={handleDraftChange}
+                onSaveDraft={handleSaveDraft}
+                onMetadataChange={handleMetadataChange}
+                onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                onTagsChange={handleTagsChange}
+                onNotesChange={(sceneId, notes) => {
+                  const scene = projectData.scenes.find(s => s.id === sceneId);
+                  if (scene) handleSceneChange(sceneId, scene.content, notes);
+                }}
+                onSceneContentChange={(sceneId, newContent) => {
+                  const scene = projectData.scenes.find(s => s.id === sceneId);
+                  if (scene) handleSceneChange(sceneId, newContent, scene.notes);
+                }}
+                onCreateTag={handleCreateTag}
+                onWordCountChange={handleWordCountChange}
+                initialSceneKey={editorInitialSceneKey || lastEditorSceneKeyRef.current}
+                onSceneSelect={(key) => { lastEditorSceneKeyRef.current = key; localStorage.setItem('braidr-last-editor-scene', key); }}
+                onGoToPov={handleGoToPov}
+                onGoToBraid={handleGoToBraid}
+                sceneTodos={allSceneTodos}
+                onTodoToggle={handleTodoToggle}
+                onAddInlineTodo={handleAddInlineTodo}
+                onRemoveInlineTodo={handleRemoveInlineTodo}
+                timerRunning={timerRunning}
+                timerElapsed={timerElapsed}
+                timerSceneKey={timerSceneKey}
+                onStartTimer={handleStartTimer}
+                onStopTimer={handleStopTimer}
+                onResetTimer={handleResetTimer}
+                onAddManualTime={handleAddManualTime}
+                onDeleteSession={handleDeleteSession}
+                sceneSessionsByDate={(sceneKey: string) => getSceneSessionsByDate(sceneSessions, sceneKey)}
+                sceneSessionsList={(sceneKey: string) => getSceneSessionsList(sceneSessions, sceneKey)}
+                notesIndex={searchNotesIndex}
+                onGoToNote={(noteId: string) => { setPendingNoteId(noteId); setViewMode('notes'); }}
+                scratchpad={scratchpadContent}
+                onScratchpadChange={handleScratchpadChange}
+                sceneComments={sceneComments}
+                onAddComment={handleAddComment}
+                onDeleteComment={handleDeleteComment}
+                onDeleteScene={handleArchiveScene}
+                onDuplicateScene={handleDuplicateScene}
+                typewriterMode={typewriterMode}
+                tasks={tasks}
+                onTasksChange={handleTasksChange}
+              />
+            ) : mode === 'pov' ? (
+              // POV View with plot points and table of contents
+              <div className={`pov-layout ${isConnecting ? 'is-connecting' : ''}`}>
+                <div className="pov-content">
+                {isConnecting && (
+                  <div className="connecting-banner">
+                    Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
+                  </div>
+                )}
+                {displayedPlotPoints.map((plotPoint, index) => (
+                  <PlotPointSection
+                    key={plotPoint.id}
+                    plotPoint={plotPoint}
+                    scenes={displayedScenes.filter(s => s.plotPointId === plotPoint.id)}
+                    tags={projectData.tags}
+                    onSceneChange={handleSceneChange}
+                    onTagsChange={handleTagsChange}
+                    onCreateTag={handleCreateTag}
+                    onPlotPointChange={handlePlotPointChange}
+                    onDeletePlotPoint={handleDeletePlotPoint}
+                    onAddScene={handleAddScene}
+                    onDeleteScene={handleArchiveScene}
+                    onDuplicateScene={handleDuplicateScene}
+                    onMoveUp={() => handleMoveSectionUp(plotPoint.id)}
+                    onMoveDown={() => handleMoveSectionDown(plotPoint.id)}
+                    isFirst={index === 0}
+                    isLast={index === displayedPlotPoints.length - 1}
+                    forceNotesExpanded={allNotesExpanded}
+                    onSceneMoveUp={handlePovSceneMoveUp}
+                    onSceneMoveDown={handlePovSceneMoveDown}
+                    allCharacterScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
+                    onSceneDragStart={(scene) => setDraggedPovScene(scene)}
+                    onSceneDragEnd={() => setDraggedPovScene(null)}
+                    onSceneDrop={handlePovSceneDrop}
+                    draggedScene={draggedPovScene}
+                    hideHeader={hideSectionHeaders[tabId] ?? false}
+                    getConnectedScenes={getConnectedScenes}
+                    onStartConnection={(sceneId) => {
+                      setConnectionSource(sceneId);
+                      setIsConnecting(true);
+                    }}
+                    onRemoveConnection={handleRemoveConnection}
+                    isConnecting={isConnecting}
+                    onWordCountChange={handleWordCountChange}
+                    getConnectableScenes={getConnectableScenes}
+                    onCompleteConnection={handleCompleteConnection}
+                    onOpenInEditor={handleOpenInEditor}
+                    metadataFieldDefs={metadataFieldDefs}
+                    sceneMetadata={sceneMetadata}
+                    onMetadataChange={(sceneId, fieldId, value) => {
+                      const scene = projectData.scenes.find(s => s.id === sceneId);
+                      if (scene) {
+                        const sceneKey = `${scene.characterId}:${scene.sceneNumber}`;
+                        handleMetadataChange(sceneKey, fieldId, value);
+                      }
+                    }}
+                    onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                    inlineMetadataFields={inlineMetadataFields}
+                    showInlineLabels={showInlineLabels}
+                    timelineDates={timelineDates}
+                    onDateChange={handleSceneDateChange}
+                    onSceneClick={(sceneId) => {
+                      if (isConnecting && connectionSource && connectionSource !== sceneId && projectData) {
+                        const sourceConnections = sceneConnections[connectionSource] || [];
+                        const targetConnections = sceneConnections[sceneId] || [];
+                        if (!sourceConnections.includes(sceneId)) {
+                          const newConnections = {
+                            ...sceneConnections,
+                            [connectionSource]: [...sourceConnections, sceneId],
+                            [sceneId]: [...targetConnections, connectionSource],
+                          };
+                          setSceneConnections(newConnections);
+                          saveTimelineData(projectData.scenes, newConnections, braidedChapters);
+                        }
+                        setIsConnecting(false);
+                        setConnectionSource(null);
+                      }
+                    }}
+                  />
+                ))}
+                {displayedScenes.filter(s => !s.plotPointId).map(scene => (
+                  <SceneCard
+                    key={scene.id}
+                    scene={scene}
+                    tags={projectData.tags}
+                    showCharacter={false}
+                    onSceneChange={handleSceneChange}
+                    onTagsChange={handleTagsChange}
+                    onCreateTag={handleCreateTag}
+                    onDeleteScene={handleArchiveScene}
+                    onDuplicateScene={handleDuplicateScene}
+                    forceNotesExpanded={allNotesExpanded}
+                    connectedScenes={getConnectedScenes(scene.id)}
+                    onStartConnection={() => {
+                      setConnectionSource(scene.id);
+                      setIsConnecting(true);
+                    }}
+                    onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
+                    metadataFieldDefs={metadataFieldDefs}
+                    sceneMetadata={sceneMetadata[`${scene.characterId}:${scene.sceneNumber}`]}
+                    onMetadataChange={(sceneId, fieldId, value) => {
+                      const s = projectData.scenes.find(sc => sc.id === sceneId);
+                      if (s) {
+                        handleMetadataChange(`${s.characterId}:${s.sceneNumber}`, fieldId, value);
+                      }
+                    }}
+                    onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                    inlineMetadataFields={inlineMetadataFields}
+                    showInlineLabels={showInlineLabels}
+                    onWordCountChange={handleWordCountChange}
+                    onOpenInEditor={handleOpenInEditor}
+                    sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
+                    onDateChange={handleSceneDateChange}
+                  />
+                ))}
+                <button className="add-section-btn" onClick={handleCreatePlotPoint}>
+                  + Add Section
+                </button>
+                </div>
+
+                {!(hideSectionHeaders[tabId] ?? false) && displayedPlotPoints.length > 0 && (
+                  <div className="pov-toc">
+                    <h3 className="toc-title">Sections</h3>
+                    <div className="toc-items">
+                      {displayedPlotPoints.map((plotPoint) => {
+                        const sectionScenes = displayedScenes.filter(s => s.plotPointId === plotPoint.id);
+                        return (
+                          <button
+                            key={plotPoint.id}
+                            className="toc-item"
+                            onClick={() => {
+                              const element = document.querySelector(`[data-plotpoint-id="${plotPoint.id}"]`);
+                              if (element) {
+                                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              }
+                            }}
+                          >
+                            <span className="toc-item-title">{plotPoint.title}</span>
+                            {plotPoint.expectedSceneCount && (
+                              <span className="toc-item-count">
+                                {sectionScenes.length}/{plotPoint.expectedSceneCount}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : braidedSubMode === 'table' ? (
+              // Table View
+              <>
+                <TableView
+                  scenes={projectData.scenes}
+                  characters={projectData.characters}
+                  metadataFieldDefs={metadataFieldDefs}
+                  sceneMetadata={sceneMetadata}
+                  tags={projectData.tags}
+                  tableViews={[]}
+                  plotPoints={projectData.plotPoints}
+                  characterColors={characterColors}
+                  onSceneClick={(sceneKey) => {
+                    const [characterId, sceneNumberStr] = sceneKey.split(':');
+                    const sceneNumber = parseInt(sceneNumberStr, 10);
+                    const scene = projectData.scenes.find(
+                      s => s.characterId === characterId && s.sceneNumber === sceneNumber
+                    );
+                    if (scene) {
+                      setListFloatingEditor(scene);
+                    }
+                  }}
+                  onMetadataChange={handleMetadataChange}
+                  onWordCountChange={handleWordCountChange}
+                  onTableViewsChange={() => {}}
+                  onSceneChange={handleSceneChange}
+                />
+                {listFloatingEditor && (
+                  <FloatingEditor
+                    scene={listFloatingEditor}
+                    draftContent={draftContent[`${listFloatingEditor.characterId}:${listFloatingEditor.sceneNumber}`] || ''}
+                    characterName={getCharacterName(listFloatingEditor.characterId)}
+                    tags={projectData.tags}
+                    connectedScenes={getConnectedScenes(listFloatingEditor.id)}
+                    onClose={() => setListFloatingEditor(null)}
+                    onSceneChange={handleSceneChange}
+                    onTagsChange={handleTagsChange}
+                    onCreateTag={handleCreateTag}
+                    onStartConnection={() => {
+                      setConnectionSource(listFloatingEditor.id);
+                      setIsConnecting(true);
+                      setListFloatingEditor(null);
+                    }}
+                    onRemoveConnection={(targetId) => handleRemoveConnection(listFloatingEditor.id, targetId)}
+                    onWordCountChange={handleWordCountChange}
+                    onDraftChange={handleDraftChange}
+                    onOpenInEditor={handleOpenInEditor}
+                    scratchpadContent={scratchpadContent[`${listFloatingEditor.characterId}:${listFloatingEditor.sceneNumber}`] || ''}
+                    onScratchpadChange={handleScratchpadChange}
+                  />
+                )}
+              </>
+            ) : braidedSubMode === 'rails' ? (
+              // Rails View
+              <RailsView
+                scenes={displayedScenes}
+                characters={railsDisplayCharacters}
+                characterColors={characterColors}
+                connections={sceneConnections}
+                showConnections={showRailsConnections}
+                showPovColors={showPovColors}
+                tags={projectData.tags}
+                getCharacterName={getCharacterName}
+                onSceneChange={handleSceneChange}
+                onTagsChange={handleTagsChange}
+                onCreateTag={handleCreateTag}
+                onWordCountChange={handleWordCountChange}
+                isConnecting={isConnecting}
+                connectionSource={connectionSource}
+                onStartConnection={(sceneId) => {
+                  setConnectionSource(sceneId);
+                  setIsConnecting(true);
+                }}
+                onCompleteConnection={(targetId) => {
+                  if (connectionSource && connectionSource !== targetId) {
+                    const sourceConnections = sceneConnections[connectionSource] || [];
+                    const targetConnections = sceneConnections[targetId] || [];
+                    if (!sourceConnections.includes(targetId)) {
+                      const newConnections = {
+                        ...sceneConnections,
+                        [connectionSource]: [...sourceConnections, targetId],
+                        [targetId]: [...targetConnections, connectionSource],
+                      };
+                      setSceneConnections(newConnections);
+                      saveTimelineData(projectData.scenes, newConnections, braidedChapters);
+                    }
+                  }
+                  setIsConnecting(false);
+                  setConnectionSource(null);
+                }}
+                onCancelConnection={() => {
+                  setIsConnecting(false);
+                  setConnectionSource(null);
+                }}
+                onRemoveConnection={handleRemoveConnection}
+                getConnectedScenes={getConnectedScenes}
+                unbraidedScenesByCharacter={unbraidedScenesByCharacter}
+                allCharacters={projectData.characters}
+                plotPoints={projectData.plotPoints}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDropOnTimeline={handleDropOnTimeline}
+                onDropOnInbox={handleDropOnInbox}
+                onRailReorder={handleRailReorder}
+                draftContent={draftContent}
+                onDraftChange={handleDraftChange}
+                onOpenInEditor={handleOpenInEditor}
+              />
+            ) : (
+              // Braided List View
+              <div className={`braided-layout ${draggedScene ? 'is-dragging' : ''} ${isConnecting ? 'is-connecting' : ''}`}>
+                <div className="braided-timeline" ref={timelineRef}>
+                  <svg className="connection-lines">
+                    {displayedScenes.map((scene, index) => {
+                      const connections = sceneConnections[scene.id] || [];
+                      const startY = scenePositions[scene.id];
+                      if (startY === undefined) return null;
+                      return connections.map(connId => {
+                        const targetIndex = displayedScenes.findIndex(s => s.id === connId);
+                        if (targetIndex === -1 || targetIndex <= index) return null;
+                        const endY = scenePositions[connId];
+                        if (endY === undefined) return null;
+                        const distance = Math.abs(targetIndex - index);
+                        const curveDepth = 20 + Math.min(distance, 6) * 8;
+                        const cardEdgeX = 38;
+                        const isHighlighted =
+                          scene.id === hoveredSceneId ||
+                          scene.id === selectedSceneId ||
+                          connId === hoveredSceneId ||
+                          connId === selectedSceneId;
+                        return (
+                          <path
+                            key={`${scene.id}-${connId}`}
+                            d={`M ${cardEdgeX} ${startY} C ${cardEdgeX - curveDepth} ${startY}, ${cardEdgeX - curveDepth} ${endY}, ${cardEdgeX} ${endY}`}
+                            className={`connection-line ${isHighlighted ? 'highlighted' : ''}`}
+                            onClick={() => setSelectedSceneId(scene.id)}
+                          />
+                        );
+                      });
+                    })}
+                  </svg>
+                  {isConnecting && (
+                    <div className="connecting-banner">
+                      Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
+                    </div>
+                  )}
+                  {displayedScenes.length === 0 && (
+                    <div
+                      className={`drop-zone empty-timeline ${dropTargetIndex === 0 ? 'active' : ''}`}
+                      onDragOver={(e) => handleDragOverTimeline(e, 0)}
+                      onDrop={(e) => handleDropOnTimeline(e, 0)}
+                    >
+                      Drag scenes here to start braiding
+                    </div>
+                  )}
+                  {displayedScenes.map((scene, index) => {
+                    const displayPosition = index + 1;
+                    const chapterBefore = braidedChapters.find(ch => ch.beforePosition === displayPosition);
+                    return (
+                      <div key={scene.id}>
+                        {chapterBefore && (
+                          <div
+                            className={`braided-chapter ${draggedChapter?.id === chapterBefore.id ? 'dragging' : ''}`}
+                            draggable
+                            onDragStart={(e) => {
+                              setDraggedChapter(chapterBefore);
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', chapterBefore.id);
+                            }}
+                            onDragEnd={() => setDraggedChapter(null)}
+                          >
+                            <span className="chapter-drag-handle">&#8942;&#8942;</span>
+                            <input
+                              type="text"
+                              className="braided-chapter-title"
+                              defaultValue={chapterBefore.title}
+                              onBlur={(e) => {
+                                if (e.target.value !== chapterBefore.title) {
+                                  handleUpdateChapter(chapterBefore.id, e.target.value);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <button
+                              className="delete-chapter-btn"
+                              onClick={() => handleDeleteChapter(chapterBefore.id)}
+                              title="Delete chapter"
+                            >
+                              &#215;
+                            </button>
+                          </div>
+                        )}
+                        {!chapterBefore && (
+                          draggedChapter ? (
+                            <div
+                              className="chapter-drop-zone"
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                if (draggedChapter) {
+                                  handleMoveChapter(draggedChapter.id, displayPosition);
+                                  setDraggedChapter(null);
+                                }
+                              }}
+                            >
+                              Move chapter here
+                            </div>
+                          ) : addingChapterAtPosition === displayPosition ? (
+                            <div className="add-chapter-inline-container">
+                              <input
+                                type="text"
+                                className="add-chapter-input"
+                                placeholder="Chapter title..."
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const input = e.target as HTMLInputElement;
+                                    if (input.value.trim()) {
+                                      handleAddChapter(input.value.trim(), displayPosition);
+                                      setAddingChapterAtPosition(null);
+                                    }
+                                  } else if (e.key === 'Escape') {
+                                    setAddingChapterAtPosition(null);
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  if (e.target.value.trim()) {
+                                    handleAddChapter(e.target.value.trim(), displayPosition);
+                                  }
+                                  setAddingChapterAtPosition(null);
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <button
+                              className="add-chapter-inline-btn"
+                              onClick={() => setAddingChapterAtPosition(displayPosition)}
+                            >
+                              + Chapter
+                            </button>
+                          )
+                        )}
+                        <div className="braided-scene-wrapper" data-scene-id={scene.id}>
+                          <div
+                            className={`drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
+                            onDragOver={(e) => handleDragOverTimeline(e, index)}
+                            onDrop={(e) => handleDropOnTimeline(e, index)}
+                          />
+                          <div
+                            draggable={canDragScene}
+                            onDragStart={(e) => {
+                              if (canDragScene) {
+                                handleDragStart(e, scene);
+                              } else {
+                                e.preventDefault();
+                              }
+                            }}
+                            onDragEnd={() => {
+                              handleDragEnd();
+                              setCanDragScene(false);
+                            }}
+                            onClick={(e) => {
+                              if (isConnecting && connectionSource && connectionSource !== scene.id) {
+                                handleSceneClick(scene, e);
+                              }
+                            }}
+                            onMouseEnter={() => setHoveredSceneId(scene.id)}
+                            onMouseLeave={() => setHoveredSceneId(null)}
+                            className={`braided-scene-drag-wrapper ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''}`}
+                          >
+                            <SceneCard
+                              scene={scene}
+                              tags={projectData.tags}
+                              showCharacter={true}
+                              characterName={getCharacterName(scene.characterId)}
+                              displayNumber={displayPosition}
+                              plotPointTitle={scene.plotPointId ? projectData.plotPoints.find(p => p.id === scene.plotPointId)?.title : undefined}
+                              showDragHandle={true}
+                              dragHandleRef={(el) => {
+                                if (el) {
+                                  el.onmousedown = () => setCanDragScene(true);
+                                }
+                              }}
+                              backgroundColor={undefined}
+                              onSceneChange={handleSceneChange}
+                              onTagsChange={handleTagsChange}
+                              onCreateTag={handleCreateTag}
+                              onDeleteScene={handleArchiveScene}
+                              onDuplicateScene={handleDuplicateScene}
+                              connectedScenes={getConnectedScenes(scene.id)}
+                              onStartConnection={() => {
+                                setConnectionSource(scene.id);
+                                setIsConnecting(true);
+                              }}
+                              onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
+                              onWordCountChange={handleWordCountChange}
+                              connectableScenes={getConnectableScenes(scene.id)}
+                              onCompleteConnection={(targetId) => handleCompleteConnection(scene.id, targetId)}
+                              onOpenInEditor={handleOpenInEditor}
+                              metadataFieldDefs={metadataFieldDefs}
+                              sceneMetadata={sceneMetadata[`${scene.characterId}:${scene.sceneNumber}`]}
+                              onMetadataChange={(sceneId, fieldId, value) => {
+                                const s = projectData.scenes.find(sc => sc.id === sceneId);
+                                if (s) {
+                                  handleMetadataChange(`${s.characterId}:${s.sceneNumber}`, fieldId, value);
+                                }
+                              }}
+                              onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                              inlineMetadataFields={inlineMetadataFields}
+                              showInlineLabels={showInlineLabels}
+                              sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
+                              onDateChange={handleSceneDateChange}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {displayedScenes.length > 0 && (
+                    <div
+                      className={`drop-zone ${dropTargetIndex === displayedScenes.length ? 'active' : ''}`}
+                      onDragOver={(e) => handleDragOverTimeline(e, displayedScenes.length)}
+                      onDrop={(e) => handleDropOnTimeline(e, displayedScenes.length)}
+                    />
+                  )}
+                  {displayedScenes.length > 0 && (
+                    isAddingChapter ? (
+                      <div className="add-chapter-input-container">
+                        <input
+                          type="text"
+                          className="add-chapter-input"
+                          placeholder="Chapter title..."
+                          value={newChapterTitle}
+                          onChange={(e) => setNewChapterTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newChapterTitle.trim()) {
+                              const existingPositions = braidedChapters.map(ch => ch.beforePosition);
+                              let newPosition = 1;
+                              while (existingPositions.includes(newPosition) && newPosition <= displayedScenes.length) {
+                                newPosition++;
+                              }
+                              handleAddChapter(newChapterTitle, newPosition);
+                            } else if (e.key === 'Escape') {
+                              setIsAddingChapter(false);
+                              setNewChapterTitle('');
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          className="add-chapter-confirm-btn"
+                          onClick={() => {
+                            const existingPositions = braidedChapters.map(ch => ch.beforePosition);
+                            let newPosition = 1;
+                            while (existingPositions.includes(newPosition) && newPosition <= displayedScenes.length) {
+                              newPosition++;
+                            }
+                            handleAddChapter(newChapterTitle, newPosition);
+                          }}
+                          disabled={!newChapterTitle.trim()}
+                        >
+                          Add
+                        </button>
+                        <button
+                          className="add-chapter-cancel-btn"
+                          onClick={() => {
+                            setIsAddingChapter(false);
+                            setNewChapterTitle('');
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="add-section-btn"
+                        onClick={() => setIsAddingChapter(true)}
+                      >
+                        + Add Chapter
+                      </button>
+                    )
+                  )}
+                </div>
+
+                {/* To Braid Inbox */}
+                <div
+                  className="to-braid-inbox"
+                  onDragOver={handleDragOverInbox}
+                  onDrop={handleDropOnInbox}
+                >
+                  <div className="inbox-header">
+                    <h2 className="inbox-title">To Braid</h2>
+                    <select
+                      className="inbox-char-filter"
+                      value={listInboxCharFilter[tabId] ?? 'all'}
+                      onChange={(e) => setListInboxCharFilter(prev => ({ ...prev, [tabId]: e.target.value }))}
+                    >
+                      <option value="all">All Characters</option>
+                      {projectData.characters.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="inbox-characters">
+                    {projectData.characters.filter(c => (listInboxCharFilter[tabId] ?? 'all') === 'all' || c.id === (listInboxCharFilter[tabId] ?? 'all')).map(char => {
+                      const charPlotPointMap = unbraidedScenesByCharacter.get(char.id);
+                      const charPlotPoints = projectData.plotPoints
+                        .filter(p => p.characterId === char.id)
+                        .sort((a, b) => a.order - b.order);
+                      let totalUnbraided = 0;
+                      if (charPlotPointMap) {
+                        for (const scenes of charPlotPointMap.values()) {
+                          totalUnbraided += scenes.length;
+                        }
+                      }
+                      const charColor = getCharacterHexColor(char.id);
+                      return (
+                        <div key={char.id} className="inbox-character-group">
+                          <div className="inbox-character-header">
+                            <div className="inbox-character-color" style={{ backgroundColor: charColor }} />
+                            <h3 className="inbox-character-name">{char.name}</h3>
+                            {totalUnbraided > 0 && (
+                              <span className="inbox-character-count">{totalUnbraided}</span>
+                            )}
+                          </div>
+                          <div className="inbox-scenes">
+                            {totalUnbraided > 0 ? (
+                              <>
+                                {charPlotPoints.map(plotPoint => {
+                                  const plotPointScenes = charPlotPointMap?.get(plotPoint.id);
+                                  if (!plotPointScenes || plotPointScenes.length === 0) return null;
+                                  return (
+                                    <div key={plotPoint.id} className="inbox-plot-point-group">
+                                      <div className="inbox-plot-point-header">{plotPoint.title}</div>
+                                      {plotPointScenes.map(scene => (
+                                        <div
+                                          key={scene.id}
+                                          className="inbox-scene"
+                                          style={{ '--char-color': charColor } as React.CSSProperties}
+                                          draggable
+                                          onDragStart={(e) => handleDragStart(e, scene)}
+                                          onDragEnd={handleDragEnd}
+                                        >
+                                          <span className="inbox-scene-number">{scene.sceneNumber}.</span>
+                                          <span className="inbox-scene-title">{scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                })}
+                                {charPlotPointMap?.get('no-plot-point')?.map(scene => (
+                                  <div
+                                    key={scene.id}
+                                    className="inbox-scene"
+                                    style={{ '--char-color': charColor } as React.CSSProperties}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, scene)}
+                                    onDragEnd={handleDragEnd}
+                                  >
+                                    <span className="inbox-scene-number">{scene.sceneNumber}.</span>
+                                    <span className="inbox-scene-title">{scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')}</span>
+                                  </div>
+                                ))}
+                              </>
+                            ) : (
+                              <div className="inbox-empty">All braided</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {displayedScenes.length === 0 && (
+              <div className="welcome-screen">
+                <p>No scenes found{activeFilters.size > 0 ? ' matching current filters' : ''}.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
+    <PaneProvider layout={paneLayout} dispatch={paneDispatch}>
     <div className="app">
       {!showUpdateModal && <UpdateBanner />}
       {licenseStatus?.state === 'trial' && licenseStatus.trialDaysRemaining !== undefined && licenseStatus.trialDaysRemaining <= 3 && (
@@ -3316,9 +4184,9 @@ function App() {
                 Notes
               </button>
               <button
-                className={`toolbar-btn ${!hideSectionHeaders ? 'active' : ''}`}
-                onClick={() => setHideSectionHeaders(!hideSectionHeaders)}
-                title={hideSectionHeaders ? 'Show Sections' : 'Hide Sections'}
+                className={`toolbar-btn ${!(hideSectionHeaders[activeTab.id] ?? false) ? 'active' : ''}`}
+                onClick={() => setHideSectionHeaders(prev => ({ ...prev, [activeTab.id]: !(prev[activeTab.id] ?? false) }))}
+                title={(hideSectionHeaders[activeTab.id] ?? false) ? 'Show Sections' : 'Hide Sections'}
               >
                 Sections
               </button>
@@ -3680,826 +4548,9 @@ function App() {
         </div>
       </div>
 
-      <div
-        className={`main-content main-content--${viewMode}`}
-        style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'tasks' || viewMode === 'timeline' || viewMode === 'account'
-          ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, overflow: 'hidden' }
-          : undefined}
-      >
-        {loading ? (
-          <div className="loading">Loading...</div>
-        ) : (
-          <div
-            className={`scene-list scene-list--${viewMode}`}
-            ref={sceneListRef}
-            style={viewMode === 'editor' || viewMode === 'braided' || viewMode === 'notes' || viewMode === 'tasks' || viewMode === 'timeline' || viewMode === 'account'
-              ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, margin: 0, maxWidth: 'none', minHeight: 0 }
-              : undefined}
-          >
-            {viewMode === 'account' ? (
-              <AccountView
-                licenseStatus={licenseStatus}
-                onLicenseChange={() => {
-                  (window as any).electronAPI?.getLicenseStatus?.().then((result: any) => {
-                    if (result.success) setLicenseStatus(result.data);
-                  });
-                }}
-              />
-            ) : viewMode === 'analytics' ? (
-              <WordCountDashboard
-                scenes={projectData.scenes}
-                characters={projectData.characters}
-                plotPoints={projectData.plotPoints}
-                characterColors={characterColors}
-                draftContent={draftContent}
-                sceneMetadata={sceneMetadata}
-                metadataFieldDefs={metadataFieldDefs}
-                wordCountGoal={wordCountGoal}
-                projectPath={projectData.projectPath}
-                onGoalChange={handleWordCountGoalChange}
-                sceneSessions={sceneSessions}
-                customCheckinCategories={analyticsRef.current?.customCheckinCategories}
-              />
-            ) : viewMode === 'notes' ? (
-              <NotesView
-                projectPath={projectData.projectPath}
-                scenes={projectData.scenes}
-                characters={projectData.characters}
-                tags={projectData.tags}
-                initialNoteId={pendingNoteId}
-                onNoteNavigated={() => setPendingNoteId(null)}
-              />
-            ) : viewMode === 'tasks' ? (
-              <TasksView
-                tasks={tasks}
-                taskFieldDefs={taskFieldDefs}
-                taskViews={taskViews}
-                tags={projectData.tags}
-                characters={projectData.characters}
-                scenes={projectData.scenes}
-                onTasksChange={handleTasksChange}
-                onTaskFieldDefsChange={handleTaskFieldDefsChange}
-                onTaskViewsChange={handleTaskViewsChange}
-                initialColumnWidths={taskColumnWidths}
-                initialVisibleColumns={taskVisibleColumns}
-                onColumnConfigChange={handleTaskColumnConfigChange}
-                activeTimerTaskId={taskTimerTaskId}
-                taskTimerElapsed={taskTimerElapsed}
-                onStartTimer={handleStartTaskTimer}
-                onStopTimer={handleStopTaskTimer}
-              />
-            ) : viewMode === 'timeline' ? (
-              <TimelineView
-                scenes={projectData.scenes}
-                characters={projectData.characters}
-                characterColors={characterColors}
-                tags={projectData.tags}
-                plotPoints={projectData.plotPoints}
-                timelineDates={timelineDates}
-                worldEvents={worldEvents}
-                connections={sceneConnections}
-                onTimelineDatesChange={handleTimelineDatesChange}
-                onWorldEventsChange={handleWorldEventsChange}
-                onSceneChange={handleSceneChange}
-                onTagsChange={handleTagsChange}
-                onCreateTag={handleCreateTag}
-                onRemoveConnection={handleRemoveConnection}
-              />
-            ) : viewMode === 'editor' ? (
-              <EditorView
-                ref={editorViewRef}
-                scenes={projectData.scenes}
-                characters={projectData.characters}
-                plotPoints={projectData.plotPoints}
-                tags={projectData.tags}
-                characterColors={characterColors}
-                draftContent={draftContent}
-                sceneMetadata={sceneMetadata}
-                metadataFieldDefs={metadataFieldDefs}
-                drafts={drafts}
-                sceneSessions={sceneSessions}
-                onDraftChange={handleDraftChange}
-                onSaveDraft={handleSaveDraft}
-                onMetadataChange={handleMetadataChange}
-                onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
-                onTagsChange={handleTagsChange}
-                onNotesChange={(sceneId, notes) => {
-                  const scene = projectData.scenes.find(s => s.id === sceneId);
-                  if (scene) handleSceneChange(sceneId, scene.content, notes);
-                }}
-                onSceneContentChange={(sceneId, newContent) => {
-                  const scene = projectData.scenes.find(s => s.id === sceneId);
-                  if (scene) handleSceneChange(sceneId, newContent, scene.notes);
-                }}
-                onCreateTag={handleCreateTag}
-                onWordCountChange={handleWordCountChange}
-                initialSceneKey={editorInitialSceneKey || lastEditorSceneKeyRef.current}
-                onSceneSelect={(key) => { lastEditorSceneKeyRef.current = key; localStorage.setItem('braidr-last-editor-scene', key); }}
-                onGoToPov={handleGoToPov}
-                onGoToBraid={handleGoToBraid}
-                sceneTodos={allSceneTodos}
-                onTodoToggle={handleTodoToggle}
-                onAddInlineTodo={handleAddInlineTodo}
-                onRemoveInlineTodo={handleRemoveInlineTodo}
-                timerRunning={timerRunning}
-                timerElapsed={timerElapsed}
-                timerSceneKey={timerSceneKey}
-                onStartTimer={handleStartTimer}
-                onStopTimer={handleStopTimer}
-                onResetTimer={handleResetTimer}
-                onAddManualTime={handleAddManualTime}
-                onDeleteSession={handleDeleteSession}
-                sceneSessionsByDate={(sceneKey: string) => getSceneSessionsByDate(sceneSessions, sceneKey)}
-                sceneSessionsList={(sceneKey: string) => getSceneSessionsList(sceneSessions, sceneKey)}
-                notesIndex={searchNotesIndex}
-                onGoToNote={(noteId: string) => { setPendingNoteId(noteId); setViewMode('notes'); }}
-                scratchpad={scratchpadContent}
-                onScratchpadChange={handleScratchpadChange}
-                sceneComments={sceneComments}
-                onAddComment={handleAddComment}
-                onDeleteComment={handleDeleteComment}
-                onDeleteScene={handleArchiveScene}
-                onDuplicateScene={handleDuplicateScene}
-                typewriterMode={typewriterMode}
-                tasks={tasks}
-                onTasksChange={handleTasksChange}
-              />
-            ) : viewMode === 'pov' ? (
-              // POV View with plot points and table of contents
-              <div className={`pov-layout ${isConnecting ? 'is-connecting' : ''}`}>
-                <div className="pov-content">
-                {isConnecting && (
-                  <div className="connecting-banner">
-                    Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
-                  </div>
-                )}
-                {displayedPlotPoints.map((plotPoint, index) => (
-                  <PlotPointSection
-                    key={plotPoint.id}
-                    plotPoint={plotPoint}
-                    scenes={displayedScenes.filter(s => s.plotPointId === plotPoint.id)}
-                    tags={projectData.tags}
-                    onSceneChange={handleSceneChange}
-                    onTagsChange={handleTagsChange}
-                    onCreateTag={handleCreateTag}
-                    onPlotPointChange={handlePlotPointChange}
-                    onDeletePlotPoint={handleDeletePlotPoint}
-                    onAddScene={handleAddScene}
-                    onDeleteScene={handleArchiveScene}
-                    onDuplicateScene={handleDuplicateScene}
-                    onMoveUp={() => handleMoveSectionUp(plotPoint.id)}
-                    onMoveDown={() => handleMoveSectionDown(plotPoint.id)}
-                    isFirst={index === 0}
-                    isLast={index === displayedPlotPoints.length - 1}
-                    forceNotesExpanded={allNotesExpanded}
-                    onSceneMoveUp={handlePovSceneMoveUp}
-                    onSceneMoveDown={handlePovSceneMoveDown}
-                    allCharacterScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
-                    onSceneDragStart={(scene) => setDraggedPovScene(scene)}
-                    onSceneDragEnd={() => setDraggedPovScene(null)}
-                    onSceneDrop={handlePovSceneDrop}
-                    draggedScene={draggedPovScene}
-                    hideHeader={hideSectionHeaders}
-                    getConnectedScenes={getConnectedScenes}
-                    onStartConnection={(sceneId) => {
-                      setConnectionSource(sceneId);
-                      setIsConnecting(true);
-                    }}
-                    onRemoveConnection={handleRemoveConnection}
-                    isConnecting={isConnecting}
-                    onWordCountChange={handleWordCountChange}
-                    getConnectableScenes={getConnectableScenes}
-                    onCompleteConnection={handleCompleteConnection}
-                    onOpenInEditor={handleOpenInEditor}
-                    metadataFieldDefs={metadataFieldDefs}
-                    sceneMetadata={sceneMetadata}
-                    onMetadataChange={(sceneId, fieldId, value) => {
-                      const scene = projectData.scenes.find(s => s.id === sceneId);
-                      if (scene) {
-                        const sceneKey = `${scene.characterId}:${scene.sceneNumber}`;
-                        handleMetadataChange(sceneKey, fieldId, value);
-                      }
-                    }}
-                    onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
-                    inlineMetadataFields={inlineMetadataFields}
-                    showInlineLabels={showInlineLabels}
-                    timelineDates={timelineDates}
-                    onDateChange={handleSceneDateChange}
-                    onSceneClick={(sceneId) => {
-                      // Handle completing a connection in POV view
-                      if (isConnecting && connectionSource && connectionSource !== sceneId && projectData) {
-                        const sourceConnections = sceneConnections[connectionSource] || [];
-                        const targetConnections = sceneConnections[sceneId] || [];
-
-                        if (!sourceConnections.includes(sceneId)) {
-                          const newConnections = {
-                            ...sceneConnections,
-                            [connectionSource]: [...sourceConnections, sceneId],
-                            [sceneId]: [...targetConnections, connectionSource],
-                          };
-                          setSceneConnections(newConnections);
-                          saveTimelineData(projectData.scenes, newConnections, braidedChapters);
-                        }
-                        setIsConnecting(false);
-                        setConnectionSource(null);
-                      }
-                    }}
-                  />
-                ))}
-                {/* Scenes without plot points */}
-                {displayedScenes.filter(s => !s.plotPointId).map(scene => (
-                  <SceneCard
-                    key={scene.id}
-                    scene={scene}
-                    tags={projectData.tags}
-                    showCharacter={false}
-                    onSceneChange={handleSceneChange}
-                    onTagsChange={handleTagsChange}
-                    onCreateTag={handleCreateTag}
-                    onDeleteScene={handleArchiveScene}
-                    onDuplicateScene={handleDuplicateScene}
-                    forceNotesExpanded={allNotesExpanded}
-                    connectedScenes={getConnectedScenes(scene.id)}
-                    onStartConnection={() => {
-                      setConnectionSource(scene.id);
-                      setIsConnecting(true);
-                    }}
-                    onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
-                    metadataFieldDefs={metadataFieldDefs}
-                    sceneMetadata={sceneMetadata[`${scene.characterId}:${scene.sceneNumber}`]}
-                    onMetadataChange={(sceneId, fieldId, value) => {
-                      const s = projectData.scenes.find(sc => sc.id === sceneId);
-                      if (s) {
-                        handleMetadataChange(`${s.characterId}:${s.sceneNumber}`, fieldId, value);
-                      }
-                    }}
-                    onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
-                    inlineMetadataFields={inlineMetadataFields}
-                    showInlineLabels={showInlineLabels}
-                    onWordCountChange={handleWordCountChange}
-                    onOpenInEditor={handleOpenInEditor}
-                    sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
-                    onDateChange={handleSceneDateChange}
-                  />
-                ))}
-                {/* Add Section button */}
-                <button className="add-section-btn" onClick={handleCreatePlotPoint}>
-                  + Add Section
-                </button>
-                </div>
-
-                {/* Table of Contents Sidebar */}
-                {!hideSectionHeaders && displayedPlotPoints.length > 0 && (
-                  <div className="pov-toc">
-                    <h3 className="toc-title">Sections</h3>
-                    <div className="toc-items">
-                      {displayedPlotPoints.map((plotPoint) => {
-                        const sectionScenes = displayedScenes.filter(s => s.plotPointId === plotPoint.id);
-                        return (
-                          <button
-                            key={plotPoint.id}
-                            className="toc-item"
-                            onClick={() => {
-                              // Find the plot point element and scroll to it
-                              const element = document.querySelector(`[data-plotpoint-id="${plotPoint.id}"]`);
-                              if (element) {
-                                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                              }
-                            }}
-                          >
-                            <span className="toc-item-title">{plotPoint.title}</span>
-                            {plotPoint.expectedSceneCount && (
-                              <span className="toc-item-count">
-                                {sectionScenes.length}/{plotPoint.expectedSceneCount}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : braidedSubMode === 'table' ? (
-              // Table View
-              <>
-                <TableView
-                  scenes={projectData.scenes}
-                  characters={projectData.characters}
-                  metadataFieldDefs={metadataFieldDefs}
-                  sceneMetadata={sceneMetadata}
-                  tags={projectData.tags}
-                  tableViews={[]}
-                  plotPoints={projectData.plotPoints}
-                  characterColors={characterColors}
-                  onSceneClick={(sceneKey) => {
-                    // Open floating editor for this scene
-                    const [characterId, sceneNumberStr] = sceneKey.split(':');
-                    const sceneNumber = parseInt(sceneNumberStr, 10);
-                    const scene = projectData.scenes.find(
-                      s => s.characterId === characterId && s.sceneNumber === sceneNumber
-                    );
-                    if (scene) {
-                      setListFloatingEditor(scene);
-                    }
-                  }}
-                  onMetadataChange={handleMetadataChange}
-                  onWordCountChange={handleWordCountChange}
-                  onTableViewsChange={() => {}}
-                  onSceneChange={handleSceneChange}
-                />
-                {/* Floating Editor for table view */}
-                {listFloatingEditor && (
-                  <FloatingEditor
-                    scene={listFloatingEditor}
-                    draftContent={draftContent[`${listFloatingEditor.characterId}:${listFloatingEditor.sceneNumber}`] || ''}
-                    characterName={getCharacterName(listFloatingEditor.characterId)}
-                    tags={projectData.tags}
-                    connectedScenes={getConnectedScenes(listFloatingEditor.id)}
-                    onClose={() => setListFloatingEditor(null)}
-                    onSceneChange={handleSceneChange}
-                    onTagsChange={handleTagsChange}
-                    onCreateTag={handleCreateTag}
-                    onStartConnection={() => {
-                      setConnectionSource(listFloatingEditor.id);
-                      setIsConnecting(true);
-                      setListFloatingEditor(null);
-                    }}
-                    onRemoveConnection={(targetId) => handleRemoveConnection(listFloatingEditor.id, targetId)}
-                    onWordCountChange={handleWordCountChange}
-                    onDraftChange={handleDraftChange}
-                    onOpenInEditor={handleOpenInEditor}
-                    scratchpadContent={scratchpadContent[`${listFloatingEditor.characterId}:${listFloatingEditor.sceneNumber}`] || ''}
-                    onScratchpadChange={handleScratchpadChange}
-                  />
-                )}
-              </>
-            ) : braidedSubMode === 'rails' ? (
-              // Rails View
-              <RailsView
-                scenes={displayedScenes}
-                characters={railsDisplayCharacters}
-                characterColors={characterColors}
-                connections={sceneConnections}
-                showConnections={showRailsConnections}
-                showPovColors={showPovColors}
-                tags={projectData.tags}
-                getCharacterName={getCharacterName}
-                onSceneChange={handleSceneChange}
-                onTagsChange={handleTagsChange}
-                onCreateTag={handleCreateTag}
-                onWordCountChange={handleWordCountChange}
-                isConnecting={isConnecting}
-                connectionSource={connectionSource}
-                onStartConnection={(sceneId) => {
-                  setConnectionSource(sceneId);
-                  setIsConnecting(true);
-                }}
-                onCompleteConnection={(targetId) => {
-                  if (connectionSource && connectionSource !== targetId) {
-                    const sourceConnections = sceneConnections[connectionSource] || [];
-                    const targetConnections = sceneConnections[targetId] || [];
-                    if (!sourceConnections.includes(targetId)) {
-                      const newConnections = {
-                        ...sceneConnections,
-                        [connectionSource]: [...sourceConnections, targetId],
-                        [targetId]: [...targetConnections, connectionSource],
-                      };
-                      setSceneConnections(newConnections);
-                      saveTimelineData(projectData.scenes, newConnections, braidedChapters);
-                    }
-                  }
-                  setIsConnecting(false);
-                  setConnectionSource(null);
-                }}
-                onCancelConnection={() => {
-                  setIsConnecting(false);
-                  setConnectionSource(null);
-                }}
-                onRemoveConnection={handleRemoveConnection}
-                getConnectedScenes={getConnectedScenes}
-                unbraidedScenesByCharacter={unbraidedScenesByCharacter}
-                allCharacters={projectData.characters}
-                plotPoints={projectData.plotPoints}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onDropOnTimeline={handleDropOnTimeline}
-                onDropOnInbox={handleDropOnInbox}
-                onRailReorder={handleRailReorder}
-                draftContent={draftContent}
-                onDraftChange={handleDraftChange}
-                onOpenInEditor={handleOpenInEditor}
-              />
-            ) : (
-              // Braided List View with two-column layout
-              <div className={`braided-layout ${draggedScene ? 'is-dragging' : ''} ${isConnecting ? 'is-connecting' : ''}`}>
-                {/* Braided Timeline - Left side */}
-                <div className="braided-timeline" ref={timelineRef}>
-                  {/* Connection Lines SVG - positioned relative to timeline */}
-                  <svg className="connection-lines">
-                    {displayedScenes.map((scene, index) => {
-                      const connections = sceneConnections[scene.id] || [];
-                      const startY = scenePositions[scene.id];
-                      if (startY === undefined) return null;
-
-                      return connections.map(connId => {
-                        const targetIndex = displayedScenes.findIndex(s => s.id === connId);
-                        if (targetIndex === -1 || targetIndex <= index) return null;
-
-                        const endY = scenePositions[connId];
-                        if (endY === undefined) return null;
-
-                        const distance = Math.abs(targetIndex - index);
-                        const curveDepth = 20 + Math.min(distance, 6) * 8;
-                        // Connect to the left edge of the scene card (at x=40 where padding ends)
-                        const cardEdgeX = 38;
-
-                        const isHighlighted =
-                          scene.id === hoveredSceneId ||
-                          scene.id === selectedSceneId ||
-                          connId === hoveredSceneId ||
-                          connId === selectedSceneId;
-
-                        return (
-                          <path
-                            key={`${scene.id}-${connId}`}
-                            d={`M ${cardEdgeX} ${startY} C ${cardEdgeX - curveDepth} ${startY}, ${cardEdgeX - curveDepth} ${endY}, ${cardEdgeX} ${endY}`}
-                            className={`connection-line ${isHighlighted ? 'highlighted' : ''}`}
-                            onClick={() => setSelectedSceneId(scene.id)}
-                          />
-                        );
-                      });
-                    })}
-                  </svg>
-                  {isConnecting && (
-                    <div className="connecting-banner">
-                      Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
-                    </div>
-                  )}
-                  {displayedScenes.length === 0 && (
-                    <div
-                      className={`drop-zone empty-timeline ${dropTargetIndex === 0 ? 'active' : ''}`}
-                      onDragOver={(e) => handleDragOverTimeline(e, 0)}
-                      onDrop={(e) => handleDropOnTimeline(e, 0)}
-                    >
-                      Drag scenes here to start braiding
-                    </div>
-                  )}
-                  {displayedScenes.map((scene, index) => {
-                    const displayPosition = index + 1;
-                    const chapterBefore = braidedChapters.find(ch => ch.beforePosition === displayPosition);
-
-                    return (
-                      <div key={scene.id}>
-                        {/* Chapter header before this scene */}
-                        {chapterBefore && (
-                          <div
-                            className={`braided-chapter ${draggedChapter?.id === chapterBefore.id ? 'dragging' : ''}`}
-                            draggable
-                            onDragStart={(e) => {
-                              setDraggedChapter(chapterBefore);
-                              e.dataTransfer.effectAllowed = 'move';
-                              e.dataTransfer.setData('text/plain', chapterBefore.id);
-                            }}
-                            onDragEnd={() => setDraggedChapter(null)}
-                          >
-                            <span className="chapter-drag-handle">⋮⋮</span>
-                            <input
-                              type="text"
-                              className="braided-chapter-title"
-                              defaultValue={chapterBefore.title}
-                              onBlur={(e) => {
-                                if (e.target.value !== chapterBefore.title) {
-                                  handleUpdateChapter(chapterBefore.id, e.target.value);
-                                }
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  (e.target as HTMLInputElement).blur();
-                                }
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <button
-                              className="delete-chapter-btn"
-                              onClick={() => handleDeleteChapter(chapterBefore.id)}
-                              title="Delete chapter"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Drop zone for moving chapters here, or add chapter button */}
-                        {!chapterBefore && (
-                          draggedChapter ? (
-                            <div
-                              className="chapter-drop-zone"
-                              onDragOver={(e) => {
-                                e.preventDefault();
-                                e.dataTransfer.dropEffect = 'move';
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                if (draggedChapter) {
-                                  handleMoveChapter(draggedChapter.id, displayPosition);
-                                  setDraggedChapter(null);
-                                }
-                              }}
-                            >
-                              Move chapter here
-                            </div>
-                          ) : addingChapterAtPosition === displayPosition ? (
-                            <div className="add-chapter-inline-container">
-                              <input
-                                type="text"
-                                className="add-chapter-input"
-                                placeholder="Chapter title..."
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    const input = e.target as HTMLInputElement;
-                                    if (input.value.trim()) {
-                                      handleAddChapter(input.value.trim(), displayPosition);
-                                      setAddingChapterAtPosition(null);
-                                    }
-                                  } else if (e.key === 'Escape') {
-                                    setAddingChapterAtPosition(null);
-                                  }
-                                }}
-                                onBlur={(e) => {
-                                  if (e.target.value.trim()) {
-                                    handleAddChapter(e.target.value.trim(), displayPosition);
-                                  }
-                                  setAddingChapterAtPosition(null);
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <button
-                              className="add-chapter-inline-btn"
-                              onClick={() => setAddingChapterAtPosition(displayPosition)}
-                            >
-                              + Chapter
-                            </button>
-                          )
-                        )}
-
-                        <div className="braided-scene-wrapper" data-scene-id={scene.id}>
-                          {/* Drop zone before this scene */}
-                          <div
-                            className={`drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
-                            onDragOver={(e) => handleDragOverTimeline(e, index)}
-                            onDrop={(e) => handleDropOnTimeline(e, index)}
-                          />
-                          <div
-                            draggable={canDragScene}
-                            onDragStart={(e) => {
-                              if (canDragScene) {
-                                handleDragStart(e, scene);
-                              } else {
-                                e.preventDefault();
-                              }
-                            }}
-                            onDragEnd={() => {
-                              handleDragEnd();
-                              setCanDragScene(false);
-                            }}
-                            onClick={(e) => {
-                              if (isConnecting && connectionSource && connectionSource !== scene.id) {
-                                handleSceneClick(scene, e);
-                              }
-                            }}
-                            onMouseEnter={() => setHoveredSceneId(scene.id)}
-                            onMouseLeave={() => setHoveredSceneId(null)}
-                            className={`braided-scene-drag-wrapper ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''}`}
-                          >
-                            <SceneCard
-                              scene={scene}
-                              tags={projectData.tags}
-                              showCharacter={true}
-                              characterName={getCharacterName(scene.characterId)}
-                              displayNumber={displayPosition}
-                              plotPointTitle={scene.plotPointId ? projectData.plotPoints.find(p => p.id === scene.plotPointId)?.title : undefined}
-                              showDragHandle={true}
-                              dragHandleRef={(el) => {
-                                if (el) {
-                                  el.onmousedown = () => setCanDragScene(true);
-                                }
-                              }}
-                              backgroundColor={undefined}
-                              onSceneChange={handleSceneChange}
-                              onTagsChange={handleTagsChange}
-                              onCreateTag={handleCreateTag}
-                              onDeleteScene={handleArchiveScene}
-                              onDuplicateScene={handleDuplicateScene}
-                              connectedScenes={getConnectedScenes(scene.id)}
-                              onStartConnection={() => {
-                                setConnectionSource(scene.id);
-                                setIsConnecting(true);
-                              }}
-                              onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
-                              onWordCountChange={handleWordCountChange}
-                              connectableScenes={getConnectableScenes(scene.id)}
-                              onCompleteConnection={(targetId) => handleCompleteConnection(scene.id, targetId)}
-                              onOpenInEditor={handleOpenInEditor}
-                              metadataFieldDefs={metadataFieldDefs}
-                              sceneMetadata={sceneMetadata[`${scene.characterId}:${scene.sceneNumber}`]}
-                              onMetadataChange={(sceneId, fieldId, value) => {
-                                const s = projectData.scenes.find(sc => sc.id === sceneId);
-                                if (s) {
-                                  handleMetadataChange(`${s.characterId}:${s.sceneNumber}`, fieldId, value);
-                                }
-                              }}
-                              onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
-                              inlineMetadataFields={inlineMetadataFields}
-                              showInlineLabels={showInlineLabels}
-                              sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
-                              onDateChange={handleSceneDateChange}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {/* Drop zone at the end */}
-                  {displayedScenes.length > 0 && (
-                    <div
-                      className={`drop-zone ${dropTargetIndex === displayedScenes.length ? 'active' : ''}`}
-                      onDragOver={(e) => handleDragOverTimeline(e, displayedScenes.length)}
-                      onDrop={(e) => handleDropOnTimeline(e, displayedScenes.length)}
-                    />
-                  )}
-
-                  {/* Add Chapter button/input */}
-                  {displayedScenes.length > 0 && (
-                    isAddingChapter ? (
-                      <div className="add-chapter-input-container">
-                        <input
-                          type="text"
-                          className="add-chapter-input"
-                          placeholder="Chapter title..."
-                          value={newChapterTitle}
-                          onChange={(e) => setNewChapterTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && newChapterTitle.trim()) {
-                              // Find next available position (after last chapter or at start if no chapters)
-                              const existingPositions = braidedChapters.map(ch => ch.beforePosition);
-                              let newPosition = 1;
-                              // Find a position that doesn't already have a chapter
-                              while (existingPositions.includes(newPosition) && newPosition <= displayedScenes.length) {
-                                newPosition++;
-                              }
-                              handleAddChapter(newChapterTitle, newPosition);
-                            } else if (e.key === 'Escape') {
-                              setIsAddingChapter(false);
-                              setNewChapterTitle('');
-                            }
-                          }}
-                          autoFocus
-                        />
-                        <button
-                          className="add-chapter-confirm-btn"
-                          onClick={() => {
-                            // Find next available position
-                            const existingPositions = braidedChapters.map(ch => ch.beforePosition);
-                            let newPosition = 1;
-                            while (existingPositions.includes(newPosition) && newPosition <= displayedScenes.length) {
-                              newPosition++;
-                            }
-                            handleAddChapter(newChapterTitle, newPosition);
-                          }}
-                          disabled={!newChapterTitle.trim()}
-                        >
-                          Add
-                        </button>
-                        <button
-                          className="add-chapter-cancel-btn"
-                          onClick={() => {
-                            setIsAddingChapter(false);
-                            setNewChapterTitle('');
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="add-section-btn"
-                        onClick={() => setIsAddingChapter(true)}
-                      >
-                        + Add Chapter
-                      </button>
-                    )
-                  )}
-                </div>
-
-                {/* To Braid Inbox - Right sidebar */}
-                <div
-                  className="to-braid-inbox"
-                  onDragOver={handleDragOverInbox}
-                  onDrop={handleDropOnInbox}
-                >
-                  <div className="inbox-header">
-                    <h2 className="inbox-title">To Braid</h2>
-                    <select
-                      className="inbox-char-filter"
-                      value={listInboxCharFilter}
-                      onChange={(e) => setListInboxCharFilter(e.target.value)}
-                    >
-                      <option value="all">All Characters</option>
-                      {projectData.characters.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="inbox-characters">
-                    {projectData.characters.filter(c => listInboxCharFilter === 'all' || c.id === listInboxCharFilter).map(char => {
-                      const charPlotPointMap = unbraidedScenesByCharacter.get(char.id);
-                      const charPlotPoints = projectData.plotPoints
-                        .filter(p => p.characterId === char.id)
-                        .sort((a, b) => a.order - b.order);
-
-                      // Calculate total unbraided scenes for this character
-                      let totalUnbraided = 0;
-                      if (charPlotPointMap) {
-                        for (const scenes of charPlotPointMap.values()) {
-                          totalUnbraided += scenes.length;
-                        }
-                      }
-
-                      const charColor = getCharacterHexColor(char.id);
-
-                      return (
-                        <div key={char.id} className="inbox-character-group">
-                          <div className="inbox-character-header">
-                            <div className="inbox-character-color" style={{ backgroundColor: charColor }} />
-                            <h3 className="inbox-character-name">{char.name}</h3>
-                            {totalUnbraided > 0 && (
-                              <span className="inbox-character-count">{totalUnbraided}</span>
-                            )}
-                          </div>
-                          <div className="inbox-scenes">
-                            {totalUnbraided > 0 ? (
-                              <>
-                                {charPlotPoints.map(plotPoint => {
-                                  const plotPointScenes = charPlotPointMap?.get(plotPoint.id);
-                                  if (!plotPointScenes || plotPointScenes.length === 0) return null;
-                                  return (
-                                    <div key={plotPoint.id} className="inbox-plot-point-group">
-                                      <div className="inbox-plot-point-header">{plotPoint.title}</div>
-                                      {plotPointScenes.map(scene => (
-                                        <div
-                                          key={scene.id}
-                                          className="inbox-scene"
-                                          style={{ '--char-color': charColor } as React.CSSProperties}
-                                          draggable
-                                          onDragStart={(e) => handleDragStart(e, scene)}
-                                          onDragEnd={handleDragEnd}
-                                        >
-                                          <span className="inbox-scene-number">{scene.sceneNumber}.</span>
-                                          <span className="inbox-scene-title">{scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  );
-                                })}
-                                {/* Scenes without plot point */}
-                                {charPlotPointMap?.get('no-plot-point')?.map(scene => (
-                                  <div
-                                    key={scene.id}
-                                    className="inbox-scene"
-                                    style={{ '--char-color': charColor } as React.CSSProperties}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, scene)}
-                                    onDragEnd={handleDragEnd}
-                                  >
-                                    <span className="inbox-scene-number">{scene.sceneNumber}.</span>
-                                    <span className="inbox-scene-title">{scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')}</span>
-                                  </div>
-                                ))}
-                              </>
-                            ) : (
-                              <div className="inbox-empty">All braided</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-              </div>
-            )}
-
-            {displayedScenes.length === 0 && (
-              <div className="welcome-screen">
-                <p>No scenes found{activeFilters.size > 0 ? ' matching current filters' : ''}.</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <ViewRendererProvider renderer={renderView}>
+        <PaneManager />
+      </ViewRendererProvider>
       </div>{/* close .app-body */}
 
       {/* Tag Manager Modal */}
@@ -4737,6 +4788,7 @@ function App() {
         />
       )}
     </div>
+    </PaneProvider>
   );
 }
 
