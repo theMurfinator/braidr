@@ -217,6 +217,11 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const draggingRef = useRef<{ panel: 'nav' | 'meta'; startX: number; initialWidth: number } | null>(null);
   const pendingContentRef = useRef<{ key: string; html: string } | null>(null);
   const settingContentRef = useRef(false);
+  // Refs to avoid stale closures in TipTap editor callbacks (useEditor creates callbacks once)
+  const selectedSceneKeyRef = useRef(selectedSceneKey);
+  selectedSceneKeyRef.current = selectedSceneKey;
+  const onScratchpadChangeRef = useRef(onScratchpadChange);
+  onScratchpadChangeRef.current = onScratchpadChange;
   const [navContextMenu, setNavContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
   const navContextMenuRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -624,9 +629,10 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     content: selectedSceneKey ? (draftContent[selectedSceneKey] || '') : '',
     onUpdate: ({ editor }) => {
       if (settingContentRef.current) return;
-      if (!selectedSceneKey) return;
+      const currentKey = selectedSceneKeyRef.current;
+      if (!currentKey) return;
       const html = editor.getHTML();
-      pendingContentRef.current = { key: selectedSceneKey, html };
+      pendingContentRef.current = { key: currentKey, html };
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         if (pendingContentRef.current) {
@@ -751,13 +757,15 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     ],
     content: selectedSceneKey ? (scratchpad[selectedSceneKey] || '') : '',
     onBlur: () => {
-      if (scratchpadEditor && selectedSceneKey && onScratchpadChange) {
-        onScratchpadChange(selectedSceneKey, scratchpadEditor.getHTML());
+      const currentKey = selectedSceneKeyRef.current;
+      if (scratchpadEditor && currentKey && onScratchpadChangeRef.current) {
+        onScratchpadChangeRef.current(currentKey, scratchpadEditor.getHTML());
       }
     },
     onUpdate: ({ editor: e }) => {
-      if (e && selectedSceneKey && onScratchpadChange) {
-        onScratchpadChange(selectedSceneKey, e.getHTML());
+      const currentKey = selectedSceneKeyRef.current;
+      if (e && currentKey && onScratchpadChangeRef.current) {
+        onScratchpadChangeRef.current(currentKey, e.getHTML());
       }
     },
   });

@@ -2504,7 +2504,7 @@ function App() {
 
   const handleDraftChange = async (sceneKey: string, html: string) => {
     isDirtyRef.current = true;
-    const updated = { ...draftContent, [sceneKey]: html };
+    const updated = { ...draftContentRef.current, [sceneKey]: html };
     setDraftContent(updated);
     draftContentRef.current = updated;
 
