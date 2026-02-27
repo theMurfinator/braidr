@@ -63,15 +63,15 @@ function App() {
   // Derive viewMode from active tab for backward compatibility
   const viewMode = (activeTab?.params.type || 'pov') as ViewMode;
   const setViewMode = (mode: ViewMode) => {
-    // Open or activate a tab of this type in the active pane
+    // Navigate the active tab to this view type (don't create new tabs)
     const pane = findLeafPane(paneLayout.root, paneLayout.activePaneId);
     if (pane) {
       const existingTabId = findTabByType(pane, mode);
       if (existingTabId) {
         paneDispatch({ type: 'SET_ACTIVE_TAB', paneId: pane.id, tabId: existingTabId });
       } else {
-        const tab = createTab({ type: mode } as TabParams, defaultTabTitle(mode));
-        paneDispatch({ type: 'OPEN_TAB', paneId: pane.id, tab, makeActive: true });
+        // Replace the active tab's content instead of opening a new tab
+        paneDispatch({ type: 'UPDATE_TAB_PARAMS', paneId: pane.id, tabId: pane.activeTabId, params: { type: mode } as TabParams, title: defaultTabTitle(mode) });
       }
     }
     localStorage.setItem('braidr-last-view-mode', mode);

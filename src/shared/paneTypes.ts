@@ -55,7 +55,7 @@ export type PaneAction =
   | { type: 'CLOSE_PANE'; paneId: string }
   | { type: 'SET_SPLIT_RATIO'; paneId: string; ratio: number }
   | { type: 'MOVE_TAB'; fromPaneId: string; tabId: string; toPaneId: string; index: number }
-  | { type: 'UPDATE_TAB_PARAMS'; paneId: string; tabId: string; params: TabParams }
+  | { type: 'UPDATE_TAB_PARAMS'; paneId: string; tabId: string; params: TabParams; title?: string }
   | { type: 'SET_LAYOUT'; layout: PaneLayout };
 
 /** Default tab title for a view type */

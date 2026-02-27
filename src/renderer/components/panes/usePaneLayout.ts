@@ -92,7 +92,7 @@ function paneReducer(state: PaneLayout, action: PaneAction): PaneLayout {
       const pane = findLeafPane(state.root, action.paneId);
       if (!pane) return state;
       const tabs = pane.tabs.map(t =>
-        t.id === action.tabId ? { ...t, params: action.params } : t
+        t.id === action.tabId ? { ...t, params: action.params, ...(action.title !== undefined ? { title: action.title } : {}) } : t
       );
       const updated: LeafPane = { ...pane, tabs };
       return { ...state, root: replaceNode(state.root, pane.id, updated) };
