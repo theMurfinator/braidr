@@ -111,14 +111,27 @@ export default function TimelineSidebar({
   const handleUnassignedDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     (e.currentTarget as HTMLElement).classList.remove('drag-over');
+
+    // Check for world event drop
+    const eventId = e.dataTransfer.getData('application/x-event-id');
+    if (eventId) {
+      const updated = worldEvents.map(ev =>
+        ev.id === eventId ? { ...ev, date: '', updatedAt: Date.now() } : ev
+      );
+      onWorldEventsChange(updated);
+      return;
+    }
+
+    // Scene drop
     const sceneKey = e.dataTransfer.getData('text/plain');
     if (!sceneKey) return;
     const updated = { ...timelineDates };
     delete updated[sceneKey];
     onTimelineDatesChange(updated);
-  }, [timelineDates, onTimelineDatesChange]);
+  }, [timelineDates, onTimelineDatesChange, worldEvents, onWorldEventsChange]);
 
-  const sortedEvents = [...worldEvents].sort((a, b) => a.date.localeCompare(b.date));
+  const datedEvents = worldEvents.filter(e => e.date).sort((a, b) => a.date.localeCompare(b.date));
+  const undatedEvents = worldEvents.filter(e => !e.date);
 
   // ── Create event ──────────────────────────────────────────────────────────
   function handleCreate() {
@@ -148,15 +161,44 @@ export default function TimelineSidebar({
           + New Event
         </button>
       </div>
-      <div className="timeline-events-list">
-        {sortedEvents.length === 0 ? (
+      {undatedEvents.length > 0 && (
+        <div className="timeline-undated-section">
+          <div className="timeline-undated-divider">Needs date ({undatedEvents.length})</div>
+          {undatedEvents.map(evt => (
+            <div
+              key={evt.id}
+              className={`timeline-event-item undated ${selectedEventId === evt.id ? 'selected' : ''}`}
+              onClick={() => onSelectEvent(evt.id)}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/x-event-id', evt.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+            >
+              <div className="timeline-event-title">{evt.title}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div
+        className="timeline-events-list"
+        onDragOver={handleUnassignedDragOver}
+        onDragLeave={handleUnassignedDragLeave}
+        onDrop={handleUnassignedDrop}
+      >
+        {worldEvents.length === 0 ? (
           <div className="timeline-empty">No world events yet</div>
         ) : (
-          sortedEvents.map(evt => (
+          datedEvents.map(evt => (
             <div
               key={evt.id}
               className={`timeline-event-item ${selectedEventId === evt.id ? 'selected' : ''}`}
               onClick={() => onSelectEvent(evt.id)}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/x-event-id', evt.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
             >
               <div className="timeline-event-date">{evt.date}</div>
               <div className="timeline-event-title">{evt.title}</div>

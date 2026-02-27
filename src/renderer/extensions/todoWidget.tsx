@@ -244,9 +244,9 @@ function TodoWidgetView({ node, updateAttributes, editor }: any) {
                     )}
                   </div>
                 ) : (
-                  <span className={`todo-widget-cell-display ${!row.sceneLabel ? 'placeholder' : ''}`}>
-                    {row.sceneLabel || 'Select scene…'}
-                    {row.sceneLabel && (
+                  <span className={`todo-widget-cell-display ${!row.sceneKey ? 'placeholder' : ''}`}>
+                    {(row.sceneKey && sceneOptions.find(o => o.key === row.sceneKey)?.label) || row.sceneLabel || 'Select scene…'}
+                    {row.sceneKey && (
                       <button
                         className="todo-widget-scene-clear"
                         onClick={e => { e.stopPropagation(); clearScene(row.id); }}

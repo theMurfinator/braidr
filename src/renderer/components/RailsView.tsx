@@ -34,6 +34,7 @@ interface RailsViewProps {
   draftContent: Record<string, string>;
   onDraftChange: (sceneKey: string, html: string) => void;
   onOpenInEditor?: (sceneKey: string) => void;
+  povReorderedScenes?: Set<string>;
 }
 
 export default function RailsView({
@@ -67,6 +68,7 @@ export default function RailsView({
   draftContent,
   onDraftChange,
   onOpenInEditor,
+  povReorderedScenes,
 }: RailsViewProps) {
   const [inboxCharFilter, setInboxCharFilter] = useState<string>('all');
   const [floatingEditorScene, setFloatingEditorScene] = useState<Scene | null>(null);
@@ -463,6 +465,7 @@ export default function RailsView({
                           isConnectionTarget={isConnecting && connectionSource !== row.scene.id}
                           onDragStart={(e) => onDragStart(e, row.scene)}
                           onDragEnd={onDragEnd}
+                          isPovReordered={povReorderedScenes?.has(row.scene.id) || false}
                         />
                       )}
                     </div>

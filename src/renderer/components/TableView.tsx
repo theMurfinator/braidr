@@ -24,6 +24,7 @@ interface TableViewProps {
   onWordCountChange: (sceneId: string, wordCount: number | undefined) => void;
   onTableViewsChange: (views: TableViewConfig[]) => void;
   onSceneChange?: (sceneId: string, content: string, notes: string[]) => void;
+  povReorderedScenes?: Set<string>;
 }
 
 type SortField = 'scene' | 'character' | 'status' | 'words' | 'plotPoint' | string;
@@ -63,6 +64,7 @@ export default function TableView({
   onWordCountChange,
   onTableViewsChange: _onTableViewsChange,
   onSceneChange,
+  povReorderedScenes,
 }: TableViewProps) {
   // Use localStorage for now instead of props
   const [savedViews, setSavedViews] = useState<TableViewConfig[]>(() => {
@@ -1032,7 +1034,7 @@ export default function TableView({
             };
 
             return (
-              <tr key={scene.id} className="table-row" onClick={() => onSceneClick(sceneKey)}>
+              <tr key={scene.id} className={`table-row ${povReorderedScenes?.has(scene.id) ? 'pov-reordered' : ''}`} onClick={() => onSceneClick(sceneKey)}>
                 {orderedColumns
                   .filter(col => visibleColumns.has(col.id))
                   .map(col => renderCell(col.id))}

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { createPortal } from 'react-dom';
 import { track } from '../utils/posthogTracker';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -216,6 +217,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const [newTagName, setNewTagName] = useState('');
   const [newTagCategory, setNewTagCategory] = useState<'people' | 'locations' | 'arcs' | 'things' | 'time'>('people');
   const tagPickerRef = useRef<HTMLDivElement>(null);
+  const tagPickerDropdownRef = useRef<HTMLDivElement>(null);
+  const [tagPickerPos, setTagPickerPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draggingRef = useRef<{ panel: 'nav' | 'meta'; startX: number; initialWidth: number } | null>(null);
   const pendingContentRef = useRef<{ key: string; html: string } | null>(null);
@@ -846,7 +849,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   // Tag picker close on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (tagPickerRef.current && !tagPickerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (tagPickerRef.current && !tagPickerRef.current.contains(target) &&
+          tagPickerDropdownRef.current && !tagPickerDropdownRef.current.contains(target)) {
         setShowTagPicker(false);
       }
     };
@@ -1469,9 +1474,17 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     </span>
                   ))}
                   <div className="tag-picker-container" ref={tagPickerRef}>
-                    <button className="add-tag-btn" onClick={() => setShowTagPicker(!showTagPicker)}>+</button>
-                    {showTagPicker && (
-                      <div className="tag-picker-dropdown">
+                    <button className="add-tag-btn" onClick={(e) => {
+                      if (!showTagPicker) {
+                        const rect = (e.target as HTMLElement).getBoundingClientRect();
+                        const dropdownWidth = Math.max(260, rect.width);
+                        const left = Math.min(rect.left, window.innerWidth - dropdownWidth - 8);
+                        setTagPickerPos({ top: rect.bottom + 4, left, width: dropdownWidth });
+                      }
+                      setShowTagPicker(!showTagPicker);
+                    }}>+</button>
+                    {showTagPicker && tagPickerPos && createPortal(
+                      <div className="tag-picker-dropdown" ref={tagPickerDropdownRef} style={{ position: 'fixed', top: tagPickerPos.top, left: tagPickerPos.left, minWidth: tagPickerPos.width }}>
                         <div className="tag-picker-create">
                           <input
                             type="text"
@@ -1503,7 +1516,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                               #{tag.name}
                             </div>
                           ))}
-                      </div>
+                      </div>,
+                      document.body
                     )}
                   </div>
                 </div>
@@ -2208,19 +2222,11 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                 <div className="diff-modal-side-by-side">
                   <div className="diff-side diff-side-from">
                     <div className="diff-side-label">From: {formatVersionLabel(diffVersionA ?? 0)}</div>
-                    <div className="diff-side-content">
-                      {chunks.filter(c => c.type !== 'added').map((chunk, i) => (
-                        <span key={i} className={`diff-chunk diff-${chunk.type}`}>{chunk.text} </span>
-                      ))}
-                    </div>
+                    <div className="diff-side-content diff-rich-text ProseMirror" dangerouslySetInnerHTML={{ __html: getContentForVersion(diffVersionA) }} />
                   </div>
                   <div className="diff-side diff-side-to">
                     <div className="diff-side-label">To: {formatVersionLabel(diffVersionB ?? 0)}</div>
-                    <div className="diff-side-content">
-                      {chunks.filter(c => c.type !== 'removed').map((chunk, i) => (
-                        <span key={i} className={`diff-chunk diff-${chunk.type}`}>{chunk.text} </span>
-                      ))}
-                    </div>
+                    <div className="diff-side-content diff-rich-text ProseMirror" dangerouslySetInnerHTML={{ __html: getContentForVersion(diffVersionB) }} />
                   </div>
                 </div>
               ) : (

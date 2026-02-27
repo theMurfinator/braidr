@@ -82,6 +82,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [draggedScene, setDraggedScene] = useState<Scene | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const [povReorderedScenes, setPovReorderedScenes] = useState<Set<string>>(new Set());
   const [showTagManager, setShowTagManager] = useState(false);
   const [showPovColors, setShowPovColors] = useState(true);
   const [allNotesExpanded, setAllNotesExpanded] = useState<boolean | null>(null);
@@ -457,6 +458,10 @@ function App() {
 
   const handleSceneDateChange = useCallback((sceneId: string, date: string | undefined) => {
     if (!projectData) return;
+    if (date) {
+      const year = new Date(date + 'T00:00:00').getFullYear();
+      if (isNaN(year) || year < 1 || year > 2200) return;
+    }
     const s = projectData.scenes.find(sc => sc.id === sceneId);
     if (s) {
       const key = `${s.characterId}:${s.sceneNumber}`;
@@ -1480,57 +1485,15 @@ function App() {
     applyFontSettings(settings.global);
     applyScreenFontOverrides(viewMode, settings);
 
-    // Save to timeline data
+    // Save via the standard save path (avoids parameter drift)
     if (projectData) {
       try {
-        const positions: Record<string, number> = {};
-        projectData.scenes.forEach(scene => {
-          if (scene.timelinePosition !== null) {
-            positions[`${scene.characterId}:${scene.sceneNumber}`] = scene.timelinePosition;
-          }
-        });
-
-        // Convert connections from scene IDs to keys
-        const connectionKeys: Record<string, string[]> = {};
-        for (const [sourceId, targetIds] of Object.entries(sceneConnections)) {
-          const sourceScene = projectData.scenes.find(s => s.id === sourceId);
-          if (sourceScene) {
-            const sourceKey = `${sourceScene.characterId}:${sourceScene.sceneNumber}`;
-            connectionKeys[sourceKey] = targetIds
-              .map(targetId => {
-                const targetScene = projectData.scenes.find(s => s.id === targetId);
-                return targetScene ? `${targetScene.characterId}:${targetScene.sceneNumber}` : null;
-              })
-              .filter((key): key is string => key !== null);
-          }
-        }
-
-        // Get word counts
-        const wordCounts: Record<string, number> = {};
-        projectData.scenes.forEach(scene => {
-          if (scene.wordCount !== undefined) {
-            wordCounts[`${scene.characterId}:${scene.sceneNumber}`] = scene.wordCount;
-          }
-        });
-
-        // Merge inline todos into sceneMetadata for persistence
-        const metaWithTodos = { ...sceneMetadataRef.current };
-        for (const [sceneKey, todos] of Object.entries(inlineTodosRef.current)) {
-          if (!metaWithTodos[sceneKey]) metaWithTodos[sceneKey] = {};
-          metaWithTodos[sceneKey] = { ...metaWithTodos[sceneKey], _inlineTodos: JSON.stringify(todos) };
-        }
-        // Clean up empty inline todo entries
-        for (const key of Object.keys(metaWithTodos)) {
-          if (!inlineTodosRef.current[key] && metaWithTodos[key]?._inlineTodos) {
-            const { _inlineTodos, ...rest } = metaWithTodos[key];
-            metaWithTodos[key] = rest;
-          }
-        }
-
-        await dataService.saveTimeline(positions, connectionKeys, braidedChapters, characterColors, wordCounts, settings.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaWithTodos, draftsRef.current, wordCountGoalRef.current, settings, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current);
+        await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
       } catch (err) {
         console.error('Failed to save font settings:', err);
         addToast('Failed to save font settings');
+        // Ensure auto-save will retry
+        isDirtyRef.current = true;
       }
     }
   };
@@ -1784,6 +1747,9 @@ function App() {
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
     setDraggedPovScene(null);
+
+    // Mark the moved scene as reordered so braided views show a sync indicator
+    setPovReorderedScenes(prev => new Set(prev).add(movedScene.id));
 
     // Save to file
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
@@ -2479,6 +2445,15 @@ function App() {
     setProjectData({ ...projectData, scenes: finalScenes });
     setDraggedScene(null);
     setDropTargetIndex(null);
+
+    // Clear sync indicator — scene has been repositioned in braided view
+    if (povReorderedScenes.has(draggedScene.id)) {
+      setPovReorderedScenes(prev => {
+        const next = new Set(prev);
+        next.delete(draggedScene.id);
+        return next;
+      });
+    }
 
     await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
     track('scene_reordered', { view: 'braided' });
@@ -3516,6 +3491,7 @@ function App() {
                   tableViews={[]}
                   plotPoints={projectData.plotPoints}
                   characterColors={characterColors}
+                  povReorderedScenes={povReorderedScenes}
                   onSceneClick={(sceneKey) => {
                     const [characterId, sceneNumberStr] = sceneKey.split(':');
                     const sceneNumber = parseInt(sceneNumberStr, 10);
@@ -3611,6 +3587,7 @@ function App() {
                 draftContent={draftContent}
                 onDraftChange={handleDraftChange}
                 onOpenInEditor={handleOpenInEditor}
+                povReorderedScenes={povReorderedScenes}
               />
             ) : (
               // Braided List View
@@ -3780,7 +3757,7 @@ function App() {
                             }}
                             onMouseEnter={() => setHoveredSceneId(scene.id)}
                             onMouseLeave={() => setHoveredSceneId(null)}
-                            className={`braided-scene-drag-wrapper ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''}`}
+                            className={`braided-scene-drag-wrapper ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${povReorderedScenes.has(scene.id) ? 'pov-reordered' : ''}`}
                           >
                             <SceneCard
                               scene={scene}
@@ -4022,24 +3999,53 @@ function App() {
         <button
           className={`app-sidebar-btn ${viewMode === 'pov' ? 'active' : ''}`}
           onClick={() => setViewMode('pov')}
-          title="POV Outline"
-          aria-label="POV Outline view"
+          title="POV"
+          aria-label="POV view"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M4 6h16M4 12h10M4 18h13"/>
           </svg>
-          <span className="app-sidebar-label">Outline</span>
+          <span className="app-sidebar-label">POV</span>
         </button>
         <button
-          className={`app-sidebar-btn ${viewMode === 'braided' ? 'active' : ''}`}
-          onClick={() => setViewMode('braided')}
-          title="Braided Timeline"
-          aria-label="Braided Timeline view"
+          className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'list' ? 'active' : ''}`}
+          onClick={() => { setBraidedSubMode('list'); setViewMode('braided'); track('braided_subview_changed', { subview: 'list' }); }}
+          title="Braider"
+          aria-label="Braider list view"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M8 3v18M16 3v18M3 8h18M3 16h18"/>
           </svg>
-          <span className="app-sidebar-label">Timeline</span>
+          <span className="app-sidebar-label">Braider</span>
+        </button>
+        <button
+          className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'table' ? 'active' : ''}`}
+          onClick={() => { setBraidedSubMode('table'); setViewMode('braided'); track('braided_subview_changed', { subview: 'table' }); }}
+          title="Table"
+          aria-label="Table view"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="3" y1="15" x2="21" y2="15"/>
+            <line x1="9" y1="3" x2="9" y2="21"/>
+          </svg>
+          <span className="app-sidebar-label">Table</span>
+        </button>
+        <button
+          className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'rails' ? 'active' : ''}`}
+          onClick={() => { setBraidedSubMode('rails'); setViewMode('braided'); track('braided_subview_changed', { subview: 'rails' }); }}
+          title="Rails"
+          aria-label="Rails view"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <line x1="5" y1="3" x2="5" y2="21"/>
+            <line x1="12" y1="3" x2="12" y2="21"/>
+            <line x1="19" y1="3" x2="19" y2="21"/>
+            <line x1="3" y1="8" x2="21" y2="8"/>
+            <line x1="3" y1="16" x2="21" y2="16"/>
+          </svg>
+          <span className="app-sidebar-label">Rails</span>
         </button>
         <button
           className={`app-sidebar-btn ${viewMode === 'editor' ? 'active' : ''}`}
@@ -4148,27 +4154,6 @@ function App() {
                   </option>
                 ))}
               </select>
-            </div>
-          ) : viewMode === 'braided' ? (
-            <div className="sub-view-toggle">
-              <button
-                className={braidedSubMode === 'list' ? 'active' : ''}
-                onClick={() => { setBraidedSubMode('list'); track('braided_subview_changed', { subview: 'list' }); }}
-              >
-                List
-              </button>
-              <button
-                className={braidedSubMode === 'table' ? 'active' : ''}
-                onClick={() => { setBraidedSubMode('table'); track('braided_subview_changed', { subview: 'table' }); }}
-              >
-                Table
-              </button>
-              <button
-                className={braidedSubMode === 'rails' ? 'active' : ''}
-                onClick={() => { setBraidedSubMode('rails'); track('braided_subview_changed', { subview: 'rails' }); }}
-              >
-                Rails
-              </button>
             </div>
           ) : (
             <h1>{projectData.projectName || 'Braidr'}</h1>

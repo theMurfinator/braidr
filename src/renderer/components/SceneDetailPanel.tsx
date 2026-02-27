@@ -125,6 +125,8 @@ function SceneDetailPanel({
             <label>Timeline Date</label>
             <input
               type="date"
+              min="0001-01-01"
+              max="2200-12-31"
               className="scene-detail-date-input"
               value={timelineDate || ''}
               onChange={e => onTimelineDateChange(e.target.value)}

@@ -19,6 +19,7 @@ interface TimelineGridProps {
   onColWidthChange: (w: number) => void;
   dateRange: string[];
   onExtendRange: () => void;
+  onWorldEventsChange: (events: WorldEvent[]) => void;
 }
 
 /** Short weekday abbreviation from a date string. */
@@ -58,6 +59,7 @@ export default function TimelineGrid({
   onColWidthChange,
   dateRange,
   onExtendRange,
+  onWorldEventsChange,
 }: TimelineGridProps) {
   const resizeDragRef = useRef<{ startX: number; initialWidth: number; target: 'label' | 'col' } | null>(null);
 
@@ -165,11 +167,23 @@ export default function TimelineGrid({
   const handleCellDrop = useCallback((e: DragEvent<HTMLDivElement>, date: string) => {
     e.preventDefault();
     (e.currentTarget as HTMLElement).classList.remove('drag-over');
+
+    // Check if this is a world event drop
+    const eventId = e.dataTransfer.getData('application/x-event-id');
+    if (eventId) {
+      const updated = worldEvents.map(ev =>
+        ev.id === eventId ? { ...ev, date, updatedAt: Date.now() } : ev
+      );
+      onWorldEventsChange(updated);
+      return;
+    }
+
+    // Otherwise it's a scene drop
     const sceneKey = e.dataTransfer.getData('text/plain');
     if (!sceneKey) return;
     const updated = { ...timelineDates, [sceneKey]: date };
     onTimelineDatesChange(updated);
-  }, [timelineDates, onTimelineDatesChange]);
+  }, [timelineDates, onTimelineDatesChange, worldEvents, onWorldEventsChange]);
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────
   useEffect(() => {
@@ -271,6 +285,12 @@ export default function TimelineGrid({
           onSelectEvent(isSelected ? null : ev.id);
         }}
         title={ev.title}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData('application/x-event-id', ev.id);
+          e.dataTransfer.effectAllowed = 'move';
+          e.stopPropagation();
+        }}
       >
         <span className="tg-event-diamond">{'\u25C6'}</span>
         <span className="tg-event-label">{title}</span>
@@ -350,6 +370,9 @@ export default function TimelineGrid({
               key={`we-${date}`}
               className={`tg-cell tg-world-cell${events.length === 0 ? ' empty' : ''}`}
               style={{ gridRow: 2, gridColumn: i + 2 }}
+              onDragOver={handleCellDragOver}
+              onDragLeave={handleCellDragLeave}
+              onDrop={(e) => handleCellDrop(e, date)}
             >
               {events.map((ev) => renderWorldEventCard(ev))}
             </div>

@@ -627,6 +627,8 @@ function SceneCard({
                     isEditingDate ? (
                       <input
                         type="date"
+                        min="0001-01-01"
+                        max="2200-12-31"
                         className="scene-date-input"
                         value={editDate}
                         onChange={(e) => setEditDate(e.target.value)}

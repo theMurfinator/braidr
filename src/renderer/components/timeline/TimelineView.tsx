@@ -20,14 +20,17 @@ function toDateStr(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Generate an array of date strings from start to end (inclusive). */
+/** Generate an array of date strings from start to end (inclusive). Capped at MAX_DAYS to prevent memory exhaustion. */
 function buildDateArray(start: string, end: string): string[] {
+  const MAX_DAYS = 730; // 2 years max
   const range: string[] = [];
   const cur = new Date(start + 'T00:00:00');
   const last = new Date(end + 'T00:00:00');
-  while (cur <= last) {
+  let count = 0;
+  while (cur <= last && count < MAX_DAYS) {
     range.push(toDateStr(cur));
     cur.setDate(cur.getDate() + 1);
+    count++;
   }
   return range;
 }
@@ -75,6 +78,7 @@ export default function TimelineView({
   const [subMode, setSubMode] = useState<TimelineSubMode>('grid');
   const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const timelineMainRef = useRef<HTMLDivElement>(null);
 
   const [labelWidth, setLabelWidth] = useState<number>(() => {
     try {
@@ -108,23 +112,39 @@ export default function TimelineView({
       const saved = localStorage.getItem('braidr-timeline-range');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.start && parsed.end) return parsed;
+        if (parsed && parsed.start && parsed.end) {
+          // Validate years to prevent extreme ranges from crashing the grid
+          const startYear = new Date(parsed.start + 'T00:00:00').getFullYear();
+          const endYear = new Date(parsed.end + 'T00:00:00').getFullYear();
+          if (isNaN(startYear) || isNaN(endYear) || startYear < 1 || endYear > 2200) {
+            localStorage.removeItem('braidr-timeline-range');
+            return null;
+          }
+          return parsed;
+        }
       }
     } catch {}
     return null;
   });
 
   const updateTimelineRange = useCallback((range: TimelineRange) => {
+    const startYear = new Date(range.start + 'T00:00:00').getFullYear();
+    const endYear = new Date(range.end + 'T00:00:00').getFullYear();
+    if (isNaN(startYear) || isNaN(endYear) || startYear < 1 || endYear > 2200) return;
     setTimelineRange(range);
     localStorage.setItem('braidr-timeline-range', JSON.stringify(range));
   }, []);
 
-  // All assigned dates (scenes + events)
+  // All assigned dates (scenes + events), filtering out extreme years
   const allAssignedDates = useMemo(() => {
     const dates = [
       ...Object.values(timelineDates),
       ...worldEvents.map(e => e.date),
-    ].filter(Boolean).sort();
+    ].filter(d => {
+      if (!d) return false;
+      const year = new Date(d + 'T00:00:00').getFullYear();
+      return !isNaN(year) && year >= 1 && year <= 2200;
+    }).sort();
     return [...new Set(dates)];
   }, [timelineDates, worldEvents]);
 
@@ -139,10 +159,15 @@ export default function TimelineView({
       if (earliest < start) start = earliest;
       if (latest > end) end = latest;
       if (start !== timelineRange.start || end !== timelineRange.end) {
-        // Persist the auto-extended range
-        const extended = { start, end };
-        localStorage.setItem('braidr-timeline-range', JSON.stringify(extended));
-        return extended;
+        // Validate before persisting auto-extended range
+        const sYear = new Date(start + 'T00:00:00').getFullYear();
+        const eYear = new Date(end + 'T00:00:00').getFullYear();
+        if (!isNaN(sYear) && !isNaN(eYear) && sYear >= 1 && eYear <= 2200) {
+          const extended = { start, end };
+          localStorage.setItem('braidr-timeline-range', JSON.stringify(extended));
+          return extended;
+        }
+        return timelineRange;
       }
       return timelineRange;
     }
@@ -188,6 +213,30 @@ export default function TimelineView({
       });
     }
   }, [effectiveRange, updateTimelineRange]);
+
+  // ── Snap to first scene ────────────────────────────────────────────────
+  const handleSnapToFirstScene = useCallback(() => {
+    if (!timelineMainRef.current || allAssignedDates.length === 0 || dateRange.length === 0) return;
+    const firstDate = allAssignedDates[0];
+    const colIndex = dateRange.indexOf(firstDate);
+    if (colIndex === -1) return;
+    const scrollX = Math.max(0, colIndex * colWidth - 20);
+    timelineMainRef.current.scrollTo({ left: scrollX, behavior: 'smooth' });
+  }, [allAssignedDates, dateRange, colWidth]);
+
+  // Auto-scroll to first scene on initial load
+  const hasSnappedRef = useRef(false);
+  useEffect(() => {
+    if (!hasSnappedRef.current && timelineMainRef.current && allAssignedDates.length > 0 && dateRange.length > 0) {
+      hasSnappedRef.current = true;
+      const firstDate = allAssignedDates[0];
+      const colIndex = dateRange.indexOf(firstDate);
+      if (colIndex > 0) {
+        const scrollX = Math.max(0, colIndex * colWidth - 20);
+        timelineMainRef.current.scrollTo({ left: scrollX });
+      }
+    }
+  }, [allAssignedDates, dateRange, colWidth]);
 
   // ── Setup prompt state ──────────────────────────────────────────────────
   const [setupDate, setSetupDate] = useState('');
@@ -256,6 +305,11 @@ export default function TimelineView({
   }, [selectedEventId, worldEvents]);
 
   const updateEvent = useCallback((id: string, patch: Partial<WorldEvent>) => {
+    // Validate date to prevent extreme years from crashing the timeline grid
+    if (patch.date) {
+      const year = new Date(patch.date + 'T00:00:00').getFullYear();
+      if (isNaN(year) || year < 1 || year > 2200) return;
+    }
     const updated = worldEvents.map(e =>
       e.id === id ? { ...e, ...patch, updatedAt: Date.now() } : e
     );
@@ -347,10 +401,23 @@ export default function TimelineView({
               </span>
             </>
           )}
+          {allAssignedDates.length > 0 && (
+            <button
+              className="timeline-snap-btn"
+              onClick={handleSnapToFirstScene}
+              title="Scroll to first scene"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Go to scenes
+            </button>
+          )}
         </div>
       </div>
       <div className={`timeline-content${hasDetail ? ' has-detail' : ''}`}>
-        <div className="timeline-main">
+        <div className="timeline-main" ref={timelineMainRef}>
           {showSetup ? (
             <div className="timeline-grid">
               <div className="timeline-setup-prompt">
@@ -367,6 +434,8 @@ export default function TimelineView({
                 <div className="timeline-setup-controls">
                   <input
                     type="date"
+                    min="0001-01-01"
+                    max="2200-12-31"
                     value={setupDate}
                     onChange={(e) => setSetupDate(e.target.value)}
                     className="timeline-setup-date"
@@ -400,6 +469,7 @@ export default function TimelineView({
               onColWidthChange={handleColWidthChange}
               dateRange={dateRange}
               onExtendRange={handleExtendRange}
+              onWorldEventsChange={onWorldEventsChange}
             />
           ) : (
             <TimelineCanvas
@@ -437,6 +507,10 @@ export default function TimelineView({
             }
             onTimelineDateChange={(date) => {
               if (!selectedSceneKey) return;
+              if (date) {
+                const year = new Date(date + 'T00:00:00').getFullYear();
+                if (isNaN(year) || year < 1 || year > 2200) return;
+              }
               const updated = { ...timelineDates };
               if (date) {
                 updated[selectedSceneKey] = date;
@@ -466,11 +540,24 @@ export default function TimelineView({
               </div>
               <div className="timeline-detail-field">
                 <label>Date</label>
-                <input
-                  type="date"
-                  value={selectedEvent.date}
-                  onChange={e => updateEvent(selectedEvent.id, { date: e.target.value })}
-                />
+                <div className="timeline-detail-date-row">
+                  <input
+                    type="date"
+                    min="0001-01-01"
+                    max="2200-12-31"
+                    value={selectedEvent.date}
+                    onChange={e => updateEvent(selectedEvent.id, { date: e.target.value })}
+                  />
+                  {selectedEvent.date && (
+                    <button
+                      className="timeline-detail-clear-btn"
+                      onClick={() => updateEvent(selectedEvent.id, { date: '' })}
+                      title="Clear date"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="timeline-detail-field">
                 <label>Description</label>

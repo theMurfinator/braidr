@@ -61,7 +61,7 @@ export type PaneAction =
 /** Default tab title for a view type */
 export function defaultTabTitle(type: TabViewType): string {
   switch (type) {
-    case 'pov': return 'Outline';
+    case 'pov': return 'POV';
     case 'braided': return 'Timeline';
     case 'editor': return 'Editor';
     case 'notes': return 'Notes';

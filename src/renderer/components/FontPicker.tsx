@@ -37,7 +37,7 @@ type TabKey = 'global' | ScreenKey;
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'global', label: 'All Screens' },
-  { key: 'pov', label: 'Outline' },
+  { key: 'pov', label: 'POV' },
   { key: 'braided', label: 'Timeline' },
   { key: 'editor', label: 'Editor' },
   { key: 'notes', label: 'Notes' },
