@@ -57,6 +57,7 @@ interface TimelineViewProps {
   onTagsChange: (sceneId: string, tags: string[]) => void;
   onCreateTag: (name: string, category: TagCategory) => void;
   onRemoveConnection: (sourceId: string, targetId: string) => void;
+  onInsertScene?: (characterId: string, plotPointId: string, date: string) => Promise<string | null>;
 }
 
 export default function TimelineView({
@@ -74,6 +75,7 @@ export default function TimelineView({
   onTagsChange,
   onCreateTag,
   onRemoveConnection,
+  onInsertScene,
 }: TimelineViewProps) {
   const [subMode, setSubMode] = useState<TimelineSubMode>('grid');
   const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(null);
@@ -470,6 +472,8 @@ export default function TimelineView({
               dateRange={dateRange}
               onExtendRange={handleExtendRange}
               onWorldEventsChange={onWorldEventsChange}
+              plotPoints={plotPoints}
+              onInsertScene={onInsertScene}
             />
           ) : (
             <TimelineCanvas

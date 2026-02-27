@@ -2623,6 +2623,57 @@ function App() {
     handleOpenInEditor(sceneKey);
   };
 
+  const handleInsertSceneOnTimeline = async (characterId: string, plotPointId: string, date: string): Promise<string | null> => {
+    if (!projectData) return null;
+
+    const character = projectData.characters.find(c => c.id === characterId);
+    if (!character) return null;
+
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === characterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    const newSceneNumber = charScenes.length + 1;
+    const characterTag = character.name.toLowerCase().replace(/\s+/g, '_');
+
+    const newScene: Scene = {
+      id: Math.random().toString(36).substring(2, 11),
+      characterId,
+      sceneNumber: newSceneNumber,
+      title: 'New scene',
+      content: 'New scene',
+      tags: [characterTag],
+      timelinePosition: null,
+      isHighlighted: false,
+      notes: [],
+      plotPointId,
+    };
+
+    const newCharScenes = [...charScenes, newScene];
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== characterId);
+    const updatedScenes = [...otherScenes, ...newCharScenes];
+
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+
+    // Assign the date
+    const sceneKey = `${characterId}:${newScene.sceneNumber}`;
+    const updatedDates = { ...timelineDatesRef.current, [sceneKey]: date };
+    handleTimelineDatesChange(updatedDates);
+
+    // Save
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+      track('scene_created', { character_id: characterId, source: 'timeline_insert' });
+    } catch (err) {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
+    }
+
+    return sceneKey;
+  };
+
   const handleGoToPov = (sceneId: string, characterId: string) => {
     scrollToSceneIdRef.current = sceneId;
     setSelectedCharacterId(characterId);
@@ -3354,6 +3405,7 @@ function App() {
                 onTagsChange={handleTagsChange}
                 onCreateTag={handleCreateTag}
                 onRemoveConnection={handleRemoveConnection}
+                onInsertScene={handleInsertSceneOnTimeline}
               />
             ) : mode === 'editor' ? (
               <EditorView

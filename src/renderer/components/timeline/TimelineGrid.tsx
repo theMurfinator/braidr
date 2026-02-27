@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, type DragEvent } from 'react';
-import type { Scene, Character, WorldEvent } from '../../../shared/types';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import type { Scene, Character, WorldEvent, PlotPoint } from '../../../shared/types';
 
 interface TimelineGridProps {
   scenes: Scene[];
@@ -20,6 +20,8 @@ interface TimelineGridProps {
   dateRange: string[];
   onExtendRange: () => void;
   onWorldEventsChange: (events: WorldEvent[]) => void;
+  plotPoints?: PlotPoint[];
+  onInsertScene?: (characterId: string, plotPointId: string, date: string) => Promise<string | null>;
 }
 
 /** Short weekday abbreviation from a date string. */
@@ -60,8 +62,11 @@ export default function TimelineGrid({
   dateRange,
   onExtendRange,
   onWorldEventsChange,
+  plotPoints,
+  onInsertScene,
 }: TimelineGridProps) {
   const resizeDragRef = useRef<{ startX: number; initialWidth: number; target: 'label' | 'col' } | null>(null);
+  const [insertCell, setInsertCell] = useState<{ characterId: string; date: string } | null>(null);
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
@@ -395,6 +400,8 @@ export default function TimelineGrid({
               </div>
               {dateRange.map((date, colIdx) => {
                 const sceneKeys = sceneDateMap[date]?.[char.id] || [];
+                const isInsertOpen = insertCell?.characterId === char.id && insertCell?.date === date;
+                const charPlotPoints = plotPoints?.filter(p => p.characterId === char.id).sort((a, b) => a.order - b.order) || [];
                 return (
                   <div
                     key={`${char.id}-${date}`}
@@ -405,6 +412,34 @@ export default function TimelineGrid({
                     onDrop={(e) => handleCellDrop(e, date)}
                   >
                     {sceneKeys.map((sk) => renderSceneCard(sk))}
+                    {sceneKeys.length === 0 && onInsertScene && (
+                      <button
+                        className="tg-cell-insert-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInsertCell(isInsertOpen ? null : { characterId: char.id, date });
+                        }}
+                        title="Add scene here"
+                      >+</button>
+                    )}
+                    {isInsertOpen && (
+                      <div className="braided-insert-popover tg-insert-popover">
+                        <div className="braided-insert-popover-title">Pick a section</div>
+                        {charPlotPoints.map(pp => (
+                          <button
+                            key={pp.id}
+                            className="braided-insert-popover-item"
+                            onClick={async () => {
+                              const sceneKey = await onInsertScene!(char.id, pp.id, date);
+                              setInsertCell(null);
+                              if (sceneKey) onSelectScene(sceneKey);
+                            }}
+                          >
+                            {pp.title}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
