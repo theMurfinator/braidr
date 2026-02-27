@@ -103,14 +103,16 @@ function App() {
   const characterColorsRef = useRef<Record<string, string>>({});
   const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
-  const [canDragScene, setCanDragScene] = useState(false);
+  const canDragSceneRef = useRef(false);
   const dragHandleRefCallback = useCallback((el: HTMLElement | null) => {
-    if (el) el.onmousedown = () => setCanDragScene(true);
+    if (el) el.onmousedown = () => { canDragSceneRef.current = true; };
   }, []);
   const [isAddingChapter, setIsAddingChapter] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [draggedChapter, setDraggedChapter] = useState<BraidedChapter | null>(null);
   const [addingChapterAtPosition, setAddingChapterAtPosition] = useState<number | null>(null);
+  const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
+  const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
   const [draggedPovScene, setDraggedPovScene] = useState<Scene | null>(null);
   const [showCharacterManager, setShowCharacterManager] = useState(false);
   const [showFontPicker, setShowFontPicker] = useState(false);
@@ -189,6 +191,13 @@ function App() {
 
   useEffect(() => { timerRunningRef.current = timerRunning; }, [timerRunning]);
   useEffect(() => { taskTimerRunningRef.current = taskTimerRunning; }, [taskTimerRunning]);
+
+  // Reset drag ref on mouseup (in case drag is cancelled without dragEnd firing)
+  useEffect(() => {
+    const resetDrag = () => { canDragSceneRef.current = false; };
+    document.addEventListener('mouseup', resetDrag);
+    return () => document.removeEventListener('mouseup', resetDrag);
+  }, []);
 
   useEffect(() => {
     if (timerRunning) {
@@ -2543,6 +2552,77 @@ function App() {
     setViewMode('editor');
   };
 
+  const handleInsertSceneAtPosition = async (position: number, characterId: string, plotPointId: string) => {
+    if (!projectData) return;
+
+    const character = projectData.characters.find(c => c.id === characterId);
+    if (!character) return;
+
+    // Get character's scenes sorted by sceneNumber
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === characterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    const newSceneNumber = charScenes.length + 1;
+    const characterTag = character.name.toLowerCase().replace(/\s+/g, '_');
+
+    const newScene: Scene = {
+      id: Math.random().toString(36).substring(2, 11),
+      characterId,
+      sceneNumber: newSceneNumber,
+      title: 'New scene',
+      content: 'New scene',
+      tags: [characterTag],
+      timelinePosition: null, // will be set below
+      isHighlighted: false,
+      notes: [],
+      plotPointId,
+    };
+
+    // Add new scene to character's scenes
+    const newCharScenes = [...charScenes, newScene];
+
+    // Update the full scenes array
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== characterId);
+    const updatedScenes = [...otherScenes, ...newCharScenes];
+
+    // Insert into braided timeline at position and renumber
+    const braidedScenes = updatedScenes
+      .filter(s => s.timelinePosition !== null)
+      .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+    braidedScenes.splice(position, 0, newScene);
+
+    // Assign new timeline positions
+    const positionMap = new Map<string, number>();
+    braidedScenes.forEach((s, idx) => { positionMap.set(s.id, idx + 1); });
+
+    const finalScenes = updatedScenes.map(s => {
+      const newPos = positionMap.get(s.id);
+      if (newPos !== undefined) return { ...s, timelinePosition: newPos };
+      return s;
+    });
+
+    const updatedData = { ...projectData, scenes: finalScenes };
+    setProjectData(updatedData);
+
+    // Save character outline + timeline
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    const finalCharScenes = finalScenes.filter(s => s.characterId === characterId).sort((a, b) => a.sceneNumber - b.sceneNumber);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, finalCharScenes);
+      await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
+      track('scene_created', { character_id: characterId, source: 'braided_insert' });
+    } catch (err) {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
+    }
+
+    // Close popover and open in editor
+    setInsertAtPosition(null);
+    setInsertCharacterId(null);
+    const sceneKey = `${characterId}:${newScene.sceneNumber}`;
+    handleOpenInEditor(sceneKey);
+  };
+
   const handleGoToPov = (sceneId: string, characterId: string) => {
     scrollToSceneIdRef.current = sceneId;
     setSelectedCharacterId(characterId);
@@ -3737,6 +3817,56 @@ function App() {
                             </button>
                           )
                         )}
+                        {!draggedScene && !draggedChapter && (
+                          <div className="braided-insert-zone">
+                            <button
+                              className="braided-insert-btn"
+                              onClick={() => {
+                                setInsertAtPosition(insertAtPosition === index ? null : index);
+                                setInsertCharacterId(null);
+                              }}
+                              title="Insert scene here"
+                            >+</button>
+                            {insertAtPosition === index && (
+                              <div className="braided-insert-popover">
+                                {!insertCharacterId ? (
+                                  <>
+                                    <div className="braided-insert-popover-title">Pick a character</div>
+                                    {projectData?.characters.map(char => (
+                                      <button
+                                        key={char.id}
+                                        className="braided-insert-popover-item"
+                                        onClick={() => setInsertCharacterId(char.id)}
+                                      >
+                                        <span className="braided-insert-color-dot" style={{ background: characterColors[char.id] || '#888' }} />
+                                        {char.name}
+                                      </button>
+                                    ))}
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="braided-insert-popover-title">
+                                      <button className="braided-insert-back-btn" onClick={() => setInsertCharacterId(null)}>&larr;</button>
+                                      Pick a section
+                                    </div>
+                                    {projectData?.plotPoints
+                                      .filter(p => p.characterId === insertCharacterId)
+                                      .sort((a, b) => a.order - b.order)
+                                      .map(pp => (
+                                        <button
+                                          key={pp.id}
+                                          className="braided-insert-popover-item"
+                                          onClick={() => handleInsertSceneAtPosition(index, insertCharacterId!, pp.id)}
+                                        >
+                                          {pp.title}
+                                        </button>
+                                      ))}
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <div className="braided-scene-wrapper" data-scene-id={scene.id}>
                           <div
                             className={`drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
@@ -3744,9 +3874,9 @@ function App() {
                             onDrop={(e) => handleDropOnTimeline(e, index)}
                           />
                           <div
-                            draggable={canDragScene}
+                            draggable="true"
                             onDragStart={(e) => {
-                              if (canDragScene) {
+                              if (canDragSceneRef.current) {
                                 handleDragStart(e, scene);
                               } else {
                                 e.preventDefault();
@@ -3754,7 +3884,7 @@ function App() {
                             }}
                             onDragEnd={() => {
                               handleDragEnd();
-                              setCanDragScene(false);
+                              canDragSceneRef.current = false;
                             }}
                             onClick={(e) => {
                               if (isConnecting && connectionSource && connectionSource !== scene.id) {
@@ -3815,6 +3945,57 @@ function App() {
                       onDragOver={(e) => handleDragOverTimeline(e, displayedScenes.length)}
                       onDrop={(e) => handleDropOnTimeline(e, displayedScenes.length)}
                     />
+                  )}
+                  {displayedScenes.length > 0 && !draggedScene && !draggedChapter && (
+                    <div className="braided-insert-zone">
+                      <button
+                        className="braided-insert-btn"
+                        onClick={() => {
+                          const pos = displayedScenes.length;
+                          setInsertAtPosition(insertAtPosition === pos ? null : pos);
+                          setInsertCharacterId(null);
+                        }}
+                        title="Insert scene here"
+                      >+</button>
+                      {insertAtPosition === displayedScenes.length && (
+                        <div className="braided-insert-popover">
+                          {!insertCharacterId ? (
+                            <>
+                              <div className="braided-insert-popover-title">Pick a character</div>
+                              {projectData?.characters.map(char => (
+                                <button
+                                  key={char.id}
+                                  className="braided-insert-popover-item"
+                                  onClick={() => setInsertCharacterId(char.id)}
+                                >
+                                  <span className="braided-insert-color-dot" style={{ background: characterColors[char.id] || '#888' }} />
+                                  {char.name}
+                                </button>
+                              ))}
+                            </>
+                          ) : (
+                            <>
+                              <div className="braided-insert-popover-title">
+                                <button className="braided-insert-back-btn" onClick={() => setInsertCharacterId(null)}>&larr;</button>
+                                Pick a section
+                              </div>
+                              {projectData?.plotPoints
+                                .filter(p => p.characterId === insertCharacterId)
+                                .sort((a, b) => a.order - b.order)
+                                .map(pp => (
+                                  <button
+                                    key={pp.id}
+                                    className="braided-insert-popover-item"
+                                    onClick={() => handleInsertSceneAtPosition(displayedScenes.length, insertCharacterId!, pp.id)}
+                                  >
+                                    {pp.title}
+                                  </button>
+                                ))}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                   {displayedScenes.length > 0 && (
                     isAddingChapter ? (

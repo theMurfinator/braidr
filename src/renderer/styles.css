@@ -4069,6 +4069,113 @@ textarea.scene-metadata-field-input {
   background: var(--bg-tertiary);
 }
 
+/* Insert scene between braided scenes */
+.braided-insert-zone {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  height: 20px;
+  margin: -6px 0;
+  z-index: 2;
+}
+
+.braided-insert-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.braided-insert-zone:hover .braided-insert-btn,
+.braided-insert-btn:focus {
+  opacity: 1;
+}
+
+.braided-insert-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--text-muted);
+  color: var(--text-secondary);
+}
+
+.braided-insert-popover {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  min-width: 180px;
+  max-width: 240px;
+  z-index: 100;
+}
+
+.braided-insert-popover-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 8px 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.braided-insert-back-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.braided-insert-back-btn:hover {
+  color: var(--text-primary);
+}
+
+.braided-insert-popover-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.braided-insert-popover-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.braided-insert-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* Inline add chapter button */
 .add-chapter-inline-btn {
   display: block;

@@ -348,6 +348,7 @@ function SceneCard({
               <div className="scene-move-buttons">
                 <button
                   className="scene-move-btn"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={(e) => {
                     e.stopPropagation();
                     onMoveUp?.();
@@ -359,6 +360,7 @@ function SceneCard({
                 </button>
                 <button
                   className="scene-move-btn"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={(e) => {
                     e.stopPropagation();
                     onMoveDown?.();
