@@ -1733,7 +1733,7 @@
 }
 
 .scene-card:hover {
-  background: var(--bg-secondary);
+  background: transparent;
 }
 
 /* New row-based layout */
@@ -3726,7 +3726,7 @@ textarea.scene-metadata-field-input {
 }
 
 .braided-scene-item.pov-text:hover {
-  background: var(--bg-secondary);
+  background: transparent;
 }
 
 .braided-text-header {
