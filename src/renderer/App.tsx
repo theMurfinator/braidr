@@ -3765,58 +3765,23 @@ function App() {
                             </button>
                           </div>
                         )}
-                        {!chapterBefore && (
-                          draggedChapter ? (
-                            <div
-                              className="chapter-drop-zone"
-                              onDragOver={(e) => {
-                                e.preventDefault();
-                                e.dataTransfer.dropEffect = 'move';
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                if (draggedChapter) {
-                                  handleMoveChapter(draggedChapter.id, displayPosition);
-                                  setDraggedChapter(null);
-                                }
-                              }}
-                            >
-                              Move chapter here
-                            </div>
-                          ) : addingChapterAtPosition === displayPosition ? (
-                            <div className="add-chapter-inline-container">
-                              <input
-                                type="text"
-                                className="add-chapter-input"
-                                placeholder="Chapter title..."
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    const input = e.target as HTMLInputElement;
-                                    if (input.value.trim()) {
-                                      handleAddChapter(input.value.trim(), displayPosition);
-                                      setAddingChapterAtPosition(null);
-                                    }
-                                  } else if (e.key === 'Escape') {
-                                    setAddingChapterAtPosition(null);
-                                  }
-                                }}
-                                onBlur={(e) => {
-                                  if (e.target.value.trim()) {
-                                    handleAddChapter(e.target.value.trim(), displayPosition);
-                                  }
-                                  setAddingChapterAtPosition(null);
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <button
-                              className="add-chapter-inline-btn"
-                              onClick={() => setAddingChapterAtPosition(displayPosition)}
-                            >
-                              + Chapter
-                            </button>
-                          )
+                        {!chapterBefore && draggedChapter && (
+                          <div
+                            className="chapter-drop-zone"
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              if (draggedChapter) {
+                                handleMoveChapter(draggedChapter.id, displayPosition);
+                                setDraggedChapter(null);
+                              }
+                            }}
+                          >
+                            Move chapter here
+                          </div>
                         )}
                         {!draggedScene && !draggedChapter && (
                           <div className="braided-insert-zone">
@@ -3825,14 +3790,50 @@ function App() {
                               onClick={() => {
                                 setInsertAtPosition(insertAtPosition === index ? null : index);
                                 setInsertCharacterId(null);
+                                setAddingChapterAtPosition(null);
                               }}
-                              title="Insert scene here"
+                              title="Insert here"
                             >+</button>
                             {insertAtPosition === index && (
                               <div className="braided-insert-popover">
-                                {!insertCharacterId ? (
+                                {addingChapterAtPosition === displayPosition ? (
+                                  <div className="braided-insert-chapter-input">
+                                    <input
+                                      type="text"
+                                      className="add-chapter-input"
+                                      placeholder="Chapter title..."
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          const input = e.target as HTMLInputElement;
+                                          if (input.value.trim()) {
+                                            handleAddChapter(input.value.trim(), displayPosition);
+                                            setAddingChapterAtPosition(null);
+                                            setInsertAtPosition(null);
+                                          }
+                                        } else if (e.key === 'Escape') {
+                                          setAddingChapterAtPosition(null);
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        if (e.target.value.trim()) {
+                                          handleAddChapter(e.target.value.trim(), displayPosition);
+                                        }
+                                        setAddingChapterAtPosition(null);
+                                        setInsertAtPosition(null);
+                                      }}
+                                    />
+                                  </div>
+                                ) : !insertCharacterId ? (
                                   <>
-                                    <div className="braided-insert-popover-title">Pick a character</div>
+                                    <button
+                                      className="braided-insert-popover-item braided-insert-chapter-option"
+                                      onClick={() => setAddingChapterAtPosition(displayPosition)}
+                                    >
+                                      + Chapter
+                                    </button>
+                                    <div className="braided-insert-divider" />
+                                    <div className="braided-insert-popover-title">Insert scene</div>
                                     {projectData?.characters.map(char => (
                                       <button
                                         key={char.id}
@@ -3955,14 +3956,56 @@ function App() {
                           const pos = displayedScenes.length;
                           setInsertAtPosition(insertAtPosition === pos ? null : pos);
                           setInsertCharacterId(null);
+                          setAddingChapterAtPosition(null);
                         }}
-                        title="Insert scene here"
+                        title="Insert here"
                       >+</button>
                       {insertAtPosition === displayedScenes.length && (
                         <div className="braided-insert-popover">
-                          {!insertCharacterId ? (
+                          {addingChapterAtPosition === displayedScenes.length + 1 ? (
+                            <div className="braided-insert-chapter-input">
+                              <input
+                                type="text"
+                                className="add-chapter-input"
+                                placeholder="Chapter title..."
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const input = e.target as HTMLInputElement;
+                                    if (input.value.trim()) {
+                                      const existingPositions = braidedChapters.map(ch => ch.beforePosition);
+                                      let newPosition = displayedScenes.length + 1;
+                                      while (existingPositions.includes(newPosition)) newPosition++;
+                                      handleAddChapter(input.value.trim(), newPosition);
+                                      setAddingChapterAtPosition(null);
+                                      setInsertAtPosition(null);
+                                    }
+                                  } else if (e.key === 'Escape') {
+                                    setAddingChapterAtPosition(null);
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  if (e.target.value.trim()) {
+                                    const existingPositions = braidedChapters.map(ch => ch.beforePosition);
+                                    let newPosition = displayedScenes.length + 1;
+                                    while (existingPositions.includes(newPosition)) newPosition++;
+                                    handleAddChapter(e.target.value.trim(), newPosition);
+                                  }
+                                  setAddingChapterAtPosition(null);
+                                  setInsertAtPosition(null);
+                                }}
+                              />
+                            </div>
+                          ) : !insertCharacterId ? (
                             <>
-                              <div className="braided-insert-popover-title">Pick a character</div>
+                              <button
+                                className="braided-insert-popover-item braided-insert-chapter-option"
+                                onClick={() => setAddingChapterAtPosition(displayedScenes.length + 1)}
+                              >
+                                + Chapter
+                              </button>
+                              <div className="braided-insert-divider" />
+                              <div className="braided-insert-popover-title">Insert scene</div>
                               {projectData?.characters.map(char => (
                                 <button
                                   key={char.id}
@@ -3997,63 +4040,6 @@ function App() {
                         </div>
                       )}
                     </div>
-                  )}
-                  {displayedScenes.length > 0 && (
-                    isAddingChapter ? (
-                      <div className="add-chapter-input-container">
-                        <input
-                          type="text"
-                          className="add-chapter-input"
-                          placeholder="Chapter title..."
-                          value={newChapterTitle}
-                          onChange={(e) => setNewChapterTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && newChapterTitle.trim()) {
-                              const existingPositions = braidedChapters.map(ch => ch.beforePosition);
-                              let newPosition = 1;
-                              while (existingPositions.includes(newPosition) && newPosition <= displayedScenes.length) {
-                                newPosition++;
-                              }
-                              handleAddChapter(newChapterTitle, newPosition);
-                            } else if (e.key === 'Escape') {
-                              setIsAddingChapter(false);
-                              setNewChapterTitle('');
-                            }
-                          }}
-                          autoFocus
-                        />
-                        <button
-                          className="add-chapter-confirm-btn"
-                          onClick={() => {
-                            const existingPositions = braidedChapters.map(ch => ch.beforePosition);
-                            let newPosition = 1;
-                            while (existingPositions.includes(newPosition) && newPosition <= displayedScenes.length) {
-                              newPosition++;
-                            }
-                            handleAddChapter(newChapterTitle, newPosition);
-                          }}
-                          disabled={!newChapterTitle.trim()}
-                        >
-                          Add
-                        </button>
-                        <button
-                          className="add-chapter-cancel-btn"
-                          onClick={() => {
-                            setIsAddingChapter(false);
-                            setNewChapterTitle('');
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="add-section-btn"
-                        onClick={() => setIsAddingChapter(true)}
-                      >
-                        + Add Chapter
-                      </button>
-                    )
                   )}
                 </div>
 

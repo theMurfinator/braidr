@@ -4186,6 +4186,33 @@ textarea.scene-metadata-field-input {
   z-index: 2;
 }
 
+/* Insert popover: chapter option and divider */
+.braided-insert-chapter-option {
+  font-weight: 600;
+  color: var(--text-secondary) !important;
+}
+
+.braided-insert-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
+}
+
+.braided-insert-chapter-input {
+  padding: 4px;
+}
+
+.braided-insert-chapter-input .add-chapter-input {
+  width: 100%;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+}
+
 /* Inline add chapter button */
 .add-chapter-inline-btn {
   display: block;
