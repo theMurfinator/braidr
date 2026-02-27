@@ -70,18 +70,14 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
   plotPointRef.current = plotPoint;
   editTitleRef.current = editTitle;
   onPlotPointChangeRef.current = onPlotPointChange;
-  // Track the last mousedown target to know if drag started from handle
-  const lastMouseDownTarget = useRef<EventTarget | null>(null);
-  // Track drag handle elements for scenes
-  const sceneHandleRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
+  // Ref-based drag gate: set true on handle mousedown, checked in onDragStart
+  const canDragPovRef = useRef(false);
 
-  // Track mousedown globally to know where drag started
+  // Reset drag ref on mouseup (in case drag is cancelled without dragEnd firing)
   useEffect(() => {
-    const handleMouseDown = (e: MouseEvent) => {
-      lastMouseDownTarget.current = e.target;
-    };
-    document.addEventListener('mousedown', handleMouseDown, true);
-    return () => document.removeEventListener('mousedown', handleMouseDown, true);
+    const resetDrag = () => { canDragPovRef.current = false; };
+    document.addEventListener('mouseup', resetDrag);
+    return () => document.removeEventListener('mouseup', resetDrag);
   }, []);
 
   const sortedScenes = [...scenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
@@ -319,27 +315,19 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
           )}
           <div
             className={`pov-scene-item ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting ? 'connect-target' : ''}`}
-            draggable={!!onSceneDragStart}
+            draggable="true"
             onDragStart={(e) => {
-              if (!onSceneDragStart) return;
-
-              // Check if drag started from the scene's drag handle
-              const target = (lastMouseDownTarget.current || e.target) as Element;
-
-              // Allow drag only if it started on or within the drag handle
-              if (target?.closest?.('.scene-drag-handle')) {
+              if (canDragPovRef.current && onSceneDragStart) {
                 e.stopPropagation();
                 onSceneDragStart(scene);
               } else {
-                // Prevent accidental drags from other parts of the scene card
                 e.preventDefault();
               }
             }}
             onDragEnd={() => {
               onSceneDragEnd?.();
               setDropTargetIndex(null);
-              // Reset mousedown tracking to ensure next drag works
-              lastMouseDownTarget.current = null;
+              canDragPovRef.current = false;
             }}
             onDragOver={(e) => {
               // Allow dropping on scene cards - will insert after this scene
@@ -383,9 +371,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
               showDragHandle={!!onSceneDragStart}
               dragHandleRef={(el) => {
                 if (el) {
-                  sceneHandleRefs.current.set(scene.id, el);
-                } else {
-                  sceneHandleRefs.current.delete(scene.id);
+                  el.onmousedown = () => { canDragPovRef.current = true; };
                 }
               }}
               onMoveUp={onSceneMoveUp ? () => onSceneMoveUp(scene.id) : undefined}
