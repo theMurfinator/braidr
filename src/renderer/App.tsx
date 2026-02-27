@@ -62,7 +62,7 @@ function App() {
 
   // Derive viewMode from active tab for backward compatibility
   const viewMode = (activeTab?.params.type || 'pov') as ViewMode;
-  const setViewMode = (mode: ViewMode) => {
+  const setViewMode = useCallback((mode: ViewMode) => {
     // Navigate the active tab to this view type (don't create new tabs)
     const pane = findLeafPane(paneLayout.root, paneLayout.activePaneId);
     if (pane) {
@@ -76,7 +76,7 @@ function App() {
     }
     localStorage.setItem('braidr-last-view-mode', mode);
     track('screen_viewed', { screen: mode });
-  };
+  }, [paneLayout.root, paneLayout.activePaneId, paneDispatch]);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +104,9 @@ function App() {
   const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
   const [canDragScene, setCanDragScene] = useState(false);
+  const dragHandleRefCallback = useCallback((el: HTMLElement | null) => {
+    if (el) el.onmousedown = () => setCanDragScene(true);
+  }, []);
   const [isAddingChapter, setIsAddingChapter] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [draggedChapter, setDraggedChapter] = useState<BraidedChapter | null>(null);
@@ -215,13 +218,13 @@ function App() {
     };
   }, [taskTimerRunning]);
 
-  const formatTimer = (totalSec: number) => {
+  const formatTimer = useCallback((totalSec: number) => {
     const hrs = Math.floor(totalSec / 3600);
     const mins = Math.floor((totalSec % 3600) / 60);
     const secs = totalSec % 60;
     if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     return `${mins}:${String(secs).padStart(2, '0')}`;
-  };
+  }, []);
 
   const handleStopTimer = useCallback(() => {
     setTimerRunning(false);
@@ -530,7 +533,7 @@ function App() {
       window.removeEventListener('braidr-navigate-account', handler);
       cleanup?.();
     };
-  }, []);
+  }, [setViewMode]);
 
   // Global error handler for uncaught renderer errors
   useEffect(() => {
@@ -787,23 +790,26 @@ function App() {
 
   // Lazy-load notes data when search opens or editor view needs todo items
   useEffect(() => {
-    if ((showSearch || viewMode === 'editor') && projectData) {
-      (async () => {
-        try {
-          const index = await dataService.loadNotesIndex(projectData.projectPath);
-          setSearchNotesIndex(index.notes || []);
-          const cache: Record<string, string> = {};
-          for (const note of (index.notes || [])) {
-            try {
-              const content = await dataService.readNote(projectData.projectPath, note.fileName);
-              cache[note.id] = content;
-            } catch {}
-          }
-          setNoteContentCache(cache);
-        } catch {}
-      })();
-    }
-  }, [showSearch, viewMode]);
+    if (!(showSearch || viewMode === 'editor') || !projectData) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const index = await dataService.loadNotesIndex(projectData.projectPath);
+        if (cancelled) return;
+        setSearchNotesIndex(index.notes || []);
+        const cache: Record<string, string> = {};
+        for (const note of (index.notes || [])) {
+          try {
+            const content = await dataService.readNote(projectData.projectPath, note.fileName);
+            if (cancelled) return;
+            cache[note.id] = content;
+          } catch {}
+        }
+        setNoteContentCache(cache);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [showSearch, viewMode, projectData?.projectPath]);
 
   // Scroll to scene after navigating from editor via POV/Braid buttons
   useEffect(() => {
@@ -1365,10 +1371,10 @@ function App() {
     setActiveFilters(newFilters);
   };
 
-  const getCharacterName = (characterId: string): string => {
+  const getCharacterName = useCallback((characterId: string): string => {
     const character = projectData?.characters.find(c => c.id === characterId);
     return character?.name || 'Unknown';
-  };
+  }, [projectData?.characters]);
 
   const extractShortTitle = (content: string): string => {
     const match = content.match(/==\*\*(.+?)\*\*==/);
@@ -1509,7 +1515,7 @@ function App() {
     return projectData.scenes.find(s => s.id === selectedSceneId) || null;
   }, [projectData, selectedSceneId]);
 
-  const getConnectedScenes = (sceneId: string): { id: string; label: string }[] => {
+  const getConnectedScenes = useCallback((sceneId: string): { id: string; label: string }[] => {
     const connections = sceneConnections[sceneId] || [];
     return connections.map(connId => {
       const scene = projectData?.scenes.find(s => s.id === connId);
@@ -1517,7 +1523,7 @@ function App() {
       const charName = getCharacterName(scene.characterId);
       return { id: connId, label: `${charName} - Scene ${scene.sceneNumber}` };
     });
-  };
+  }, [sceneConnections, projectData?.scenes, getCharacterName]);
 
   const handleSceneClick = (scene: Scene, e: React.MouseEvent) => {
     // Don't do anything if we're dragging
@@ -1555,7 +1561,7 @@ function App() {
     }
   };
 
-  const getConnectableScenes = (sceneId: string): { id: string; label: string }[] => {
+  const getConnectableScenes = useCallback((sceneId: string): { id: string; label: string }[] => {
     if (!projectData) return [];
     const alreadyConnected = new Set(sceneConnections[sceneId] || []);
     return projectData.scenes
@@ -1564,7 +1570,7 @@ function App() {
         const charName = getCharacterName(s.characterId);
         return { id: s.id, label: `${charName} - Scene ${s.sceneNumber}` };
       });
-  };
+  }, [projectData, sceneConnections, getCharacterName]);
 
   const handleCompleteConnection = async (sourceId: string, targetId: string) => {
     if (!projectData) return;
@@ -2015,7 +2021,7 @@ function App() {
     'rgba(245, 158, 11, 0.08)',  // amber
   ];
 
-  const getCharacterColor = (characterId: string): string => {
+  const getCharacterColor = useCallback((characterId: string): string => {
     if (!projectData) return 'transparent';
     // Use custom color if set
     if (characterColors[characterId]) {
@@ -2029,16 +2035,16 @@ function App() {
     // Fall back to automatic color
     const index = projectData.characters.findIndex(c => c.id === characterId);
     return POV_COLORS[index % POV_COLORS.length];
-  };
+  }, [projectData, characterColors]);
 
   const DEFAULT_HEX_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#14b8a6', '#f59e0b'];
 
-  const getCharacterHexColor = (characterId: string): string => {
+  const getCharacterHexColor = useCallback((characterId: string): string => {
     if (characterColors[characterId]) return characterColors[characterId];
     if (!projectData) return DEFAULT_HEX_COLORS[0];
     const index = projectData.characters.findIndex(c => c.id === characterId);
     return DEFAULT_HEX_COLORS[index % DEFAULT_HEX_COLORS.length];
-  };
+  }, [characterColors, projectData]);
 
   const handleCharacterColorChange = async (characterId: string, color: string) => {
     const newColors = { ...characterColors, [characterId]: color };
@@ -2612,8 +2618,8 @@ function App() {
 
   const handleMetadataChange = async (sceneKey: string, fieldId: string, value: string | string[]) => {
     const updated = {
-      ...sceneMetadata,
-      [sceneKey]: { ...(sceneMetadata[sceneKey] || {}), [fieldId]: value },
+      ...sceneMetadataRef.current,
+      [sceneKey]: { ...(sceneMetadataRef.current[sceneKey] || {}), [fieldId]: value },
     };
     setSceneMetadata(updated);
     sceneMetadataRef.current = updated;
@@ -2790,7 +2796,7 @@ function App() {
         } catch {}
       })();
     }
-  }, [showArchivePanel]);
+  }, [showArchivePanel, projectData?.projectPath]);
 
   const handleRestoreNote = async (archived: ArchivedNote) => {
     if (!projectData) return;
@@ -3767,11 +3773,7 @@ function App() {
                               displayNumber={displayPosition}
                               plotPointTitle={scene.plotPointId ? projectData.plotPoints.find(p => p.id === scene.plotPointId)?.title : undefined}
                               showDragHandle={true}
-                              dragHandleRef={(el) => {
-                                if (el) {
-                                  el.onmousedown = () => setCanDragScene(true);
-                                }
-                              }}
+                              dragHandleRef={dragHandleRefCallback}
                               backgroundColor={undefined}
                               onSceneChange={handleSceneChange}
                               onTagsChange={handleTagsChange}
@@ -4497,6 +4499,8 @@ function App() {
                   Typewriter Mode {typewriterMode ? 'On' : 'Off'}
                 </button>
                 <button onClick={async () => {
+                  if (timerRunning) handleStopTimer();
+                  if (taskTimerRunning) handleStopTaskTimer();
                   if (isDirtyRef.current) {
                     editorViewRef.current?.flush();
                     if (projectData) {

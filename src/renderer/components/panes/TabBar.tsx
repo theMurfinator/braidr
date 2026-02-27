@@ -79,7 +79,7 @@ export default function TabBar({ paneId, tabs, activeTabId }: TabBarProps) {
             <path d={VIEW_ICONS[tab.params.type]} />
           </svg>
           <span className="tab-title">{tab.title}</span>
-          {tabs.length > 1 && !tab.isPinned && tab.id === activeTabId && (
+          {tabs.length > 1 && !tab.isPinned && (
             <button
               className="tab-close"
               onClick={e => {

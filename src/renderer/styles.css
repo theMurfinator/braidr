@@ -10946,8 +10946,8 @@ textarea.table-cell-input {
   z-index: 5;
 }
 
-/* Column resize handle */
-.column-resize-handle {
+/* Column resize handle — scoped to column-block to avoid TipTap table conflict */
+.column-block .column-resize-handle {
   position: absolute;
   top: 0;
   width: 12px;
@@ -10959,7 +10959,7 @@ textarea.table-cell-input {
   pointer-events: auto;
 }
 
-.column-resize-handle::after {
+.column-block .column-resize-handle::after {
   content: '';
   width: 1px;
   height: 100%;
@@ -10972,12 +10972,12 @@ textarea.table-cell-input {
   opacity: 0.4;
 }
 
-.column-resize-handle:hover::after {
+.column-block .column-resize-handle:hover::after {
   opacity: 1;
   background: var(--text-muted);
 }
 
-.column-resize-handle.active::after {
+.column-block .column-resize-handle.active::after {
   opacity: 1;
   background: var(--accent);
 }
@@ -14359,7 +14359,7 @@ textarea.table-cell-input {
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  z-index: 50;
+  z-index: 200;
   overflow: hidden;
   max-height: 240px;
   overflow-y: auto;
@@ -14592,7 +14592,7 @@ textarea.table-cell-input {
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  z-index: 50;
+  z-index: 200;
   overflow: hidden;
   max-height: 300px;
   overflow-y: auto;
@@ -14801,7 +14801,7 @@ textarea.table-cell-input {
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  z-index: 50;
+  z-index: 200;
   overflow: hidden;
   margin-top: 4px;
 }
@@ -14874,7 +14874,7 @@ textarea.table-cell-input {
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  z-index: 50;
+  z-index: 200;
   padding: 8px 0;
   max-height: 360px;
   overflow-y: auto;
@@ -14985,7 +14985,7 @@ textarea.table-cell-input {
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  z-index: 50;
+  z-index: 200;
   min-width: 220px;
 }
 
@@ -16447,7 +16447,7 @@ textarea.table-cell-input {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .pane-resize-handle {

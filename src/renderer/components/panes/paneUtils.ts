@@ -42,9 +42,10 @@ export function replaceNode(root: PaneNode, id: string, replacement: PaneNode): 
 function paramsMatch(a: TabParams, b: TabParams): boolean {
   if (a.type !== b.type) return false;
   switch (a.type) {
-    case 'editor': return a.sceneKey === (b as { type: 'editor'; sceneKey?: string | null }).sceneKey;
-    case 'notes': return a.noteId === (b as { type: 'notes'; noteId?: string | null }).noteId;
-    case 'pov': return a.characterId === (b as { type: 'pov'; characterId?: string | null }).characterId;
+    case 'editor': return a.sceneKey === (b as Extract<TabParams, { type: 'editor' }>).sceneKey;
+    case 'notes': return a.noteId === (b as Extract<TabParams, { type: 'notes' }>).noteId;
+    case 'pov': return a.characterId === (b as Extract<TabParams, { type: 'pov' }>).characterId;
+    case 'braided': return a.subMode === (b as Extract<TabParams, { type: 'braided' }>).subMode;
     default: return true;
   }
 }

@@ -11,7 +11,6 @@ interface LeafPaneContainerProps {
 export default function LeafPaneContainer({ pane }: LeafPaneContainerProps) {
   const { layout, dispatch } = usePaneContext();
   const isActive = layout.activePaneId === pane.id;
-  const activeTab = pane.tabs.find(t => t.id === pane.activeTabId) || pane.tabs[0];
   const isSplit = !!findParent(layout.root, pane.id);
 
   const handleFocus = () => {
@@ -30,7 +29,15 @@ export default function LeafPaneContainer({ pane }: LeafPaneContainerProps) {
         <TabBar paneId={pane.id} tabs={pane.tabs} activeTabId={pane.activeTabId} />
       )}
       <div className="tab-content-area">
-        {activeTab && <TabContent tab={activeTab} />}
+        {pane.tabs.map(tab => (
+          <div
+            key={tab.id}
+            className="tab-content-wrapper"
+            style={{ display: tab.id === pane.activeTabId ? 'flex' : 'none', flex: 1, minHeight: 0 }}
+          >
+            <TabContent tab={tab} />
+          </div>
+        ))}
       </div>
       {isSplit && (
         <button

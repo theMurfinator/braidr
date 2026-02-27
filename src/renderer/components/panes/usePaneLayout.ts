@@ -1,6 +1,6 @@
 import { useReducer, useEffect, useCallback } from 'react';
 import { PaneLayout, PaneAction, PaneNode, LeafPane, Tab, TabParams, defaultTabTitle } from '../../../shared/paneTypes';
-import { findLeafPane, replaceNode, findParent, getAllLeaves } from './paneUtils';
+import { findLeafPane, replaceNode, findParent, getAllLeaves, isValidLayout } from './paneUtils';
 
 function createLeafPane(tabs: Tab[], activeTabId?: string): LeafPane {
   return {
@@ -197,8 +197,7 @@ function getStoredLayout(): PaneLayout | null {
     const saved = localStorage.getItem('braidr-pane-layout');
     if (!saved) return null;
     const parsed = JSON.parse(saved);
-    // Basic validation
-    if (parsed?.root && parsed?.activePaneId) {
+    if (isValidLayout(parsed)) {
       return parsed as PaneLayout;
     }
   } catch { /* ignore */ }
@@ -206,11 +205,11 @@ function getStoredLayout(): PaneLayout | null {
 }
 
 export function usePaneLayout() {
-  const storedLayout = getStoredLayout();
-  const savedViewMode = localStorage.getItem('braidr-last-view-mode') as TabParams['type'] | null;
-  const initial = storedLayout || createInitialLayout(savedViewMode || 'pov');
-
-  const [layout, dispatch] = useReducer(paneReducer, initial);
+  const [layout, dispatch] = useReducer(paneReducer, undefined, () => {
+    const storedLayout = getStoredLayout();
+    const savedViewMode = localStorage.getItem('braidr-last-view-mode') as TabParams['type'] | null;
+    return storedLayout || createInitialLayout(savedViewMode || 'pov');
+  });
 
   // Persist layout to localStorage on changes
   useEffect(() => {
