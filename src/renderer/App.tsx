@@ -3674,6 +3674,7 @@ function App() {
                 onDraftChange={handleDraftChange}
                 onOpenInEditor={handleOpenInEditor}
                 povReorderedScenes={povReorderedScenes}
+                onInsertSceneAtPosition={handleInsertSceneAtPosition}
               />
             ) : (
               // Braided List View

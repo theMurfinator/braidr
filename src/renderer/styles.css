@@ -4176,6 +4176,16 @@ textarea.scene-metadata-field-input {
   flex-shrink: 0;
 }
 
+/* Rails view insert zone */
+.rails-insert-zone {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  height: 16px;
+  margin: -4px 0;
+  z-index: 2;
+}
+
 /* Inline add chapter button */
 .add-chapter-inline-btn {
   display: block;

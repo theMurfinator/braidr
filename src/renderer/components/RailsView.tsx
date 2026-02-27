@@ -35,6 +35,7 @@ interface RailsViewProps {
   onDraftChange: (sceneKey: string, html: string) => void;
   onOpenInEditor?: (sceneKey: string) => void;
   povReorderedScenes?: Set<string>;
+  onInsertSceneAtPosition?: (position: number, characterId: string, plotPointId: string) => void;
 }
 
 export default function RailsView({
@@ -69,6 +70,7 @@ export default function RailsView({
   onDraftChange,
   onOpenInEditor,
   povReorderedScenes,
+  onInsertSceneAtPosition,
 }: RailsViewProps) {
   const [inboxCharFilter, setInboxCharFilter] = useState<string>('all');
   const [floatingEditorScene, setFloatingEditorScene] = useState<Scene | null>(null);
@@ -77,6 +79,8 @@ export default function RailsView({
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
   const [draggedRailIndex, setDraggedRailIndex] = useState<number | null>(null);
   const [railDropTarget, setRailDropTarget] = useState<number | null>(null);
+  const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
+  const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -430,6 +434,62 @@ export default function RailsView({
                     onDrop={(e) => handleDrop(e, index)}
                   />
 
+                  {/* Insert scene button */}
+                  {onInsertSceneAtPosition && (
+                    <div className="rails-insert-zone" style={{ gridColumn: `1 / -1` }}>
+                      <button
+                        className="braided-insert-btn"
+                        onClick={() => {
+                          setInsertAtPosition(insertAtPosition === index ? null : index);
+                          setInsertCharacterId(null);
+                        }}
+                        title="Insert scene here"
+                      >+</button>
+                      {insertAtPosition === index && (
+                        <div className="braided-insert-popover">
+                          {!insertCharacterId ? (
+                            <>
+                              <div className="braided-insert-popover-title">Pick a character</div>
+                              {allCharacters.map(char => (
+                                <button
+                                  key={char.id}
+                                  className="braided-insert-popover-item"
+                                  onClick={() => setInsertCharacterId(char.id)}
+                                >
+                                  <span className="braided-insert-color-dot" style={{ background: characterColors[char.id] || '#888' }} />
+                                  {char.name}
+                                </button>
+                              ))}
+                            </>
+                          ) : (
+                            <>
+                              <div className="braided-insert-popover-title">
+                                <button className="braided-insert-back-btn" onClick={() => setInsertCharacterId(null)}>&larr;</button>
+                                Pick a section
+                              </div>
+                              {plotPoints
+                                .filter(p => p.characterId === insertCharacterId)
+                                .sort((a, b) => a.order - b.order)
+                                .map(pp => (
+                                  <button
+                                    key={pp.id}
+                                    className="braided-insert-popover-item"
+                                    onClick={() => {
+                                      onInsertSceneAtPosition(index, insertCharacterId!, pp.id);
+                                      setInsertAtPosition(null);
+                                      setInsertCharacterId(null);
+                                    }}
+                                  >
+                                    {pp.title}
+                                  </button>
+                                ))}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Row number */}
                   <div className="rails-row-number">{row.position}</div>
 
@@ -483,6 +543,63 @@ export default function RailsView({
                 onDragOver={(e) => handleDragOver(e, scenes.length)}
                 onDrop={(e) => handleDrop(e, scenes.length)}
               />
+            )}
+
+            {/* Insert scene at end */}
+            {scenes.length > 0 && onInsertSceneAtPosition && (
+              <div className="rails-insert-zone" style={{ gridColumn: `1 / -1` }}>
+                <button
+                  className="braided-insert-btn"
+                  onClick={() => {
+                    const pos = scenes.length;
+                    setInsertAtPosition(insertAtPosition === pos ? null : pos);
+                    setInsertCharacterId(null);
+                  }}
+                  title="Insert scene here"
+                >+</button>
+                {insertAtPosition === scenes.length && (
+                  <div className="braided-insert-popover">
+                    {!insertCharacterId ? (
+                      <>
+                        <div className="braided-insert-popover-title">Pick a character</div>
+                        {allCharacters.map(char => (
+                          <button
+                            key={char.id}
+                            className="braided-insert-popover-item"
+                            onClick={() => setInsertCharacterId(char.id)}
+                          >
+                            <span className="braided-insert-color-dot" style={{ background: characterColors[char.id] || '#888' }} />
+                            {char.name}
+                          </button>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <div className="braided-insert-popover-title">
+                          <button className="braided-insert-back-btn" onClick={() => setInsertCharacterId(null)}>&larr;</button>
+                          Pick a section
+                        </div>
+                        {plotPoints
+                          .filter(p => p.characterId === insertCharacterId)
+                          .sort((a, b) => a.order - b.order)
+                          .map(pp => (
+                            <button
+                              key={pp.id}
+                              className="braided-insert-popover-item"
+                              onClick={() => {
+                                onInsertSceneAtPosition(scenes.length, insertCharacterId!, pp.id);
+                                setInsertAtPosition(null);
+                                setInsertCharacterId(null);
+                              }}
+                            >
+                              {pp.title}
+                            </button>
+                          ))}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
