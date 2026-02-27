@@ -875,7 +875,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showStatusFilterDropdown]);
 
-  // Keyboard shortcuts: Cmd+[ toggles nav, Cmd+] toggles meta (only in active pane)
+  // Keyboard shortcuts: Cmd+[ toggles nav, Cmd+] toggles meta, Cmd+A select all scenes (only in active pane)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!editorViewRef.current?.closest('.leaf-pane.active')) return;
@@ -887,11 +887,24 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       } else if (modifier && e.key === ']') {
         e.preventDefault();
         setShowMeta(v => !v);
+      } else if (modifier && e.key === 'a') {
+        // Cmd+A: select all scenes, but only when not inside an editor/input
+        const active = document.activeElement;
+        const inEditor = active?.closest('.ProseMirror') || active?.closest('textarea') || active?.closest('input');
+        if (!inEditor && navOrderKeys.length > 1) {
+          e.preventDefault();
+          setSelectedSceneKeys(navOrderKeys);
+          setSelectedSceneKey(navOrderKeys[0]);
+          setPrimarySceneKey(navOrderKeys[0]);
+          setActiveEditorKey(navOrderKeys[0]);
+          setLastClickedKey(navOrderKeys[0]);
+          onSceneSelect?.(navOrderKeys[0]);
+        }
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [navOrderKeys, onSceneSelect]);
 
   // Title editing handlers
   const handleTitleClick = () => {
