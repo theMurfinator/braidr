@@ -44,6 +44,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragEndEvent,
   type DragStartEvent,
   DragOverlay,
@@ -51,11 +52,42 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
+  useSortable,
   arrayMove,
 } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
+
+function SortableBraidedScene({
+  id,
+  children,
+}: {
+  id: string;
+  children: (args: { listeners: Record<string, unknown>; isDragging: boolean }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="braided-scene-wrapper" data-scene-id={id} {...attributes}>
+      {children({ listeners: listeners || {}, isDragging })}
+    </div>
+  );
+}
+
+function DroppableInbox({ children, className }: { children: React.ReactNode; className?: string }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'braided-inbox' });
+  return (
+    <div ref={setNodeRef} className={`${className || ''} ${isOver ? 'inbox-drag-over' : ''}`}>
+      {children}
+    </div>
+  );
+}
 
 function App() {
   const { addToast } = useToast();
@@ -95,8 +127,6 @@ function App() {
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [draggedScene, setDraggedScene] = useState<Scene | null>(null);
-  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
   // Compute which braided scenes are out of POV order (per character)
   const povReorderedScenes = useMemo(() => {
     if (!projectData) return new Set<string>();
@@ -139,10 +169,6 @@ function App() {
   const characterColorsRef = useRef<Record<string, string>>({});
   const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
-  const canDragSceneRef = useRef(false);
-  const dragHandleRefCallback = useCallback((el: HTMLElement | null) => {
-    if (el) el.onmousedown = () => { canDragSceneRef.current = true; };
-  }, []);
   const [isAddingChapter, setIsAddingChapter] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [draggedChapter, setDraggedChapter] = useState<BraidedChapter | null>(null);
@@ -227,13 +253,6 @@ function App() {
 
   useEffect(() => { timerRunningRef.current = timerRunning; }, [timerRunning]);
   useEffect(() => { taskTimerRunningRef.current = taskTimerRunning; }, [taskTimerRunning]);
-
-  // Reset drag ref on mouseup (in case drag is cancelled without dragEnd firing)
-  useEffect(() => {
-    const resetDrag = () => { canDragSceneRef.current = false; };
-    document.addEventListener('mouseup', resetDrag);
-    return () => document.removeEventListener('mouseup', resetDrag);
-  }, []);
 
   useEffect(() => {
     if (timerRunning) {
@@ -1583,7 +1602,7 @@ function App() {
 
   const handleSceneClick = (scene: Scene, e: React.MouseEvent) => {
     // Don't do anything if we're dragging
-    if (draggedScene) return;
+    if (activeBraidedDragId) return;
 
     // If we're in connection mode, complete the connection
     if (isConnecting && connectionSource && connectionSource !== scene.id && projectData) {
@@ -2477,98 +2496,81 @@ function App() {
     }
   }, []);
 
-  // Drag handlers
-  const handleDragStart = (e: React.DragEvent, scene: Scene) => {
-    setDraggedScene(scene);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', scene.id);
-  };
+  // Braided scene reorder (shared by braided list + rails view)
+  const handleBraidedSceneReorder = async (sceneId: string, targetIndex: number) => {
+    if (!projectData) return;
 
-  const handleDragEnd = () => {
-    setDraggedScene(null);
-    setDropTargetIndex(null);
-  };
-
-  const handleDragOverTimeline = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDropTargetIndex(index);
-  };
-
-  const handleDropOnTimeline = async (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!draggedScene || !projectData) return;
-
-    // Get currently braided scenes in order
     const braidedScenes = projectData.scenes
       .filter(s => s.timelinePosition !== null)
       .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
 
-    // Remove the dragged scene if it's already in the list
-    const withoutDragged = braidedScenes.filter(s => s.id !== draggedScene.id);
+    const draggedScene = projectData.scenes.find(s => s.id === sceneId);
+    if (!draggedScene) return;
 
-    // Insert at the target position
+    const withoutDragged = braidedScenes.filter(s => s.id !== sceneId);
     withoutDragged.splice(targetIndex, 0, draggedScene);
 
-    // Create a map of scene id to new position
     const newPositions = new Map<string, number>();
     withoutDragged.forEach((scene, idx) => {
       newPositions.set(scene.id, idx + 1);
     });
 
-    // Update all scenes with new positions
     const finalScenes = projectData.scenes.map(scene => {
       const newPos = newPositions.get(scene.id);
-      if (newPos !== undefined) {
-        return { ...scene, timelinePosition: newPos };
-      }
-      return scene;
+      return newPos !== undefined ? { ...scene, timelinePosition: newPos } : scene;
     });
 
     setProjectData({ ...projectData, scenes: finalScenes });
-    setDraggedScene(null);
-    setDropTargetIndex(null);
-
     await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
     track('scene_reordered', { view: 'braided' });
   };
 
-  const handleDragOverInbox = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
+  const handleRemoveFromTimeline = async (sceneId: string) => {
+    if (!projectData) return;
 
-  const handleDropOnInbox = async (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!draggedScene || !projectData) return;
+    const updatedScenes = projectData.scenes.map(scene =>
+      scene.id === sceneId ? { ...scene, timelinePosition: null } : scene
+    );
 
-    // Remove from timeline (set timelinePosition to null)
-    const updatedScenes = projectData.scenes.map(scene => {
-      if (scene.id === draggedScene.id) {
-        return { ...scene, timelinePosition: null };
-      }
-      return scene;
-    });
-
-    // Renumber remaining braided scenes
     const braidedScenes = updatedScenes
       .filter(s => s.timelinePosition !== null)
       .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
 
     const finalScenes = updatedScenes.map(scene => {
       const idx = braidedScenes.findIndex(s => s.id === scene.id);
-      if (idx !== -1) {
-        return { ...scene, timelinePosition: idx + 1 };
-      }
-      return scene;
+      return idx !== -1 ? { ...scene, timelinePosition: idx + 1 } : scene;
     });
 
     setProjectData({ ...projectData, scenes: finalScenes });
-    setDraggedScene(null);
-    setDropTargetIndex(null);
-
     await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
+  };
+
+  const braidedSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const [activeBraidedDragId, setActiveBraidedDragId] = useState<string | null>(null);
+
+  const handleBraidedDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveBraidedDragId(null);
+    if (!over || !projectData) return;
+
+    if (over.id === 'braided-inbox') {
+      await handleRemoveFromTimeline(active.id as string);
+      return;
+    }
+
+    const braidedScenes = projectData.scenes
+      .filter(s => s.timelinePosition !== null)
+      .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+
+    const oldIndex = braidedScenes.findIndex(s => s.id === active.id);
+    const newIndex = braidedScenes.findIndex(s => s.id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+      await handleBraidedSceneReorder(active.id as string, newIndex);
+    }
   };
 
   // Tag management handlers
@@ -3799,10 +3801,8 @@ function App() {
                 unbraidedScenesByCharacter={unbraidedScenesByCharacter}
                 allCharacters={projectData.characters}
                 plotPoints={projectData.plotPoints}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onDropOnTimeline={handleDropOnTimeline}
-                onDropOnInbox={handleDropOnInbox}
+                onSceneReorder={handleBraidedSceneReorder}
+                onRemoveFromTimeline={handleRemoveFromTimeline}
                 onRailReorder={handleRailReorder}
                 draftContent={draftContent}
                 onDraftChange={handleDraftChange}
@@ -3812,7 +3812,13 @@ function App() {
               />
             ) : (
               // Braided List View
-              <div className={`braided-layout ${draggedScene ? 'is-dragging' : ''} ${isConnecting ? 'is-connecting' : ''}`}>
+              <DndContext
+                sensors={braidedSensors}
+                collisionDetection={closestCenter}
+                onDragStart={(e) => setActiveBraidedDragId(e.active.id as string)}
+                onDragEnd={handleBraidedDragEnd}
+              >
+              <div className={`braided-layout ${activeBraidedDragId ? 'is-dragging' : ''} ${isConnecting ? 'is-connecting' : ''}`}>
                 <div className="braided-timeline" ref={timelineRef}>
                   <svg className="connection-lines">
                     {displayedScenes.map((scene, index) => {
@@ -3848,12 +3854,12 @@ function App() {
                       Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
                     </div>
                   )}
+                  <SortableContext
+                    items={displayedScenes.map(s => s.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
                   {displayedScenes.length === 0 && (
-                    <div
-                      className={`drop-zone empty-timeline ${dropTargetIndex === 0 ? 'active' : ''}`}
-                      onDragOver={(e) => handleDragOverTimeline(e, 0)}
-                      onDrop={(e) => handleDropOnTimeline(e, 0)}
-                    >
+                    <div className="drop-zone empty-timeline">
                       Drag scenes here to start braiding
                     </div>
                   )}
@@ -3917,7 +3923,7 @@ function App() {
                             Move chapter here
                           </div>
                         )}
-                        {!draggedScene && !draggedChapter && (
+                        {!activeBraidedDragId && !draggedChapter && (
                           <div className="braided-insert-zone">
                             <button
                               className="braided-insert-btn"
@@ -4003,86 +4009,78 @@ function App() {
                             )}
                           </div>
                         )}
-                        <div className="braided-scene-wrapper" data-scene-id={scene.id}>
-                          <div
-                            className={`drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
-                            onDragOver={(e) => handleDragOverTimeline(e, index)}
-                            onDrop={(e) => handleDropOnTimeline(e, index)}
-                          />
-                          <div
-                            draggable="true"
-                            onDragStart={(e) => {
-                              if (canDragSceneRef.current) {
-                                handleDragStart(e, scene);
-                              } else {
-                                e.preventDefault();
-                              }
-                            }}
-                            onDragEnd={() => {
-                              handleDragEnd();
-                              canDragSceneRef.current = false;
-                            }}
-                            onClick={(e) => {
-                              if (isConnecting && connectionSource && connectionSource !== scene.id) {
-                                handleSceneClick(scene, e);
-                              }
-                            }}
-                            onMouseEnter={() => setHoveredSceneId(scene.id)}
-                            onMouseLeave={() => setHoveredSceneId(null)}
-                            className={`braided-scene-drag-wrapper ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${povReorderedScenes.has(scene.id) ? 'pov-reordered' : ''}`}
-                          >
-                            <SceneCard
-                              scene={scene}
-                              tags={projectData.tags}
-                              showCharacter={true}
-                              characterName={getCharacterName(scene.characterId)}
-                              displayNumber={displayPosition}
-                              plotPointTitle={scene.plotPointId ? projectData.plotPoints.find(p => p.id === scene.plotPointId)?.title : undefined}
-                              showDragHandle={true}
-                              dragHandleRef={dragHandleRefCallback}
-                              backgroundColor={undefined}
-                              onSceneChange={handleSceneChange}
-                              onTagsChange={handleTagsChange}
-                              onCreateTag={handleCreateTag}
-                              onDeleteScene={handleArchiveScene}
-                              onDuplicateScene={handleDuplicateScene}
-                              connectedScenes={getConnectedScenes(scene.id)}
-                              onStartConnection={() => {
-                                setConnectionSource(scene.id);
-                                setIsConnecting(true);
-                              }}
-                              onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
-                              onWordCountChange={handleWordCountChange}
-                              connectableScenes={getConnectableScenes(scene.id)}
-                              onCompleteConnection={(targetId) => handleCompleteConnection(scene.id, targetId)}
-                              onOpenInEditor={handleOpenInEditor}
-                              metadataFieldDefs={metadataFieldDefs}
-                              sceneMetadata={sceneMetadata[`${scene.characterId}:${scene.sceneNumber}`]}
-                              onMetadataChange={(sceneId, fieldId, value) => {
-                                const s = projectData.scenes.find(sc => sc.id === sceneId);
-                                if (s) {
-                                  handleMetadataChange(`${s.characterId}:${s.sceneNumber}`, fieldId, value);
+                        <SortableBraidedScene id={scene.id}>
+                          {({ listeners, isDragging: _isDragging }) => (
+                            <div
+                              onClick={(e) => {
+                                if (isConnecting && connectionSource && connectionSource !== scene.id) {
+                                  handleSceneClick(scene, e);
                                 }
                               }}
-                              onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
-                              inlineMetadataFields={inlineMetadataFields}
-                              showInlineLabels={showInlineLabels}
-                              sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
-                              onDateChange={handleSceneDateChange}
-                            />
-                          </div>
-                        </div>
+                              onMouseEnter={() => setHoveredSceneId(scene.id)}
+                              onMouseLeave={() => setHoveredSceneId(null)}
+                              className={`braided-scene-drag-wrapper ${activeBraidedDragId === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${povReorderedScenes.has(scene.id) ? 'pov-reordered' : ''}`}
+                            >
+                              <SceneCard
+                                scene={scene}
+                                tags={projectData.tags}
+                                showCharacter={true}
+                                characterName={getCharacterName(scene.characterId)}
+                                displayNumber={displayPosition}
+                                plotPointTitle={scene.plotPointId ? projectData.plotPoints.find(p => p.id === scene.plotPointId)?.title : undefined}
+                                showDragHandle={true}
+                                dragHandleListeners={listeners}
+                                backgroundColor={undefined}
+                                onSceneChange={handleSceneChange}
+                                onTagsChange={handleTagsChange}
+                                onCreateTag={handleCreateTag}
+                                onDeleteScene={handleArchiveScene}
+                                onDuplicateScene={handleDuplicateScene}
+                                connectedScenes={getConnectedScenes(scene.id)}
+                                onStartConnection={() => {
+                                  setConnectionSource(scene.id);
+                                  setIsConnecting(true);
+                                }}
+                                onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
+                                onWordCountChange={handleWordCountChange}
+                                connectableScenes={getConnectableScenes(scene.id)}
+                                onCompleteConnection={(targetId) => handleCompleteConnection(scene.id, targetId)}
+                                onOpenInEditor={handleOpenInEditor}
+                                metadataFieldDefs={metadataFieldDefs}
+                                sceneMetadata={sceneMetadata[`${scene.characterId}:${scene.sceneNumber}`]}
+                                onMetadataChange={(sceneId, fieldId, value) => {
+                                  const s = projectData.scenes.find(sc => sc.id === sceneId);
+                                  if (s) {
+                                    handleMetadataChange(`${s.characterId}:${s.sceneNumber}`, fieldId, value);
+                                  }
+                                }}
+                                onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                                inlineMetadataFields={inlineMetadataFields}
+                                showInlineLabels={showInlineLabels}
+                                sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
+                                onDateChange={handleSceneDateChange}
+                              />
+                            </div>
+                          )}
+                        </SortableBraidedScene>
                       </div>
                     );
                   })}
-                  {displayedScenes.length > 0 && (
-                    <div
-                      className={`drop-zone ${dropTargetIndex === displayedScenes.length ? 'active' : ''}`}
-                      onDragOver={(e) => handleDragOverTimeline(e, displayedScenes.length)}
-                      onDrop={(e) => handleDropOnTimeline(e, displayedScenes.length)}
-                    />
-                  )}
-                  {displayedScenes.length > 0 && !draggedScene && !draggedChapter && (
+                  </SortableContext>
+                  <DragOverlay>
+                    {activeBraidedDragId ? (() => {
+                      const dragScene = projectData.scenes.find(s => s.id === activeBraidedDragId);
+                      return dragScene ? (
+                        <SceneCard
+                          scene={dragScene}
+                          tags={projectData.tags}
+                          showCharacter={true}
+                          characterName={getCharacterName(dragScene.characterId)}
+                        />
+                      ) : null;
+                    })() : null}
+                  </DragOverlay>
+                  {displayedScenes.length > 0 && !activeBraidedDragId && !draggedChapter && (
                     <div className="braided-insert-zone">
                       <button
                         className="braided-insert-btn"
@@ -4178,11 +4176,7 @@ function App() {
                 </div>
 
                 {/* To Braid Inbox */}
-                <div
-                  className="to-braid-inbox"
-                  onDragOver={handleDragOverInbox}
-                  onDrop={handleDropOnInbox}
-                >
+                <DroppableInbox className="to-braid-inbox">
                   <div className="inbox-header">
                     <h2 className="inbox-title">To Braid</h2>
                     <select
@@ -4232,9 +4226,7 @@ function App() {
                                           key={scene.id}
                                           className="inbox-scene"
                                           style={{ '--char-color': charColor } as React.CSSProperties}
-                                          draggable
-                                          onDragStart={(e) => handleDragStart(e, scene)}
-                                          onDragEnd={handleDragEnd}
+
                                         >
                                           <span className="inbox-scene-number">{scene.sceneNumber}.</span>
                                           <span className="inbox-scene-title">{scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')}</span>
@@ -4265,9 +4257,10 @@ function App() {
                       );
                     })}
                   </div>
-                </div>
+                </DroppableInbox>
 
               </div>
+              </DndContext>
             )}
 
             {displayedScenes.length === 0 && (
