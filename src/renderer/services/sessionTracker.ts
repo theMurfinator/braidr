@@ -13,7 +13,7 @@ import { AnalyticsData, SceneSession, recordSession, appendSceneSession, getToda
 const IDLE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 export interface ActiveSession {
-  sceneKey: string;          // "characterId:sceneNumber"
+  sceneKey: string;          // scene.id
   startTime: number;         // Date.now() when session began
   wordsAtStart: number;      // word count when session started
   lastActivityTime: number;  // last keystroke/edit timestamp

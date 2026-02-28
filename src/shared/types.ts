@@ -83,15 +83,15 @@ export interface TableViewConfig {
 }
 
 export interface TimelineData {
-  // Maps "characterId:sceneNumber" to timeline position
+  // Maps scene.id to timeline position
   positions: Record<string, number>;
-  // Maps "characterId:sceneNumber" to array of connected scene keys
+  // Maps scene.id to array of connected scene IDs
   connections?: Record<string, string[]>;
   // Chapters in the braided timeline
   chapters?: BraidedChapter[];
   // Custom colors for characters (characterId -> color)
   characterColors?: Record<string, string>;
-  // Word counts for scenes (characterId:sceneNumber -> count)
+  // Word counts for scenes (scene.id -> count)
   wordCounts?: Record<string, number>;
   // Font settings (global — kept for backward compat)
   fontSettings?: FontSettings;
@@ -99,17 +99,17 @@ export interface TimelineData {
   allFontSettings?: AllFontSettings;
   // Archived (soft-deleted) scenes
   archivedScenes?: ArchivedScene[];
-  // Draft prose content keyed by "characterId:sceneNumber"
+  // Draft prose content keyed by scene.id
   draftContent?: Record<string, string>;
   // Metadata field definitions (project-wide)
   metadataFieldDefs?: MetadataFieldDef[];
-  // Per-scene metadata values keyed by "characterId:sceneNumber"
+  // Per-scene metadata values keyed by scene.id
   sceneMetadata?: Record<string, Record<string, string | string[]>>;
-  // Saved draft versions keyed by "characterId:sceneNumber"
+  // Saved draft versions keyed by scene.id
   drafts?: Record<string, DraftVersion[]>;
-  // Scratchpad content keyed by "characterId:sceneNumber"
+  // Scratchpad content keyed by scene.id
   scratchpad?: Record<string, string>;
-  // Comments keyed by "characterId:sceneNumber"
+  // Comments keyed by scene.id
   sceneComments?: Record<string, SceneComment[]>;
   // Saved table view configurations
   tableViews?: TableViewConfig[];
@@ -125,9 +125,9 @@ export interface TimelineData {
   // Inline metadata display preferences (POV view)
   inlineMetadataFields?: string[];
   showInlineLabels?: boolean;
-  // Scene dates keyed by "characterId:sceneNumber"
+  // Scene dates keyed by scene.id
   timelineDates?: Record<string, string>;
-  // Scene end dates keyed by "characterId:sceneNumber" (for multi-day scenes)
+  // Scene end dates keyed by scene.id (for multi-day scenes)
   timelineEndDates?: Record<string, string>;
   // World events
   worldEvents?: WorldEvent[];
@@ -199,7 +199,7 @@ export interface WorldEvent {
   endDate?: string;            // "YYYY-MM-DD" for multi-day events
   description: string;
   tags: string[];
-  linkedSceneKeys: string[];   // ["characterId:sceneNumber", ...]
+  linkedSceneKeys: string[];   // ["scene.id", ...]
   linkedNoteIds: string[];     // note IDs
   createdAt: number;
   updatedAt: number;
@@ -275,7 +275,7 @@ export interface NoteMetadata {
   createdAt: number;
   modifiedAt: number;
   outgoingLinks: string[];  // Note IDs this note links to
-  sceneLinks: string[];     // Scene keys ("characterId:sceneNumber") this note references
+  sceneLinks: string[];     // Scene IDs (scene.id) this note references
   tags?: string[];          // Tag names applied to this note
   // Deprecated — kept for migration from folder-based layout
   folderPath?: string;

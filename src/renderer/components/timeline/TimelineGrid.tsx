@@ -240,7 +240,7 @@ export default function TimelineGrid({
     document.body.style.userSelect = 'none';
   }, [colWidth]);
   // ── Build lookup: sceneKey -> date ────────────────────────────────────────
-  // timelineDates is keyed "characterId:sceneNumber" -> "YYYY-MM-DD"
+  // timelineDates is keyed by scene.id -> "YYYY-MM-DD"
 
   // ── Build lookup: date -> scenes per character ────────────────────────────
   const sceneDateMap = useMemo(() => {
