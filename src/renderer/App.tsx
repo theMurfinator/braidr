@@ -3462,6 +3462,7 @@ function App() {
                 viewState={timelineViewStateRef.current ?? undefined}
                 onViewStateChange={(state) => {
                   timelineViewStateRef.current = state;
+                  isDirtyRef.current = true;
                 }}
               />
             ) : mode === 'editor' ? (

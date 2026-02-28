@@ -112,12 +112,15 @@ export default function TimelineView({
   const [canvasZoom, setCanvasZoom] = useState(() => viewState?.zoom ?? 1);
 
   // Report view state changes to parent (debounced to avoid excessive saves)
+  const onViewStateChangeRef = useRef(onViewStateChange);
+  useEffect(() => { onViewStateChangeRef.current = onViewStateChange; }, [onViewStateChange]);
+
   const viewStateChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!onViewStateChange) return;
+    if (!onViewStateChangeRef.current) return;
     if (viewStateChangeTimerRef.current) clearTimeout(viewStateChangeTimerRef.current);
     viewStateChangeTimerRef.current = setTimeout(() => {
-      onViewStateChange({
+      onViewStateChangeRef.current?.({
         panX: 0,
         panY: 0,
         zoom: canvasZoom,
