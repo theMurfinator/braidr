@@ -303,10 +303,7 @@ export default function TimelineView({
   // ── Detail panel: selected scene data ───────────────────────────────
   const selectedScene = useMemo(() => {
     if (!selectedSceneKey) return null;
-    const [charId, sceneNum] = selectedSceneKey.split(':');
-    return scenes.find(
-      s => s.characterId === charId && String(s.sceneNumber) === sceneNum
-    ) ?? null;
+    return scenes.find(s => s.id === selectedSceneKey) ?? null;
   }, [selectedSceneKey, scenes]);
 
   const selectedCharacterName = useMemo(() => {
@@ -361,15 +358,27 @@ export default function TimelineView({
     return sortedDatedSceneKeys.indexOf(selectedSceneKey);
   }, [selectedSceneKey, sortedDatedSceneKeys]);
 
+  const navigateToScene = useCallback((sceneKey: string) => {
+    setSelectedSceneKey(sceneKey);
+    const date = timelineDates[sceneKey];
+    if (!date || dateRange.length === 0) return;
+    const idx = dateRange.indexOf(date);
+    if (idx < 0) return;
+    const dateFrac = idx / (dateRange.length - 1);
+    const vpWidth = contextBarViewport.end - contextBarViewport.start;
+    const newStart = Math.max(0, Math.min(1 - vpWidth, dateFrac - vpWidth / 2));
+    handleContextBarViewportChange(newStart, newStart + vpWidth);
+  }, [timelineDates, dateRange, contextBarViewport, handleContextBarViewportChange]);
+
   const handlePrevScene = useMemo(() => {
     if (selectedSceneIndex <= 0) return undefined;
-    return () => setSelectedSceneKey(sortedDatedSceneKeys[selectedSceneIndex - 1]);
-  }, [selectedSceneIndex, sortedDatedSceneKeys]);
+    return () => navigateToScene(sortedDatedSceneKeys[selectedSceneIndex - 1]);
+  }, [selectedSceneIndex, sortedDatedSceneKeys, navigateToScene]);
 
   const handleNextScene = useMemo(() => {
     if (selectedSceneIndex < 0 || selectedSceneIndex >= sortedDatedSceneKeys.length - 1) return undefined;
-    return () => setSelectedSceneKey(sortedDatedSceneKeys[selectedSceneIndex + 1]);
-  }, [selectedSceneIndex, sortedDatedSceneKeys]);
+    return () => navigateToScene(sortedDatedSceneKeys[selectedSceneIndex + 1]);
+  }, [selectedSceneIndex, sortedDatedSceneKeys, navigateToScene]);
 
   // ── Detail panel: selected event data & editing ─────────────────────
   const selectedEvent = useMemo(() => {
@@ -430,9 +439,10 @@ export default function TimelineView({
   }, [worldEvents, updateEvent]);
 
   function getSceneLabel(sceneKey: string): string {
-    const [charId, sceneNum] = sceneKey.split(':');
-    const character = characters.find(c => c.id === charId);
-    return `${character?.name ?? charId} #${sceneNum}`;
+    const scene = scenes.find(s => s.id === sceneKey);
+    if (!scene) return sceneKey;
+    const character = characters.find(c => c.id === scene.characterId);
+    return `${character?.name ?? '?'} #${scene.sceneNumber}`;
   }
 
   function getAvailableScenes(): { key: string; label: string }[] {
@@ -706,8 +716,8 @@ export default function TimelineView({
                 <label>Linked Scenes</label>
                 <div className="timeline-scene-chips">
                   {selectedEvent.linkedSceneKeys.map(key => {
-                    const [charId] = key.split(':');
-                    const color = characterColors[charId] || 'var(--accent)';
+                    const linkedScene = scenes.find(s => s.id === key);
+                    const color = linkedScene ? (characterColors[linkedScene.characterId] || 'var(--accent)') : 'var(--accent)';
                     return (
                       <span
                         key={key}
