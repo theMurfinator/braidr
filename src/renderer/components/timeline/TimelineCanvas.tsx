@@ -9,6 +9,10 @@ const EVENT_HEIGHT = 32;
 const LANE_GAP = 8;
 const TOP_MARGIN = 50;
 
+// Semantic zoom thresholds based on effective column width (colWidth * zoom)
+const ZOOM_LEVEL_DOT = 40;      // Below this: colored dot only
+const ZOOM_LEVEL_LABEL = 120;   // Below this: label only; above: full card
+
 // ── Light-theme color palette ─────────────────────────────────────────────────
 const COLORS = {
   background: '#FAFAF8',
@@ -391,27 +395,32 @@ export default function TimelineCanvas({
       }
     }
 
-    // 4. Day labels at top
-    ctx.textAlign = 'center';
-    ctx.font = '11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-    for (const date of dateRange) {
-      const x = dayX(date);
-      const charMap = sceneDateMap[date] || {};
-      const hasScenes = Object.keys(charMap).length > 0;
+    // Semantic zoom: effective column width
+    const effectiveColW = colWidthRef.current * zoom;
 
-      ctx.fillStyle = hasScenes ? COLORS.dayLabelText : COLORS.dayLabelMuted;
-      // Short date label: "3/14"
-      const d = new Date(date + 'T00:00:00');
-      const label = `${d.getMonth() + 1}/${d.getDate()}`;
-      ctx.fillText(label, x + CARD_W / 2, TOP_MARGIN - 16);
+    // 4. Day labels at top (hidden at dot zoom level)
+    if (effectiveColW >= ZOOM_LEVEL_DOT) {
+      ctx.textAlign = 'center';
+      ctx.font = '11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+      for (const date of dateRange) {
+        const x = dayX(date);
+        const charMap = sceneDateMap[date] || {};
+        const hasScenes = Object.keys(charMap).length > 0;
 
-      // Tick mark
-      ctx.strokeStyle = hasScenes ? COLORS.dayLabelText : COLORS.dayLabelMuted;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x + CARD_W / 2, TOP_MARGIN - 8);
-      ctx.lineTo(x + CARD_W / 2, TOP_MARGIN - 2);
-      ctx.stroke();
+        ctx.fillStyle = hasScenes ? COLORS.dayLabelText : COLORS.dayLabelMuted;
+        // Short date label: "3/14"
+        const d = new Date(date + 'T00:00:00');
+        const label = `${d.getMonth() + 1}/${d.getDate()}`;
+        ctx.fillText(label, x + CARD_W / 2, TOP_MARGIN - 16);
+
+        // Tick mark
+        ctx.strokeStyle = hasScenes ? COLORS.dayLabelText : COLORS.dayLabelMuted;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + CARD_W / 2, TOP_MARGIN - 8);
+        ctx.lineTo(x + CARD_W / 2, TOP_MARGIN - 2);
+        ctx.stroke();
+      }
     }
 
     // 5. Character lane stripes (alternating)
@@ -504,7 +513,7 @@ export default function TimelineCanvas({
       }
     }
 
-    // 10. Scene cards
+    // 10. Scene cards — semantic zoom
     for (const scene of scenes) {
       const key = scene.id;
       const r = sceneRect(key);
@@ -525,68 +534,107 @@ export default function TimelineCanvas({
         e => e.id === selEvent && e.linkedSceneKeys.includes(key),
       );
 
-      // Glow
-      if (isHovered || isSelected) {
-        ctx.shadowColor = color + '40';
-        ctx.shadowBlur = 12;
-      }
-
-      // Card background
-      ctx.fillStyle = isSelected
-        ? color + '15'
-        : isHovered
-          ? color + '10'
-          : COLORS.cardFill;
-
-      // Stroke
-      ctx.strokeStyle = isEventLinked
-        ? COLORS.worldEventStroke
-        : isConnected
-          ? COLORS.connectionHighlight
-          : isSelected
-            ? color
-            : isHovered
-              ? color + '80'
-              : COLORS.cardStroke;
-      ctx.lineWidth = isSelected || isEventLinked ? 2 : 1;
-
-      roundRect(ctx, r.x, r.y, r.w, r.h, 6);
-      ctx.fill();
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      ctx.shadowColor = 'transparent';
-
-      // Left color bar
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(r.x, r.y, 5, r.h);
-      ctx.clip();
-      ctx.fillStyle = color;
-      roundRect(ctx, r.x, r.y, 10, r.h, 6);
-      ctx.fill();
-      ctx.restore();
-
-      // Scene number
-      ctx.fillStyle = color + '99';
-      ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`#${scene.sceneNumber}`, r.x + 10, r.y + 14);
-
-      // Scene title
-      ctx.fillStyle = isHovered || isSelected ? COLORS.cardText : '#555555';
-      ctx.font = '12px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-      const title = scene.title || `Scene ${scene.sceneNumber}`;
-      const displayTitle = truncateText(ctx, title, r.w - 16);
-      ctx.fillText(displayTitle, r.x + 10, r.y + 32);
-
-      // Connection dot indicator
-      const hasConnection = (connections[scene.id] && connections[scene.id].length > 0) ||
-        Object.values(connections).some(targets => targets.includes(scene.id));
-      if (hasConnection) {
-        ctx.fillStyle = COLORS.connectionHighlight;
+      if (effectiveColW < ZOOM_LEVEL_DOT) {
+        // ── Dot level: colored circle ──
+        const cx = r.x + r.w / 2;
+        const cy = r.y + r.h / 2;
+        const radius = isSelected ? 5 : isHovered ? 4 : 3;
+        ctx.fillStyle = color;
+        ctx.globalAlpha = isSelected ? 1 : isHovered ? 0.9 : 0.7;
         ctx.beginPath();
-        ctx.arc(r.x + r.w - 8, r.y + 10, 3, 0, Math.PI * 2);
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
         ctx.fill();
+        if (isSelected) {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      } else if (effectiveColW < ZOOM_LEVEL_LABEL) {
+        // ── Label level: thin bar with title ──
+        const barH = 20;
+        const barY = r.y + (r.h - barH) / 2;
+        ctx.fillStyle = isSelected ? color + '25' : isHovered ? color + '15' : color + '08';
+        ctx.strokeStyle = isSelected ? color : isHovered ? color + '80' : color + '40';
+        ctx.lineWidth = isSelected ? 1.5 : 1;
+        roundRect(ctx, r.x, barY, r.w, barH, 3);
+        ctx.fill();
+        ctx.stroke();
+        // Left color bar
+        ctx.fillStyle = color;
+        ctx.fillRect(r.x, barY, 3, barH);
+        // Title
+        ctx.fillStyle = COLORS.cardText;
+        ctx.font = '10px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        const title = scene.title || `#${scene.sceneNumber}`;
+        ctx.fillText(truncateText(ctx, title, r.w - 10), r.x + 8, barY + 13);
+      } else {
+        // ── Full card level: existing rendering ──
+
+        // Glow
+        if (isHovered || isSelected) {
+          ctx.shadowColor = color + '40';
+          ctx.shadowBlur = 12;
+        }
+
+        // Card background
+        ctx.fillStyle = isSelected
+          ? color + '15'
+          : isHovered
+            ? color + '10'
+            : COLORS.cardFill;
+
+        // Stroke
+        ctx.strokeStyle = isEventLinked
+          ? COLORS.worldEventStroke
+          : isConnected
+            ? COLORS.connectionHighlight
+            : isSelected
+              ? color
+              : isHovered
+                ? color + '80'
+                : COLORS.cardStroke;
+        ctx.lineWidth = isSelected || isEventLinked ? 2 : 1;
+
+        roundRect(ctx, r.x, r.y, r.w, r.h, 6);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = 'transparent';
+
+        // Left color bar
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(r.x, r.y, 5, r.h);
+        ctx.clip();
+        ctx.fillStyle = color;
+        roundRect(ctx, r.x, r.y, 10, r.h, 6);
+        ctx.fill();
+        ctx.restore();
+
+        // Scene number
+        ctx.fillStyle = color + '99';
+        ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`#${scene.sceneNumber}`, r.x + 10, r.y + 14);
+
+        // Scene title
+        ctx.fillStyle = isHovered || isSelected ? COLORS.cardText : '#555555';
+        ctx.font = '12px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+        const title = scene.title || `Scene ${scene.sceneNumber}`;
+        const displayTitle = truncateText(ctx, title, r.w - 16);
+        ctx.fillText(displayTitle, r.x + 10, r.y + 32);
+
+        // Connection dot indicator
+        const hasConnection = (connections[scene.id] && connections[scene.id].length > 0) ||
+          Object.values(connections).some(targets => targets.includes(scene.id));
+        if (hasConnection) {
+          ctx.fillStyle = COLORS.connectionHighlight;
+          ctx.beginPath();
+          ctx.arc(r.x + r.w - 8, r.y + 10, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
 
