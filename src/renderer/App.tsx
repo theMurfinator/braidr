@@ -1006,6 +1006,85 @@ function App() {
     localStorage.setItem('rails-character-order', JSON.stringify(railOrder));
   }, [railOrder]);
 
+  // Migrate scene-keyed data from "characterId:sceneNumber" keys to "scene.id" keys.
+  // Runs once on load if old-format keys are detected.
+  const migrateSceneKeys = (
+    scenes: Scene[],
+    data: {
+      draftContent: Record<string, string>;
+      drafts: Record<string, DraftVersion[]>;
+      sceneMetadata: Record<string, Record<string, string | string[]>>;
+      scratchpad: Record<string, string>;
+      sceneComments: Record<string, SceneComment[]>;
+      positions: Record<string, number>;
+      wordCounts: Record<string, number>;
+      timelineDates: Record<string, string>;
+      timelineEndDates: Record<string, string>;
+      connections: Record<string, string[]>;
+      tasks: Task[];
+    }
+  ) => {
+    // Build old-key -> scene.id lookup
+    const oldKeyToId: Record<string, string> = {};
+    for (const scene of scenes) {
+      oldKeyToId[`${scene.characterId}:${scene.sceneNumber}`] = scene.id;
+    }
+
+    // Check if migration is needed: do any keys look like old format?
+    const allKeys = [
+      ...Object.keys(data.draftContent),
+      ...Object.keys(data.positions),
+      ...Object.keys(data.sceneMetadata),
+    ];
+    const hasOldKeys = allKeys.some(k => k.includes(':') && /:\d+$/.test(k));
+    if (!hasOldKeys) return false; // Already migrated or empty
+
+    // Helper: remap Record keys
+    const remap = <T,>(source: Record<string, T>): Record<string, T> => {
+      const result: Record<string, T> = {};
+      for (const [key, value] of Object.entries(source)) {
+        if (key in oldKeyToId) {
+          result[oldKeyToId[key]] = value;
+        } else {
+          result[key] = value; // Keep unrecognized keys as-is
+        }
+      }
+      return result;
+    };
+
+    // Remap all Records
+    Object.assign(data, {
+      draftContent: remap(data.draftContent),
+      drafts: remap(data.drafts),
+      sceneMetadata: remap(data.sceneMetadata),
+      scratchpad: remap(data.scratchpad),
+      sceneComments: remap(data.sceneComments),
+      positions: remap(data.positions),
+      wordCounts: remap(data.wordCounts),
+      timelineDates: remap(data.timelineDates),
+      timelineEndDates: remap(data.timelineEndDates),
+    });
+
+    // Remap connections: both keys and values are old-format
+    const newConnections: Record<string, string[]> = {};
+    for (const [sourceKey, targetKeys] of Object.entries(data.connections)) {
+      const newSourceKey = oldKeyToId[sourceKey] || sourceKey;
+      const newTargetKeys = targetKeys.map(tk => oldKeyToId[tk] || tk);
+      newConnections[newSourceKey] = newTargetKeys;
+    }
+    data.connections = newConnections;
+
+    // Remap task sceneKeys
+    for (const task of data.tasks) {
+      if (task.sceneKey && task.sceneKey in oldKeyToId) {
+        task.sceneKey = oldKeyToId[task.sceneKey];
+      }
+    }
+
+    console.log('Migrated scene keys from characterId:sceneNumber to scene.id');
+    return true; // Migration was performed
+  };
+
   // Helper to load a project from a path
   const loadProjectFromPath = async (folderPath: string, projectName?: string) => {
     const data = await dataService.loadProject(folderPath);
