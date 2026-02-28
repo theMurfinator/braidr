@@ -216,6 +216,7 @@ export default function TimelineCanvas({
     const offset = labelWidthRef.current * zoom + pan.x;
     const startFrac = Math.max(0, -offset / totalW);
     const endFrac = Math.min(1, (w - offset) / totalW);
+    viewportRef.current = { start: startFrac, end: endFrac };
     onViewportChangeRef.current({ start: startFrac, end: endFrac });
   }, [dateRange.length]);
 
@@ -245,13 +246,13 @@ export default function TimelineCanvas({
     const newTotalW = dateRange.length * colWidthRef.current * zoomRef.current;
     panRef.current = {
       ...panRef.current,
-      x: -(viewport.start * newTotalW) + labelWidthRef.current * zoomRef.current,
+      x: -(viewport.start * newTotalW) - labelWidthRef.current * zoomRef.current,
     };
 
     isExternalViewportUpdate.current = true;
-    draw();
+    drawRef.current();
     // Don't call reportViewport here to avoid feedback loop
-  }, [viewport, dateRange.length, draw]);
+  }, [viewport, dateRange.length]);
 
   // ── Position helpers ────────────────────────────────────────────────────────
 
@@ -684,6 +685,10 @@ export default function TimelineCanvas({
     sceneRect,
     eventRect,
   ]);
+
+  // Keep draw in a ref so the viewport effect can call it without depending on it
+  const drawRef = useRef(draw);
+  useEffect(() => { drawRef.current = draw; }, [draw]);
 
   // ── Event handling & animation loop ─────────────────────────────────────────
 
