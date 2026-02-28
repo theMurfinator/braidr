@@ -45,6 +45,7 @@ import {
   useSensor,
   useSensors,
   useDroppable,
+  useDraggable,
   type DragEndEvent,
   type DragStartEvent,
   DragOverlay,
@@ -76,6 +77,16 @@ function SortableBraidedScene({
   return (
     <div ref={setNodeRef} style={style} className="braided-scene-wrapper" data-scene-id={id} {...attributes}>
       {children({ listeners: listeners || {}, isDragging })}
+    </div>
+  );
+}
+
+function DraggableChapter({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `chapter:${id}` });
+  return (
+    <div ref={setNodeRef} {...attributes} style={{ opacity: isDragging ? 0.5 : 1 }} className="braided-chapter">
+      <span className="chapter-drag-handle" {...listeners}>&#8942;&#8942;</span>
+      {children}
     </div>
   );
 }
@@ -171,7 +182,7 @@ function App() {
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
   const [isAddingChapter, setIsAddingChapter] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
-  const [draggedChapter, setDraggedChapter] = useState<BraidedChapter | null>(null);
+  // draggedChapter removed — chapter drag now uses dnd-kit via activeBraidedDragId with 'chapter:' prefix
   const [addingChapterAtPosition, setAddingChapterAtPosition] = useState<number | null>(null);
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
@@ -2557,6 +2568,19 @@ function App() {
     setActiveBraidedDragId(null);
     if (!over || !projectData) return;
 
+    // Handle chapter drag
+    if (typeof active.id === 'string' && (active.id as string).startsWith('chapter:')) {
+      const chapterId = (active.id as string).slice(8);
+      if (over) {
+        const overScene = displayedScenes.find(s => s.id === over.id);
+        if (overScene) {
+          const targetPosition = displayedScenes.indexOf(overScene) + 1;
+          handleMoveChapter(chapterId, targetPosition);
+        }
+      }
+      return;
+    }
+
     if (over.id === 'braided-inbox') {
       await handleRemoveFromTimeline(active.id as string);
       return;
@@ -3863,17 +3887,7 @@ function App() {
                     return (
                       <div key={scene.id}>
                         {chapterBefore && (
-                          <div
-                            className={`braided-chapter ${draggedChapter?.id === chapterBefore.id ? 'dragging' : ''}`}
-                            draggable
-                            onDragStart={(e) => {
-                              setDraggedChapter(chapterBefore);
-                              e.dataTransfer.effectAllowed = 'move';
-                              e.dataTransfer.setData('text/plain', chapterBefore.id);
-                            }}
-                            onDragEnd={() => setDraggedChapter(null)}
-                          >
-                            <span className="chapter-drag-handle">&#8942;&#8942;</span>
+                          <DraggableChapter id={chapterBefore.id}>
                             <input
                               type="text"
                               className="braided-chapter-title"
@@ -3897,27 +3911,9 @@ function App() {
                             >
                               &#215;
                             </button>
-                          </div>
+                          </DraggableChapter>
                         )}
-                        {!chapterBefore && draggedChapter && (
-                          <div
-                            className="chapter-drop-zone"
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              e.dataTransfer.dropEffect = 'move';
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              if (draggedChapter) {
-                                handleMoveChapter(draggedChapter.id, displayPosition);
-                                setDraggedChapter(null);
-                              }
-                            }}
-                          >
-                            Move chapter here
-                          </div>
-                        )}
-                        {!activeBraidedDragId && !draggedChapter && (
+                        {!activeBraidedDragId && (
                           <div className="braided-insert-zone">
                             <button
                               className="braided-insert-btn"
@@ -4062,7 +4058,12 @@ function App() {
                   })}
                   </SortableContext>
                   <DragOverlay>
-                    {activeBraidedDragId ? (() => {
+                    {activeBraidedDragId?.startsWith('chapter:') ? (
+                      <div className="braided-chapter dragging">
+                        <span className="chapter-drag-handle">&#8942;&#8942;</span>
+                        <span>{braidedChapters.find(ch => ch.id === activeBraidedDragId.slice(8))?.title}</span>
+                      </div>
+                    ) : activeBraidedDragId ? (() => {
                       const dragScene = projectData.scenes.find(s => s.id === activeBraidedDragId);
                       return dragScene ? (
                         <SceneCard
@@ -4074,7 +4075,7 @@ function App() {
                       ) : null;
                     })() : null}
                   </DragOverlay>
-                  {displayedScenes.length > 0 && !activeBraidedDragId && !draggedChapter && (
+                  {displayedScenes.length > 0 && !activeBraidedDragId && (
                     <div className="braided-insert-zone">
                       <button
                         className="braided-insert-btn"
