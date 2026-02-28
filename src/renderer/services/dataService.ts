@@ -24,6 +24,9 @@ export interface DataService {
   // Note images
   saveNoteImage(projectPath: string, imageData: string, fileName: string): Promise<string>;
   selectNoteImage(projectPath: string): Promise<string | null>;
+  // Backups
+  listBackups(): Promise<{ filename: string; size: number; modifiedAt: number }[]>;
+  restoreBackup(filename: string): Promise<void>;
 }
 
 // Local file system implementation (Electron)
@@ -39,7 +42,7 @@ class ElectronDataService implements DataService {
     return path;
   }
 
-  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[] }> {
+  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; timelineEndDates: Record<string, string>; worldEvents: WorldEvent[] }> {
     this.projectPath = folderPath;
     const result = await window.electronAPI.readProject(folderPath);
 
@@ -52,6 +55,7 @@ class ElectronDataService implements DataService {
     const timelineData: TimelineData = timelineResult.success && timelineResult.data
       ? timelineResult.data
       : { positions: {}, connections: {} };
+
 
     const characters: Character[] = [];
     const allScenes: Scene[] = [];
@@ -70,12 +74,14 @@ class ElectronDataService implements DataService {
 
       // Apply timeline positions and word counts from timeline.json
       for (const scene of outline.scenes) {
-        const key = `${outline.character.id}:${scene.sceneNumber}`;
-        const position = timelineData.positions[key];
+        // Try scene.id (UUID) first, fall back to legacy characterId:sceneNumber key
+        const legacyKey = `${outline.character.id}:${scene.sceneNumber}`;
+        const position = timelineData.positions[scene.id] ?? timelineData.positions[legacyKey];
         scene.timelinePosition = position !== undefined ? position : null;
         // Apply word count if saved
-        if (timelineData.wordCounts && timelineData.wordCounts[key] !== undefined) {
-          scene.wordCount = timelineData.wordCounts[key];
+        const wordCount = timelineData.wordCounts?.[scene.id] ?? timelineData.wordCounts?.[legacyKey];
+        if (wordCount !== undefined) {
+          scene.wordCount = wordCount;
         }
       }
 
@@ -119,6 +125,7 @@ class ElectronDataService implements DataService {
       inlineMetadataFields: timelineData.inlineMetadataFields,
       showInlineLabels: timelineData.showInlineLabels,
       timelineDates: timelineData.timelineDates || {},
+      timelineEndDates: timelineData.timelineEndDates || {},
       worldEvents: timelineData.worldEvents || [],
     };
   }
@@ -295,6 +302,20 @@ class ElectronDataService implements DataService {
       throw new Error(result.error || 'Failed to select image');
     }
     return result.data!;
+  }
+
+  // Backups
+  async listBackups(): Promise<{ filename: string; size: number; modifiedAt: number }[]> {
+    if (!this.projectPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.listBackups(this.projectPath);
+    if (!result.success) throw new Error(result.error || 'Failed to list backups');
+    return result.data;
+  }
+
+  async restoreBackup(filename: string): Promise<void> {
+    if (!this.projectPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.restoreBackup(this.projectPath, filename);
+    if (!result.success) throw new Error(result.error || 'Failed to restore backup');
   }
 }
 

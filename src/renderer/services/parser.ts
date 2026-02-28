@@ -5,8 +5,8 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
 
-// Generate a stable ID from a string (for characters)
-function stableId(str: string): string {
+// Generate a stable ID from a string (for characters and scenes)
+export function stableId(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -192,7 +192,7 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
       }
 
       currentScene = {
-        id: generateId(),
+        id: stableId(`${character.id}:${sceneNumber}`),
         characterId: character.id,
         sceneNumber,
         title: sceneContent,

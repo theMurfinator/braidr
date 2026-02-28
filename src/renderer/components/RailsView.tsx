@@ -52,17 +52,12 @@ function SortableRailsScene({
   children,
 }: {
   id: string;
-  children: (listeners: Record<string, unknown>) => React.ReactNode;
+  children: (listeners: Record<string, unknown>, isDragging: boolean) => React.ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({ id });
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      {children(listeners || {})}
+    <div ref={setNodeRef} style={{ display: 'contents' }} {...attributes}>
+      {children(listeners || {}, isDragging)}
     </div>
   );
 }
@@ -487,10 +482,10 @@ export default function RailsView({
 
               return (
                 <SortableRailsScene key={row.scene.id} id={row.scene.id}>
-                  {(listeners) => (
+                  {(listeners, isDragging) => (
                 <div
                   className="rails-row"
-                  style={{ '--row-height': `${rowHeight}px` } as React.CSSProperties}
+                  style={{ '--row-height': `${rowHeight}px`, opacity: isDragging ? 0.3 : 1 } as React.CSSProperties}
                 >
                   {/* Row number — click to insert scene at this position */}
                   <div

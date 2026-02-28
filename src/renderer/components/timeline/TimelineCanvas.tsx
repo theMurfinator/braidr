@@ -50,6 +50,7 @@ interface TimelineCanvasProps {
   labelWidth: number;
   colWidth: number;
   dateRange: string[];
+  onOpenInEditor?: (sceneKey: string) => void;
   onViewportChange?: (viewport: { start: number; end: number }) => void;
   viewport?: { start: number; end: number }; // Incoming viewport from context bar
   zoom?: number;
@@ -114,6 +115,7 @@ export default function TimelineCanvas({
   selectedEventId,
   onSelectScene,
   onSelectEvent,
+  onOpenInEditor,
   labelWidth,
   colWidth,
   dateRange,
@@ -130,6 +132,9 @@ export default function TimelineCanvas({
 
   const onZoomChangeRef = useRef(onZoomChange);
   useEffect(() => { onZoomChangeRef.current = onZoomChange; }, [onZoomChange]);
+
+  const onOpenInEditorRef = useRef(onOpenInEditor);
+  useEffect(() => { onOpenInEditorRef.current = onOpenInEditor; }, [onOpenInEditor]);
 
   const onToggleLaneRef = useRef(onToggleLane);
   useEffect(() => { onToggleLaneRef.current = onToggleLane; }, [onToggleLane]);
@@ -149,6 +154,7 @@ export default function TimelineCanvas({
   const zoomRef = useRef(1);
   const isExternalZoomUpdate = useRef(false);
   const hoverRef = useRef<HitResult | null>(null);
+  const lastClickRef = useRef<{ id: string; time: number } | null>(null);
   const dragRef = useRef({
     isDragging: false,
     hasMoved: false,
@@ -486,34 +492,7 @@ export default function TimelineCanvas({
       );
     }
 
-    // 6. Character lane labels (left side)
-    for (let i = 0; i < characters.length; i++) {
-      const char = characters[i];
-      const color = characterColors[char.id] || '#888';
-      const y = laneY(i);
-      const isCollapsed = collapsedLanes?.has(char.id);
-      const laneH = isCollapsed ? 16 : LANE_HEIGHT;
-
-      if (isCollapsed) {
-        // Thin collapsed row
-        ctx.fillStyle = COLORS.cardText;
-        ctx.font = '11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('\u25B6 ' + char.name, 8, y + 12);
-      } else {
-        // Normal expanded lane label
-        ctx.textAlign = 'right';
-        ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-        ctx.fillStyle = color + '99';
-        ctx.fillText('\u25BC ' + char.name, labelWidthRef.current - 12, y + laneH / 2 + 4);
-      }
-    }
-
-    // 7. World events row label
-    ctx.fillStyle = COLORS.worldEventStroke + '99';
-    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText('World', labelWidthRef.current - 12, TOP_MARGIN + EVENT_HEIGHT / 2 + 4);
+    // 6–7. Character lane labels + World label: moved after ctx.restore() to pin to left edge
 
     // 8. Connection lines (Bezier curves between connected scenes)
     ctx.setLineDash([]);
@@ -794,6 +773,56 @@ export default function TimelineCanvas({
 
     // 13. Restore context
     ctx.restore();
+
+    // 14. Pinned lane labels (drawn in screen coordinates, fixed to left edge)
+    const lw = labelWidthRef.current;
+
+    // Solid background column to mask scrolling content
+    ctx.fillStyle = COLORS.background;
+    ctx.fillRect(0, 0, lw, h);
+
+    // Subtle right border
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(lw, 0);
+    ctx.lineTo(lw, h);
+    ctx.stroke();
+
+    const labelFontSize = Math.min(11, 11 * Math.min(zoom, 1.2));
+
+    // Character labels in screen space
+    for (let i = 0; i < characters.length; i++) {
+      const char = characters[i];
+      const color = characterColors[char.id] || '#888';
+      const worldY = laneY(i);
+      const screenY = worldY * zoom + pan.y;
+      const isCollapsed = collapsedLanes?.has(char.id);
+      const laneH = isCollapsed ? 16 : LANE_HEIGHT;
+      const screenLaneH = laneH * zoom;
+
+      // Skip if entirely off-screen
+      if (screenY + screenLaneH < 0 || screenY > h) continue;
+
+      if (isCollapsed) {
+        ctx.fillStyle = COLORS.cardText;
+        ctx.font = `${labelFontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.fillText('\u25B6 ' + char.name, 8, screenY + 12 * zoom);
+      } else {
+        ctx.textAlign = 'right';
+        ctx.font = `bold ${labelFontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
+        ctx.fillStyle = color + '99';
+        ctx.fillText('\u25BC ' + char.name, lw - 12, screenY + screenLaneH / 2 + 4);
+      }
+    }
+
+    // World events row label in screen space
+    const worldScreenY = TOP_MARGIN * zoom + pan.y;
+    ctx.fillStyle = COLORS.worldEventStroke + '99';
+    ctx.font = `bold ${labelFontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText('World', lw - 12, worldScreenY + (EVENT_HEIGHT * zoom) / 2 + 4);
   }, [
     characters,
     characterColors,
@@ -928,6 +957,16 @@ export default function TimelineCanvas({
 
         if (hit) {
           if (hit.type === 'scene' && hit.key) {
+            // Double-click detection
+            const now = Date.now();
+            const last = lastClickRef.current;
+            if (last && last.id === hit.id && now - last.time < 400) {
+              lastClickRef.current = null;
+              onOpenInEditorRef.current?.(hit.key);
+              return;
+            }
+            lastClickRef.current = { id: hit.id, time: now };
+
             onSelectScene(selectedSceneRef.current === hit.key ? null : hit.key);
             onSelectEvent(null);
           } else if (hit.type === 'event') {

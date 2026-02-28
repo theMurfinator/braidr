@@ -3,6 +3,7 @@ import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChap
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
+import { stableId } from './services/parser';
 import SceneCard from './components/SceneCard';
 import PlotPointSection from './components/PlotPointSection';
 import FilterBar from './components/FilterBar';
@@ -221,6 +222,8 @@ function App() {
   const [showCompileModal, setShowCompileModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showRestoreBackupModal, setShowRestoreBackupModal] = useState(false);
+  const [backupList, setBackupList] = useState<{ filename: string; size: number; modifiedAt: number }[]>([]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showTour, setShowTour] = useState(() => localStorage.getItem('braidr-tour-version') !== '1');
@@ -1056,6 +1059,7 @@ function App() {
       timelineEndDates: Record<string, string>;
       connections: Record<string, string[]>;
       tasks: Task[];
+      worldEvents: WorldEvent[];
     }
   ) => {
     // Build old-key -> scene.id lookup
@@ -1115,6 +1119,13 @@ function App() {
       }
     }
 
+    // Remap worldEvents linkedSceneKeys
+    for (const ev of data.worldEvents) {
+      if (ev.linkedSceneKeys) {
+        ev.linkedSceneKeys = ev.linkedSceneKeys.map(k => oldKeyToId[k] || k);
+      }
+    }
+
     console.log('Migrated scene keys from characterId:sceneNumber to scene.id');
     return true; // Migration was performed
   };
@@ -1127,11 +1138,11 @@ function App() {
     const name = projectName || folderPath.split('/').pop() || 'Untitled';
 
     // Migrate old characterId:sceneNumber keys to scene.id if needed
-    const loadedDraft = data.draftContent || {};
-    const loadedDrafts = data.drafts || {};
-    const loadedScratchpad = data.scratchpad || {};
-    const loadedComments = data.sceneComments || {};
-    const loadedMetaData = data.sceneMetadata || {};
+    let loadedDraft = data.draftContent || {};
+    let loadedDrafts = data.drafts || {};
+    let loadedScratchpad = data.scratchpad || {};
+    let loadedComments = data.sceneComments || {};
+    let loadedMetaData = data.sceneMetadata || {};
     const loadedTasks = data.tasks || [];
     const migrationData = {
       draftContent: loadedDraft,
@@ -1145,10 +1156,24 @@ function App() {
       timelineEndDates: (data as any).timelineEndDates || {},
       connections: data.connections || {},
       tasks: loadedTasks,
+      worldEvents: (data as any).worldEvents || [],
     };
     const didMigrate = migrateSceneKeys(data.scenes, migrationData);
     // Store scenes for analytics migration if keys were migrated
     pendingKeyMigrationRef.current = didMigrate ? data.scenes : null;
+
+    // After migration, Object.assign inside migrateSceneKeys replaces migrationData
+    // properties with new remapped objects. Re-point local variables so orphan cleanup
+    // and state-setting use the migrated data, not the stale pre-migration references.
+    if (didMigrate) {
+      loadedDraft = migrationData.draftContent;
+      loadedDrafts = migrationData.drafts;
+      loadedScratchpad = migrationData.scratchpad;
+      loadedComments = migrationData.sceneComments;
+      loadedMetaData = migrationData.sceneMetadata;
+      // Trigger auto-save so migrated keys are persisted to timeline.json
+      isDirtyRef.current = true;
+    }
 
     // After migration, connections are already keyed by scene.id
     setSceneConnections(migrationData.connections);
@@ -1232,28 +1257,9 @@ function App() {
     setShowInlineLabels(loadedShowLabels);
     showInlineLabelsRef.current = loadedShowLabels;
 
-    // Reconcile scene-keyed data: remove orphaned keys that don't match any current scene.
-    // This repairs data from the bug where archiving/reordering changed sceneNumbers
-    // without updating the keys in draftContent/drafts/sceneMetadata.
-    const validKeys = new Set(data.scenes.map((s: Scene) => s.id));
-    const allStoredKeys = new Set([
-      ...Object.keys(loadedDraft),
-      ...Object.keys(loadedDrafts),
-      ...Object.keys(loadedScratchpad),
-      ...Object.keys(loadedComments),
-      ...Object.keys(loadedMetaData),
-    ]);
-    const orphanedKeys = [...allStoredKeys].filter(k => !validKeys.has(k));
-    if (orphanedKeys.length > 0) {
-      for (const key of orphanedKeys) {
-        delete loadedDraft[key];
-        delete loadedDrafts[key];
-        delete loadedScratchpad[key];
-        delete loadedComments[key];
-        delete loadedMetaData[key];
-      }
-      console.log('Cleaned up orphaned scene keys:', orphanedKeys);
-    }
+    // Note: orphan cleanup was removed — it was destroying data when scene numbers
+    // shifted between sessions. Save-time key remapping (in saveTimelineData) now
+    // ensures timeline.json keys always match what the parser will generate.
 
     setSceneMetadata(loadedMetaData);
     sceneMetadataRef.current = loadedMetaData;
@@ -1325,13 +1331,13 @@ function App() {
     const loadedTaskVisibleColumns: string[] | undefined = (data as any).taskVisibleColumns;
     setTaskVisibleColumns(loadedTaskVisibleColumns);
     taskVisibleColumnsRef.current = loadedTaskVisibleColumns;
-    const loadedTimelineDates: Record<string, string> = (data as any).timelineDates || {};
+    const loadedTimelineDates: Record<string, string> = migrationData.timelineDates;
     setTimelineDates(loadedTimelineDates);
     timelineDatesRef.current = loadedTimelineDates;
-    const loadedTimelineEndDates: Record<string, string> = (data as any).timelineEndDates || {};
+    const loadedTimelineEndDates: Record<string, string> = migrationData.timelineEndDates;
     setTimelineEndDates(loadedTimelineEndDates);
     timelineEndDatesRef.current = loadedTimelineEndDates;
-    const loadedWorldEvents: WorldEvent[] = (data as any).worldEvents || [];
+    const loadedWorldEvents: WorldEvent[] = migrationData.worldEvents;
     setWorldEvents(loadedWorldEvents);
     worldEventsRef.current = loadedWorldEvents;
     const loadedViewState: TimelineViewState | null = (data as any).viewState || null;
@@ -1553,6 +1559,20 @@ function App() {
       alert(`Backup saved to:\n${result.backupPath}`);
     } else if (!result.canceled) {
       setError(result.error || 'Backup failed');
+    }
+  };
+
+  const handleRestoreBackup = async (filename: string) => {
+    if (!projectData) return;
+    if (!confirm(`Restore from "${filename}"?\n\nA safety backup of the current data will be created first. The project will reload after restoring.`)) return;
+    try {
+      await dataService.restoreBackup(filename);
+      setShowRestoreBackupModal(false);
+      // Reload the project to pick up restored data
+      const data = await dataService.loadProject(projectData.projectPath);
+      setProjectData(data);
+    } catch (err) {
+      setError(String(err));
     }
   };
 
@@ -2410,17 +2430,48 @@ function App() {
     const positions: Record<string, number> = {};
     const sceneWordCounts: Record<string, number> = {};
 
+    // Build ID remap: in-memory scene.id → what parser will generate on reload.
+    // Scene numbers may have changed (archive/reorder/insert/duplicate), so the
+    // parser will produce different stableId values. Remap all keyed data so that
+    // timeline.json keys match the next parse.
+    const idRemap = new Map<string, string>();
     for (const scene of scenes) {
-      if (scene.timelinePosition !== null) {
-        positions[scene.id] = scene.timelinePosition;
-      }
-      if (scene.wordCount !== undefined) {
-        sceneWordCounts[scene.id] = scene.wordCount;
+      const futureId = stableId(`${scene.characterId}:${scene.sceneNumber}`);
+      if (futureId !== scene.id) {
+        idRemap.set(scene.id, futureId);
       }
     }
 
-    // Connections are already keyed by scene.id
-    const keyConnections = connections;
+    const remap = <V,>(obj: Record<string, V>): Record<string, V> => {
+      if (idRemap.size === 0) return obj;
+      const out: Record<string, V> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        out[idRemap.get(k) ?? k] = v;
+      }
+      return out;
+    };
+
+    const remapConnections = (conn: Record<string, string[]>): Record<string, string[]> => {
+      if (idRemap.size === 0) return conn;
+      const out: Record<string, string[]> = {};
+      for (const [k, v] of Object.entries(conn)) {
+        out[idRemap.get(k) ?? k] = v.map(id => idRemap.get(id) ?? id);
+      }
+      return out;
+    };
+
+    for (const scene of scenes) {
+      const saveId = idRemap.get(scene.id) ?? scene.id;
+      if (scene.timelinePosition !== null) {
+        positions[saveId] = scene.timelinePosition;
+      }
+      if (scene.wordCount !== undefined) {
+        sceneWordCounts[saveId] = scene.wordCount;
+      }
+    }
+
+    // Connections need both keys and values remapped
+    const keyConnections = remapConnections(connections);
 
     if (isSavingRef.current) return; // Prevent overlapping saves
     isSavingRef.current = true;
@@ -2439,7 +2490,7 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current, timelineEndDatesRef.current, timelineViewStateRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, remap(draftContentRef.current), metadataFieldDefsRef.current, remap(metaForSave), remap(draftsRef.current), wordCountGoalRef.current, allFontSettingsRef.current, remap(scratchpadContentRef.current), remap(sceneCommentsRef.current), tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, remap(timelineDatesRef.current), worldEventsRef.current, remap(timelineEndDatesRef.current ?? {}), timelineViewStateRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -4768,6 +4819,22 @@ function App() {
                   </svg>
                   Backup
                 </button>
+                <button onClick={async () => {
+                  setShowSettingsMenu(false);
+                  try {
+                    const list = await dataService.listBackups();
+                    setBackupList(list);
+                    setShowRestoreBackupModal(true);
+                  } catch (err) {
+                    setError(String(err));
+                  }
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="1 4 1 10 7 10"/>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                  </svg>
+                  Restore Backup
+                </button>
                 {viewMode === 'editor' && (
                   <button onClick={() => { editorViewRef.current?.print(); setShowSettingsMenu(false); }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -4862,6 +4929,41 @@ function App() {
           onFontSettingsChange={handleFontSettingsChange}
           onClose={() => setShowFontPicker(false)}
         />
+      )}
+
+      {/* Restore Backup Modal */}
+      {showRestoreBackupModal && (
+        <div className="modal-overlay" onClick={() => setShowRestoreBackupModal(false)}>
+          <div className="modal-content restore-backup-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Restore Backup</h2>
+              <button className="modal-close-btn" onClick={() => setShowRestoreBackupModal(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              {backupList.length === 0 ? (
+                <p className="backup-empty">No backups found. Backups are created automatically every 5 minutes when saving.</p>
+              ) : (
+                <div className="backup-list">
+                  {backupList.map(b => {
+                    const date = new Date(b.modifiedAt);
+                    const sizeKb = (b.size / 1024).toFixed(1);
+                    return (
+                      <div key={b.filename} className="backup-item">
+                        <div className="backup-info">
+                          <span className="backup-date">{date.toLocaleDateString()} {date.toLocaleTimeString()}</span>
+                          <span className="backup-size">{sizeKb} KB</span>
+                        </div>
+                        <button className="backup-restore-btn" onClick={() => handleRestoreBackup(b.filename)}>
+                          Restore
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Compile Modal */}

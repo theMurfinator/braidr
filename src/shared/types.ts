@@ -377,4 +377,7 @@ export const IPC_CHANNELS = {
   REACTIVATE_SUBSCRIPTION: 'reactivate-subscription',
   // Analytics (PostHog)
   CAPTURE_ANALYTICS_EVENT: 'capture-analytics-event',
+  // Backups
+  LIST_BACKUPS: 'list-backups',
+  RESTORE_BACKUP: 'restore-backup',
 } as const;

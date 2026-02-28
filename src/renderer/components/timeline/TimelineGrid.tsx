@@ -35,8 +35,11 @@ interface TimelineGridProps {
   onWorldEventsChange: (events: WorldEvent[]) => void;
   plotPoints?: PlotPoint[];
   onInsertScene?: (characterId: string, plotPointId: string, date: string) => Promise<string | null>;
+  unassignedScenes?: Scene[];
+  onPlaceScene?: (sceneKey: string, date: string) => void;
   collapsedLanes?: Set<string>;
   onToggleLane?: (characterId: string) => void;
+  onOpenInEditor?: (sceneKey: string) => void;
   /** When true, the grid skips its own DndContext/DragOverlay — the parent provides them. */
   externalDndContext?: boolean;
   /** Active drag ID from parent DndContext (used when externalDndContext is true). */
@@ -158,14 +161,30 @@ export default function TimelineGrid({
   onWorldEventsChange,
   plotPoints,
   onInsertScene,
+  unassignedScenes,
+  onPlaceScene,
   collapsedLanes,
   onToggleLane,
+  onOpenInEditor,
   externalDndContext,
   activeDragIdProp,
 }: TimelineGridProps) {
   const resizeDragRef = useRef<{ startX: number; initialWidth: number; target: 'label' | 'col' } | null>(null);
   const spanResizeRef = useRef<{ sceneKey: string; edge: 'left' | 'right'; startX: number; startDate: string; startEndDate: string | undefined } | null>(null);
   const [insertCell, setInsertCell] = useState<{ characterId: string; date: string } | null>(null);
+  const insertPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Close insert popover on outside click
+  useEffect(() => {
+    if (!insertCell) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      if (insertPopoverRef.current && !insertPopoverRef.current.contains(e.target as Node)) {
+        setInsertCell(null);
+      }
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [insertCell]);
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
@@ -411,6 +430,10 @@ export default function TimelineGrid({
         onClick={(e) => {
           e.stopPropagation();
           onSelectScene(isSelected ? null : sceneKey);
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onOpenInEditor?.(sceneKey);
         }}
         title={scene.title || `Scene ${scene.sceneNumber}`}
       >
@@ -663,7 +686,8 @@ export default function TimelineGrid({
                 // Check if this cell is covered by a multi-day scene (for styling)
                 const coveredByMultiDay = multiDayStartCols.has(colIdx);
                 const isInsertOpen = insertCell?.characterId === char.id && insertCell?.date === date;
-                const charPlotPoints = plotPoints?.filter(p => p.characterId === char.id).sort((a, b) => a.order - b.order) || [];
+                const charUnassigned = unassignedScenes?.filter(s => s.characterId === char.id).sort((a, b) => a.sceneNumber - b.sceneNumber) || [];
+                const showInsertBtn = singleDayKeys.length === 0 && !coveredByMultiDay && (onPlaceScene || onInsertScene);
                 return (
                   <DroppableCell
                     key={`${char.id}-${date}`}
@@ -672,32 +696,34 @@ export default function TimelineGrid({
                     style={{ gridRow, gridColumn: colIdx + 2 }}
                   >
                     {singleDayKeys.map((sk) => renderSceneCard(sk))}
-                    {singleDayKeys.length === 0 && !coveredByMultiDay && onInsertScene && (
+                    {showInsertBtn && (
                       <button
                         className="tg-cell-insert-btn"
                         onClick={(e) => {
                           e.stopPropagation();
                           setInsertCell(isInsertOpen ? null : { characterId: char.id, date });
                         }}
-                        title="Add scene here"
+                        title="Place scene here"
                       >+</button>
                     )}
                     {isInsertOpen && (
-                      <div className="braided-insert-popover tg-insert-popover">
-                        <div className="braided-insert-popover-title">Pick a section</div>
-                        {charPlotPoints.map(pp => (
+                      <div ref={insertPopoverRef} className="braided-insert-popover tg-insert-popover">
+                        <div className="braided-insert-popover-title">Place a scene</div>
+                        {charUnassigned.length > 0 ? charUnassigned.map(s => (
                           <button
-                            key={pp.id}
+                            key={s.id}
                             className="braided-insert-popover-item"
-                            onClick={async () => {
-                              const sceneKey = await onInsertScene!(char.id, pp.id, date);
+                            onClick={() => {
+                              onPlaceScene?.(s.id, date);
                               setInsertCell(null);
-                              if (sceneKey) onSelectScene(sceneKey);
+                              onSelectScene(s.id);
                             }}
                           >
-                            {pp.title}
+                            #{s.sceneNumber} {s.title || `Scene ${s.sceneNumber}`}
                           </button>
-                        ))}
+                        )) : (
+                          <div className="braided-insert-popover-empty">No unassigned scenes</div>
+                        )}
                       </div>
                     )}
                   </DroppableCell>

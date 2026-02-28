@@ -100,6 +100,8 @@ export default function TimelineView({
   const [subMode, setSubMode] = useState<TimelineSubMode>(() => viewState?.subMode ?? 'grid');
   const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(() => viewState?.selectedSceneKey ?? null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const timelineMainRef = useRef<HTMLDivElement>(null);
 
   // Collapsible character lanes
@@ -118,6 +120,8 @@ export default function TimelineView({
 
   // Context bar viewport (0..1 fractions)
   const [contextBarViewport, setContextBarViewport] = useState<{ start: number; end: number }>({ start: 0, end: 1 });
+  const contextBarViewportRef = useRef(contextBarViewport);
+  useEffect(() => { contextBarViewportRef.current = contextBarViewport; }, [contextBarViewport]);
 
   // Canvas zoom level (synced bidirectionally with TimelineCanvas)
   const [canvasZoom, setCanvasZoom] = useState(() => viewState?.zoom ?? 1);
@@ -418,10 +422,11 @@ export default function TimelineView({
     const idx = dateRange.indexOf(date);
     if (idx < 0) return;
     const dateFrac = dateRange.length === 1 ? 0 : idx / (dateRange.length - 1);
-    const vpWidth = contextBarViewport.end - contextBarViewport.start;
+    const vp = contextBarViewportRef.current;
+    const vpWidth = vp.end - vp.start;
     const newStart = Math.max(0, Math.min(1 - vpWidth, dateFrac - vpWidth / 2));
     handleContextBarViewportChange(newStart, newStart + vpWidth);
-  }, [timelineDates, dateRange, contextBarViewport, handleContextBarViewportChange]);
+  }, [timelineDates, dateRange, handleContextBarViewportChange]);
 
   const handlePrevScene = useMemo(() => {
     if (selectedSceneIndex <= 0) return undefined;
@@ -613,6 +618,55 @@ export default function TimelineView({
     return null;
   }
 
+  // Scene search
+  const charNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of characters) m[c.id] = c.name;
+    return m;
+  }, [characters]);
+
+  const searchMatches = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.trim().toLowerCase();
+    return sortedDatedSceneKeys.filter(key => {
+      const scene = sceneById[key];
+      if (!scene) return false;
+      const title = (scene.title || '').toLowerCase();
+      const num = `#${scene.sceneNumber}`;
+      const charName = (charNameById[scene.characterId] || '').toLowerCase();
+      return title.includes(q) || num.includes(q) || charName.includes(q);
+    });
+  }, [searchQuery, sortedDatedSceneKeys, sceneById, charNameById]);
+
+  // Navigate to the current search match
+  useEffect(() => {
+    if (searchMatches.length === 0) return;
+    if (searchMatchIndex >= searchMatches.length) {
+      setSearchMatchIndex(0);
+      return;
+    }
+    navigateToScene(searchMatches[searchMatchIndex]);
+  }, [searchMatches, searchMatchIndex, navigateToScene]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && searchMatches.length > 0) {
+      e.preventDefault();
+      setSearchMatchIndex(prev => (prev + 1) % searchMatches.length);
+    } else if (e.key === 'Escape') {
+      setSearchQuery('');
+      setSearchMatchIndex(0);
+    }
+  }, [searchMatches.length]);
+
+  // Scenes not yet placed on the timeline
+  const unassignedScenes = useMemo(() => {
+    return scenes.filter(s => !timelineDates[s.id]);
+  }, [scenes, timelineDates]);
+
+  const handlePlaceScene = useCallback((sceneKey: string, date: string) => {
+    onTimelineDatesChange({ ...timelineDates, [sceneKey]: date });
+  }, [timelineDates, onTimelineDatesChange]);
+
   const hasDetail = !!(selectedSceneKey || selectedEventId);
 
   return (
@@ -651,6 +705,26 @@ export default function TimelineView({
               Go to scenes
             </button>
           )}
+          <div className="timeline-search">
+            <input
+              className="timeline-search-input"
+              type="text"
+              placeholder="Search scenes..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSearchMatchIndex(0);
+              }}
+              onKeyDown={handleSearchKeyDown}
+            />
+            {searchQuery && (
+              <span className="timeline-search-count">
+                {searchMatches.length > 0
+                  ? `${searchMatchIndex + 1}/${searchMatches.length}`
+                  : 'No matches'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <DndContext sensors={timelineSensors} onDragStart={handleTimelineDragStart} onDragEnd={handleTimelineDragEnd}>
@@ -712,6 +786,9 @@ export default function TimelineView({
               onWorldEventsChange={onWorldEventsChange}
               plotPoints={plotPoints}
               onInsertScene={onInsertScene}
+              unassignedScenes={unassignedScenes}
+              onPlaceScene={handlePlaceScene}
+              onOpenInEditor={onOpenInEditor}
               collapsedLanes={collapsedLanes}
               onToggleLane={toggleLaneCollapse}
               externalDndContext
@@ -730,6 +807,7 @@ export default function TimelineView({
               selectedEventId={selectedEventId}
               onSelectScene={setSelectedSceneKey}
               onSelectEvent={setSelectedEventId}
+              onOpenInEditor={onOpenInEditor}
               labelWidth={labelWidth}
               colWidth={colWidth}
               dateRange={dateRange}
@@ -974,6 +1052,7 @@ export default function TimelineView({
           selectedSceneKey={selectedSceneKey}
           selectedEventId={selectedEventId}
           onSelectScene={setSelectedSceneKey}
+          onOpenInEditor={onOpenInEditor}
           viewport={contextBarViewport}
           onViewportChange={handleContextBarViewportChange}
         />
