@@ -364,7 +364,7 @@ export default function TimelineView({
     if (!date || dateRange.length === 0) return;
     const idx = dateRange.indexOf(date);
     if (idx < 0) return;
-    const dateFrac = idx / (dateRange.length - 1);
+    const dateFrac = dateRange.length === 1 ? 0 : idx / (dateRange.length - 1);
     const vpWidth = contextBarViewport.end - contextBarViewport.start;
     const newStart = Math.max(0, Math.min(1 - vpWidth, dateFrac - vpWidth / 2));
     handleContextBarViewportChange(newStart, newStart + vpWidth);
