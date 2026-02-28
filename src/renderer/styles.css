@@ -5193,7 +5193,7 @@ textarea.scene-metadata-field-input {
   height: 30px;
   background: var(--connector-color);
   transform: translateX(-1px);
-  z-index: 6;
+  z-index: 1;
   pointer-events: none;
 }
 
@@ -5207,7 +5207,7 @@ textarea.scene-metadata-field-input {
   height: 30px;
   background: var(--connector-color);
   transform: translateX(-1px);
-  z-index: 6;
+  z-index: 1;
   pointer-events: none;
 }
 
@@ -5220,7 +5220,7 @@ textarea.scene-metadata-field-input {
   height: calc(100% + 60px);
   background: var(--connector-color);
   transform: translateX(-1px);
-  z-index: 6;
+  z-index: 1;
   pointer-events: none;
 }
 
