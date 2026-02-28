@@ -540,7 +540,7 @@ function App() {
     }
     const s = projectData.scenes.find(sc => sc.id === sceneId);
     if (s) {
-      const key = `${s.characterId}:${s.sceneNumber}`;
+      const key = s.id;
       const updated = { ...timelineDatesRef.current };
       if (date) updated[key] = date;
       else delete updated[key];
@@ -1500,7 +1500,7 @@ function App() {
     // Remove draft content and metadata for deleted character's scenes
     const charSceneKeys = projectData.scenes
       .filter(s => s.characterId === characterId)
-      .map(s => `${s.characterId}:${s.sceneNumber}`);
+      .map(s => s.id);
     const updatedDraftContent = { ...draftContent };
     const updatedSceneMetadata = { ...sceneMetadata };
     charSceneKeys.forEach(key => {
@@ -1812,67 +1812,6 @@ function App() {
     await saveTimelineData(projectData.scenes, sceneConnections, updatedChapters);
   };
 
-  // Remap scene-keyed data (draftContent, sceneMetadata, drafts) when scene numbers change.
-  // Takes a map of oldKey -> newKey and updates both state and refs.
-  // Builds fresh objects to avoid collision when keys shift (e.g., 3->2 while 2->1).
-  const remapSceneKeys = (keyMap: Record<string, string>) => {
-    if (Object.entries(keyMap).every(([oldKey, newKey]) => oldKey === newKey)) return;
-
-    // Helper: remap keys in a Record, preserving entries not in the keyMap
-    const remap = <T,>(source: Record<string, T>): Record<string, T> => {
-      const result: Record<string, T> = {};
-      for (const [key, value] of Object.entries(source)) {
-        if (key in keyMap) {
-          result[keyMap[key]] = value;
-        } else {
-          result[key] = value;
-        }
-      }
-      return result;
-    };
-
-    const newDraftContent = remap(draftContentRef.current);
-    setDraftContent(newDraftContent);
-    draftContentRef.current = newDraftContent;
-
-    const newDrafts = remap(draftsRef.current);
-    setDrafts(newDrafts);
-    draftsRef.current = newDrafts;
-
-    const newSceneMetadata = remap(sceneMetadataRef.current);
-    setSceneMetadata(newSceneMetadata);
-    sceneMetadataRef.current = newSceneMetadata;
-
-    const newScratchpad = remap(scratchpadContentRef.current);
-    setScratchpadContent(newScratchpad);
-    scratchpadContentRef.current = newScratchpad;
-
-    const newComments = remap(sceneCommentsRef.current);
-    setSceneComments(newComments);
-    sceneCommentsRef.current = newComments;
-  };
-
-  // Build oldKey->newKey map from scenes before and after renumbering.
-  // Call this BEFORE renumbering to capture old keys, passing the character's scenes.
-  const buildKeyMapBeforeRenumber = (charScenes: Scene[]): Record<string, number> => {
-    const oldNumbers: Record<string, number> = {};
-    for (const scene of charScenes) {
-      oldNumbers[scene.id] = scene.sceneNumber;
-    }
-    return oldNumbers;
-  };
-
-  // After renumbering, use old numbers to build the remap and apply it.
-  const applyKeyRemapAfterRenumber = (charScenes: Scene[], oldNumbers: Record<string, number>) => {
-    const keyMap: Record<string, string> = {};
-    for (const scene of charScenes) {
-      const oldKey = `${scene.characterId}:${oldNumbers[scene.id]}`;
-      const newKey = `${scene.characterId}:${scene.sceneNumber}`;
-      keyMap[oldKey] = newKey;
-    }
-    remapSceneKeys(keyMap);
-  };
-
   const povSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
@@ -1906,9 +1845,7 @@ function App() {
       movedScene.plotPointId = targetPlotPointId;
       charScenes.push(movedScene);
 
-      const oldNumbers = buildKeyMapBeforeRenumber(charScenes);
       charScenes.forEach((scene, idx) => { scene.sceneNumber = idx + 1; });
-      applyKeyRemapAfterRenumber(charScenes, oldNumbers);
 
       const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
       const updatedScenes = [...otherScenes, ...charScenes];
@@ -1941,16 +1878,10 @@ function App() {
       movedScene.plotPointId = targetPlotPointId;
     }
 
-    // Capture old keys before renumbering
-    const oldNumbers = buildKeyMapBeforeRenumber(reordered);
-
     // Renumber all scenes
     reordered.forEach((scene, idx) => {
       scene.sceneNumber = idx + 1;
     });
-
-    // Remap scene-keyed data to match new numbers
-    applyKeyRemapAfterRenumber(reordered, oldNumbers);
 
     // Update the full scenes array
     const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
@@ -2063,9 +1994,6 @@ function App() {
     const currentScene = charScenes[currentIndex];
     const prevScene = charScenes[currentIndex - 1];
 
-    // Capture old keys before swapping scene numbers
-    const oldNumbers = buildKeyMapBeforeRenumber([currentScene, prevScene]);
-
     // Check if we're moving to a different plot point
     const movingToNewPlotPoint = currentScene.plotPointId !== prevScene.plotPointId;
 
@@ -2085,10 +2013,6 @@ function App() {
       }
       return s;
     });
-
-    // Remap scene-keyed data (drafts, metadata) to match new numbers
-    const swappedScenes = updatedScenes.filter(s => s.id === currentScene.id || s.id === prevScene.id);
-    applyKeyRemapAfterRenumber(swappedScenes, oldNumbers);
 
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
@@ -2122,9 +2046,6 @@ function App() {
     const currentScene = charScenes[currentIndex];
     const nextScene = charScenes[currentIndex + 1];
 
-    // Capture old keys before swapping scene numbers
-    const oldNumbers = buildKeyMapBeforeRenumber([currentScene, nextScene]);
-
     // Check if we're moving to a different plot point
     const movingToNewPlotPoint = currentScene.plotPointId !== nextScene.plotPointId;
 
@@ -2144,10 +2065,6 @@ function App() {
       }
       return s;
     });
-
-    // Remap scene-keyed data (drafts, metadata) to match new numbers
-    const swappedScenes = updatedScenes.filter(s => s.id === currentScene.id || s.id === nextScene.id);
-    applyKeyRemapAfterRenumber(swappedScenes, oldNumbers);
 
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
@@ -2446,16 +2363,10 @@ function App() {
     const newCharScenes = [...charScenes];
     newCharScenes.splice(insertAfterIndex + 1, 0, newScene);
 
-    // Capture old keys before renumbering
-    const oldNumbers = buildKeyMapBeforeRenumber(newCharScenes);
-
     // Renumber all scenes
     newCharScenes.forEach((scene, idx) => {
       scene.sceneNumber = idx + 1;
     });
-
-    // Remap scene-keyed data to match new numbers
-    applyKeyRemapAfterRenumber(newCharScenes, oldNumbers);
 
     // Update the full scenes array
     const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
@@ -2804,7 +2715,7 @@ function App() {
     setProjectData(updatedData);
 
     // Assign the date
-    const sceneKey = `${characterId}:${newScene.sceneNumber}`;
+    const sceneKey = newScene.id;
     const updatedDates = { ...timelineDatesRef.current, [sceneKey]: date };
     handleTimelineDatesChange(updatedDates);
 
@@ -2964,7 +2875,7 @@ function App() {
       .sort((a, b) => a.sceneNumber - b.sceneNumber);
 
     // Remove the archived scene's keyed data and capture old keys before renumbering
-    const archivedKey = `${scene.characterId}:${scene.sceneNumber}`;
+    const archivedKey = scene.id;
     const newDC = { ...draftContentRef.current };
     delete newDC[archivedKey];
     draftContentRef.current = newDC;
@@ -2978,14 +2889,9 @@ function App() {
     sceneMetadataRef.current = newSM;
     setSceneMetadata(newSM);
 
-    const oldNumbers = buildKeyMapBeforeRenumber(charScenes);
-
     charScenes.forEach((s, idx) => {
       s.sceneNumber = idx + 1;
     });
-
-    // Remap scene-keyed data to match new numbers
-    applyKeyRemapAfterRenumber(charScenes, oldNumbers);
 
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
@@ -3171,16 +3077,10 @@ function App() {
     // Insert duplicate after original
     charScenes.splice(originalIndex + 1, 0, duplicateScene);
 
-    // Capture old keys before renumbering
-    const oldNumbers = buildKeyMapBeforeRenumber(charScenes);
-
     // Renumber all scenes
     charScenes.forEach((s, idx) => {
       s.sceneNumber = idx + 1;
     });
-
-    // Remap scene-keyed data to match new numbers
-    applyKeyRemapAfterRenumber(charScenes, oldNumbers);
 
     // Update the full scenes array
     const otherScenes = projectData.scenes.filter(s => s.characterId !== scene.characterId);
@@ -3676,8 +3576,7 @@ function App() {
                     onMetadataChange={(sceneId, fieldId, value) => {
                       const scene = projectData.scenes.find(s => s.id === sceneId);
                       if (scene) {
-                        const sceneKey = `${scene.characterId}:${scene.sceneNumber}`;
-                        handleMetadataChange(sceneKey, fieldId, value);
+                        handleMetadataChange(scene.id, fieldId, value);
                       }
                     }}
                     onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
@@ -3737,11 +3636,11 @@ function App() {
                     }}
                     onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
                     metadataFieldDefs={metadataFieldDefs}
-                    sceneMetadata={sceneMetadata[`${scene.characterId}:${scene.sceneNumber}`]}
+                    sceneMetadata={sceneMetadata[scene.id]}
                     onMetadataChange={(sceneId, fieldId, value) => {
                       const s = projectData.scenes.find(sc => sc.id === sceneId);
                       if (s) {
-                        handleMetadataChange(`${s.characterId}:${s.sceneNumber}`, fieldId, value);
+                        handleMetadataChange(s.id, fieldId, value);
                       }
                     }}
                     onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
@@ -3749,7 +3648,7 @@ function App() {
                     showInlineLabels={showInlineLabels}
                     onWordCountChange={handleWordCountChange}
                     onOpenInEditor={handleOpenInEditor}
-                    sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
+                    sceneDate={timelineDates[scene.id]}
                     onDateChange={handleSceneDateChange}
                   />
                 ))}
@@ -3819,7 +3718,7 @@ function App() {
                 {listFloatingEditor && (
                   <FloatingEditor
                     scene={listFloatingEditor}
-                    draftContent={draftContent[`${listFloatingEditor.characterId}:${listFloatingEditor.sceneNumber}`] || ''}
+                    draftContent={draftContent[listFloatingEditor.id] || ''}
                     characterName={getCharacterName(listFloatingEditor.characterId)}
                     tags={projectData.tags}
                     connectedScenes={getConnectedScenes(listFloatingEditor.id)}
@@ -3836,7 +3735,7 @@ function App() {
                     onWordCountChange={handleWordCountChange}
                     onDraftChange={handleDraftChange}
                     onOpenInEditor={handleOpenInEditor}
-                    scratchpadContent={scratchpadContent[`${listFloatingEditor.characterId}:${listFloatingEditor.sceneNumber}`] || ''}
+                    scratchpadContent={scratchpadContent[listFloatingEditor.id] || ''}
                     onScratchpadChange={handleScratchpadChange}
                   />
                 )}
@@ -4134,17 +4033,17 @@ function App() {
                                 onCompleteConnection={(targetId) => handleCompleteConnection(scene.id, targetId)}
                                 onOpenInEditor={handleOpenInEditor}
                                 metadataFieldDefs={metadataFieldDefs}
-                                sceneMetadata={sceneMetadata[`${scene.characterId}:${scene.sceneNumber}`]}
+                                sceneMetadata={sceneMetadata[scene.id]}
                                 onMetadataChange={(sceneId, fieldId, value) => {
                                   const s = projectData.scenes.find(sc => sc.id === sceneId);
                                   if (s) {
-                                    handleMetadataChange(`${s.characterId}:${s.sceneNumber}`, fieldId, value);
+                                    handleMetadataChange(s.id, fieldId, value);
                                   }
                                 }}
                                 onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
                                 inlineMetadataFields={inlineMetadataFields}
                                 showInlineLabels={showInlineLabels}
-                                sceneDate={timelineDates[`${scene.characterId}:${scene.sceneNumber}`]}
+                                sceneDate={timelineDates[scene.id]}
                                 onDateChange={handleSceneDateChange}
                               />
                             </div>
