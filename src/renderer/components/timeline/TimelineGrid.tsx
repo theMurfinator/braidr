@@ -37,6 +37,10 @@ interface TimelineGridProps {
   onInsertScene?: (characterId: string, plotPointId: string, date: string) => Promise<string | null>;
   collapsedLanes?: Set<string>;
   onToggleLane?: (characterId: string) => void;
+  /** When true, the grid skips its own DndContext/DragOverlay — the parent provides them. */
+  externalDndContext?: boolean;
+  /** Active drag ID from parent DndContext (used when externalDndContext is true). */
+  activeDragIdProp?: string | null;
 }
 
 /** Short weekday abbreviation from a date string. */
@@ -156,6 +160,8 @@ export default function TimelineGrid({
   onInsertScene,
   collapsedLanes,
   onToggleLane,
+  externalDndContext,
+  activeDragIdProp,
 }: TimelineGridProps) {
   const resizeDragRef = useRef<{ startX: number; initialWidth: number; target: 'label' | 'col' } | null>(null);
   const spanResizeRef = useRef<{ sceneKey: string; edge: 'left' | 'right'; startX: number; startDate: string; startEndDate: string | undefined } | null>(null);
@@ -288,15 +294,16 @@ export default function TimelineGrid({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [activeDragIdInternal, setActiveDragIdInternal] = useState<string | null>(null);
+  const activeDragId = externalDndContext ? (activeDragIdProp ?? null) : activeDragIdInternal;
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveDragId(event.active.id as string);
+    setActiveDragIdInternal(event.active.id as string);
   }, []);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
-    setActiveDragId(null);
+    setActiveDragIdInternal(null);
     if (!over) return;
 
     const activeId = active.id as string;
@@ -507,9 +514,8 @@ export default function TimelineGrid({
     return null;
   }
 
-  return (
-    <div className="timeline-grid">
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+  const gridContent = (
+    <>
       <div
         className="timeline-grid-table"
         style={{
@@ -702,8 +708,17 @@ export default function TimelineGrid({
         })}
 
       </div>
-      <DragOverlay>{renderDragOverlay()}</DragOverlay>
-      </DndContext>
+    </>
+  );
+
+  return (
+    <div className="timeline-grid">
+      {externalDndContext ? gridContent : (
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          {gridContent}
+          <DragOverlay>{renderDragOverlay()}</DragOverlay>
+        </DndContext>
+      )}
     </div>
   );
 }

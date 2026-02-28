@@ -5,6 +5,15 @@ import TimelineGrid from './TimelineGrid';
 import TimelineCanvas from './TimelineCanvas';
 import TimelineSidebar from './TimelineSidebar';
 import TimelineContextBar from './TimelineContextBar';
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
 
 type TimelineSubMode = 'grid' | 'canvas';
 
@@ -500,6 +509,107 @@ export default function TimelineView({
     return results;
   }
 
+  // ── Shared dnd-kit context (wraps grid + sidebar for cross-component drag) ──
+  const timelineSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+  const [timelineDragId, setTimelineDragId] = useState<string | null>(null);
+
+  const handleTimelineDragStart = useCallback((event: DragStartEvent) => {
+    setTimelineDragId(event.active.id as string);
+  }, []);
+
+  const handleTimelineDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setTimelineDragId(null);
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Drop on "unassigned" zone — remove date from scene or clear date from event
+    if (overId === 'timeline-unassigned-events' || overId === 'timeline-unassigned-scenes') {
+      if (activeId.startsWith('scene:')) {
+        const sceneKey = activeId.replace('scene:', '');
+        const updated = { ...timelineDates };
+        delete updated[sceneKey];
+        onTimelineDatesChange(updated);
+      } else if (activeId.startsWith('event:')) {
+        const eventId = activeId.replace('event:', '');
+        const updatedEvents = worldEvents.map(ev =>
+          ev.id === eventId ? { ...ev, date: '', updatedAt: Date.now() } : ev
+        );
+        onWorldEventsChange(updatedEvents);
+      }
+      return;
+    }
+
+    // Drop on a grid cell
+    if (overId.startsWith('cell:')) {
+      const firstColon = overId.indexOf(':');
+      const secondColon = overId.indexOf(':', firstColon + 1);
+      const targetDate = overId.slice(secondColon + 1);
+
+      if (activeId.startsWith('scene:')) {
+        const sceneKey = activeId.replace('scene:', '');
+        onTimelineDatesChange({ ...timelineDates, [sceneKey]: targetDate });
+      } else if (activeId.startsWith('event:')) {
+        const eventId = activeId.replace('event:', '');
+        const updatedEvents = worldEvents.map(ev =>
+          ev.id === eventId ? { ...ev, date: targetDate, updatedAt: Date.now() } : ev
+        );
+        onWorldEventsChange(updatedEvents);
+      }
+    }
+  }, [timelineDates, onTimelineDatesChange, worldEvents, onWorldEventsChange]);
+
+  // Render drag overlay for timeline drags
+  const sceneById = useMemo(() => {
+    const m: Record<string, Scene> = {};
+    for (const s of scenes) m[s.id] = s;
+    return m;
+  }, [scenes]);
+
+  function renderTimelineDragOverlay() {
+    if (!timelineDragId) return null;
+
+    if (timelineDragId.startsWith('scene:')) {
+      const sceneKey = timelineDragId.replace('scene:', '');
+      const scene = sceneById[sceneKey];
+      if (!scene) return null;
+      const color = characterColors[scene.characterId] || '#888';
+      const title = scene.title
+        ? scene.title.slice(0, 30) + (scene.title.length > 30 ? '...' : '')
+        : `Scene ${scene.sceneNumber}`;
+      return (
+        <div className="tg-scene-card" style={{ borderLeftColor: color, opacity: 0.9 }}>
+          <div className="tg-scene-card-content">
+            <div className="tg-scene-card-top">
+              <span className="tg-scene-num">{scene.sceneNumber}</span>
+              <span className="tg-scene-title">{title}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (timelineDragId.startsWith('event:')) {
+      const eventId = timelineDragId.replace('event:', '');
+      const ev = worldEvents.find(e => e.id === eventId);
+      if (!ev) return null;
+      const title = ev.title
+        ? ev.title.slice(0, 30) + (ev.title.length > 30 ? '...' : '')
+        : 'Untitled Event';
+      return (
+        <div className="tg-event-card" style={{ opacity: 0.9 }}>
+          <div className="tg-event-title">{title}</div>
+        </div>
+      );
+    }
+
+    return null;
+  }
+
   const hasDetail = !!(selectedSceneKey || selectedEventId);
 
   return (
@@ -540,6 +650,7 @@ export default function TimelineView({
           )}
         </div>
       </div>
+      <DndContext sensors={timelineSensors} onDragStart={handleTimelineDragStart} onDragEnd={handleTimelineDragEnd}>
       <div className={`timeline-content${hasDetail ? ' has-detail' : ''}`}>
         <div className="timeline-main" ref={timelineMainRef}>
           {showSetup ? (
@@ -600,6 +711,8 @@ export default function TimelineView({
               onInsertScene={onInsertScene}
               collapsedLanes={collapsedLanes}
               onToggleLane={toggleLaneCollapse}
+              externalDndContext
+              activeDragIdProp={timelineDragId}
             />
           ) : (
             <TimelineCanvas
@@ -844,6 +957,8 @@ export default function TimelineView({
           onTimelineDatesChange={onTimelineDatesChange}
         />
       </div>
+      <DragOverlay>{renderTimelineDragOverlay()}</DragOverlay>
+      </DndContext>
       {dateRange.length > 0 && (
         <TimelineContextBar
           scenes={scenes}

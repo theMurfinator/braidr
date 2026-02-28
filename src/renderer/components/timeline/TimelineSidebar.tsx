@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback, type DragEvent } from 'react';
+import { useState, useMemo } from 'react';
 import type { Scene, Character, WorldEvent } from '../../../shared/types';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 
 interface TimelineSidebarProps {
   worldEvents: WorldEvent[];
@@ -13,6 +14,68 @@ interface TimelineSidebarProps {
   onSelectEvent: (id: string | null) => void;
   onWorldEventsChange: (events: WorldEvent[]) => void;
   onTimelineDatesChange: (dates: Record<string, string>) => void;
+}
+
+/** Wraps a scene card button with dnd-kit useDraggable (id = "scene:<sceneId>"). */
+function DraggableSceneCard({
+  sceneId,
+  children,
+}: {
+  sceneId: string;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `scene:${sceneId}`,
+  });
+  const style: React.CSSProperties = {
+    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
+
+/** Wraps an event item with dnd-kit useDraggable (id = "event:<eventId>"). */
+function DraggableEventItem({
+  eventId,
+  children,
+}: {
+  eventId: string;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `event:${eventId}`,
+  });
+  const style: React.CSSProperties = {
+    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
+
+/** Droppable zone for unassigning scenes/events. */
+function DroppableUnassignedZone({
+  id,
+  children,
+  className,
+}: {
+  id: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} className={`${className || ''} ${isOver ? 'drag-over' : ''}`}>
+      {children}
+    </div>
+  );
 }
 
 export default function TimelineSidebar({
@@ -91,45 +154,6 @@ export default function TimelineSidebar({
     return m;
   }, [characters]);
 
-  const handleUnassignedDragStart = useCallback((e: DragEvent<HTMLButtonElement>, sceneKey: string) => {
-    e.dataTransfer.setData('text/plain', sceneKey);
-    e.dataTransfer.effectAllowed = 'move';
-  }, []);
-
-  const handleUnassignedDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    (e.currentTarget as HTMLElement).classList.add('drag-over');
-  }, []);
-
-  const handleUnassignedDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
-    const related = e.relatedTarget as Node | null;
-    if (related && e.currentTarget.contains(related)) return;
-    (e.currentTarget as HTMLElement).classList.remove('drag-over');
-  }, []);
-
-  const handleUnassignedDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).classList.remove('drag-over');
-
-    // Check for world event drop
-    const eventId = e.dataTransfer.getData('application/x-event-id');
-    if (eventId) {
-      const updated = worldEvents.map(ev =>
-        ev.id === eventId ? { ...ev, date: '', updatedAt: Date.now() } : ev
-      );
-      onWorldEventsChange(updated);
-      return;
-    }
-
-    // Scene drop
-    const sceneKey = e.dataTransfer.getData('text/plain');
-    if (!sceneKey) return;
-    const updated = { ...timelineDates };
-    delete updated[sceneKey];
-    onTimelineDatesChange(updated);
-  }, [timelineDates, onTimelineDatesChange, worldEvents, onWorldEventsChange]);
-
   const datedEvents = worldEvents.filter(e => e.date).sort((a, b) => a.date.localeCompare(b.date));
   const undatedEvents = worldEvents.filter(e => !e.date);
 
@@ -165,55 +189,37 @@ export default function TimelineSidebar({
         <div className="timeline-undated-section">
           <div className="timeline-undated-divider">Needs date ({undatedEvents.length})</div>
           {undatedEvents.map(evt => (
-            <div
-              key={evt.id}
-              className={`timeline-event-item undated ${selectedEventId === evt.id ? 'selected' : ''}`}
-              onClick={() => onSelectEvent(evt.id)}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('application/x-event-id', evt.id);
-                e.dataTransfer.effectAllowed = 'move';
-              }}
-            >
-              <div className="timeline-event-title">{evt.title}</div>
-            </div>
+            <DraggableEventItem key={evt.id} eventId={evt.id}>
+              <div
+                className={`timeline-event-item undated ${selectedEventId === evt.id ? 'selected' : ''}`}
+                onClick={() => onSelectEvent(evt.id)}
+              >
+                <div className="timeline-event-title">{evt.title}</div>
+              </div>
+            </DraggableEventItem>
           ))}
         </div>
       )}
-      <div
-        className="timeline-events-list"
-        onDragOver={handleUnassignedDragOver}
-        onDragLeave={handleUnassignedDragLeave}
-        onDrop={handleUnassignedDrop}
-      >
+      <DroppableUnassignedZone id="timeline-unassigned-events" className="timeline-events-list">
         {worldEvents.length === 0 ? (
           <div className="timeline-empty">No world events yet</div>
         ) : (
           datedEvents.map(evt => (
-            <div
-              key={evt.id}
-              className={`timeline-event-item ${selectedEventId === evt.id ? 'selected' : ''}`}
-              onClick={() => onSelectEvent(evt.id)}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('application/x-event-id', evt.id);
-                e.dataTransfer.effectAllowed = 'move';
-              }}
-            >
-              <div className="timeline-event-date">{evt.date}</div>
-              <div className="timeline-event-title">{evt.title}</div>
-            </div>
+            <DraggableEventItem key={evt.id} eventId={evt.id}>
+              <div
+                className={`timeline-event-item ${selectedEventId === evt.id ? 'selected' : ''}`}
+                onClick={() => onSelectEvent(evt.id)}
+              >
+                <div className="timeline-event-date">{evt.date}</div>
+                <div className="timeline-event-title">{evt.title}</div>
+              </div>
+            </DraggableEventItem>
           ))
         )}
-      </div>
+      </DroppableUnassignedZone>
 
       {/* ── Unassigned Scenes ─────────────────────────────────────────────── */}
-      <div
-        className="timeline-unassigned-sidebar"
-        onDragOver={handleUnassignedDragOver}
-        onDragLeave={handleUnassignedDragLeave}
-        onDrop={handleUnassignedDrop}
-      >
+      <DroppableUnassignedZone id="timeline-unassigned-scenes" className="timeline-unassigned-sidebar">
         <div className="timeline-sidebar-header">
           <h3>Unassigned ({filteredUnassignedCount})</h3>
           <div className="timeline-unassigned-controls">
@@ -264,23 +270,22 @@ export default function TimelineSidebar({
                 : `Scene ${scene.sceneNumber}`;
               const isSelected = selectedSceneKey === key;
               return (
-                <button
-                  key={key}
-                  className={`tg-scene-card${isSelected ? ' selected' : ''}`}
-                  style={{ borderLeftColor: color }}
-                  draggable="true"
-                  onDragStart={(e) => handleUnassignedDragStart(e, key)}
-                  onClick={() => onSelectScene(isSelected ? null : key)}
-                  title={`${charName} #${scene.sceneNumber}: ${scene.title || 'Untitled'}`}
-                >
-                  <div className="tg-scene-card-content">
-                    <div className="tg-scene-card-top">
-                      <span className="tg-scene-num">{scene.sceneNumber}</span>
-                      <span className="tg-scene-title">{title}</span>
+                <DraggableSceneCard key={key} sceneId={key}>
+                  <button
+                    className={`tg-scene-card${isSelected ? ' selected' : ''}`}
+                    style={{ borderLeftColor: color }}
+                    onClick={() => onSelectScene(isSelected ? null : key)}
+                    title={`${charName} #${scene.sceneNumber}: ${scene.title || 'Untitled'}`}
+                  >
+                    <div className="tg-scene-card-content">
+                      <div className="tg-scene-card-top">
+                        <span className="tg-scene-num">{scene.sceneNumber}</span>
+                        <span className="tg-scene-title">{title}</span>
+                      </div>
+                      <span className="tg-scene-date">{charName}</span>
                     </div>
-                    <span className="tg-scene-date">{charName}</span>
-                  </div>
-                </button>
+                  </button>
+                </DraggableSceneCard>
               );
             })}
           </div>
@@ -305,22 +310,21 @@ export default function TimelineSidebar({
                         : `Scene ${scene.sceneNumber}`;
                       const isSelected = selectedSceneKey === key;
                       return (
-                        <button
-                          key={key}
-                          className={`tg-scene-card${isSelected ? ' selected' : ''}`}
-                          style={{ borderLeftColor: color }}
-                          draggable="true"
-                          onDragStart={(e) => handleUnassignedDragStart(e, key)}
-                          onClick={() => onSelectScene(isSelected ? null : key)}
-                          title={scene.title || `Scene ${scene.sceneNumber}`}
-                        >
-                          <div className="tg-scene-card-content">
-                            <div className="tg-scene-card-top">
-                              <span className="tg-scene-num">{scene.sceneNumber}</span>
-                              <span className="tg-scene-title">{title}</span>
+                        <DraggableSceneCard key={key} sceneId={key}>
+                          <button
+                            className={`tg-scene-card${isSelected ? ' selected' : ''}`}
+                            style={{ borderLeftColor: color }}
+                            onClick={() => onSelectScene(isSelected ? null : key)}
+                            title={scene.title || `Scene ${scene.sceneNumber}`}
+                          >
+                            <div className="tg-scene-card-content">
+                              <div className="tg-scene-card-top">
+                                <span className="tg-scene-num">{scene.sceneNumber}</span>
+                                <span className="tg-scene-title">{title}</span>
+                              </div>
                             </div>
-                          </div>
-                        </button>
+                          </button>
+                        </DraggableSceneCard>
                       );
                     })}
                   </div>
@@ -329,7 +333,7 @@ export default function TimelineSidebar({
             })}
           </div>
         )}
-      </div>
+      </DroppableUnassignedZone>
     </div>
   );
 }
