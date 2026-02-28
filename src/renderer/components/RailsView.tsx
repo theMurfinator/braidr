@@ -758,7 +758,7 @@ export default function RailsView({
       {floatingEditorScene && (
         <FloatingEditor
           scene={floatingEditorScene}
-          draftContent={draftContent[`${floatingEditorScene.characterId}:${floatingEditorScene.sceneNumber}`] || ''}
+          draftContent={draftContent[floatingEditorScene.id] || ''}
           characterName={getCharacterName(floatingEditorScene.characterId)}
           tags={tags}
           connectedScenes={getConnectedScenes(floatingEditorScene.id)}

@@ -26,10 +26,6 @@ function countWords(html: string): number {
   return text.split(/\s+/).length;
 }
 
-function getSceneKey(scene: Scene): string {
-  return `${scene.characterId}:${scene.sceneNumber}`;
-}
-
 export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [], customCheckinCategories = [] }: WordCountDashboardProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(wordCountGoal || ''));
@@ -65,8 +61,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     const sceneCounts: number[] = [];
 
     scenes.forEach(scene => {
-      const key = getSceneKey(scene);
-      const content = draftContent[key];
+      const content = draftContent[scene.id];
       const words = countWords(content || '');
 
       totalWords += words;
@@ -87,7 +82,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
       }
 
       // Per status
-      const meta = sceneMetadata[key];
+      const meta = sceneMetadata[scene.id];
       const status = (meta?.['_status'] as string) || 'No status';
       if (!perStatus[status]) perStatus[status] = { scenes: 0, words: 0 };
       perStatus[status].scenes++;

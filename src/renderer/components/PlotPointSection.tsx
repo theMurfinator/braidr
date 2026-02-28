@@ -334,12 +334,12 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
                 onCompleteConnection={onCompleteConnection ? (targetId) => onCompleteConnection(scene.id, targetId) : undefined}
                 onOpenInEditor={onOpenInEditor}
                 metadataFieldDefs={metadataFieldDefs}
-                sceneMetadata={sceneMetadata?.[`${scene.characterId}:${scene.sceneNumber}`]}
+                sceneMetadata={sceneMetadata?.[scene.id]}
                 onMetadataChange={onMetadataChange}
                 onMetadataFieldDefsChange={onMetadataFieldDefsChange}
                 inlineMetadataFields={inlineMetadataFields}
                 showInlineLabels={showInlineLabels}
-                sceneDate={timelineDates?.[`${scene.characterId}:${scene.sceneNumber}`]}
+                sceneDate={timelineDates?.[scene.id]}
                 onDateChange={onDateChange}
               />
             </div>

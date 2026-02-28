@@ -52,7 +52,7 @@ export default function FloatingEditor({
   const overlayRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const sceneKey = `${scene.characterId}:${scene.sceneNumber}`;
+  const sceneKey = scene.id;
 
   // Clean content for editing (strip tags and formatting)
   const cleanContent = (text: string) => text

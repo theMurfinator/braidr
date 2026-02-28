@@ -45,10 +45,6 @@ interface TableViewProps {
 type SortField = 'scene' | 'character' | 'status' | 'words' | 'plotPoint' | string;
 type SortDirection = 'asc' | 'desc';
 
-function getSceneKey(scene: Scene): string {
-  return `${scene.characterId}:${scene.sceneNumber}`;
-}
-
 function cleanContent(text: string): string {
   return text
     .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
@@ -182,7 +178,7 @@ export default function TableView({
 
   // Helper to get a scene's field value as a string for filtering
   const getFieldValue = useCallback((scene: Scene, fieldId: string): string => {
-    const sceneKey = getSceneKey(scene);
+    const sceneKey = scene.id;
     const metadata = sceneMetadata[sceneKey] || {};
 
     if (fieldId === 'character') {
@@ -249,10 +245,8 @@ export default function TableView({
         aVal = characters.find(c => c.id === a.characterId)?.name || '';
         bVal = characters.find(c => c.id === b.characterId)?.name || '';
       } else if (sortField === 'status') {
-        const aKey = getSceneKey(a);
-        const bKey = getSceneKey(b);
-        aVal = sceneMetadata[aKey]?.['_status'] as string || '';
-        bVal = sceneMetadata[bKey]?.['_status'] as string || '';
+        aVal = sceneMetadata[a.id]?.['_status'] as string || '';
+        bVal = sceneMetadata[b.id]?.['_status'] as string || '';
       } else if (sortField === 'words') {
         aVal = a.wordCount ?? 0;
         bVal = b.wordCount ?? 0;
@@ -261,10 +255,8 @@ export default function TableView({
         bVal = b.plotPoint || '';
       } else {
         // Custom metadata field
-        const aKey = getSceneKey(a);
-        const bKey = getSceneKey(b);
-        aVal = sceneMetadata[aKey]?.[sortField] as string || '';
-        bVal = sceneMetadata[bKey]?.[sortField] as string || '';
+        aVal = sceneMetadata[a.id]?.[sortField] as string || '';
+        bVal = sceneMetadata[b.id]?.[sortField] as string || '';
       }
 
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
@@ -292,7 +284,7 @@ export default function TableView({
   const handleCellSave = () => {
     if (!editingCell) return;
 
-    const scene = scenes.find(s => getSceneKey(s) === editingCell.sceneKey);
+    const scene = scenes.find(s => s.id === editingCell.sceneKey);
     if (!scene) return;
 
     if (editingCell.field === 'words') {
@@ -849,7 +841,7 @@ export default function TableView({
           </thead>
         <tbody>
           {sortedScenes.map(scene => {
-            const sceneKey = getSceneKey(scene);
+            const sceneKey = scene.id;
             const character = characters.find(c => c.id === scene.characterId);
             const metadata = sceneMetadata[sceneKey] || {};
             const status = metadata['_status'] as string || '';

@@ -15,10 +15,6 @@ interface CompileModalProps {
   onClose: () => void;
 }
 
-function getSceneKey(scene: Scene): string {
-  return `${scene.characterId}:${scene.sceneNumber}`;
-}
-
 function cleanSceneContent(text: string): string {
   return text
     .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
@@ -98,8 +94,7 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
     // Apply status filter
     if (filterStatus !== 'all') {
       filtered = filtered.filter(s => {
-        const key = getSceneKey(s);
-        const meta = sceneMetadata[key];
+        const meta = sceneMetadata[s.id];
         const status = meta?.['_status'] as string | undefined;
         return status === filterStatus;
       });
@@ -116,8 +111,7 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
   useEffect(() => {
     const scenesWithDrafts = new Set<string>();
     orderedScenes.forEach(scene => {
-      const key = getSceneKey(scene);
-      if (draftContent[key] && draftContent[key] !== '<p></p>') {
+      if (draftContent[scene.id] && draftContent[scene.id] !== '<p></p>') {
         scenesWithDrafts.add(scene.id);
       }
     });
@@ -158,8 +152,7 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
         items.push({ type: 'chapter', chapterTitle: sortedChapters[chapterIdx].title });
         chapterIdx++;
       }
-      const key = getSceneKey(scene);
-      const hasDraft = !!(draftContent[key] && draftContent[key] !== '<p></p>');
+      const hasDraft = !!(draftContent[scene.id] && draftContent[scene.id] !== '<p></p>');
       const isSelected = selectedSceneIds.has(scene.id);
       if (hasDraft && isSelected) sceneNum++;
       items.push({
@@ -213,7 +206,7 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
       if (item.type === 'chapter' && includeChapterHeadings && chapterHasContent(previewItems, idx)) {
         html += `<h2>${item.chapterTitle}</h2>\n`;
       } else if (item.scene && item.hasDraft && item.isSelected) {
-        const key = getSceneKey(item.scene);
+        const key = item.scene.id;
         const charName = characters.find(c => c.id === item.scene!.characterId)?.name || '';
         if (includeSceneNumbers && item.sceneNumber) {
           html += `<p class="scene-num">Scene ${item.sceneNumber}</p>\n`;
@@ -244,7 +237,7 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
       if (item.type === 'chapter' && includeChapterHeadings && chapterHasContent(previewItems, idx)) {
         md += `\n## ${item.chapterTitle}\n\n`;
       } else if (item.scene && item.hasDraft && item.isSelected) {
-        const key = getSceneKey(item.scene);
+        const key = item.scene.id;
         const charName = characters.find(c => c.id === item.scene!.characterId)?.name || '';
         if (includeSceneNumbers && item.sceneNumber) {
           md += `*Scene ${item.sceneNumber}*\n\n`;
@@ -304,7 +297,7 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
           spacing: { before: 400, after: 200 },
         }));
       } else if (item.scene && item.hasDraft && item.isSelected) {
-        const key = getSceneKey(item.scene);
+        const key = item.scene.id;
         const charName = characters.find(c => c.id === item.scene!.characterId)?.name || '';
         const plainText = htmlToPlainText(draftContent[key]);
 
@@ -408,7 +401,7 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
         html += `<h2 style="text-align: center; font-size: 18px; margin: 32px 0 16px; color: #555; font-weight: 600;">${item.chapterTitle}</h2>\n`;
       } else if (item.scene && item.hasDraft && item.isSelected) {
         hasContent = true;
-        const key = getSceneKey(item.scene);
+        const key = item.scene.id;
         const charName = characters.find(c => c.id === item.scene!.characterId)?.name || '';
         if (includeSceneNumbers && item.sceneNumber) {
           html += `<p style="font-style: italic; color: #999; font-size: 0.9em; margin-bottom: 4px;">Scene ${item.sceneNumber}</p>\n`;

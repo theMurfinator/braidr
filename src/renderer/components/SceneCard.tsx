@@ -417,7 +417,7 @@ function SceneCard({
                 className="open-in-editor-btn"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onOpenInEditor(`${scene.characterId}:${scene.sceneNumber}`);
+                  onOpenInEditor(scene.id);
                 }}
                 title="Go to Scene in Editor"
               >
