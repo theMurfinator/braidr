@@ -103,7 +103,9 @@ export default function TimelineView({
   const timelineMainRef = useRef<HTMLDivElement>(null);
 
   // Collapsible character lanes
-  const [collapsedLanes, setCollapsedLanes] = useState<Set<string>>(new Set());
+  const [collapsedLanes, setCollapsedLanes] = useState<Set<string>>(
+    () => new Set(viewState?.collapsedLanes ?? [])
+  );
 
   const toggleLaneCollapse = useCallback((characterId: string) => {
     setCollapsedLanes(prev => {
@@ -135,12 +137,13 @@ export default function TimelineView({
         zoom: canvasZoom,
         selectedSceneKey,
         subMode,
+        collapsedLanes: [...collapsedLanes],
       });
     }, 300);
     return () => {
       if (viewStateChangeTimerRef.current) clearTimeout(viewStateChangeTimerRef.current);
     };
-  }, [canvasZoom, selectedSceneKey, subMode]);
+  }, [canvasZoom, selectedSceneKey, subMode, collapsedLanes]);
 
   const [labelWidth, setLabelWidth] = useState<number>(() => {
     try {

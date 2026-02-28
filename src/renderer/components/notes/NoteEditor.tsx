@@ -89,6 +89,8 @@ export default function NoteEditor({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingContentRef = useRef<string | null>(null);
   const settingContentRef = useRef(false);
+  const onContentChangeRef = useRef(onContentChange);
+  onContentChangeRef.current = onContentChange;
   const editorRef = useRef<any>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
@@ -415,7 +417,7 @@ export default function NoteEditor({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (pendingContentRef.current !== null) {
-        onContentChange(pendingContentRef.current);
+        onContentChangeRef.current(pendingContentRef.current);
       }
     };
   }, []);

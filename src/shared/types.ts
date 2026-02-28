@@ -88,6 +88,7 @@ export interface TimelineViewState {
   zoom: number;
   selectedSceneKey: string | null;
   subMode: 'canvas' | 'grid';
+  collapsedLanes?: string[];
 }
 
 export interface TimelineData {

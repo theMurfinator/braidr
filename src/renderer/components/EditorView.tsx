@@ -269,6 +269,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   selectedSceneKeyRef.current = selectedSceneKey;
   const onScratchpadChangeRef = useRef(onScratchpadChange);
   onScratchpadChangeRef.current = onScratchpadChange;
+  const onDraftChangeRef = useRef(onDraftChange);
+  onDraftChangeRef.current = onDraftChange;
   // Preserve sidebar scroll position across re-renders (timer ticks cause full re-render)
   const metaPanelRef = useRef<HTMLDivElement>(null);
   const metaScrollTopRef = useRef(0);
@@ -447,7 +449,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (pendingContentRef.current) {
-        onDraftChange(pendingContentRef.current.key, pendingContentRef.current.html);
+        onDraftChangeRef.current(pendingContentRef.current.key, pendingContentRef.current.html);
       }
     };
   }, []);

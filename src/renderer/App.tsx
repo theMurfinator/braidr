@@ -234,6 +234,7 @@ function App() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorViewHandle>(null);
   const isDirtyRef = useRef(false);
+  const isSavingRef = useRef(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -2421,6 +2422,8 @@ function App() {
     // Connections are already keyed by scene.id
     const keyConnections = connections;
 
+    if (isSavingRef.current) return; // Prevent overlapping saves
+    isSavingRef.current = true;
     try {
       setSaveStatus('saving');
       // Always use the current characterColors from ref
@@ -2444,6 +2447,8 @@ function App() {
     } catch (err) {
       addToast('Couldn\u2019t save timeline data');
       setSaveStatus('idle');
+    } finally {
+      isSavingRef.current = false;
     }
   }, []);
 
