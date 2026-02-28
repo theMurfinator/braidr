@@ -268,11 +268,10 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([key, ms]) => {
-        const [charId, sceneNum] = key.split(':');
-        const charName = characters.find(c => c.id === charId)?.name || 'Unknown';
-        const scene = scenes.find(s => s.characterId === charId && String(s.sceneNumber) === sceneNum);
+        const scene = scenes.find(s => s.id === key);
+        const charName = characters.find(c => c.id === scene?.characterId)?.name || 'Unknown';
         const sceneTitle = scene?.title ? ` — ${scene.title}` : '';
-        return { sceneKey: key, label: `${charName} — ${sceneNum}${sceneTitle}`, totalMs: ms };
+        return { sceneKey: key, label: `${charName} — ${scene?.sceneNumber ?? '?'}${sceneTitle}`, totalMs: ms, characterId: scene?.characterId };
       });
   }, [sceneSessions, characters, scenes]);
 
@@ -710,8 +709,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
                 const mins = Math.floor((scene.totalMs % 3600000) / 60000);
                 const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
                 // Get character color
-                const charId = scene.sceneKey.split(':')[0];
-                const color = characterColors[charId] || '#3b82f6';
+                const color = (scene.characterId && characterColors[scene.characterId]) || '#3b82f6';
                 return (
                   <div key={scene.sceneKey} className="analytics-scene-time-row">
                     <div className="analytics-scene-time-info">
@@ -755,9 +753,9 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
                     const mins = Math.round(ss.durationMs / 60000);
                     const hrs = ss.durationMs / 3600000;
                     const wph = hrs > 0 ? Math.round(ss.wordsNet / hrs) : 0;
-                    const [charId, sceneNum] = ss.sceneKey.split(':');
-                    const charName = characters.find(c => c.id === charId)?.name || '?';
-                    const scene = scenes.find(s => s.characterId === charId && String(s.sceneNumber) === sceneNum);
+                    const scene = scenes.find(s => s.id === ss.sceneKey);
+                    const charName = characters.find(c => c.id === scene?.characterId)?.name || '?';
+                    const sceneNum = scene?.sceneNumber ?? '?';
                     const sceneTitle = scene?.title || '';
                     const sceneLabel = sceneTitle
                       ? `${charName} — ${sceneNum} — ${sceneTitle}`

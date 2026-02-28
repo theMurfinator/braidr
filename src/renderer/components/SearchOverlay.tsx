@@ -93,12 +93,12 @@ export default function SearchOverlay({ scenes, characters, tags, draftContent, 
       if (!html || html === '<p></p>') return;
       const plainText = stripHtml(html);
       if (plainText.toLowerCase().includes(q)) {
-        const [charId, sceneNumStr] = key.split(':');
-        const charName = characters.find(c => c.id === charId)?.name || '';
+        const scene = scenes.find(s => s.id === key);
+        const charName = characters.find(c => c.id === scene?.characterId)?.name || '';
         draftResults.push({
           type: 'draft',
           id: key,
-          title: `${charName} — Scene ${sceneNumStr} (draft)`,
+          title: `${charName} — Scene ${scene?.sceneNumber ?? '?'} (draft)`,
           snippet: getSnippet(plainText, q),
           sceneKey: key,
         });
