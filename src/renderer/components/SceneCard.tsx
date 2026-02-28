@@ -373,8 +373,8 @@ function SceneCard({
               </div>
             )}
 
-            {/* Drag handle for braided view */}
-            {showDragHandle && !onMoveUp && !onMoveDown && (
+            {/* Drag handle */}
+            {showDragHandle && (
               <span
                 className="scene-drag-handle"
                 ref={dragHandleRef}
