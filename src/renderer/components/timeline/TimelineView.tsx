@@ -92,6 +92,9 @@ export default function TimelineView({
   // Context bar viewport (0..1 fractions)
   const [contextBarViewport, setContextBarViewport] = useState<{ start: number; end: number }>({ start: 0, end: 1 });
 
+  // Canvas zoom level (synced bidirectionally with TimelineCanvas)
+  const [canvasZoom, setCanvasZoom] = useState(1);
+
   const [labelWidth, setLabelWidth] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('braidr-timeline-label-width');
@@ -576,6 +579,8 @@ export default function TimelineView({
               dateRange={dateRange}
               onViewportChange={(vp) => setContextBarViewport(vp)}
               viewport={contextBarViewport}
+              zoom={canvasZoom}
+              onZoomChange={setCanvasZoom}
             />
           )}
         </div>
@@ -812,6 +817,21 @@ export default function TimelineView({
           viewport={contextBarViewport}
           onViewportChange={handleContextBarViewportChange}
         />
+      )}
+      {subMode === 'canvas' && (
+        <div className="timeline-zoom-slider">
+          <span className="zoom-label">-</span>
+          <input
+            type="range"
+            min="0.3"
+            max="3"
+            step="0.1"
+            value={canvasZoom}
+            onChange={(e) => setCanvasZoom(parseFloat(e.target.value))}
+          />
+          <span className="zoom-label">+</span>
+          <span className="zoom-value">{Math.round(canvasZoom * 100)}%</span>
+        </div>
       )}
     </div>
   );

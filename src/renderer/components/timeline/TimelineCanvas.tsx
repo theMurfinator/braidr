@@ -52,6 +52,8 @@ interface TimelineCanvasProps {
   dateRange: string[];
   onViewportChange?: (viewport: { start: number; end: number }) => void;
   viewport?: { start: number; end: number }; // Incoming viewport from context bar
+  zoom?: number;
+  onZoomChange?: (zoom: number) => void;
 }
 
 interface HitResult {
@@ -115,10 +117,15 @@ export default function TimelineCanvas({
   dateRange,
   onViewportChange,
   viewport,
+  zoom,
+  onZoomChange,
 }: TimelineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const onViewportChangeRef = useRef(onViewportChange);
   useEffect(() => { onViewportChangeRef.current = onViewportChange; }, [onViewportChange]);
+
+  const onZoomChangeRef = useRef(onZoomChange);
+  useEffect(() => { onZoomChangeRef.current = onZoomChange; }, [onZoomChange]);
 
   // Keep labelWidth and colWidth in refs so draw/dayX can read them without being deps
   const labelWidthRef = useRef(labelWidth);
@@ -235,10 +242,20 @@ export default function TimelineCanvas({
       x: -(viewport.start * newTotalW) - labelWidthRef.current * zoomRef.current,
     };
 
+    onZoomChangeRef.current?.(zoomRef.current);
     isExternalViewportUpdate.current = true;
     drawRef.current();
     // Don't call reportViewport here to avoid feedback loop
   }, [viewport, dateRange.length]);
+
+  // ── Drive zoom from external prop (slider) ──────────────────────────────────
+  useEffect(() => {
+    if (zoom === undefined) return;
+    if (Math.abs(zoomRef.current - zoom) < 0.01) return;
+    zoomRef.current = zoom;
+    drawRef.current();
+    reportViewport();
+  }, [zoom, reportViewport]);
 
   // ── Position helpers ────────────────────────────────────────────────────────
 
@@ -866,6 +883,7 @@ export default function TimelineCanvas({
         y: my - (my - panRef.current.y) * (newZoom / oldZoom),
       };
 
+      onZoomChangeRef.current?.(zoomRef.current);
       draw();
       reportViewport();
     };
