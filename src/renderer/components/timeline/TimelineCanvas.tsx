@@ -134,6 +134,9 @@ export default function TimelineCanvas({
   const onToggleLaneRef = useRef(onToggleLane);
   useEffect(() => { onToggleLaneRef.current = onToggleLane; }, [onToggleLane]);
 
+  const collapsedLanesRef = useRef(collapsedLanes);
+  useEffect(() => { collapsedLanesRef.current = collapsedLanes; }, [collapsedLanes]);
+
   // Keep labelWidth and colWidth in refs so draw/dayX can read them without being deps
   const labelWidthRef = useRef(labelWidth);
   useEffect(() => { labelWidthRef.current = labelWidth; }, [labelWidth]);
@@ -342,6 +345,7 @@ export default function TimelineCanvas({
 
     // Check scenes
     for (const scene of scenes) {
+      if (collapsedLanesRef.current?.has(scene.characterId)) continue;
       const key = scene.id;
       const r = sceneRect(key);
       if (!r) continue;
@@ -889,7 +893,7 @@ export default function TimelineCanvas({
           // Determine which lane was clicked based on Y position
           for (let i = 0; i < characters.length; i++) {
             const ly = laneY(i);
-            const isCollapsed = collapsedLanes?.has(characters[i].id);
+            const isCollapsed = collapsedLanesRef.current?.has(characters[i].id);
             const laneH = isCollapsed ? 16 : LANE_HEIGHT;
             if (worldY >= ly && worldY < ly + laneH) {
               onToggleLaneRef.current(characters[i].id);
@@ -897,6 +901,7 @@ export default function TimelineCanvas({
               return;
             }
           }
+          return; // prevent fall-through deselect for any click in label column
         }
 
         const hit = hitTest(mx, my);
@@ -965,7 +970,7 @@ export default function TimelineCanvas({
       canvas.removeEventListener('mouseleave', handleMouseLeave);
       canvas.removeEventListener('wheel', handleWheel);
     };
-  }, [draw, hitTest, onSelectScene, onSelectEvent, reportViewport, characters, collapsedLanes, laneY]);
+  }, [draw, hitTest, onSelectScene, onSelectEvent, reportViewport, characters, laneY]);
 
   // Redraw when selection, label width, or column width changes from outside
   useEffect(() => {
