@@ -1,5 +1,16 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Scene, Character, WorldEvent, PlotPoint } from '../../../shared/types';
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+  DragOverlay,
+  useDroppable,
+  useDraggable,
+} from '@dnd-kit/core';
 
 interface TimelineGridProps {
   scenes: Scene[];
@@ -54,6 +65,69 @@ function dateSpanColumns(startDate: string, endDate: string | undefined, dateRan
   if (startIdx < 0) return 1;
   if (endIdx < 0) return 1; // end date outside visible range
   return endIdx - startIdx + 1;
+}
+
+/* ── dnd-kit sub-components ──────────────────────────────────────────────── */
+
+function DroppableCell({
+  id,
+  children,
+  className,
+  style,
+}: {
+  id: string;
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className || ''} ${isOver ? 'drag-over' : ''}`}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DraggableSceneCard({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
+  const style: React.CSSProperties = {
+    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
+
+function DraggableEventCard({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
+  const style: React.CSSProperties = {
+    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
 }
 
 export default function TimelineGrid({
@@ -205,51 +279,42 @@ export default function TimelineGrid({
     return m;
   }, [scenes]);
 
-  // ── Drag-and-drop handlers ──────────────────────────────────────────────
-  const handleDragStart = useCallback((e: DragEvent<HTMLButtonElement>, sceneKey: string) => {
-    e.dataTransfer.setData('text/plain', sceneKey);
-    e.dataTransfer.effectAllowed = 'move';
-    // Add dragging class after a tick so the drag image captures normal state
-    requestAnimationFrame(() => {
-      (e.target as HTMLElement).classList.add('dragging');
-    });
+  // ── dnd-kit sensors and handlers ────────────────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
   }, []);
 
-  const handleDragEnd = useCallback((e: DragEvent<HTMLButtonElement>) => {
-    (e.target as HTMLElement).classList.remove('dragging');
-  }, []);
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+    if (!over) return;
 
-  const handleCellDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    (e.currentTarget as HTMLElement).classList.add('drag-over');
-  }, []);
+    const activeId = active.id as string;
+    const overId = over.id as string;
 
-  const handleCellDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
-    const related = e.relatedTarget as Node | null;
-    if (related && e.currentTarget.contains(related)) return;
-    (e.currentTarget as HTMLElement).classList.remove('drag-over');
-  }, []);
+    if (!overId.startsWith('cell:')) return;
 
-  const handleCellDrop = useCallback((e: DragEvent<HTMLDivElement>, date: string) => {
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).classList.remove('drag-over');
+    // Parse "cell:characterId:date" — date is everything after second colon
+    const firstColon = overId.indexOf(':');
+    const secondColon = overId.indexOf(':', firstColon + 1);
+    const targetDate = overId.slice(secondColon + 1);
 
-    // Check if this is a world event drop
-    const eventId = e.dataTransfer.getData('application/x-event-id');
-    if (eventId) {
+    if (activeId.startsWith('scene:')) {
+      const sceneKey = activeId.replace('scene:', '');
+      onTimelineDatesChange({ ...timelineDates, [sceneKey]: targetDate });
+    } else if (activeId.startsWith('event:')) {
+      const eventId = activeId.replace('event:', '');
       const updated = worldEvents.map(ev =>
-        ev.id === eventId ? { ...ev, date, updatedAt: Date.now() } : ev
+        ev.id === eventId ? { ...ev, date: targetDate, updatedAt: Date.now() } : ev
       );
       onWorldEventsChange(updated);
-      return;
     }
-
-    // Otherwise it's a scene drop
-    const sceneKey = e.dataTransfer.getData('text/plain');
-    if (!sceneKey) return;
-    const updated = { ...timelineDates, [sceneKey]: date };
-    onTimelineDatesChange(updated);
   }, [timelineDates, onTimelineDatesChange, worldEvents, onWorldEventsChange]);
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────
@@ -314,21 +379,17 @@ export default function TimelineGrid({
     const date = timelineDates[sceneKey];
     const dateLabel = date ? shortDate(date) : null;
 
-    const style: React.CSSProperties = { borderLeftColor: color };
+    const cardStyle: React.CSSProperties = { borderLeftColor: color };
     if (gridPlacement) {
-      style.gridRow = gridPlacement.gridRow;
-      style.gridColumn = gridPlacement.gridColumn;
-      style.zIndex = 2;
+      cardStyle.gridRow = gridPlacement.gridRow;
+      cardStyle.gridColumn = gridPlacement.gridColumn;
+      cardStyle.zIndex = 2;
     }
 
-    return (
+    const cardContent = (
       <button
-        key={sceneKey}
         className={`tg-scene-card${isSelected ? ' selected' : ''}${isMultiDay ? ' multi-day' : ''}`}
-        style={style}
-        draggable="true"
-        onDragStart={(e) => handleDragStart(e, sceneKey)}
-        onDragEnd={handleDragEnd}
+        style={cardStyle}
         onClick={(e) => {
           e.stopPropagation();
           onSelectScene(isSelected ? null : sceneKey);
@@ -364,6 +425,12 @@ export default function TimelineGrid({
         />
       </button>
     );
+
+    return (
+      <DraggableSceneCard key={sceneKey} id={`scene:${sceneKey}`}>
+        {cardContent}
+      </DraggableSceneCard>
+    );
   }
 
   // ── Helper: render a world event card ────────────────────────────────────
@@ -374,24 +441,19 @@ export default function TimelineGrid({
       : 'Untitled Event';
 
     return (
-      <button
-        key={ev.id}
-        className={`tg-world-event-card${isSelected ? ' selected' : ''}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelectEvent(isSelected ? null : ev.id);
-        }}
-        title={ev.title}
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData('application/x-event-id', ev.id);
-          e.dataTransfer.effectAllowed = 'move';
-          e.stopPropagation();
-        }}
-      >
-        <span className="tg-event-diamond">{'\u25C6'}</span>
-        <span className="tg-event-label">{title}</span>
-      </button>
+      <DraggableEventCard key={ev.id} id={`event:${ev.id}`}>
+        <button
+          className={`tg-world-event-card${isSelected ? ' selected' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectEvent(isSelected ? null : ev.id);
+          }}
+          title={ev.title}
+        >
+          <span className="tg-event-diamond">{'\u25C6'}</span>
+          <span className="tg-event-label">{title}</span>
+        </button>
+      </DraggableEventCard>
     );
   }
 
@@ -399,8 +461,51 @@ export default function TimelineGrid({
   const totalRows = 1 + 1 + characters.length;
   const gridTemplateRows = `auto auto ${characters.map(() => 'auto').join(' ')}`;
 
+  // ── Build overlay content for DragOverlay ─────────────────────────────────
+  function renderDragOverlay() {
+    if (!activeDragId) return null;
+
+    if (activeDragId.startsWith('scene:')) {
+      const sceneKey = activeDragId.replace('scene:', '');
+      const scene = sceneByKey[sceneKey];
+      if (!scene) return null;
+      const color = characterColors[scene.characterId] || '#888';
+      const title = scene.title
+        ? scene.title.slice(0, 30) + (scene.title.length > 30 ? '...' : '')
+        : `Scene ${scene.sceneNumber}`;
+      return (
+        <div className="tg-scene-card" style={{ borderLeftColor: color, opacity: 0.9 }}>
+          <div className="tg-scene-card-content">
+            <div className="tg-scene-card-top">
+              <span className="tg-scene-num">{scene.sceneNumber}</span>
+              <span className="tg-scene-title">{title}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeDragId.startsWith('event:')) {
+      const eventId = activeDragId.replace('event:', '');
+      const ev = worldEvents.find(e => e.id === eventId);
+      if (!ev) return null;
+      const title = ev.title
+        ? ev.title.slice(0, 30) + (ev.title.length > 30 ? '...' : '')
+        : 'Untitled Event';
+      return (
+        <div className="tg-world-event-card" style={{ opacity: 0.9 }}>
+          <span className="tg-event-diamond">{'\u25C6'}</span>
+          <span className="tg-event-label">{title}</span>
+        </div>
+      );
+    }
+
+    return null;
+  }
+
   return (
     <div className="timeline-grid">
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div
         className="timeline-grid-table"
         style={{
@@ -463,16 +568,14 @@ export default function TimelineGrid({
         {dateRange.map((date, i) => {
           const events = worldEventsByDate[date] || [];
           return (
-            <div
+            <DroppableCell
               key={`we-${date}`}
+              id={`cell:__world__:${date}`}
               className={`tg-cell tg-world-cell${events.length === 0 ? ' empty' : ''}`}
               style={{ gridRow: 2, gridColumn: i + 2 }}
-              onDragOver={handleCellDragOver}
-              onDragLeave={handleCellDragLeave}
-              onDrop={(e) => handleCellDrop(e, date)}
             >
               {events.map((ev) => renderWorldEventCard(ev))}
-            </div>
+            </DroppableCell>
           );
         })}
 
@@ -520,13 +623,11 @@ export default function TimelineGrid({
                 const isInsertOpen = insertCell?.characterId === char.id && insertCell?.date === date;
                 const charPlotPoints = plotPoints?.filter(p => p.characterId === char.id).sort((a, b) => a.order - b.order) || [];
                 return (
-                  <div
+                  <DroppableCell
                     key={`${char.id}-${date}`}
+                    id={`cell:${char.id}:${date}`}
                     className={`tg-cell${singleDayKeys.length === 0 && !coveredByMultiDay ? ' empty' : ''}`}
                     style={{ gridRow, gridColumn: colIdx + 2 }}
-                    onDragOver={handleCellDragOver}
-                    onDragLeave={handleCellDragLeave}
-                    onDrop={(e) => handleCellDrop(e, date)}
                   >
                     {singleDayKeys.map((sk) => renderSceneCard(sk))}
                     {singleDayKeys.length === 0 && !coveredByMultiDay && onInsertScene && (
@@ -557,7 +658,7 @@ export default function TimelineGrid({
                         ))}
                       </div>
                     )}
-                  </div>
+                  </DroppableCell>
                 );
               })}
               {/* Multi-day scene cards rendered as top-level grid items */}
@@ -572,6 +673,8 @@ export default function TimelineGrid({
         })}
 
       </div>
+      <DragOverlay>{renderDragOverlay()}</DragOverlay>
+      </DndContext>
     </div>
   );
 }

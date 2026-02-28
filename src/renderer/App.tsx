@@ -38,6 +38,21 @@ import { ViewRendererProvider } from './components/panes/TabContent';
 import { usePaneLayout, createTab } from './components/panes/usePaneLayout';
 import { findLeafPane, findTabByType } from './components/panes/paneUtils';
 import PaneManager from './components/panes/PaneManager';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
@@ -134,7 +149,7 @@ function App() {
   const [addingChapterAtPosition, setAddingChapterAtPosition] = useState<number | null>(null);
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
-  const [draggedPovScene, setDraggedPovScene] = useState<Scene | null>(null);
+  const [activePovDragId, setActivePovDragId] = useState<string | null>(null);
   const [showCharacterManager, setShowCharacterManager] = useState(false);
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [allFontSettings, setAllFontSettings] = useState<AllFontSettings>({ global: {} });
@@ -1735,8 +1750,18 @@ function App() {
     remapSceneKeys(keyMap);
   };
 
-  const handlePovSceneDrop = async (targetSceneNumber: number, targetPlotPointId: string) => {
-    if (!projectData || !draggedPovScene || !selectedCharacterId) return;
+  const povSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handlePovDragStart = (event: DragStartEvent) => {
+    setActivePovDragId(event.active.id as string);
+  };
+
+  const handlePovDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActivePovDragId(null);
+    if (!over || active.id === over.id || !projectData || !selectedCharacterId) return;
 
     const character = projectData.characters.find(c => c.id === selectedCharacterId);
     if (!character) return;
@@ -1746,54 +1771,69 @@ function App() {
       .filter(s => s.characterId === selectedCharacterId)
       .sort((a, b) => a.sceneNumber - b.sceneNumber);
 
-    // Find the dragged scene index
-    const draggedIndex = charScenes.findIndex(s => s.id === draggedPovScene.id);
-    if (draggedIndex === -1) return;
+    const overId = over.id as string;
 
-    // Find target index BEFORE removing the dragged scene
-    // targetSceneNumber tells us what scene number position we're targeting
-    let targetIndex = charScenes.findIndex(s => s.sceneNumber >= targetSceneNumber);
+    // Handle drop onto empty section
+    if (overId.startsWith('empty-section:')) {
+      const targetPlotPointId = overId.replace('empty-section:', '');
+      const draggedIndex = charScenes.findIndex(s => s.id === active.id);
+      if (draggedIndex === -1) return;
 
-    // If no scene found with that number or higher, insert at end
-    if (targetIndex === -1) {
-      targetIndex = charScenes.length;
+      const [movedScene] = charScenes.splice(draggedIndex, 1);
+      movedScene.plotPointId = targetPlotPointId;
+      charScenes.push(movedScene);
+
+      const oldNumbers = buildKeyMapBeforeRenumber(charScenes);
+      charScenes.forEach((scene, idx) => { scene.sceneNumber = idx + 1; });
+      applyKeyRemapAfterRenumber(charScenes, oldNumbers);
+
+      const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
+      const updatedScenes = [...otherScenes, ...charScenes];
+      setProjectData({ ...projectData, scenes: updatedScenes });
+
+      const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+      try {
+        await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+        await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+      } catch (err) {
+        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
+      }
+      return;
     }
 
-    // Adjust if we're moving within the same list and the removal would affect the index
-    // If we're removing from before the target, the target shifts left by 1
-    if (draggedIndex < targetIndex) {
-      targetIndex -= 1;
+    // Normal scene-to-scene reorder
+    const oldIndex = charScenes.findIndex(s => s.id === active.id);
+    const newIndex = charScenes.findIndex(s => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Get target scene's plotPointId before reordering
+    const overScene = charScenes[newIndex];
+    const targetPlotPointId = overScene.plotPointId;
+
+    const reordered = arrayMove(charScenes, oldIndex, newIndex);
+
+    // Update the moved scene's plotPointId to match the section it was dropped into
+    const movedScene = reordered[newIndex];
+    if (targetPlotPointId) {
+      movedScene.plotPointId = targetPlotPointId;
     }
-
-    // Remove the dragged scene
-    const [movedScene] = charScenes.splice(draggedIndex, 1);
-
-    // Ensure target index is valid after removal
-    targetIndex = Math.max(0, Math.min(targetIndex, charScenes.length));
-
-    // Update the plot point if moving to a different section
-    movedScene.plotPointId = targetPlotPointId;
-
-    // Insert at target position
-    charScenes.splice(targetIndex, 0, movedScene);
 
     // Capture old keys before renumbering
-    const oldNumbers = buildKeyMapBeforeRenumber(charScenes);
+    const oldNumbers = buildKeyMapBeforeRenumber(reordered);
 
     // Renumber all scenes
-    charScenes.forEach((scene, idx) => {
+    reordered.forEach((scene, idx) => {
       scene.sceneNumber = idx + 1;
     });
 
     // Remap scene-keyed data to match new numbers
-    applyKeyRemapAfterRenumber(charScenes, oldNumbers);
+    applyKeyRemapAfterRenumber(reordered, oldNumbers);
 
     // Update the full scenes array
     const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
-    const updatedScenes = [...otherScenes, ...charScenes];
+    const updatedScenes = [...otherScenes, ...reordered];
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
-    setDraggedPovScene(null);
 
     // Save to file
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
@@ -3497,6 +3537,16 @@ function App() {
                     Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
                   </div>
                 )}
+                <DndContext
+                  sensors={povSensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={handlePovDragStart}
+                  onDragEnd={handlePovDragEnd}
+                >
+                  <SortableContext
+                    items={displayedScenes.map(s => s.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
                 {displayedPlotPoints.map((plotPoint, index) => (
                   <PlotPointSection
                     key={plotPoint.id}
@@ -3519,10 +3569,7 @@ function App() {
                     onSceneMoveUp={handlePovSceneMoveUp}
                     onSceneMoveDown={handlePovSceneMoveDown}
                     allCharacterScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
-                    onSceneDragStart={(scene) => setDraggedPovScene(scene)}
-                    onSceneDragEnd={() => setDraggedPovScene(null)}
-                    onSceneDrop={handlePovSceneDrop}
-                    draggedScene={draggedPovScene}
+                    activeDragSceneId={activePovDragId}
                     hideHeader={hideSectionHeaders[tabId] ?? false}
                     getConnectedScenes={getConnectedScenes}
                     onStartConnection={(sceneId) => {
@@ -3568,6 +3615,20 @@ function App() {
                     }}
                   />
                 ))}
+                  </SortableContext>
+                  <DragOverlay>
+                    {activePovDragId ? (() => {
+                      const dragScene = projectData.scenes.find(s => s.id === activePovDragId);
+                      return dragScene ? (
+                        <SceneCard
+                          scene={dragScene}
+                          tags={projectData.tags}
+                          showCharacter={false}
+                        />
+                      ) : null;
+                    })() : null}
+                  </DragOverlay>
+                </DndContext>
                 {displayedScenes.filter(s => !s.plotPointId).map(scene => (
                   <SceneCard
                     key={scene.id}
