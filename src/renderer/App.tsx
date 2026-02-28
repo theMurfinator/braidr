@@ -2484,33 +2484,16 @@ function App() {
     const sceneWordCounts: Record<string, number> = {};
 
     for (const scene of scenes) {
-      const key = `${scene.characterId}:${scene.sceneNumber}`;
       if (scene.timelinePosition !== null) {
-        positions[key] = scene.timelinePosition;
+        positions[scene.id] = scene.timelinePosition;
       }
-      // Always save word counts if present
       if (scene.wordCount !== undefined) {
-        sceneWordCounts[key] = scene.wordCount;
+        sceneWordCounts[scene.id] = scene.wordCount;
       }
     }
 
-    // Convert scene ID connections to key-based connections
-    const keyConnections: Record<string, string[]> = {};
-    for (const [sourceId, targetIds] of Object.entries(connections)) {
-      const sourceScene = scenes.find(s => s.id === sourceId);
-      if (sourceScene) {
-        const sourceKey = `${sourceScene.characterId}:${sourceScene.sceneNumber}`;
-        const targetKeys = targetIds
-          .map(targetId => {
-            const targetScene = scenes.find(s => s.id === targetId);
-            return targetScene ? `${targetScene.characterId}:${targetScene.sceneNumber}` : null;
-          })
-          .filter((key): key is string => key !== null);
-        if (targetKeys.length > 0) {
-          keyConnections[sourceKey] = targetKeys;
-        }
-      }
-    }
+    // Connections are already keyed by scene.id
+    const keyConnections = connections;
 
     try {
       setSaveStatus('saving');
