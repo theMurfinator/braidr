@@ -148,25 +148,7 @@ export default function TimelineCanvas({
 
   // ── Derived data ────────────────────────────────────────────────────────────
 
-  // sceneKey -> Scene lookup
-  const sceneByKey = useMemo(() => {
-    const m: Record<string, Scene> = {};
-    for (const s of scenes) {
-      m[s.id] = s;
-    }
-    return m;
-  }, [scenes]);
-
-  // sceneId -> sceneKey lookup
-  const keyById = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const s of scenes) {
-      m[s.id] = s.id;
-    }
-    return m;
-  }, [scenes]);
-
-  // sceneKey -> Scene lookup by id (for connection lookups)
+  // sceneId -> Scene lookup
   const sceneById = useMemo(() => {
     const m: Record<string, Scene> = {};
     for (const s of scenes) {
@@ -271,7 +253,7 @@ export default function TimelineCanvas({
 
   /** Get the rect for a scene card, handling stacking within the same day & character lane. */
   const sceneRect = useCallback((sceneKey: string): Rect | null => {
-    const scene = sceneByKey[sceneKey];
+    const scene = sceneById[sceneKey];
     if (!scene) return null;
     const date = timelineDates[sceneKey];
     if (!date) return null;
@@ -294,7 +276,7 @@ export default function TimelineCanvas({
     }
 
     return { x, y, w, h: CARD_H };
-  }, [sceneByKey, timelineDates, timelineEndDates, characters, sceneDateMap, dayX, laneY]);
+  }, [sceneById, timelineDates, timelineEndDates, characters, sceneDateMap, dayX, laneY]);
 
   const eventRect = useCallback((ev: WorldEvent): Rect | null => {
     if (!ev.date) return null;
@@ -363,7 +345,7 @@ export default function TimelineCanvas({
     const selEvent = selectedEventRef.current;
 
     // Convert selected scene key to sceneId for comparison
-    const selSceneId = selScene ? sceneByKey[selScene]?.id ?? null : null;
+    const selSceneId = selScene ? sceneById[selScene]?.id ?? null : null;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -456,15 +438,11 @@ export default function TimelineCanvas({
     // 8. Connection lines (Bezier curves between connected scenes)
     ctx.setLineDash([]);
     for (const [sourceId, targetIds] of Object.entries(connections)) {
-      const sourceKey = keyById[sourceId];
-      if (!sourceKey) continue;
-      const p1 = sceneRect(sourceKey);
+      const p1 = sceneRect(sourceId);
       if (!p1) continue;
 
       for (const targetId of targetIds) {
-        const targetKey = keyById[targetId];
-        if (!targetKey) continue;
-        const p2 = sceneRect(targetKey);
+        const p2 = sceneRect(targetId);
         if (!p2) continue;
 
         const x1 = p1.x + p1.w / 2;
@@ -568,7 +546,8 @@ export default function TimelineCanvas({
         ctx.font = '10px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
         ctx.textAlign = 'left';
         const title = scene.title || `#${scene.sceneNumber}`;
-        ctx.fillText(truncateText(ctx, title, r.w - 10), r.x + 8, barY + 13);
+        const visibleW = Math.min(r.w, colWidthRef.current) - 10;
+        ctx.fillText(truncateText(ctx, title, visibleW), r.x + 8, barY + 13);
       } else {
         // ── Full card level: existing rendering ──
 
@@ -691,8 +670,26 @@ export default function TimelineCanvas({
           ctx.shadowBlur = 16;
           ctx.strokeStyle = color;
           ctx.lineWidth = 2;
-          roundRect(ctx, r.x, r.y, r.w, r.h, 6);
-          ctx.stroke();
+
+          if (effectiveColW < ZOOM_LEVEL_DOT) {
+            // Dot level: circle outline
+            const cx = r.x + r.w / 2;
+            const cy = r.y + r.h / 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (effectiveColW < ZOOM_LEVEL_LABEL) {
+            // Label level: thin bar outline
+            const barH = 20;
+            const barY = r.y + (r.h - barH) / 2;
+            roundRect(ctx, r.x, barY, r.w, barH, 3);
+            ctx.stroke();
+          } else {
+            // Full card level: full rect outline
+            roundRect(ctx, r.x, r.y, r.w, r.h, 6);
+            ctx.stroke();
+          }
+
           ctx.shadowBlur = 0;
           ctx.shadowColor = 'transparent';
         }
@@ -725,9 +722,7 @@ export default function TimelineCanvas({
     worldEvents,
     scenes,
     connections,
-    sceneByKey,
     sceneById,
-    keyById,
     dayX,
     laneY,
     sceneRect,
