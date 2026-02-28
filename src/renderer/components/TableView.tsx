@@ -1,5 +1,20 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Scene, Character, MetadataFieldDef, Tag, TableViewConfig } from '../../shared/types';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 type FilterOperator = 'is' | 'is_not' | 'is_blank' | 'is_not_blank' | 'contains';
 
@@ -48,6 +63,49 @@ function extractShortTitle(content: string): string {
   const cleaned = cleanContent(content);
   if (cleaned.length > 60) return cleaned.substring(0, 57).trim() + '\u2026';
   return cleaned;
+}
+
+function SortableColumnHeader({
+  id,
+  children,
+  style: externalStyle,
+  className,
+  onClick,
+}: {
+  id: string;
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  className?: string;
+  onClick?: React.MouseEventHandler<HTMLTableCellElement>;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    ...externalStyle,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+  };
+
+  return (
+    <th
+      ref={setNodeRef}
+      className={className}
+      style={style}
+      onClick={onClick}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </th>
+  );
 }
 
 export default function TableView({
@@ -115,8 +173,6 @@ export default function TableView({
   });
 
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
-  const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
-  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const resizeStartX = useRef<number>(0);
   const resizeStartWidth = useRef<number>(0);
 
@@ -316,38 +372,18 @@ export default function TableView({
     };
   }, [resizingColumn]);
 
-  // Column drag handlers
-  const handleColumnDragStart = (e: React.DragEvent, columnId: string) => {
-    setDraggedColumn(columnId);
-    e.dataTransfer.effectAllowed = 'move';
-  };
+  // Column drag (dnd-kit)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
-  const handleColumnDragOver = (e: React.DragEvent, columnId: string) => {
-    e.preventDefault();
-    if (draggedColumn && draggedColumn !== columnId) {
-      setDragOverColumn(columnId);
-    }
-  };
-
-  const handleColumnDrop = (e: React.DragEvent, targetColumnId: string) => {
-    e.preventDefault();
-    if (!draggedColumn || draggedColumn === targetColumnId) return;
-
-    const newOrder = [...columnOrder];
-    const draggedIndex = newOrder.indexOf(draggedColumn);
-    const targetIndex = newOrder.indexOf(targetColumnId);
-
-    newOrder.splice(draggedIndex, 1);
-    newOrder.splice(targetIndex, 0, draggedColumn);
-
-    setColumnOrder(newOrder);
-    setDraggedColumn(null);
-    setDragOverColumn(null);
-  };
-
-  const handleColumnDragEnd = () => {
-    setDraggedColumn(null);
-    setDragOverColumn(null);
+  const handleColumnDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = columnOrder.indexOf(active.id as string);
+    const newIndex = columnOrder.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    setColumnOrder(arrayMove(columnOrder, oldIndex, newIndex));
   };
 
   // View management functions
@@ -774,43 +810,43 @@ export default function TableView({
               ))}
           </colgroup>
           <thead>
-            <tr>
-              {orderedColumns
-                .filter(col => visibleColumns.has(col.id))
-                .map(col => (
-                  <th
-                    key={col.id}
-                    className={`table-header ${draggedColumn === col.id ? 'dragging' : ''} ${dragOverColumn === col.id ? 'drag-over' : ''}`}
-                    draggable
-                    onDragStart={(e) => handleColumnDragStart(e, col.id)}
-                    onDragOver={(e) => handleColumnDragOver(e, col.id)}
-                    onDrop={(e) => handleColumnDrop(e, col.id)}
-                    onDragEnd={handleColumnDragEnd}
-                    style={{
-                      width: columnWidths[col.id] || 'auto',
-                      minWidth: columnWidths[col.id] || 120,
-                      cursor: draggedColumn ? 'grabbing' : 'grab',
-                    }}
-                  >
-                    <div
-                      className="table-header-content"
-                      onClick={() => handleSort(col.id as SortField)}
-                    >
-                      <span>{col.label}</span>
-                      {sortField === col.id && (
-                        <span className="sort-indicator">
-                          {sortDirection === 'asc' ? '↑' : '↓'}
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      className={`resize-handle ${resizingColumn === col.id ? 'resizing' : ''}`}
-                      onMouseDown={(e) => handleResizeStart(e, col.id)}
-                    />
-                  </th>
-                ))}
-          </tr>
-        </thead>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleColumnDragEnd}>
+              <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+                <tr>
+                  {orderedColumns
+                    .filter(col => visibleColumns.has(col.id))
+                    .map(col => (
+                      <SortableColumnHeader
+                        key={col.id}
+                        id={col.id}
+                        className="table-header"
+                        style={{
+                          width: columnWidths[col.id] || 'auto',
+                          minWidth: columnWidths[col.id] || 120,
+                          cursor: 'grab',
+                        }}
+                      >
+                        <div
+                          className="table-header-content"
+                          onClick={() => handleSort(col.id as SortField)}
+                        >
+                          <span>{col.label}</span>
+                          {sortField === col.id && (
+                            <span className="sort-indicator">
+                              {sortDirection === 'asc' ? '↑' : '↓'}
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className={`resize-handle ${resizingColumn === col.id ? 'resizing' : ''}`}
+                          onMouseDown={(e) => handleResizeStart(e, col.id)}
+                        />
+                      </SortableColumnHeader>
+                    ))}
+                </tr>
+              </SortableContext>
+            </DndContext>
+          </thead>
         <tbody>
           {sortedScenes.map(scene => {
             const sceneKey = getSceneKey(scene);
