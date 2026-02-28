@@ -375,6 +375,8 @@ function App() {
   // Timeline state
   const [timelineDates, setTimelineDates] = useState<Record<string, string>>({});
   const timelineDatesRef = useRef<Record<string, string>>({});
+  const [timelineEndDates, setTimelineEndDates] = useState<Record<string, string>>({});
+  const timelineEndDatesRef = useRef<Record<string, string>>({});
   const [worldEvents, setWorldEvents] = useState<WorldEvent[]>([]);
   const worldEventsRef = useRef<WorldEvent[]>([]);
 
@@ -480,6 +482,12 @@ function App() {
   const handleTimelineDatesChange = useCallback((dates: Record<string, string>) => {
     setTimelineDates(dates);
     timelineDatesRef.current = dates;
+    isDirtyRef.current = true;
+  }, []);
+
+  const handleTimelineEndDatesChange = useCallback((dates: Record<string, string>) => {
+    setTimelineEndDates(dates);
+    timelineEndDatesRef.current = dates;
     isDirtyRef.current = true;
   }, []);
 
@@ -1168,6 +1176,9 @@ function App() {
     const loadedTimelineDates: Record<string, string> = (data as any).timelineDates || {};
     setTimelineDates(loadedTimelineDates);
     timelineDatesRef.current = loadedTimelineDates;
+    const loadedTimelineEndDates: Record<string, string> = (data as any).timelineEndDates || {};
+    setTimelineEndDates(loadedTimelineEndDates);
+    timelineEndDatesRef.current = loadedTimelineEndDates;
     const loadedWorldEvents: WorldEvent[] = (data as any).worldEvents || [];
     setWorldEvents(loadedWorldEvents);
     worldEventsRef.current = loadedWorldEvents;
@@ -2353,7 +2364,7 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current, timelineEndDatesRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -2625,11 +2636,9 @@ function App() {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
 
-    // Close popover and open in editor
+    // Close popover (don't navigate away from current view)
     setInsertAtPosition(null);
     setInsertCharacterId(null);
-    const sceneKey = `${characterId}:${newScene.sceneNumber}`;
-    handleOpenInEditor(sceneKey);
   };
 
   const handleInsertSceneOnTimeline = async (characterId: string, plotPointId: string, date: string): Promise<string | null> => {
@@ -3406,15 +3415,18 @@ function App() {
                 tags={projectData.tags}
                 plotPoints={projectData.plotPoints}
                 timelineDates={timelineDates}
+                timelineEndDates={timelineEndDates}
                 worldEvents={worldEvents}
                 connections={sceneConnections}
                 onTimelineDatesChange={handleTimelineDatesChange}
+                onTimelineEndDatesChange={handleTimelineEndDatesChange}
                 onWorldEventsChange={handleWorldEventsChange}
                 onSceneChange={handleSceneChange}
                 onTagsChange={handleTagsChange}
                 onCreateTag={handleCreateTag}
                 onRemoveConnection={handleRemoveConnection}
                 onInsertScene={handleInsertSceneOnTimeline}
+                onOpenInEditor={handleOpenInEditor}
               />
             ) : mode === 'editor' ? (
               <EditorView

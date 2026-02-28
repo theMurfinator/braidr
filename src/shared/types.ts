@@ -127,6 +127,8 @@ export interface TimelineData {
   showInlineLabels?: boolean;
   // Scene dates keyed by "characterId:sceneNumber"
   timelineDates?: Record<string, string>;
+  // Scene end dates keyed by "characterId:sceneNumber" (for multi-day scenes)
+  timelineEndDates?: Record<string, string>;
   // World events
   worldEvents?: WorldEvent[];
 }
@@ -194,6 +196,7 @@ export interface WorldEvent {
   id: string;
   title: string;
   date: string;                // "YYYY-MM-DD"
+  endDate?: string;            // "YYYY-MM-DD" for multi-day events
   description: string;
   tags: string[];
   linkedSceneKeys: string[];   // ["characterId:sceneNumber", ...]

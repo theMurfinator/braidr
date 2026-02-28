@@ -36,6 +36,7 @@ interface TimelineCanvasProps {
   characters: Character[];
   characterColors: Record<string, string>;
   timelineDates: Record<string, string>;
+  timelineEndDates: Record<string, string>;
   worldEvents: WorldEvent[];
   connections: Record<string, string[]>;
   selectedSceneKey: string | null;
@@ -45,6 +46,7 @@ interface TimelineCanvasProps {
   labelWidth: number;
   colWidth: number;
   dateRange: string[];
+  onViewportChange?: (viewport: { start: number; end: number }) => void;
 }
 
 interface HitResult {
@@ -96,6 +98,7 @@ export default function TimelineCanvas({
   characters,
   characterColors,
   timelineDates,
+  timelineEndDates,
   worldEvents,
   connections,
   selectedSceneKey,
@@ -105,8 +108,11 @@ export default function TimelineCanvas({
   labelWidth,
   colWidth,
   dateRange,
+  onViewportChange,
 }: TimelineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const onViewportChangeRef = useRef(onViewportChange);
+  useEffect(() => { onViewportChangeRef.current = onViewportChange; }, [onViewportChange]);
 
   // Keep labelWidth and colWidth in refs so draw/dayX can read them without being deps
   const labelWidthRef = useRef(labelWidth);
@@ -188,6 +194,21 @@ export default function TimelineCanvas({
     return map;
   }, [worldEvents]);
 
+  // ── Report viewport to context bar ──────────────────────────────────────────
+  const reportViewport = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || dateRange.length === 0 || !onViewportChangeRef.current) return;
+    const zoom = zoomRef.current;
+    const pan = panRef.current;
+    const w = canvas.clientWidth;
+    const totalW = dateRange.length * colWidthRef.current * zoom;
+    if (totalW <= 0) return;
+    const offset = labelWidthRef.current * zoom + pan.x;
+    const startFrac = Math.max(0, -offset / totalW);
+    const endFrac = Math.min(1, (w - offset) / totalW);
+    onViewportChangeRef.current({ start: startFrac, end: endFrac });
+  }, [dateRange.length]);
+
   // ── Position helpers ────────────────────────────────────────────────────────
 
   const dayX = useCallback((dateStr: string): number => {
@@ -214,14 +235,28 @@ export default function TimelineCanvas({
 
     const x = dayX(date) + (order >= 0 ? order : 0) * (CARD_W + 6);
     const y = laneY(charIdx) + (LANE_HEIGHT - CARD_H) / 2;
-    return { x, y, w: CARD_W, h: CARD_H };
-  }, [sceneByKey, timelineDates, characters, sceneDateMap, dayX, laneY]);
+
+    // Multi-day: compute wider width if endDate exists
+    const endDate = timelineEndDates[sceneKey];
+    let w = CARD_W;
+    if (endDate && endDate > date) {
+      const endX = dayX(endDate);
+      w = endX - dayX(date) + colWidthRef.current;
+    }
+
+    return { x, y, w, h: CARD_H };
+  }, [sceneByKey, timelineDates, timelineEndDates, characters, sceneDateMap, dayX, laneY]);
 
   const eventRect = useCallback((ev: WorldEvent): Rect | null => {
     if (!ev.date) return null;
     const x = dayX(ev.date);
     const y = TOP_MARGIN;
-    return { x, y, w: CARD_W, h: EVENT_HEIGHT };
+    let w = CARD_W;
+    if (ev.endDate && ev.endDate > ev.date) {
+      const endX = dayX(ev.endDate);
+      w = endX - x + colWidthRef.current;
+    }
+    return { x, y, w, h: EVENT_HEIGHT };
   }, [dayX]);
 
   // ── Hit testing ─────────────────────────────────────────────────────────────
@@ -614,10 +649,12 @@ export default function TimelineCanvas({
 
     // Initial draw
     draw();
+    reportViewport();
 
     // ── Resize observer ──────────────────────────────────────────────────────
     const resizeObserver = new ResizeObserver(() => {
       draw();
+      reportViewport();
     });
     resizeObserver.observe(canvas);
 
@@ -665,6 +702,7 @@ export default function TimelineCanvas({
           };
           canvas.style.cursor = 'grabbing';
           draw();
+          reportViewport();
         }
         return;
       }
@@ -737,6 +775,7 @@ export default function TimelineCanvas({
       };
 
       draw();
+      reportViewport();
     };
 
     canvas.addEventListener('mousedown', handleMouseDown);
@@ -753,7 +792,7 @@ export default function TimelineCanvas({
       canvas.removeEventListener('mouseleave', handleMouseLeave);
       canvas.removeEventListener('wheel', handleWheel);
     };
-  }, [draw, hitTest, onSelectScene, onSelectEvent]);
+  }, [draw, hitTest, onSelectScene, onSelectEvent, reportViewport]);
 
   // Redraw when selection, label width, or column width changes from outside
   useEffect(() => {

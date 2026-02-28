@@ -4,6 +4,7 @@ import SceneDetailPanel from '../SceneDetailPanel';
 import TimelineGrid from './TimelineGrid';
 import TimelineCanvas from './TimelineCanvas';
 import TimelineSidebar from './TimelineSidebar';
+import TimelineContextBar from './TimelineContextBar';
 
 type TimelineSubMode = 'grid' | 'canvas';
 
@@ -49,15 +50,18 @@ interface TimelineViewProps {
   tags: Tag[];
   plotPoints: PlotPoint[];
   timelineDates: Record<string, string>;
+  timelineEndDates: Record<string, string>;
   worldEvents: WorldEvent[];
   connections: Record<string, string[]>;
   onTimelineDatesChange: (dates: Record<string, string>) => void;
+  onTimelineEndDatesChange: (dates: Record<string, string>) => void;
   onWorldEventsChange: (events: WorldEvent[]) => void;
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
   onTagsChange: (sceneId: string, tags: string[]) => void;
   onCreateTag: (name: string, category: TagCategory) => void;
   onRemoveConnection: (sourceId: string, targetId: string) => void;
   onInsertScene?: (characterId: string, plotPointId: string, date: string) => Promise<string | null>;
+  onOpenInEditor?: (sceneKey: string) => void;
 }
 
 export default function TimelineView({
@@ -67,20 +71,26 @@ export default function TimelineView({
   tags,
   plotPoints,
   timelineDates,
+  timelineEndDates,
   worldEvents,
   connections,
   onTimelineDatesChange,
+  onTimelineEndDatesChange,
   onWorldEventsChange,
   onSceneChange,
   onTagsChange,
   onCreateTag,
   onRemoveConnection,
   onInsertScene,
+  onOpenInEditor,
 }: TimelineViewProps) {
   const [subMode, setSubMode] = useState<TimelineSubMode>('grid');
   const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const timelineMainRef = useRef<HTMLDivElement>(null);
+
+  // Context bar viewport (0..1 fractions)
+  const [contextBarViewport, setContextBarViewport] = useState<{ start: number; end: number }>({ start: 0, end: 1 });
 
   const [labelWidth, setLabelWidth] = useState<number>(() => {
     try {
@@ -137,18 +147,20 @@ export default function TimelineView({
     localStorage.setItem('braidr-timeline-range', JSON.stringify(range));
   }, []);
 
-  // All assigned dates (scenes + events), filtering out extreme years
+  // All assigned dates (scenes + events + end dates), filtering out extreme years
   const allAssignedDates = useMemo(() => {
     const dates = [
       ...Object.values(timelineDates),
+      ...Object.values(timelineEndDates),
       ...worldEvents.map(e => e.date),
+      ...worldEvents.map(e => e.endDate).filter((d): d is string => !!d),
     ].filter(d => {
       if (!d) return false;
       const year = new Date(d + 'T00:00:00').getFullYear();
       return !isNaN(year) && year >= 1 && year <= 2200;
     }).sort();
     return [...new Set(dates)];
-  }, [timelineDates, worldEvents]);
+  }, [timelineDates, timelineEndDates, worldEvents]);
 
   // Auto-initialize range when there are assigned dates but no range yet
   const effectiveRange = useMemo((): TimelineRange | null => {
@@ -240,6 +252,43 @@ export default function TimelineView({
     }
   }, [allAssignedDates, dateRange, colWidth]);
 
+  // ── Context bar: track grid scroll → viewport ──────────────────────────
+  useEffect(() => {
+    if (subMode !== 'grid') return;
+    const el = timelineMainRef.current;
+    if (!el) return;
+
+    const updateViewport = () => {
+      const scrollW = el.scrollWidth - el.clientWidth;
+      if (scrollW <= 0) {
+        setContextBarViewport({ start: 0, end: 1 });
+        return;
+      }
+      const visibleFrac = el.clientWidth / el.scrollWidth;
+      const startFrac = el.scrollLeft / el.scrollWidth;
+      setContextBarViewport({ start: startFrac, end: startFrac + visibleFrac });
+    };
+
+    updateViewport();
+    el.addEventListener('scroll', updateViewport, { passive: true });
+    const ro = new ResizeObserver(updateViewport);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', updateViewport);
+      ro.disconnect();
+    };
+  }, [subMode, dateRange.length, colWidth]);
+
+  // Context bar → drive grid scroll
+  const handleContextBarViewportChange = useCallback((start: number, end: number) => {
+    setContextBarViewport({ start, end });
+    if (subMode === 'grid' && timelineMainRef.current) {
+      const el = timelineMainRef.current;
+      el.scrollLeft = start * el.scrollWidth;
+    }
+    // Canvas mode: we set viewport state, canvas reads it via prop
+  }, [subMode]);
+
   // ── Setup prompt state ──────────────────────────────────────────────────
   const [setupDate, setSetupDate] = useState('');
 
@@ -299,6 +348,28 @@ export default function TimelineView({
     setSelectedSceneKey(null);
     setSelectedEventId(null);
   }, []);
+
+  // ── Prev/Next scene navigation ──────────────────────────────────────
+  const sortedDatedSceneKeys = useMemo(() => {
+    return Object.entries(timelineDates)
+      .sort(([, dateA], [, dateB]) => dateA.localeCompare(dateB))
+      .map(([key]) => key);
+  }, [timelineDates]);
+
+  const selectedSceneIndex = useMemo(() => {
+    if (!selectedSceneKey) return -1;
+    return sortedDatedSceneKeys.indexOf(selectedSceneKey);
+  }, [selectedSceneKey, sortedDatedSceneKeys]);
+
+  const handlePrevScene = useMemo(() => {
+    if (selectedSceneIndex <= 0) return undefined;
+    return () => setSelectedSceneKey(sortedDatedSceneKeys[selectedSceneIndex - 1]);
+  }, [selectedSceneIndex, sortedDatedSceneKeys]);
+
+  const handleNextScene = useMemo(() => {
+    if (selectedSceneIndex < 0 || selectedSceneIndex >= sortedDatedSceneKeys.length - 1) return undefined;
+    return () => setSelectedSceneKey(sortedDatedSceneKeys[selectedSceneIndex + 1]);
+  }, [selectedSceneIndex, sortedDatedSceneKeys]);
 
   // ── Detail panel: selected event data & editing ─────────────────────
   const selectedEvent = useMemo(() => {
@@ -458,6 +529,8 @@ export default function TimelineView({
               characters={characters}
               characterColors={characterColors}
               timelineDates={timelineDates}
+              timelineEndDates={timelineEndDates}
+              onTimelineEndDatesChange={onTimelineEndDatesChange}
               worldEvents={worldEvents}
               connections={connections}
               onTimelineDatesChange={onTimelineDatesChange}
@@ -481,6 +554,7 @@ export default function TimelineView({
               characters={characters}
               characterColors={characterColors}
               timelineDates={timelineDates}
+              timelineEndDates={timelineEndDates}
               worldEvents={worldEvents}
               connections={connections}
               selectedSceneKey={selectedSceneKey}
@@ -490,6 +564,7 @@ export default function TimelineView({
               labelWidth={labelWidth}
               colWidth={colWidth}
               dateRange={dateRange}
+              onViewportChange={(vp) => setContextBarViewport(vp)}
             />
           )}
         </div>
@@ -509,6 +584,19 @@ export default function TimelineView({
             onRemoveConnection={(targetId) =>
               onRemoveConnection(selectedScene.id, targetId)
             }
+            onOpenInEditor={onOpenInEditor && selectedSceneKey ? () => onOpenInEditor(selectedSceneKey) : undefined}
+            onPrevScene={handlePrevScene}
+            onNextScene={handleNextScene}
+            timelineEndDate={selectedSceneKey ? timelineEndDates[selectedSceneKey] : undefined}
+            onTimelineEndDateChange={selectedSceneKey ? (date: string) => {
+              const updated = { ...timelineEndDates };
+              if (date) {
+                updated[selectedSceneKey] = date;
+              } else {
+                delete updated[selectedSceneKey];
+              }
+              onTimelineEndDatesChange(updated);
+            } : undefined}
             onTimelineDateChange={(date) => {
               if (!selectedSceneKey) return;
               if (date) {
@@ -562,6 +650,33 @@ export default function TimelineView({
                     </button>
                   )}
                 </div>
+                {selectedEvent.date && (
+                  <>
+                    <label className="scene-detail-sub-label">End Date</label>
+                    <div className="timeline-detail-date-row">
+                      <input
+                        type="date"
+                        min={selectedEvent.date}
+                        max="2200-12-31"
+                        value={selectedEvent.endDate || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val && selectedEvent.date && val < selectedEvent.date) return;
+                          updateEvent(selectedEvent.id, { endDate: val || undefined });
+                        }}
+                      />
+                      {selectedEvent.endDate && (
+                        <button
+                          className="timeline-detail-clear-btn"
+                          onClick={() => updateEvent(selectedEvent.id, { endDate: undefined })}
+                          title="Clear end date"
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
               <div className="timeline-detail-field">
                 <label>Description</label>
@@ -671,6 +786,22 @@ export default function TimelineView({
           onTimelineDatesChange={onTimelineDatesChange}
         />
       </div>
+      {dateRange.length > 0 && (
+        <TimelineContextBar
+          scenes={scenes}
+          characters={characters}
+          characterColors={characterColors}
+          timelineDates={timelineDates}
+          timelineEndDates={timelineEndDates}
+          worldEvents={worldEvents}
+          dateRange={dateRange}
+          selectedSceneKey={selectedSceneKey}
+          selectedEventId={selectedEventId}
+          onSelectScene={setSelectedSceneKey}
+          viewport={contextBarViewport}
+          onViewportChange={handleContextBarViewportChange}
+        />
+      )}
     </div>
   );
 }

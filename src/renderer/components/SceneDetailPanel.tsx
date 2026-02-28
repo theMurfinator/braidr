@@ -19,6 +19,11 @@ interface SceneDetailPanelProps {
   onStartConnection?: () => void;
   onRemoveConnection?: (targetId: string) => void;
   onTimelineDateChange?: (date: string) => void;
+  timelineEndDate?: string;
+  onTimelineEndDateChange?: (date: string) => void;
+  onOpenInEditor?: () => void;
+  onPrevScene?: () => void;
+  onNextScene?: () => void;
 }
 
 function SceneDetailPanel({
@@ -35,6 +40,11 @@ function SceneDetailPanel({
   onStartConnection,
   onRemoveConnection,
   onTimelineDateChange,
+  timelineEndDate,
+  onTimelineEndDateChange,
+  onOpenInEditor,
+  onPrevScene,
+  onNextScene,
 }: SceneDetailPanelProps) {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
@@ -115,7 +125,34 @@ function SceneDetailPanel({
           <span className="scene-detail-number">{characterName} &middot; Scene {scene.sceneNumber}</span>
           {plotPointTitle && <span className="scene-detail-plotpoint">{plotPointTitle}</span>}
         </div>
-        <button className="close-btn" onClick={onClose}>×</button>
+        <div className="scene-detail-header-actions">
+          {(onPrevScene || onNextScene) && (
+            <div className="scene-detail-nav">
+              <button
+                className="scene-detail-nav-btn"
+                onClick={onPrevScene}
+                disabled={!onPrevScene}
+                title="Previous scene"
+              >
+                &#8249;
+              </button>
+              <button
+                className="scene-detail-nav-btn"
+                onClick={onNextScene}
+                disabled={!onNextScene}
+                title="Next scene"
+              >
+                &#8250;
+              </button>
+            </div>
+          )}
+          {onOpenInEditor && (
+            <button className="scene-detail-open-editor-btn" onClick={onOpenInEditor} title="Open in editor">
+              Open in Editor
+            </button>
+          )}
+          <button className="close-btn" onClick={onClose}>&times;</button>
+        </div>
       </div>
 
       <div className="scene-detail-content">
@@ -142,6 +179,34 @@ function SceneDetailPanel({
                 </button>
               )}
             </div>
+            {onTimelineEndDateChange && timelineDate && (
+              <>
+                <label className="scene-detail-sub-label">End Date</label>
+                <div className="timeline-detail-date-row">
+                  <input
+                    type="date"
+                    min={timelineDate}
+                    max="2200-12-31"
+                    className="scene-detail-date-input"
+                    value={timelineEndDate || ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val && timelineDate && val < timelineDate) return;
+                      onTimelineEndDateChange(val);
+                    }}
+                  />
+                  {timelineEndDate && (
+                    <button
+                      className="timeline-detail-clear-btn"
+                      onClick={() => onTimelineEndDateChange('')}
+                      title="Clear end date"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 

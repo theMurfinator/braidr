@@ -6,6 +6,8 @@ interface TimelineGridProps {
   characters: Character[];
   characterColors: Record<string, string>;
   timelineDates: Record<string, string>;
+  timelineEndDates: Record<string, string>;
+  onTimelineEndDatesChange: (dates: Record<string, string>) => void;
   worldEvents: WorldEvent[];
   connections: Record<string, string[]>;
   onTimelineDatesChange: (dates: Record<string, string>) => void;
@@ -44,11 +46,23 @@ function fullDate(dateStr: string): string {
   return `${mm}-${dd}-${d.getFullYear()}`;
 }
 
+/** Compute the column span for a scene that may have an end date. */
+function dateSpanColumns(startDate: string, endDate: string | undefined, dateRange: string[]): number {
+  if (!endDate || endDate <= startDate) return 1;
+  const startIdx = dateRange.indexOf(startDate);
+  const endIdx = dateRange.indexOf(endDate);
+  if (startIdx < 0) return 1;
+  if (endIdx < 0) return 1; // end date outside visible range
+  return endIdx - startIdx + 1;
+}
+
 export default function TimelineGrid({
   scenes,
   characters,
   characterColors,
   timelineDates,
+  timelineEndDates,
+  onTimelineEndDatesChange,
   worldEvents,
   selectedSceneKey,
   selectedEventId,
@@ -66,10 +80,57 @@ export default function TimelineGrid({
   onInsertScene,
 }: TimelineGridProps) {
   const resizeDragRef = useRef<{ startX: number; initialWidth: number; target: 'label' | 'col' } | null>(null);
+  const spanResizeRef = useRef<{ sceneKey: string; edge: 'left' | 'right'; startX: number; startDate: string; startEndDate: string | undefined } | null>(null);
   const [insertCell, setInsertCell] = useState<{ characterId: string; date: string } | null>(null);
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
+      // Handle span resize (multi-day scene edge drag)
+      const spanDrag = spanResizeRef.current;
+      if (spanDrag) {
+        e.preventDefault();
+        const deltaCol = Math.round((e.clientX - spanDrag.startX) / colWidth);
+        if (deltaCol === 0) return;
+        const startIdx = dateRange.indexOf(spanDrag.startDate);
+        const endIdx = spanDrag.startEndDate ? dateRange.indexOf(spanDrag.startEndDate) : startIdx;
+        if (startIdx < 0) return;
+
+        if (spanDrag.edge === 'right') {
+          const newEndIdx = Math.max(startIdx, (endIdx >= 0 ? endIdx : startIdx) + deltaCol);
+          if (newEndIdx < dateRange.length && newEndIdx >= startIdx) {
+            const newEndDate = dateRange[newEndIdx];
+            if (newEndDate !== spanDrag.startEndDate) {
+              spanResizeRef.current = { ...spanDrag, startX: e.clientX, startEndDate: newEndDate === spanDrag.startDate ? undefined : newEndDate };
+              const updated = { ...timelineEndDates };
+              if (newEndDate === spanDrag.startDate || newEndIdx === startIdx) {
+                delete updated[spanDrag.sceneKey];
+              } else {
+                updated[spanDrag.sceneKey] = newEndDate;
+              }
+              onTimelineEndDatesChange(updated);
+            }
+          }
+        } else {
+          // left edge: move start date
+          const curEndIdx = endIdx >= 0 ? endIdx : startIdx;
+          const newStartIdx = Math.min(curEndIdx, startIdx + deltaCol);
+          if (newStartIdx >= 0 && newStartIdx < dateRange.length) {
+            const newStartDate = dateRange[newStartIdx];
+            if (newStartDate !== spanDrag.startDate) {
+              spanResizeRef.current = { ...spanDrag, startX: e.clientX, startDate: newStartDate };
+              const updatedDates = { ...timelineDates, [spanDrag.sceneKey]: newStartDate };
+              onTimelineDatesChange(updatedDates);
+              if (newStartIdx === curEndIdx) {
+                const updatedEnd = { ...timelineEndDates };
+                delete updatedEnd[spanDrag.sceneKey];
+                onTimelineEndDatesChange(updatedEnd);
+              }
+            }
+          }
+        }
+        return;
+      }
+
       const drag = resizeDragRef.current;
       if (!drag) return;
       const delta = e.clientX - drag.startX;
@@ -81,6 +142,7 @@ export default function TimelineGrid({
     };
     const onMouseUp = () => {
       resizeDragRef.current = null;
+      spanResizeRef.current = null;
       document.body.style.userSelect = '';
     };
     document.addEventListener('mousemove', onMouseMove);
@@ -89,7 +151,7 @@ export default function TimelineGrid({
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
-  }, [onLabelWidthChange, onColWidthChange]);
+  }, [onLabelWidthChange, onColWidthChange, colWidth, dateRange, timelineDates, timelineEndDates, onTimelineDatesChange, onTimelineEndDatesChange]);
 
   const handleLabelResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -238,22 +300,32 @@ export default function TimelineGrid({
   }
 
   // ── Helper: render a scene card ──────────────────────────────────────────
-  function renderSceneCard(sceneKey: string) {
+  function renderSceneCard(sceneKey: string, gridPlacement?: { gridRow: number; gridColumn: string }) {
     const scene = sceneByKey[sceneKey];
     if (!scene) return null;
     const color = characterColors[scene.characterId] || '#888';
+    const endDate = timelineEndDates[sceneKey];
+    const span = dateSpanColumns(timelineDates[sceneKey], endDate, dateRange);
+    const isMultiDay = span > 1;
     const title = scene.title
-      ? scene.title.slice(0, 30) + (scene.title.length > 30 ? '...' : '')
+      ? scene.title.slice(0, isMultiDay ? 60 : 30) + (scene.title.length > (isMultiDay ? 60 : 30) ? '...' : '')
       : `Scene ${scene.sceneNumber}`;
     const isSelected = selectedSceneKey === sceneKey;
     const date = timelineDates[sceneKey];
     const dateLabel = date ? shortDate(date) : null;
 
+    const style: React.CSSProperties = { borderLeftColor: color };
+    if (gridPlacement) {
+      style.gridRow = gridPlacement.gridRow;
+      style.gridColumn = gridPlacement.gridColumn;
+      style.zIndex = 2;
+    }
+
     return (
       <button
         key={sceneKey}
-        className={`tg-scene-card${isSelected ? ' selected' : ''}`}
-        style={{ borderLeftColor: color }}
+        className={`tg-scene-card${isSelected ? ' selected' : ''}${isMultiDay ? ' multi-day' : ''}`}
+        style={style}
         draggable="true"
         onDragStart={(e) => handleDragStart(e, sceneKey)}
         onDragEnd={handleDragEnd}
@@ -263,13 +335,33 @@ export default function TimelineGrid({
         }}
         title={scene.title || `Scene ${scene.sceneNumber}`}
       >
+        {isMultiDay && (
+          <div
+            className="tg-resize-handle-left"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              spanResizeRef.current = { sceneKey, edge: 'left', startX: e.clientX, startDate: date, startEndDate: endDate };
+              document.body.style.userSelect = 'none';
+            }}
+          />
+        )}
         <div className="tg-scene-card-content">
           <div className="tg-scene-card-top">
             <span className="tg-scene-num">{scene.sceneNumber}</span>
             <span className="tg-scene-title">{title}</span>
           </div>
-          {dateLabel && <span className="tg-scene-date">{dateLabel}</span>}
+          {dateLabel && <span className="tg-scene-date">{dateLabel}{endDate ? ` \u2013 ${shortDate(endDate)}` : ''}</span>}
         </div>
+        <div
+          className="tg-resize-handle-right"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            spanResizeRef.current = { sceneKey, edge: 'right', startX: e.clientX, startDate: date, startEndDate: endDate };
+            document.body.style.userSelect = 'none';
+          }}
+        />
       </button>
     );
   }
@@ -389,6 +481,24 @@ export default function TimelineGrid({
           const color = characterColors[char.id] || '#888';
           const gridRow = rowIdx + 3; // 1-indexed: header=1, world=2, chars start at 3
 
+          // Collect multi-day scenes to render as top-level grid items
+          const multiDayScenes: { sceneKey: string; colStart: number; span: number }[] = [];
+          const multiDayStartCols = new Set<number>();
+
+          // Pre-scan for multi-day scenes in this character's row
+          for (const [sk, date] of Object.entries(timelineDates)) {
+            if (!sk.startsWith(char.id + ':')) continue;
+            const endDate = timelineEndDates[sk];
+            const span = dateSpanColumns(date, endDate, dateRange);
+            if (span > 1) {
+              const colStart = dateRange.indexOf(date);
+              if (colStart >= 0) {
+                multiDayScenes.push({ sceneKey: sk, colStart, span });
+                for (let c = colStart; c < colStart + span; c++) multiDayStartCols.add(c);
+              }
+            }
+          }
+
           return (
             <Fragment key={char.id}>
               <div
@@ -400,19 +510,26 @@ export default function TimelineGrid({
               </div>
               {dateRange.map((date, colIdx) => {
                 const sceneKeys = sceneDateMap[date]?.[char.id] || [];
+                // Filter out multi-day scenes (they're rendered as separate grid items)
+                const singleDayKeys = sceneKeys.filter(sk => {
+                  const endDate = timelineEndDates[sk];
+                  return dateSpanColumns(timelineDates[sk], endDate, dateRange) <= 1;
+                });
+                // Check if this cell is covered by a multi-day scene (for styling)
+                const coveredByMultiDay = multiDayStartCols.has(colIdx);
                 const isInsertOpen = insertCell?.characterId === char.id && insertCell?.date === date;
                 const charPlotPoints = plotPoints?.filter(p => p.characterId === char.id).sort((a, b) => a.order - b.order) || [];
                 return (
                   <div
                     key={`${char.id}-${date}`}
-                    className={`tg-cell${sceneKeys.length === 0 ? ' empty' : ''}`}
+                    className={`tg-cell${singleDayKeys.length === 0 && !coveredByMultiDay ? ' empty' : ''}`}
                     style={{ gridRow, gridColumn: colIdx + 2 }}
                     onDragOver={handleCellDragOver}
                     onDragLeave={handleCellDragLeave}
                     onDrop={(e) => handleCellDrop(e, date)}
                   >
-                    {sceneKeys.map((sk) => renderSceneCard(sk))}
-                    {sceneKeys.length === 0 && onInsertScene && (
+                    {singleDayKeys.map((sk) => renderSceneCard(sk))}
+                    {singleDayKeys.length === 0 && !coveredByMultiDay && onInsertScene && (
                       <button
                         className="tg-cell-insert-btn"
                         onClick={(e) => {
@@ -443,6 +560,13 @@ export default function TimelineGrid({
                   </div>
                 );
               })}
+              {/* Multi-day scene cards rendered as top-level grid items */}
+              {multiDayScenes.map(({ sceneKey, colStart, span }) =>
+                renderSceneCard(sceneKey, {
+                  gridRow,
+                  gridColumn: `${colStart + 2} / span ${span}`,
+                })
+              )}
             </Fragment>
           );
         })}
