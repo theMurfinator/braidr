@@ -1282,6 +1282,7 @@ function App() {
       const migratedTasks: Task[] = [];
       let order = 0;
       for (const [sk, todos] of Object.entries(loadedInlineTodos)) {
+        const skScene = projectData.scenes.find(s => s.id === sk);
         for (const todo of todos) {
           migratedTasks.push({
             id: todo.todoId || crypto.randomUUID(),
@@ -1289,7 +1290,7 @@ function App() {
             status: todo.done ? 'done' : 'open',
             priority: 'none',
             tags: [],
-            characterIds: [sk.split(':')[0]],
+            characterIds: skScene ? [skScene.characterId] : [],
             sceneKey: sk,
             timeEntries: [],
             createdAt: Date.now(),
@@ -3733,11 +3734,7 @@ function App() {
                   characterColors={characterColors}
                   povReorderedScenes={povReorderedScenes}
                   onSceneClick={(sceneKey) => {
-                    const [characterId, sceneNumberStr] = sceneKey.split(':');
-                    const sceneNumber = parseInt(sceneNumberStr, 10);
-                    const scene = projectData.scenes.find(
-                      s => s.characterId === characterId && s.sceneNumber === sceneNumber
-                    );
+                    const scene = projectData.scenes.find(s => s.id === sceneKey);
                     if (scene) {
                       setListFloatingEditor(scene);
                     }
@@ -4596,9 +4593,9 @@ function App() {
           )}
           {/* Global writing timer indicator */}
           {timerSceneKey && (() => {
-            const [charId, sceneNumStr] = timerSceneKey.split(':');
-            const char = projectData?.characters.find(c => c.id === charId);
-            const label = char ? `${char.name} #${sceneNumStr}` : `Scene ${sceneNumStr}`;
+            const timerScene = projectData?.scenes.find(s => s.id === timerSceneKey);
+            const char = timerScene ? projectData?.characters.find(c => c.id === timerScene.characterId) : undefined;
+            const label = char ? `${char.name} #${timerScene!.sceneNumber}` : timerScene ? `Scene ${timerScene.sceneNumber}` : 'Scene';
             return (
               <button
                 className={`toolbar-timer-pill ${timerRunning ? 'running' : 'paused'}`}
@@ -4920,11 +4917,10 @@ function App() {
 
       {/* Check-in Modal */}
       {pendingSession && projectData && (() => {
-        const [charId, sceneNumStr] = pendingSession.sceneKey.split(':');
-        const charName = projectData.characters.find(c => c.id === charId)?.name || 'Unknown';
-        const scene = projectData.scenes.find(s => s.characterId === charId && String(s.sceneNumber) === sceneNumStr);
-        const sceneTitle = scene?.title ? ` — ${scene.title}` : '';
-        const sceneLabel = `${charName} — ${sceneNumStr}${sceneTitle}`;
+        const checkinScene = projectData.scenes.find(s => s.id === pendingSession.sceneKey);
+        const charName = checkinScene ? (projectData.characters.find(c => c.id === checkinScene.characterId)?.name || 'Unknown') : 'Unknown';
+        const sceneTitle = checkinScene?.title ? ` — ${checkinScene.title}` : '';
+        const sceneLabel = `${charName} — ${checkinScene?.sceneNumber ?? '?'}${sceneTitle}`;
         return (
           <CheckinModal
             sceneLabel={sceneLabel}
