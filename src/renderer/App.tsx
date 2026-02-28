@@ -4240,9 +4240,6 @@ function App() {
                                     key={scene.id}
                                     className="inbox-scene"
                                     style={{ '--char-color': charColor } as React.CSSProperties}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, scene)}
-                                    onDragEnd={handleDragEnd}
                                   >
                                     <span className="inbox-scene-number">{scene.sceneNumber}.</span>
                                     <span className="inbox-scene-title">{scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')}</span>
