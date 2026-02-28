@@ -229,6 +229,7 @@ function App() {
   // Session tracker for time tracking
   const sessionTrackerRef = useRef<SessionTracker | null>(null);
   const analyticsRef = useRef<AnalyticsData | null>(null);
+  const pendingKeyMigrationRef = useRef<Scene[] | null>(null);
   const [sceneSessions, setSceneSessions] = useState<SceneSession[]>([]);
   const [pendingSession, setPendingSession] = useState<SessionSummary | null>(null);
   const [showManualCheckin, setShowManualCheckin] = useState(false);
@@ -729,6 +730,26 @@ function App() {
     loadAnalytics(projectData.projectPath).then(data => {
       analyticsRef.current = data;
       setSceneSessions(data.sceneSessions || []);
+
+      // If keys were migrated, also migrate analytics sceneSessions
+      const migratedScenes = pendingKeyMigrationRef.current;
+      if (migratedScenes && analyticsRef.current) {
+        const oldKeyToId: Record<string, string> = {};
+        for (const scene of migratedScenes) {
+          oldKeyToId[`${scene.characterId}:${scene.sceneNumber}`] = scene.id;
+        }
+        const newSessions = (analyticsRef.current.sceneSessions || []).map(s => ({
+          ...s,
+          sceneKey: oldKeyToId[s.sceneKey] || s.sceneKey,
+        }));
+        analyticsRef.current = { ...analyticsRef.current, sceneSessions: newSessions };
+        setSceneSessions(newSessions);
+        // Save migrated analytics
+        if (projectData.projectPath) {
+          saveAnalytics(projectData.projectPath, analyticsRef.current);
+        }
+        pendingKeyMigrationRef.current = null;
+      }
     });
 
     // When a session ends, merge it into analytics and persist (no auto-pop check-in)
@@ -1092,20 +1113,32 @@ function App() {
     // Derive project name from folder if not provided
     const name = projectName || folderPath.split('/').pop() || 'Untitled';
 
-    // Convert stored connections (using keys) to scene IDs
-    const loadedConnections: Record<string, string[]> = {};
-    for (const [sourceKey, targetKeys] of Object.entries(data.connections)) {
-      const sourceScene = data.scenes.find(s => `${s.characterId}:${s.sceneNumber}` === sourceKey);
-      if (sourceScene) {
-        const targetIds = targetKeys
-          .map(targetKey => data.scenes.find(s => `${s.characterId}:${s.sceneNumber}` === targetKey)?.id)
-          .filter((id): id is string => id !== undefined);
-        if (targetIds.length > 0) {
-          loadedConnections[sourceScene.id] = targetIds;
-        }
-      }
-    }
-    setSceneConnections(loadedConnections);
+    // Migrate old characterId:sceneNumber keys to scene.id if needed
+    const loadedDraft = data.draftContent || {};
+    const loadedDrafts = data.drafts || {};
+    const loadedScratchpad = data.scratchpad || {};
+    const loadedComments = data.sceneComments || {};
+    const loadedMetaData = data.sceneMetadata || {};
+    const loadedTasks = data.tasks || [];
+    const migrationData = {
+      draftContent: loadedDraft,
+      drafts: loadedDrafts,
+      sceneMetadata: loadedMetaData,
+      scratchpad: loadedScratchpad,
+      sceneComments: loadedComments,
+      positions: (data as any).positions || {},
+      wordCounts: (data as any).wordCounts || {},
+      timelineDates: data.timelineDates || {},
+      timelineEndDates: (data as any).timelineEndDates || {},
+      connections: data.connections || {},
+      tasks: loadedTasks,
+    };
+    const didMigrate = migrateSceneKeys(data.scenes, migrationData);
+    // Store scenes for analytics migration if keys were migrated
+    pendingKeyMigrationRef.current = didMigrate ? data.scenes : null;
+
+    // After migration, connections are already keyed by scene.id
+    setSceneConnections(migrationData.connections);
     setBraidedChapters(data.chapters);
     const loadedColors = data.characterColors || {};
     setCharacterColors(loadedColors);
@@ -1176,10 +1209,6 @@ function App() {
     });
 
     // Load editor data
-    const loadedDraft = data.draftContent || {};
-    const loadedDrafts = data.drafts || {};
-    const loadedScratchpad = data.scratchpad || {};
-    const loadedComments = data.sceneComments || {};
     const loadedMetaDefs = data.metadataFieldDefs || [];
     setMetadataFieldDefs(loadedMetaDefs);
     metadataFieldDefsRef.current = loadedMetaDefs;
@@ -1189,12 +1218,11 @@ function App() {
     const loadedShowLabels = data.showInlineLabels !== undefined ? data.showInlineLabels : true;
     setShowInlineLabels(loadedShowLabels);
     showInlineLabelsRef.current = loadedShowLabels;
-    const loadedMetaData = data.sceneMetadata || {};
 
     // Reconcile scene-keyed data: remove orphaned keys that don't match any current scene.
     // This repairs data from the bug where archiving/reordering changed sceneNumbers
     // without updating the keys in draftContent/drafts/sceneMetadata.
-    const validKeys = new Set(data.scenes.map((s: Scene) => `${s.characterId}:${s.sceneNumber}`));
+    const validKeys = new Set(data.scenes.map((s: Scene) => s.id));
     const allStoredKeys = new Set([
       ...Object.keys(loadedDraft),
       ...Object.keys(loadedDrafts),
@@ -1236,9 +1264,6 @@ function App() {
     }
     setInlineTodos(loadedInlineTodos);
     inlineTodosRef.current = loadedInlineTodos;
-
-    // Load tasks
-    const loadedTasks: Task[] = (data as any).tasks || [];
 
     // Migrate inline todos to tasks (one-time, only if no tasks exist yet)
     if (!loadedTasks.length) {
