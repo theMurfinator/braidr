@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, TimeEntry } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, TimeEntry, TimelineViewState } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -414,6 +414,7 @@ function App() {
   const timelineEndDatesRef = useRef<Record<string, string>>({});
   const [worldEvents, setWorldEvents] = useState<WorldEvent[]>([]);
   const worldEventsRef = useRef<WorldEvent[]>([]);
+  const timelineViewStateRef = useRef<TimelineViewState | null>(null);
 
   // Combined todos: note-linked + inline
   const allSceneTodos = useMemo(() => {
@@ -1320,6 +1321,8 @@ function App() {
     const loadedWorldEvents: WorldEvent[] = (data as any).worldEvents || [];
     setWorldEvents(loadedWorldEvents);
     worldEventsRef.current = loadedWorldEvents;
+    const loadedViewState: TimelineViewState | null = (data as any).viewState || null;
+    timelineViewStateRef.current = loadedViewState;
 
     // Select first character by default
     if (data.characters.length > 0) {
@@ -2421,7 +2424,7 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current, timelineEndDatesRef.current);
+      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current, timelineEndDatesRef.current, timelineViewStateRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -3456,6 +3459,10 @@ function App() {
                 onRemoveConnection={handleRemoveConnection}
                 onInsertScene={handleInsertSceneOnTimeline}
                 onOpenInEditor={handleOpenInEditor}
+                viewState={timelineViewStateRef.current ?? undefined}
+                onViewStateChange={(state) => {
+                  timelineViewStateRef.current = state;
+                }}
               />
             ) : mode === 'editor' ? (
               <EditorView

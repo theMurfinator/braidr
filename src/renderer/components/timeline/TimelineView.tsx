@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import type { Scene, Character, WorldEvent, Tag, PlotPoint, TagCategory } from '../../../shared/types';
+import type { Scene, Character, WorldEvent, Tag, PlotPoint, TagCategory, TimelineViewState } from '../../../shared/types';
 import SceneDetailPanel from '../SceneDetailPanel';
 import TimelineGrid from './TimelineGrid';
 import TimelineCanvas from './TimelineCanvas';
@@ -62,6 +62,8 @@ interface TimelineViewProps {
   onRemoveConnection: (sourceId: string, targetId: string) => void;
   onInsertScene?: (characterId: string, plotPointId: string, date: string) => Promise<string | null>;
   onOpenInEditor?: (sceneKey: string) => void;
+  viewState?: TimelineViewState;
+  onViewStateChange?: (state: TimelineViewState) => void;
 }
 
 export default function TimelineView({
@@ -83,9 +85,11 @@ export default function TimelineView({
   onRemoveConnection,
   onInsertScene,
   onOpenInEditor,
+  viewState,
+  onViewStateChange,
 }: TimelineViewProps) {
-  const [subMode, setSubMode] = useState<TimelineSubMode>('grid');
-  const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(null);
+  const [subMode, setSubMode] = useState<TimelineSubMode>(() => viewState?.subMode ?? 'grid');
+  const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(() => viewState?.selectedSceneKey ?? null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const timelineMainRef = useRef<HTMLDivElement>(null);
 
@@ -105,7 +109,26 @@ export default function TimelineView({
   const [contextBarViewport, setContextBarViewport] = useState<{ start: number; end: number }>({ start: 0, end: 1 });
 
   // Canvas zoom level (synced bidirectionally with TimelineCanvas)
-  const [canvasZoom, setCanvasZoom] = useState(1);
+  const [canvasZoom, setCanvasZoom] = useState(() => viewState?.zoom ?? 1);
+
+  // Report view state changes to parent (debounced to avoid excessive saves)
+  const viewStateChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!onViewStateChange) return;
+    if (viewStateChangeTimerRef.current) clearTimeout(viewStateChangeTimerRef.current);
+    viewStateChangeTimerRef.current = setTimeout(() => {
+      onViewStateChange({
+        panX: 0,
+        panY: 0,
+        zoom: canvasZoom,
+        selectedSceneKey,
+        subMode,
+      });
+    }, 300);
+    return () => {
+      if (viewStateChangeTimerRef.current) clearTimeout(viewStateChangeTimerRef.current);
+    };
+  }, [canvasZoom, selectedSceneKey, subMode]);
 
   const [labelWidth, setLabelWidth] = useState<number>(() => {
     try {

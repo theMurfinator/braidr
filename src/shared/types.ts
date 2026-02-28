@@ -82,6 +82,14 @@ export interface TableViewConfig {
   createdAt: number; // timestamp
 }
 
+export interface TimelineViewState {
+  panX: number;
+  panY: number;
+  zoom: number;
+  selectedSceneKey: string | null;
+  subMode: 'canvas' | 'grid';
+}
+
 export interface TimelineData {
   // Maps scene.id to timeline position
   positions: Record<string, number>;
@@ -131,6 +139,8 @@ export interface TimelineData {
   timelineEndDates?: Record<string, string>;
   // World events
   worldEvents?: WorldEvent[];
+  // Saved view state (zoom, pan, selection, subMode)
+  viewState?: TimelineViewState;
 }
 
 // ── Task Management ──────────────────────────────────────────────────────────
