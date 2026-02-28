@@ -247,7 +247,7 @@ export default function TimelineGrid({
     const map: Record<string, Record<string, string[]>> = {};
 
     for (const scene of scenes) {
-      const key = `${scene.characterId}:${scene.sceneNumber}`;
+      const key = scene.id;
       const date = timelineDates[key];
       if (!date) continue;
       if (!map[date]) map[date] = {};
@@ -274,7 +274,7 @@ export default function TimelineGrid({
   const sceneByKey = useMemo(() => {
     const m: Record<string, Scene> = {};
     for (const s of scenes) {
-      m[`${s.characterId}:${s.sceneNumber}`] = s;
+      m[s.id] = s;
     }
     return m;
   }, [scenes]);

@@ -440,7 +440,7 @@ export default function TimelineView({
     const linked = new Set(selectedEvent.linkedSceneKeys);
     const results: { key: string; label: string }[] = [];
     for (const scene of scenes) {
-      const key = `${scene.characterId}:${scene.sceneNumber}`;
+      const key = scene.id;
       if (linked.has(key)) continue;
       const label = getSceneLabel(key);
       if (linkSearch && !label.toLowerCase().includes(linkSearch.toLowerCase())) continue;

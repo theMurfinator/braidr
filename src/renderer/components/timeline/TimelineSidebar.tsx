@@ -36,7 +36,7 @@ export default function TimelineSidebar({
 
   const unassignedScenes = useMemo(() => {
     return scenes.filter(s => {
-      const key = `${s.characterId}:${s.sceneNumber}`;
+      const key = s.id;
       return !timelineDates[key];
     });
   }, [scenes, timelineDates]);
@@ -255,7 +255,7 @@ export default function TimelineSidebar({
         ) : unassignedSort === 'narrative' ? (
           <div className="timeline-unassigned-cards">
             {unassignedNarrative.map(scene => {
-              const key = `${scene.characterId}:${scene.sceneNumber}`;
+              const key = scene.id;
               const color = characterColors[scene.characterId] || '#888';
               const char = characterById[scene.characterId];
               const charName = char?.name ?? '?';
@@ -299,7 +299,7 @@ export default function TimelineSidebar({
                   </div>
                   <div className="timeline-unassigned-cards">
                     {charScenes.map(scene => {
-                      const key = `${scene.characterId}:${scene.sceneNumber}`;
+                      const key = scene.id;
                       const title = scene.title
                         ? scene.title.slice(0, 30) + (scene.title.length > 30 ? '...' : '')
                         : `Scene ${scene.sceneNumber}`;

@@ -88,7 +88,7 @@ export default function TimelineContextBar({
 
     // Draw scene bars per character lane
     for (const scene of scenes) {
-      const key = `${scene.characterId}:${scene.sceneNumber}`;
+      const key = scene.id;
       const startDate = timelineDates[key];
       if (!startDate) continue;
 
@@ -257,7 +257,7 @@ export default function TimelineContextBar({
       const barMinW = Math.max(3, 1 / dateRangeLen);
 
       for (const scene of scenes) {
-        const key = `${scene.characterId}:${scene.sceneNumber}`;
+        const key = scene.id;
         const startDate = timelineDates[key];
         if (!startDate) continue;
 

@@ -146,7 +146,7 @@ export default function TimelineCanvas({
   const sceneByKey = useMemo(() => {
     const m: Record<string, Scene> = {};
     for (const s of scenes) {
-      m[`${s.characterId}:${s.sceneNumber}`] = s;
+      m[s.id] = s;
     }
     return m;
   }, [scenes]);
@@ -155,7 +155,7 @@ export default function TimelineCanvas({
   const keyById = useMemo(() => {
     const m: Record<string, string> = {};
     for (const s of scenes) {
-      m[s.id] = `${s.characterId}:${s.sceneNumber}`;
+      m[s.id] = s.id;
     }
     return m;
   }, [scenes]);
@@ -173,7 +173,7 @@ export default function TimelineCanvas({
   const sceneDateMap = useMemo(() => {
     const map: Record<string, Record<string, string[]>> = {};
     for (const scene of scenes) {
-      const key = `${scene.characterId}:${scene.sceneNumber}`;
+      const key = scene.id;
       const date = timelineDates[key];
       if (!date) continue;
       if (!map[date]) map[date] = {};
@@ -269,7 +269,7 @@ export default function TimelineCanvas({
 
     // Check scenes
     for (const scene of scenes) {
-      const key = `${scene.characterId}:${scene.sceneNumber}`;
+      const key = scene.id;
       const r = sceneRect(key);
       if (!r) continue;
       if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
@@ -461,7 +461,7 @@ export default function TimelineCanvas({
 
     // 10. Scene cards
     for (const scene of scenes) {
-      const key = `${scene.characterId}:${scene.sceneNumber}`;
+      const key = scene.id;
       const r = sceneRect(key);
       if (!r) continue;
 
