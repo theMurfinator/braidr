@@ -97,10 +97,6 @@ const DEFAULT_STATUSES = [
 
 const STATUS_COLORS = ['#9e9e9e', '#4a90d9', '#e8973d', '#4caf7a', '#e74c3c', '#9b59b6', '#1abc9c', '#f39c12'];
 
-function getSceneKey(scene: Scene): string {
-  return `${scene.characterId}:${scene.sceneNumber}`;
-}
-
 function cleanContent(text: string): string {
   return text
     .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
@@ -387,7 +383,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const filteredScenes = scenes.filter(s => {
     if (selectedCharFilter !== 'all' && s.characterId !== selectedCharFilter) return false;
     if (selectedStatusFilters.size > 0) {
-      const sceneKey = getSceneKey(s);
+      const sceneKey = s.id;
       const meta = sceneMetadata[sceneKey];
       const status = meta?.['_status'] as string | undefined;
       if (!status) {
@@ -415,20 +411,20 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
 
   // Navigator order (placed then unplaced) — used for shift+click range selection
   const navOrderKeys = useMemo(() => {
-    return [...braidedPlaced, ...braidedUnplaced].map(s => getSceneKey(s));
+    return [...braidedPlaced, ...braidedUnplaced].map(s => s.id);
   }, [braidedPlaced, braidedUnplaced]);
 
   // Scenes selected in navigator display order
   const selectedScenesOrdered = useMemo(() => {
     const allScenes = [...braidedPlaced, ...braidedUnplaced];
-    return allScenes.filter(s => selectedSceneKeys.includes(getSceneKey(s)));
+    return allScenes.filter(s => selectedSceneKeys.includes(s.id));
   }, [braidedPlaced, braidedUnplaced, selectedSceneKeys]);
 
   // Update selected scene when key changes (use primarySceneKey in multi-select, selectedSceneKey in single)
   useEffect(() => {
     const key = isMultiSelect ? primarySceneKey : selectedSceneKey;
     if (key) {
-      const scene = scenes.find(s => getSceneKey(s) === key);
+      const scene = scenes.find(s => s.id === key);
       setSelectedScene(scene || null);
     }
   }, [selectedSceneKey, primarySceneKey, isMultiSelect, scenes]);
@@ -436,9 +432,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   // Select initial scene on mount (uses initialSceneKey if provided)
   useEffect(() => {
     if (scenes.length > 0 && !selectedSceneKey) {
-      const key = (initialSceneKey && scenes.some(s => getSceneKey(s) === initialSceneKey))
+      const key = (initialSceneKey && scenes.some(s => s.id === initialSceneKey))
         ? initialSceneKey
-        : getSceneKey(scenes[0]);
+        : scenes[0].id;
       setSelectedSceneKey(key);
       setSelectedSceneKeys([key]);
       setLastClickedKey(key);
@@ -722,7 +718,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
 </style></head><body>\n`;
 
     scenesToPrint.forEach((scene, idx) => {
-      const key = getSceneKey(scene);
+      const key = scene.id;
       const charName = characters.find(c => c.id === scene.characterId)?.name || '';
       const content = draftContent[key] || '';
       const cleanTitle = scene.content
@@ -857,7 +853,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     setActiveEditorKey(sceneKey);
     setPrimarySceneKey(sceneKey);
     // Update selectedScene to match the focused sub-editor
-    const scene = scenes.find(s => getSceneKey(s) === sceneKey);
+    const scene = scenes.find(s => s.id === sceneKey);
     if (scene) setSelectedScene(scene);
   }, [scenes]);
 
@@ -1225,7 +1221,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
         <div className="editor-nav-list">
           <>
               {braidedPlaced.map(scene => {
-                const key = getSceneKey(scene);
+                const key = scene.id;
                 const char = characters.find(c => c.id === scene.characterId);
                 const hasDraft = !!(draftContent[key] && draftContent[key] !== '<p></p>');
                 const charColor = characterColors[scene.characterId] || '#888';
@@ -1253,7 +1249,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                 <>
                   <div className="editor-nav-unplaced-sep">Unplaced</div>
                   {braidedUnplaced.map(scene => {
-                    const key = getSceneKey(scene);
+                    const key = scene.id;
                     const char = characters.find(c => c.id === scene.characterId);
                     const hasDraft = !!(draftContent[key] && draftContent[key] !== '<p></p>');
                     const charColor = characterColors[scene.characterId] || '#888';
@@ -1320,7 +1316,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
             {/* Scrivenings mode: stacked sub-editors */}
             <div className="scrivenings-container">
               {selectedScenesOrdered.map((scene, idx) => {
-                const key = getSceneKey(scene);
+                const key = scene.id;
                 const char = characters.find(c => c.id === scene.characterId);
                 return (
                   <SceneSubEditor
@@ -1434,7 +1430,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
 
         {/* ===== SCENE TAB ===== */}
         {metaTab === 'scene' && (() => {
-          const sceneKey = selectedScene ? `${selectedScene.characterId}:${selectedScene.sceneNumber}` : '';
+          const sceneKey = selectedScene ? selectedScene.id : '';
           const comments = sceneKey ? (sceneCommentsProp?.[sceneKey] || []) : [];
 
           const sectionDefs: { id: string; label: string; headerExtra?: React.ReactNode; render: () => React.ReactElement | null }[] = [
@@ -1742,7 +1738,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               label: 'Time Tracking',
               render: () => {
                 if (!selectedScene) return null;
-                const key = `${selectedScene.characterId}:${selectedScene.sceneNumber}`;
+                const key = selectedScene.id;
                 const totals = getSceneSessionTotals(sceneSessions, key);
                 const totalHrs = Math.floor(totals.totalMs / 3600000);
                 const totalMins = Math.floor((totals.totalMs % 3600000) / 60000);
@@ -2020,7 +2016,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
 
             {/* History (formerly Drafts) */}
             {selectedScene && (() => {
-              const key = getSceneKey(selectedScene);
+              const key = selectedScene.id;
               const sceneDrafts = drafts[key] || [];
               return (
                 <div className="editor-meta-section">
@@ -2181,7 +2177,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
 
       {/* Draft Comparison Modal */}
       {showDiffModal && selectedScene && (() => {
-        const key = getSceneKey(selectedScene);
+        const key = selectedScene.id;
         const sceneDrafts = drafts[key] || [];
         const currentContent = getCurrentEditorContent();
         const getContentForVersion = (v: number | null): string => {
