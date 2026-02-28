@@ -268,6 +268,13 @@ export default function TimelineGrid({
     return map;
   }, [scenes, timelineDates]);
 
+  // ── Build lookup: sceneKey -> characterId ─────────────────────────────────
+  const sceneCharacterMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of scenes) map[s.id] = s.characterId;
+    return map;
+  }, [scenes]);
+
   // ── Build lookup: date -> world events ────────────────────────────────────
   const worldEventsByDate = useMemo(() => {
     const map: Record<string, WorldEvent[]> = {};
@@ -624,7 +631,7 @@ export default function TimelineGrid({
 
           // Pre-scan for multi-day scenes in this character's row
           for (const [sk, date] of Object.entries(timelineDates)) {
-            if (!sk.startsWith(char.id + ':')) continue;
+            if (sceneCharacterMap[sk] !== char.id) continue;
             const endDate = timelineEndDates[sk];
             const span = dateSpanColumns(date, endDate, dateRange);
             if (span > 1) {

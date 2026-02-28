@@ -343,13 +343,33 @@ export default function TimelineCanvas({
     const x = (canvasX - pan.x) / zoom;
     const y = (canvasY - pan.y) / zoom;
 
-    // Check scenes
+    const effectiveColW = colWidthRef.current * zoom;
+
+    // Check scenes — adjust hit bounds to match semantic zoom rendering
     for (const scene of scenes) {
       if (collapsedLanesRef.current?.has(scene.characterId)) continue;
       const key = scene.id;
       const r = sceneRect(key);
       if (!r) continue;
-      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+
+      let hit = false;
+      if (effectiveColW < ZOOM_LEVEL_DOT) {
+        // Dot level: hit test as circle around center
+        const cx = r.x + r.w / 2;
+        const cy = r.y + r.h / 2;
+        const hitRadius = 6; // slightly larger than drawn radius for easier clicking
+        hit = (x - cx) ** 2 + (y - cy) ** 2 <= hitRadius ** 2;
+      } else if (effectiveColW < ZOOM_LEVEL_LABEL) {
+        // Label level: thin bar (height 20, centered vertically)
+        const barH = 20;
+        const barY = r.y + (r.h - barH) / 2;
+        hit = x >= r.x && x <= r.x + r.w && y >= barY && y <= barY + barH;
+      } else {
+        // Full card level: standard rect
+        hit = x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+      }
+
+      if (hit) {
         return { type: 'scene', id: scene.id, key };
       }
     }
