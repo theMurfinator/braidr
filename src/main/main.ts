@@ -665,6 +665,31 @@ ipcMain.handle(IPC_CHANNELS.SAVE_TIMELINE, async (_event, folderPath: string, da
   try {
     const timelinePath = path.join(folderPath, 'timeline.json');
 
+    // Safety guard: refuse to overwrite a file that has positions with empty positions
+    const incomingPositions = Object.keys(data.positions || {}).length;
+    if (incomingPositions === 0 && fs.existsSync(timelinePath)) {
+      try {
+        const existing = JSON.parse(fs.readFileSync(timelinePath, 'utf-8'));
+        const existingPositions = Object.keys(existing.positions || {}).length;
+        if (existingPositions > 0) {
+          console.error(`[SAVE] BLOCKED: refusing to overwrite ${existingPositions} positions with 0. Merging instead.`);
+          // Merge: keep existing positions/draftContent/etc, update everything else
+          const merged = { ...existing, ...data };
+          merged.positions = existing.positions;
+          if (Object.keys(existing.draftContent || {}).length > 0 && Object.keys((data as any).draftContent || {}).length === 0) {
+            merged.draftContent = existing.draftContent;
+          }
+          if (Object.keys(existing.sceneMetadata || {}).length > 0 && Object.keys((data as any).sceneMetadata || {}).length === 0) {
+            merged.sceneMetadata = existing.sceneMetadata;
+          }
+          if (Object.keys(existing.drafts || {}).length > 0 && Object.keys((data as any).drafts || {}).length === 0) {
+            merged.drafts = existing.drafts;
+          }
+          data = merged;
+        }
+      } catch {}
+    }
+
     // Create backup before writing (rate-limited to every 5 min)
     createTimelineBackup(folderPath, timelinePath);
 
