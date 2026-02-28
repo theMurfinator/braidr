@@ -82,7 +82,28 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [draggedScene, setDraggedScene] = useState<Scene | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
-  const [povReorderedScenes, setPovReorderedScenes] = useState<Set<string>>(new Set());
+  // Compute which braided scenes are out of POV order (per character)
+  const povReorderedScenes = useMemo(() => {
+    if (!projectData) return new Set<string>();
+    const outOfOrder = new Set<string>();
+    const braidedByChar = new Map<string, Scene[]>();
+    for (const scene of projectData.scenes) {
+      if (scene.timelinePosition === null) continue;
+      const list = braidedByChar.get(scene.characterId) || [];
+      list.push(scene);
+      braidedByChar.set(scene.characterId, list);
+    }
+    for (const [, charScenes] of braidedByChar) {
+      if (charScenes.length < 2) continue;
+      const braidedOrder = [...charScenes].sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+      const povOrder = [...charScenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+      const povIndexMap = new Map(povOrder.map((s, i) => [s.id, i]));
+      braidedOrder.forEach((scene, braidedIdx) => {
+        if (povIndexMap.get(scene.id) !== braidedIdx) outOfOrder.add(scene.id);
+      });
+    }
+    return outOfOrder;
+  }, [projectData]);
   const [showTagManager, setShowTagManager] = useState(false);
   const [showPovColors, setShowPovColors] = useState(true);
   const [allNotesExpanded, setAllNotesExpanded] = useState<boolean | null>(null);
@@ -1763,9 +1784,6 @@ function App() {
     setProjectData(updatedData);
     setDraggedPovScene(null);
 
-    // Mark the moved scene as reordered so braided views show a sync indicator
-    setPovReorderedScenes(prev => new Set(prev).add(movedScene.id));
-
     // Save to file
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
@@ -2460,15 +2478,6 @@ function App() {
     setProjectData({ ...projectData, scenes: finalScenes });
     setDraggedScene(null);
     setDropTargetIndex(null);
-
-    // Clear sync indicator — scene has been repositioned in braided view
-    if (povReorderedScenes.has(draggedScene.id)) {
-      setPovReorderedScenes(prev => {
-        const next = new Set(prev);
-        next.delete(draggedScene.id);
-        return next;
-      });
-    }
 
     await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
     track('scene_reordered', { view: 'braided' });
