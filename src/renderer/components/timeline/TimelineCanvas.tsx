@@ -137,6 +137,7 @@ export default function TimelineCanvas({
   // Transient interaction state — refs to avoid re-renders
   const panRef = useRef({ x: labelWidth + 20, y: 20 });
   const zoomRef = useRef(1);
+  const isExternalZoomUpdate = useRef(false);
   const hoverRef = useRef<HitResult | null>(null);
   const dragRef = useRef({
     isDragging: false,
@@ -251,8 +252,21 @@ export default function TimelineCanvas({
   // ── Drive zoom from external prop (slider) ──────────────────────────────────
   useEffect(() => {
     if (zoom === undefined) return;
+    if (isExternalZoomUpdate.current) {
+      isExternalZoomUpdate.current = false;
+      return;
+    }
     if (Math.abs(zoomRef.current - zoom) < 0.01) return;
+    const oldZoom = zoomRef.current;
+    const canvas = canvasRef.current;
+    const cx = canvas ? canvas.clientWidth / 2 : 0;
+    const cy = canvas ? canvas.clientHeight / 2 : 0;
     zoomRef.current = zoom;
+    // Zoom toward canvas center
+    panRef.current = {
+      x: cx - (cx - panRef.current.x) * (zoom / oldZoom),
+      y: cy - (cy - panRef.current.y) * (zoom / oldZoom),
+    };
     drawRef.current();
     reportViewport();
   }, [zoom, reportViewport]);
@@ -883,6 +897,7 @@ export default function TimelineCanvas({
         y: my - (my - panRef.current.y) * (newZoom / oldZoom),
       };
 
+      isExternalZoomUpdate.current = true;
       onZoomChangeRef.current?.(zoomRef.current);
       draw();
       reportViewport();
