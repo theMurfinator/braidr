@@ -326,11 +326,10 @@ export default function GraphView({ notes, scenes, characters, onSelectNote, sel
     }
 
     for (const scene of scenes) {
-      const sceneKey = `${scene.characterId}:${scene.sceneNumber}`;
       const character = characters.find(c => c.id === scene.characterId);
       const charIdx = characters.indexOf(character!);
-      nodeMap.set(sceneKey, {
-        id: sceneKey,
+      nodeMap.set(scene.id, {
+        id: scene.id,
         title: scene.title || `${character?.name || '?'} #${scene.sceneNumber}`,
         topAncestorId: '',
         connectionCount: 0,
@@ -376,10 +375,9 @@ export default function GraphView({ notes, scenes, characters, onSelectNote, sel
     }
     for (const scene of scenes) {
       if (scene.tags) {
-        const sceneKey = `${scene.characterId}:${scene.sceneNumber}`;
         for (const tag of scene.tags) {
           const list = tagToNodeIds.get(tag) || [];
-          list.push(sceneKey);
+          list.push(scene.id);
           tagToNodeIds.set(tag, list);
         }
       }

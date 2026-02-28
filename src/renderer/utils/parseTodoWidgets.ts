@@ -8,7 +8,7 @@ export interface SceneTodo {
   description: string;
   done: boolean;
   sceneLabel: string;
-  sceneKey: string; // "characterId:sceneNumber" — reliable matching key
+  sceneKey: string; // scene.id — reliable matching key
   isInline?: boolean;   // true for todos added directly in the editor sidebar
 }
 
@@ -65,30 +65,17 @@ export function extractTodosFromNotes(
 
 /**
  * Get todos matching a specific scene for display in the editor sidebar.
- * Uses sceneKey ("characterId:sceneNumber") for reliable matching,
- * with fallback to label-based matching for older todos without a key.
+ * Uses sceneKey (scene.id) for reliable matching.
  */
 export function getTodosForScene(
   todos: SceneTodo[],
-  characterId: string,
-  characterName: string,
-  sceneNumber: number
+  sceneId: string
 ): SceneTodo[] {
-  const sceneKey = `${characterId}:${sceneNumber}`;
-
   return todos.filter(todo => {
-    // Primary: match by sceneKey (reliable)
     if (todo.sceneKey) {
-      return todo.sceneKey === sceneKey;
+      return todo.sceneKey === sceneId;
     }
-    // Fallback: match by label for older todos without sceneKey
-    const label = todo.sceneLabel.toLowerCase();
-    const searchTerms = [
-      `${characterName} — ${sceneNumber}`,
-      `${characterName} — scene ${sceneNumber}`,
-      `${characterName} - scene ${sceneNumber}`,
-    ].map(t => t.toLowerCase());
-    return searchTerms.some(term => label.includes(term));
+    return false;
   });
 }
 

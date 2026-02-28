@@ -1611,8 +1611,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                 const sceneTasks = (tasks || []).filter(t => t.sceneKey === sceneKey);
 
                 // Legacy note-linked todos
-                const charName = characters.find(c => c.id === selectedScene.characterId)?.name || '';
-                const noteTodos = getTodosForScene(sceneTodos, selectedScene.characterId, charName, selectedScene.sceneNumber);
+                const noteTodos = getTodosForScene(sceneTodos, selectedScene.id);
 
                 return (
                   <>

@@ -161,7 +161,7 @@ export default function NoteEditor({
         .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
         .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
       const label = cleanedContent || `${charName} Scene ${scene.sceneNumber}`;
-      const sceneKey = `${scene.characterId}:${scene.sceneNumber}`;
+      const sceneKey = scene.id;
       if (label.toLowerCase().includes(q) || charName.toLowerCase().includes(q)) {
         items.push({
           id: sceneKey,

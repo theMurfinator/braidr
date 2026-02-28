@@ -5,14 +5,14 @@ import { createPortal } from 'react-dom';
 
 export interface TodoRow {
   id: string;
-  sceneKey: string; // "characterId:sceneNumber" or empty
+  sceneKey: string; // scene.id or empty
   sceneLabel: string; // Display label like "Noah — 3 — Intro scene"
   description: string;
   done: boolean;
 }
 
 interface SceneOption {
-  key: string;   // "characterId:sceneNumber"
+  key: string;   // scene.id
   label: string; // "Noah — 3 — Scene title"
 }
 
@@ -41,7 +41,7 @@ function TodoWidgetView({ node, updateAttributes, editor }: any) {
       const charName = characters.find((c: any) => c.id === s.characterId)?.name || '?';
       const title = s.title ? ` — ${cleanSceneTitle(s.title)}` : '';
       return {
-        key: `${s.characterId}:${s.sceneNumber}`,
+        key: s.id,
         label: `${charName} — ${s.sceneNumber}${title}`,
       };
     });
