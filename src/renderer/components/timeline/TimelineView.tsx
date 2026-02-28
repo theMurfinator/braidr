@@ -565,6 +565,7 @@ export default function TimelineView({
               colWidth={colWidth}
               dateRange={dateRange}
               onViewportChange={(vp) => setContextBarViewport(vp)}
+              viewport={contextBarViewport}
             />
           )}
         </div>

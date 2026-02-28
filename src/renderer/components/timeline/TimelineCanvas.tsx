@@ -47,6 +47,7 @@ interface TimelineCanvasProps {
   colWidth: number;
   dateRange: string[];
   onViewportChange?: (viewport: { start: number; end: number }) => void;
+  viewport?: { start: number; end: number }; // Incoming viewport from context bar
 }
 
 interface HitResult {
@@ -109,6 +110,7 @@ export default function TimelineCanvas({
   colWidth,
   dateRange,
   onViewportChange,
+  viewport,
 }: TimelineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const onViewportChangeRef = useRef(onViewportChange);
@@ -194,8 +196,16 @@ export default function TimelineCanvas({
     return map;
   }, [worldEvents]);
 
+  // ── External viewport refs (used by reportViewport and the viewport effect) ──
+  const viewportRef = useRef(viewport);
+  const isExternalViewportUpdate = useRef(false);
+
   // ── Report viewport to context bar ──────────────────────────────────────────
   const reportViewport = useCallback(() => {
+    if (isExternalViewportUpdate.current) {
+      isExternalViewportUpdate.current = false;
+      return;
+    }
     const canvas = canvasRef.current;
     if (!canvas || dateRange.length === 0 || !onViewportChangeRef.current) return;
     const zoom = zoomRef.current;
@@ -208,6 +218,40 @@ export default function TimelineCanvas({
     const endFrac = Math.min(1, (w - offset) / totalW);
     onViewportChangeRef.current({ start: startFrac, end: endFrac });
   }, [dateRange.length]);
+
+  // ── Drive canvas from external viewport (context bar) ──────────────────────
+  useEffect(() => {
+    if (!viewport || dateRange.length === 0) return;
+    // Skip if this is just our own reportViewport echoing back
+    const prev = viewportRef.current;
+    viewportRef.current = viewport;
+    if (prev && Math.abs(prev.start - viewport.start) < 0.001 && Math.abs(prev.end - viewport.end) < 0.001) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const w = canvas.clientWidth;
+    const zoom = zoomRef.current;
+    const totalW = dateRange.length * colWidthRef.current * zoom;
+    if (totalW <= 0) return;
+
+    // Compute new zoom from viewport width
+    const vpWidth = viewport.end - viewport.start;
+    if (vpWidth > 0 && vpWidth < 1) {
+      const newZoom = w / (vpWidth * dateRange.length * colWidthRef.current);
+      zoomRef.current = Math.max(0.3, Math.min(3, newZoom));
+    }
+
+    // Compute new pan from viewport start
+    const newTotalW = dateRange.length * colWidthRef.current * zoomRef.current;
+    panRef.current = {
+      ...panRef.current,
+      x: -(viewport.start * newTotalW) + labelWidthRef.current * zoomRef.current,
+    };
+
+    isExternalViewportUpdate.current = true;
+    draw();
+    // Don't call reportViewport here to avoid feedback loop
+  }, [viewport, dateRange.length, draw]);
 
   // ── Position helpers ────────────────────────────────────────────────────────
 
