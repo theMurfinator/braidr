@@ -2,6 +2,79 @@ import React, { useState, useRef, useLayoutEffect } from 'react';
 import { Scene, Character, Tag, TagCategory, PlotPoint } from '../../shared/types';
 import RailsSceneCard from './RailsSceneCard';
 import FloatingEditor from './FloatingEditor';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+function SortableRailHeader({
+  id,
+  children,
+  className,
+  style,
+}: {
+  id: string;
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const combinedStyle: React.CSSProperties = {
+    ...style,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={combinedStyle} className={className} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
+
+function SortableRailsScene({
+  id,
+  children,
+}: {
+  id: string;
+  children: (listeners: Record<string, unknown>) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {children(listeners || {})}
+    </div>
+  );
+}
+
+function DroppableRailsInbox({ children, className }: { children: React.ReactNode; className?: string }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'rails-inbox' });
+  return (
+    <div ref={setNodeRef} className={`${className || ''} ${isOver ? 'inbox-drag-over' : ''}`}>
+      {children}
+    </div>
+  );
+}
 
 interface RailsViewProps {
   scenes: Scene[];
@@ -26,10 +99,8 @@ interface RailsViewProps {
   unbraidedScenesByCharacter: Map<string, Map<string, Scene[]>>;
   allCharacters: Character[];
   plotPoints: PlotPoint[];
-  onDragStart: (e: React.DragEvent, scene: Scene) => void;
-  onDragEnd: () => void;
-  onDropOnTimeline: (e: React.DragEvent, targetIndex: number) => void;
-  onDropOnInbox: (e: React.DragEvent) => void;
+  onSceneReorder: (sceneId: string, targetIndex: number) => void;
+  onRemoveFromTimeline: (sceneId: string) => void;
   onRailReorder: (fromIndex: number, toIndex: number) => void;
   draftContent: Record<string, string>;
   onDraftChange: (sceneKey: string, html: string) => void;
@@ -61,10 +132,8 @@ export default function RailsView({
   unbraidedScenesByCharacter,
   allCharacters,
   plotPoints,
-  onDragStart,
-  onDragEnd,
-  onDropOnTimeline,
-  onDropOnInbox,
+  onSceneReorder,
+  onRemoveFromTimeline,
   onRailReorder,
   draftContent,
   onDraftChange,
@@ -76,13 +145,50 @@ export default function RailsView({
   const [floatingEditorScene, setFloatingEditorScene] = useState<Scene | null>(null);
   const [scenePositions, setScenePositions] = useState<Record<string, { left: number; right: number; y: number }>>({});
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
-  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
-  const [draggedRailIndex, setDraggedRailIndex] = useState<number | null>(null);
-  const [railDropTarget, setRailDropTarget] = useState<number | null>(null);
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
+  const [activeDragSceneId, setActiveDragSceneId] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  // Rail header drag end
+  const handleRailDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = characters.findIndex(c => c.id === active.id);
+    const newIndex = characters.findIndex(c => c.id === over.id);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      onRailReorder(oldIndex, newIndex);
+    }
+  };
+
+  // Scene drag start
+  const handleSceneDragStart = (event: DragStartEvent) => {
+    setActiveDragSceneId(event.active.id as string);
+  };
+
+  // Scene drag end
+  const handleSceneDragEnd = (event: DragEndEvent) => {
+    setActiveDragSceneId(null);
+    const { active, over } = event;
+    if (!over) return;
+    if (over.id === 'rails-inbox') {
+      onRemoveFromTimeline(active.id as string);
+      return;
+    }
+    if (active.id === over.id) return;
+    const oldIndex = scenes.findIndex(s => s.id === active.id);
+    const newIndex = scenes.findIndex(s => s.id === over.id);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      onSceneReorder(active.id as string, newIndex);
+    }
+  };
+
+  const activeDragScene = activeDragSceneId ? scenes.find(s => s.id === activeDragSceneId) : null;
 
   // Get hex color for a character
   const getCharacterHexColor = (characterId: string): string => {
@@ -161,22 +267,6 @@ export default function RailsView({
     setFloatingEditorScene(scene);
   };
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDropTargetIndex(index);
-  };
-
-  const handleDrop = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    setDropTargetIndex(null);
-    onDropOnTimeline(e, index);
-  };
-
-  const handleInboxDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
 
   // Build grid data: each row has position and a map of characterId -> scene or null
   const gridRows = scenes.map((scene, index) => {
@@ -268,6 +358,7 @@ export default function RailsView({
   };
 
   return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleSceneDragStart} onDragEnd={handleSceneDragEnd}>
     <div className={`rails-view ${isConnecting ? 'is-connecting' : ''}`}>
       <div className="rails-main" ref={scrollRef}>
         {/* Connection Mode Banner */}
@@ -277,52 +368,29 @@ export default function RailsView({
           </div>
         )}
         {/* Rails Header */}
-        <div
-          className="rails-header"
-          style={{ '--rails-columns': numColumns } as React.CSSProperties}
-        >
-          <div className="rails-header-cell rails-row-number-header">#</div>
-          {characters.map((char, index) => (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRailDragEnd}>
+          <SortableContext items={characters.map(c => c.id)} strategy={horizontalListSortingStrategy}>
             <div
-              key={char.id}
-              className={`rails-header-cell draggable ${draggedRailIndex === index ? 'dragging' : ''} ${railDropTarget === index ? 'drop-target' : ''}`}
-              style={{
-                backgroundColor: showPovColors ? getCharacterBgColor(char.id) : undefined,
-                borderBottom: `3px solid ${getCharacterHexColor(char.id)}`,
-              }}
-              draggable
-              onDragStart={(e) => {
-                setDraggedRailIndex(index);
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', `rail-${index}`);
-              }}
-              onDragEnd={() => {
-                setDraggedRailIndex(null);
-                setRailDropTarget(null);
-              }}
-              onDragOver={(e) => {
-                if (draggedRailIndex !== null && draggedRailIndex !== index) {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  setRailDropTarget(index);
-                }
-              }}
-              onDragLeave={() => {
-                setRailDropTarget(null);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (draggedRailIndex !== null && draggedRailIndex !== index) {
-                  onRailReorder(draggedRailIndex, index);
-                }
-                setDraggedRailIndex(null);
-                setRailDropTarget(null);
-              }}
+              className="rails-header"
+              style={{ '--rails-columns': numColumns } as React.CSSProperties}
             >
-              {char.name}
+              <div className="rails-header-cell rails-row-number-header">#</div>
+              {characters.map((char) => (
+                <SortableRailHeader
+                  key={char.id}
+                  id={char.id}
+                  className="rails-header-cell draggable"
+                  style={{
+                    backgroundColor: showPovColors ? getCharacterBgColor(char.id) : undefined,
+                    borderBottom: `3px solid ${getCharacterHexColor(char.id)}`,
+                  }}
+                >
+                  {char.name}
+                </SortableRailHeader>
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
 
         {/* Rails Grid */}
         <div className="rails-grid" ref={gridRef}>
@@ -400,18 +468,15 @@ export default function RailsView({
             </svg>
           )}
 
-          {/* Empty state drop zone */}
+          {/* Empty state */}
           {scenes.length === 0 && (
-            <div
-              className={`rails-empty-drop ${dropTargetIndex === 0 ? 'active' : ''}`}
-              onDragOver={(e) => handleDragOver(e, 0)}
-              onDrop={(e) => handleDrop(e, 0)}
-            >
+            <div className="rails-empty-drop">
               Drag scenes here to start braiding
             </div>
           )}
 
           {/* Grid rows */}
+          <SortableContext items={scenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
           <div
             className="rails-grid-inner"
             style={{ '--rails-columns': numColumns } as React.CSSProperties}
@@ -421,19 +486,12 @@ export default function RailsView({
               const rowHeight = getRowHeight(row.scene.wordCount);
 
               return (
+                <SortableRailsScene key={row.scene.id} id={row.scene.id}>
+                  {(listeners) => (
                 <div
-                  key={row.scene.id}
                   className="rails-row"
                   style={{ '--row-height': `${rowHeight}px` } as React.CSSProperties}
                 >
-                  {/* Drop zone before this row */}
-                  <div
-                    className={`rails-drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
-                    style={{ gridColumn: `1 / -1` }}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDrop={(e) => handleDrop(e, index)}
-                  />
-
                   {/* Row number — click to insert scene at this position */}
                   <div
                     className={`rails-row-number ${onInsertSceneAtPosition ? 'clickable' : ''} ${insertAtPosition === index ? 'active' : ''}`}
@@ -519,8 +577,7 @@ export default function RailsView({
                           isConnecting={isConnecting}
                           isConnectionSource={connectionSource === row.scene.id}
                           isConnectionTarget={isConnecting && connectionSource !== row.scene.id}
-                          onDragStart={(e) => onDragStart(e, row.scene)}
-                          onDragEnd={onDragEnd}
+                          dragListeners={listeners}
                           isPovReordered={povReorderedScenes?.has(row.scene.id) || false}
                         />
                       )}
@@ -528,18 +585,10 @@ export default function RailsView({
                     );
                   })}
                 </div>
+                  )}
+                </SortableRailsScene>
               );
             })}
-
-            {/* Drop zone at the end */}
-            {scenes.length > 0 && (
-              <div
-                className={`rails-drop-zone rails-drop-zone-end ${dropTargetIndex === scenes.length ? 'active' : ''}`}
-                style={{ gridColumn: `1 / -1` }}
-                onDragOver={(e) => handleDragOver(e, scenes.length)}
-                onDrop={(e) => handleDrop(e, scenes.length)}
-              />
-            )}
 
             {/* Add scene at end — clickable "+" row number */}
             {scenes.length > 0 && onInsertSceneAtPosition && (
@@ -600,15 +649,11 @@ export default function RailsView({
               </div>
             )}
           </div>
+          </SortableContext>
         </div>
       </div>
 
-      {/* To Braid Inbox - Right sidebar */}
-      <div
-        className="to-braid-inbox"
-        onDragOver={handleInboxDragOver}
-        onDrop={onDropOnInbox}
-      >
+      <DroppableRailsInbox className="to-braid-inbox">
         <div className="inbox-header">
           <h2 className="inbox-title">To Braid</h2>
           <select
@@ -662,9 +707,6 @@ export default function RailsView({
                                 key={scene.id}
                                 className="inbox-scene"
                                 style={{ '--char-color': charColor } as React.CSSProperties}
-                                draggable
-                                onDragStart={(e) => onDragStart(e, scene)}
-                                onDragEnd={onDragEnd}
                               >
                                 <span className="inbox-scene-number">{scene.sceneNumber}.</span>
                                 <span className="inbox-scene-title">
@@ -681,9 +723,6 @@ export default function RailsView({
                           key={scene.id}
                           className="inbox-scene"
                           style={{ '--char-color': charColor } as React.CSSProperties}
-                          draggable
-                          onDragStart={(e) => onDragStart(e, scene)}
-                          onDragEnd={onDragEnd}
                         >
                           <span className="inbox-scene-number">{scene.sceneNumber}.</span>
                           <span className="inbox-scene-title">
@@ -700,7 +739,20 @@ export default function RailsView({
             );
           })}
         </div>
-      </div>
+      </DroppableRailsInbox>
+
+      {/* Drag Overlay */}
+      <DragOverlay>
+        {activeDragScene ? (
+          <div className="rails-scene-card drag-overlay" style={{ borderLeftColor: getCharacterHexColor(activeDragScene.characterId) }}>
+            <div className="rails-scene-title">
+              {activeDragScene.content
+                .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
+                .replace(/#\w+/g, '').trim() || 'Untitled scene'}
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
 
       {/* Slide-in Scene Panel */}
       {floatingEditorScene && (
@@ -725,5 +777,6 @@ export default function RailsView({
         />
       )}
     </div>
+    </DndContext>
   );
 }
