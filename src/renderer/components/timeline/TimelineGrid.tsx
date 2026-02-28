@@ -35,6 +35,8 @@ interface TimelineGridProps {
   onWorldEventsChange: (events: WorldEvent[]) => void;
   plotPoints?: PlotPoint[];
   onInsertScene?: (characterId: string, plotPointId: string, date: string) => Promise<string | null>;
+  collapsedLanes?: Set<string>;
+  onToggleLane?: (characterId: string) => void;
 }
 
 /** Short weekday abbreviation from a date string. */
@@ -152,6 +154,8 @@ export default function TimelineGrid({
   onWorldEventsChange,
   plotPoints,
   onInsertScene,
+  collapsedLanes,
+  onToggleLane,
 }: TimelineGridProps) {
   const resizeDragRef = useRef<{ startX: number; initialWidth: number; target: 'label' | 'col' } | null>(null);
   const spanResizeRef = useRef<{ sceneKey: string; edge: 'left' | 'right'; startX: number; startDate: string; startEndDate: string | undefined } | null>(null);
@@ -583,6 +587,30 @@ export default function TimelineGrid({
         {characters.map((char, rowIdx) => {
           const color = characterColors[char.id] || '#888';
           const gridRow = rowIdx + 3; // 1-indexed: header=1, world=2, chars start at 3
+          const isCollapsed = collapsedLanes?.has(char.id);
+
+          if (isCollapsed) {
+            // Collapsed lane: thin row with just the character name and expand toggle
+            return (
+              <Fragment key={char.id}>
+                <div
+                  className="tg-lane-label tg-lane-collapsed"
+                  style={{ gridRow, gridColumn: 1, height: 16, minHeight: 16, cursor: 'pointer' }}
+                  onClick={() => onToggleLane?.(char.id)}
+                >
+                  <span className="tg-lane-color" style={{ background: color }} />
+                  <span className="tg-lane-name">{'\u25B6'} {char.name}</span>
+                </div>
+                {dateRange.map((date, colIdx) => (
+                  <div
+                    key={`${char.id}-${date}`}
+                    className="tg-cell empty tg-cell-collapsed"
+                    style={{ gridRow, gridColumn: colIdx + 2, height: 16, minHeight: 16 }}
+                  />
+                ))}
+              </Fragment>
+            );
+          }
 
           // Collect multi-day scenes to render as top-level grid items
           const multiDayScenes: { sceneKey: string; colStart: number; span: number }[] = [];
@@ -606,10 +634,11 @@ export default function TimelineGrid({
             <Fragment key={char.id}>
               <div
                 className="tg-lane-label"
-                style={{ gridRow, gridColumn: 1 }}
+                style={{ gridRow, gridColumn: 1, cursor: 'pointer' }}
+                onClick={() => onToggleLane?.(char.id)}
               >
                 <span className="tg-lane-color" style={{ background: color }} />
-                <span className="tg-lane-name">{char.name}</span>
+                <span className="tg-lane-name">{'\u25BC'} {char.name}</span>
               </div>
               {dateRange.map((date, colIdx) => {
                 const sceneKeys = sceneDateMap[date]?.[char.id] || [];

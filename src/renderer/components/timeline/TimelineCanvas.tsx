@@ -54,6 +54,8 @@ interface TimelineCanvasProps {
   viewport?: { start: number; end: number }; // Incoming viewport from context bar
   zoom?: number;
   onZoomChange?: (zoom: number) => void;
+  collapsedLanes?: Set<string>;
+  onToggleLane?: (characterId: string) => void;
 }
 
 interface HitResult {
@@ -119,6 +121,8 @@ export default function TimelineCanvas({
   viewport,
   zoom,
   onZoomChange,
+  collapsedLanes,
+  onToggleLane,
 }: TimelineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const onViewportChangeRef = useRef(onViewportChange);
@@ -126,6 +130,9 @@ export default function TimelineCanvas({
 
   const onZoomChangeRef = useRef(onZoomChange);
   useEffect(() => { onZoomChangeRef.current = onZoomChange; }, [onZoomChange]);
+
+  const onToggleLaneRef = useRef(onToggleLane);
+  useEffect(() => { onToggleLaneRef.current = onToggleLane; }, [onToggleLane]);
 
   // Keep labelWidth and colWidth in refs so draw/dayX can read them without being deps
   const labelWidthRef = useRef(labelWidth);
@@ -279,8 +286,12 @@ export default function TimelineCanvas({
   }, [dateRange]);
 
   const laneY = useCallback((charIndex: number): number => {
-    return TOP_MARGIN + EVENT_HEIGHT + LANE_GAP + charIndex * LANE_HEIGHT;
-  }, []);
+    let y = TOP_MARGIN + EVENT_HEIGHT + LANE_GAP;
+    for (let i = 0; i < charIndex; i++) {
+      y += collapsedLanes?.has(characters[i]?.id) ? 16 : LANE_HEIGHT;
+    }
+    return y;
+  }, [characters, collapsedLanes]);
 
   /** Get the rect for a scene card, handling stacking within the same day & character lane. */
   const sceneRect = useCallback((sceneKey: string): Rect | null => {
@@ -389,7 +400,8 @@ export default function TimelineCanvas({
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom, zoom);
 
-    const totalLaneHeight = characters.length * LANE_HEIGHT;
+    const totalLaneHeight = characters.reduce((sum, char) =>
+      sum + (collapsedLanes?.has(char.id) ? 16 : LANE_HEIGHT), 0);
 
     // 3. Day column backgrounds
     for (const date of dateRange) {
@@ -439,25 +451,38 @@ export default function TimelineCanvas({
     // 5. Character lane stripes (alternating)
     for (let i = 0; i < characters.length; i++) {
       const y = laneY(i);
+      const isCollapsed = collapsedLanes?.has(characters[i].id);
+      const laneH = isCollapsed ? 16 : LANE_HEIGHT;
       ctx.fillStyle = i % 2 === 0 ? COLORS.laneStripeEven : COLORS.laneStripeOdd;
       ctx.fillRect(
         -20,
         y,
         dateRange.length * colWidthRef.current + labelWidthRef.current + 40,
-        LANE_HEIGHT,
+        laneH,
       );
     }
 
     // 6. Character lane labels (left side)
-    ctx.textAlign = 'right';
-    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
     for (let i = 0; i < characters.length; i++) {
       const char = characters[i];
       const color = characterColors[char.id] || '#888';
       const y = laneY(i);
-      // 60% opacity: append '99' (hex for ~60%)
-      ctx.fillStyle = color + '99';
-      ctx.fillText(char.name, labelWidthRef.current - 12, y + LANE_HEIGHT / 2 + 4);
+      const isCollapsed = collapsedLanes?.has(char.id);
+      const laneH = isCollapsed ? 16 : LANE_HEIGHT;
+
+      if (isCollapsed) {
+        // Thin collapsed row
+        ctx.fillStyle = COLORS.cardText;
+        ctx.font = '11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('\u25B6 ' + char.name, 8, y + 12);
+      } else {
+        // Normal expanded lane label
+        ctx.textAlign = 'right';
+        ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+        ctx.fillStyle = color + '99';
+        ctx.fillText('\u25BC ' + char.name, labelWidthRef.current - 12, y + laneH / 2 + 4);
+      }
     }
 
     // 7. World events row label
@@ -524,6 +549,7 @@ export default function TimelineCanvas({
 
     // 10. Scene cards — semantic zoom
     for (const scene of scenes) {
+      if (collapsedLanes?.has(scene.characterId)) continue;
       const key = scene.id;
       const r = sceneRect(key);
       if (!r) continue;
@@ -758,6 +784,7 @@ export default function TimelineCanvas({
     laneY,
     sceneRect,
     eventRect,
+    collapsedLanes,
   ]);
 
   // Keep draw in a ref so the viewport effect can call it without depending on it
@@ -851,6 +878,27 @@ export default function TimelineCanvas({
         const rect = canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
+
+        // Check if click is on a lane label (left column area)
+        const zoom = zoomRef.current;
+        const pan = panRef.current;
+        const worldX = (mx - pan.x) / zoom;
+        const worldY = (my - pan.y) / zoom;
+
+        if (worldX < labelWidthRef.current && onToggleLaneRef.current) {
+          // Determine which lane was clicked based on Y position
+          for (let i = 0; i < characters.length; i++) {
+            const ly = laneY(i);
+            const isCollapsed = collapsedLanes?.has(characters[i].id);
+            const laneH = isCollapsed ? 16 : LANE_HEIGHT;
+            if (worldY >= ly && worldY < ly + laneH) {
+              onToggleLaneRef.current(characters[i].id);
+              draw();
+              return;
+            }
+          }
+        }
+
         const hit = hitTest(mx, my);
 
         if (hit) {
@@ -917,7 +965,7 @@ export default function TimelineCanvas({
       canvas.removeEventListener('mouseleave', handleMouseLeave);
       canvas.removeEventListener('wheel', handleWheel);
     };
-  }, [draw, hitTest, onSelectScene, onSelectEvent, reportViewport]);
+  }, [draw, hitTest, onSelectScene, onSelectEvent, reportViewport, characters, collapsedLanes, laneY]);
 
   // Redraw when selection, label width, or column width changes from outside
   useEffect(() => {

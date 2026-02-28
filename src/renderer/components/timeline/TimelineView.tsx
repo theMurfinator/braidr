@@ -89,6 +89,18 @@ export default function TimelineView({
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const timelineMainRef = useRef<HTMLDivElement>(null);
 
+  // Collapsible character lanes
+  const [collapsedLanes, setCollapsedLanes] = useState<Set<string>>(new Set());
+
+  const toggleLaneCollapse = useCallback((characterId: string) => {
+    setCollapsedLanes(prev => {
+      const next = new Set(prev);
+      if (next.has(characterId)) next.delete(characterId);
+      else next.add(characterId);
+      return next;
+    });
+  }, []);
+
   // Context bar viewport (0..1 fractions)
   const [contextBarViewport, setContextBarViewport] = useState<{ start: number; end: number }>({ start: 0, end: 1 });
 
@@ -560,6 +572,8 @@ export default function TimelineView({
               onWorldEventsChange={onWorldEventsChange}
               plotPoints={plotPoints}
               onInsertScene={onInsertScene}
+              collapsedLanes={collapsedLanes}
+              onToggleLane={toggleLaneCollapse}
             />
           ) : (
             <TimelineCanvas
@@ -581,6 +595,8 @@ export default function TimelineView({
               viewport={contextBarViewport}
               zoom={canvasZoom}
               onZoomChange={setCanvasZoom}
+              collapsedLanes={collapsedLanes}
+              onToggleLane={toggleLaneCollapse}
             />
           )}
         </div>
