@@ -9203,6 +9203,10 @@ textarea.editor-meta-field-input {
 }
 
 .table-cell-scene {
+  vertical-align: middle;
+}
+
+.table-scene-inner {
   display: flex;
   align-items: center;
   gap: 10px;

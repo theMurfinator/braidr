@@ -820,10 +820,12 @@ export default function TableView({
               if (columnId === 'scene') {
                 return (
                   <td key="scene" className="table-cell table-cell-scene">
-                    <span className="table-scene-number">{scene.timelinePosition}</span>
-                    <span className="table-scene-content">
-                      {character?.name || 'Unknown'} — {extractShortTitle(scene.content) || 'Untitled'}
-                    </span>
+                    <div className="table-scene-inner">
+                      <span className="table-scene-number">{scene.timelinePosition}</span>
+                      <span className="table-scene-content">
+                        {character?.name || 'Unknown'} — {extractShortTitle(scene.content) || 'Untitled'}
+                      </span>
+                    </div>
                   </td>
                 );
               }
