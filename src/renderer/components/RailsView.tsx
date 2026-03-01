@@ -155,19 +155,19 @@ export default function RailsView({
     };
   }, [scenes, showConnections, characters]);
 
-  // Restore scroll position after floating editor opens
+  // Restore scroll position after operations that cause re-renders
+  // (opening floating editor, or dropping a scene which changes scenes prop)
   useLayoutEffect(() => {
-    if (floatingEditorScene && scrollRef.current) {
+    if (savedScrollTop.current > 0 && scrollRef.current) {
       const saved = savedScrollTop.current;
-      // Restore immediately
       scrollRef.current.scrollTop = saved;
-      // Also restore after a frame in case the overlay/TipTap causes a delayed shift
+      // Also restore after a frame in case of delayed layout shifts
       const raf = requestAnimationFrame(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = saved;
       });
       return () => cancelAnimationFrame(raf);
     }
-  }, [floatingEditorScene]);
+  }, [floatingEditorScene, scenes]);
 
   const handleSceneClick = (scene: Scene, e: React.MouseEvent) => {
     // If in connection mode, complete the connection
@@ -239,6 +239,10 @@ export default function RailsView({
   const handleDrop = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     e.stopPropagation();
+    // Save scroll position before reorder causes re-render
+    if (scrollRef.current) {
+      savedScrollTop.current = scrollRef.current.scrollTop;
+    }
     setDropTargetIndex(null);
     setDraggedSceneId(null);
     onDropOnTimeline(e, index);
