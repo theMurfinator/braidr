@@ -155,10 +155,17 @@ export default function RailsView({
     };
   }, [scenes, showConnections, characters]);
 
-  // Restore scroll position after floating editor opens/closes
+  // Restore scroll position after floating editor opens
   useLayoutEffect(() => {
     if (floatingEditorScene && scrollRef.current) {
-      scrollRef.current.scrollTop = savedScrollTop.current;
+      const saved = savedScrollTop.current;
+      // Restore immediately
+      scrollRef.current.scrollTop = saved;
+      // Also restore after a frame in case the overlay/TipTap causes a delayed shift
+      const raf = requestAnimationFrame(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = saved;
+      });
+      return () => cancelAnimationFrame(raf);
     }
   }, [floatingEditorScene]);
 
