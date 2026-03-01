@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, TimeEntry, TimelineViewState } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, TimeEntry } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
-import { stableId } from './services/parser';
+import { migrateNotesSceneLinks } from './services/migration';
 import SceneCard from './components/SceneCard';
 import PlotPointSection from './components/PlotPointSection';
 import FilterBar from './components/FilterBar';
@@ -39,67 +39,9 @@ import { ViewRendererProvider } from './components/panes/TabContent';
 import { usePaneLayout, createTab } from './components/panes/usePaneLayout';
 import { findLeafPane, findTabByType } from './components/panes/paneUtils';
 import PaneManager from './components/panes/PaneManager';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-  useDraggable,
-  type DragEndEvent,
-  type DragStartEvent,
-  DragOverlay,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
-
-function SortableBraidedScene({
-  id,
-  children,
-}: {
-  id: string;
-  children: (args: { listeners: Record<string, unknown>; isDragging: boolean }) => React.ReactNode;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-  return (
-    <div ref={setNodeRef} style={style} className="braided-scene-wrapper" data-scene-id={id} {...attributes}>
-      {children({ listeners: listeners || {}, isDragging })}
-    </div>
-  );
-}
-
-function DraggableChapter({ id, children }: { id: string; children: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `chapter:${id}` });
-  return (
-    <div ref={setNodeRef} {...attributes} style={{ opacity: isDragging ? 0.5 : 1 }} className="braided-chapter">
-      <span className="chapter-drag-handle" {...listeners}>&#8942;&#8942;</span>
-      {children}
-    </div>
-  );
-}
-
-function DroppableInbox({ children, className }: { children: React.ReactNode; className?: string }) {
-  const { setNodeRef, isOver } = useDroppable({ id: 'braided-inbox' });
-  return (
-    <div ref={setNodeRef} className={`${className || ''} ${isOver ? 'inbox-drag-over' : ''}`}>
-      {children}
-    </div>
-  );
-}
 
 function App() {
   const { addToast } = useToast();
@@ -139,6 +81,8 @@ function App() {
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draggedScene, setDraggedScene] = useState<Scene | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
   // Compute which braided scenes are out of POV order (per character)
   const povReorderedScenes = useMemo(() => {
     if (!projectData) return new Set<string>();
@@ -181,13 +125,17 @@ function App() {
   const characterColorsRef = useRef<Record<string, string>>({});
   const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
+  const canDragSceneRef = useRef(false);
+  const dragHandleRefCallback = useCallback((el: HTMLElement | null) => {
+    if (el) el.onmousedown = () => { canDragSceneRef.current = true; };
+  }, []);
   const [isAddingChapter, setIsAddingChapter] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
-  // draggedChapter removed — chapter drag now uses dnd-kit via activeBraidedDragId with 'chapter:' prefix
+  const [draggedChapter, setDraggedChapter] = useState<BraidedChapter | null>(null);
   const [addingChapterAtPosition, setAddingChapterAtPosition] = useState<number | null>(null);
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
-  const [activePovDragId, setActivePovDragId] = useState<string | null>(null);
+  const [draggedPovScene, setDraggedPovScene] = useState<Scene | null>(null);
   const [showCharacterManager, setShowCharacterManager] = useState(false);
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [allFontSettings, setAllFontSettings] = useState<AllFontSettings>({ global: {} });
@@ -222,8 +170,6 @@ function App() {
   const [showCompileModal, setShowCompileModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const [showRestoreBackupModal, setShowRestoreBackupModal] = useState(false);
-  const [backupList, setBackupList] = useState<{ filename: string; size: number; modifiedAt: number }[]>([]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showTour, setShowTour] = useState(() => localStorage.getItem('braidr-tour-version') !== '1');
@@ -237,14 +183,12 @@ function App() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorViewHandle>(null);
   const isDirtyRef = useRef(false);
-  const isSavingRef = useRef(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Session tracker for time tracking
   const sessionTrackerRef = useRef<SessionTracker | null>(null);
   const analyticsRef = useRef<AnalyticsData | null>(null);
-  const pendingKeyMigrationRef = useRef<Scene[] | null>(null);
   const [sceneSessions, setSceneSessions] = useState<SceneSession[]>([]);
   const [pendingSession, setPendingSession] = useState<SessionSummary | null>(null);
   const [showManualCheckin, setShowManualCheckin] = useState(false);
@@ -269,6 +213,13 @@ function App() {
 
   useEffect(() => { timerRunningRef.current = timerRunning; }, [timerRunning]);
   useEffect(() => { taskTimerRunningRef.current = taskTimerRunning; }, [taskTimerRunning]);
+
+  // Reset drag ref on mouseup (in case drag is cancelled without dragEnd firing)
+  useEffect(() => {
+    const resetDrag = () => { canDragSceneRef.current = false; };
+    document.addEventListener('mouseup', resetDrag);
+    return () => document.removeEventListener('mouseup', resetDrag);
+  }, []);
 
   useEffect(() => {
     if (timerRunning) {
@@ -429,7 +380,6 @@ function App() {
   const timelineEndDatesRef = useRef<Record<string, string>>({});
   const [worldEvents, setWorldEvents] = useState<WorldEvent[]>([]);
   const worldEventsRef = useRef<WorldEvent[]>([]);
-  const timelineViewStateRef = useRef<TimelineViewState | null>(null);
 
   // Combined todos: note-linked + inline
   const allSceneTodos = useMemo(() => {
@@ -556,10 +506,9 @@ function App() {
     }
     const s = projectData.scenes.find(sc => sc.id === sceneId);
     if (s) {
-      const key = s.id;
       const updated = { ...timelineDatesRef.current };
-      if (date) updated[key] = date;
-      else delete updated[key];
+      if (date) updated[s.id] = date;
+      else delete updated[s.id];
       handleTimelineDatesChange(updated);
     }
   }, [projectData, handleTimelineDatesChange]);
@@ -746,26 +695,6 @@ function App() {
     loadAnalytics(projectData.projectPath).then(data => {
       analyticsRef.current = data;
       setSceneSessions(data.sceneSessions || []);
-
-      // If keys were migrated, also migrate analytics sceneSessions
-      const migratedScenes = pendingKeyMigrationRef.current;
-      if (migratedScenes && analyticsRef.current) {
-        const oldKeyToId: Record<string, string> = {};
-        for (const scene of migratedScenes) {
-          oldKeyToId[`${scene.characterId}:${scene.sceneNumber}`] = scene.id;
-        }
-        const newSessions = (analyticsRef.current.sceneSessions || []).map(s => ({
-          ...s,
-          sceneKey: oldKeyToId[s.sceneKey] || s.sceneKey,
-        }));
-        analyticsRef.current = { ...analyticsRef.current, sceneSessions: newSessions };
-        setSceneSessions(newSessions);
-        // Save migrated analytics
-        if (projectData.projectPath) {
-          saveAnalytics(projectData.projectPath, analyticsRef.current);
-        }
-        pendingKeyMigrationRef.current = null;
-      }
     });
 
     // When a session ends, merge it into analytics and persist (no auto-pop check-in)
@@ -1043,140 +972,53 @@ function App() {
     localStorage.setItem('rails-character-order', JSON.stringify(railOrder));
   }, [railOrder]);
 
-  // Migrate scene-keyed data from "characterId:sceneNumber" keys to "scene.id" keys.
-  // Runs once on load if old-format keys are detected.
-  const migrateSceneKeys = (
-    scenes: Scene[],
-    data: {
-      draftContent: Record<string, string>;
-      drafts: Record<string, DraftVersion[]>;
-      sceneMetadata: Record<string, Record<string, string | string[]>>;
-      scratchpad: Record<string, string>;
-      sceneComments: Record<string, SceneComment[]>;
-      positions: Record<string, number>;
-      wordCounts: Record<string, number>;
-      timelineDates: Record<string, string>;
-      timelineEndDates: Record<string, string>;
-      connections: Record<string, string[]>;
-      tasks: Task[];
-      worldEvents: WorldEvent[];
-    }
-  ) => {
-    // Build old-key -> scene.id lookup
-    const oldKeyToId: Record<string, string> = {};
-    for (const scene of scenes) {
-      oldKeyToId[`${scene.characterId}:${scene.sceneNumber}`] = scene.id;
-    }
-
-    // Check if migration is needed: do any keys look like old format?
-    const allKeys = [
-      ...Object.keys(data.draftContent),
-      ...Object.keys(data.positions),
-      ...Object.keys(data.sceneMetadata),
-    ];
-    const hasOldKeys = allKeys.some(k => k.includes(':') && /:\d+$/.test(k));
-    if (!hasOldKeys) return false; // Already migrated or empty
-
-    // Helper: remap Record keys
-    const remap = <T,>(source: Record<string, T>): Record<string, T> => {
-      const result: Record<string, T> = {};
-      for (const [key, value] of Object.entries(source)) {
-        if (key in oldKeyToId) {
-          result[oldKeyToId[key]] = value;
-        } else {
-          result[key] = value; // Keep unrecognized keys as-is
-        }
-      }
-      return result;
-    };
-
-    // Remap all Records
-    Object.assign(data, {
-      draftContent: remap(data.draftContent),
-      drafts: remap(data.drafts),
-      sceneMetadata: remap(data.sceneMetadata),
-      scratchpad: remap(data.scratchpad),
-      sceneComments: remap(data.sceneComments),
-      positions: remap(data.positions),
-      wordCounts: remap(data.wordCounts),
-      timelineDates: remap(data.timelineDates),
-      timelineEndDates: remap(data.timelineEndDates),
-    });
-
-    // Remap connections: both keys and values are old-format
-    const newConnections: Record<string, string[]> = {};
-    for (const [sourceKey, targetKeys] of Object.entries(data.connections)) {
-      const newSourceKey = oldKeyToId[sourceKey] || sourceKey;
-      const newTargetKeys = targetKeys.map(tk => oldKeyToId[tk] || tk);
-      newConnections[newSourceKey] = newTargetKeys;
-    }
-    data.connections = newConnections;
-
-    // Remap task sceneKeys
-    for (const task of data.tasks) {
-      if (task.sceneKey && task.sceneKey in oldKeyToId) {
-        task.sceneKey = oldKeyToId[task.sceneKey];
-      }
-    }
-
-    // Remap worldEvents linkedSceneKeys
-    for (const ev of data.worldEvents) {
-      if (ev.linkedSceneKeys) {
-        ev.linkedSceneKeys = ev.linkedSceneKeys.map(k => oldKeyToId[k] || k);
-      }
-    }
-
-    console.log('Migrated scene keys from characterId:sceneNumber to scene.id');
-    return true; // Migration was performed
-  };
-
   // Helper to load a project from a path
   const loadProjectFromPath = async (folderPath: string, projectName?: string) => {
     const data = await dataService.loadProject(folderPath);
 
+    // If legacy keys were migrated to stable IDs, persist the changes immediately
+    if (data._migrated) {
+      console.log('Migrating to stable scene IDs — saving .md files and timeline data');
+      // Save all character outlines to embed <!-- sid:xxx --> in .md files
+      for (const character of data.characters) {
+        const charScenes = data.scenes.filter(s => s.characterId === character.id);
+        const charPlotPoints = data.plotPoints.filter(p => p.characterId === character.id);
+        try {
+          await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+        } catch (err) {
+          console.error(`Failed to save migrated outline for ${character.name}:`, err);
+        }
+      }
+      // Save migrated timeline data (positions, connections, etc. now use scene.id keys)
+      const positions: Record<string, number> = {};
+      const wordCounts: Record<string, number> = {};
+      for (const scene of data.scenes) {
+        if (scene.timelinePosition !== null) positions[scene.id] = scene.timelinePosition;
+        if (scene.wordCount !== undefined) wordCounts[scene.id] = scene.wordCount;
+      }
+      try {
+        await dataService.saveTimeline(positions, data.connections, data.chapters, data.characterColors, wordCounts, data.fontSettings, data.archivedScenes, data.draftContent, data.metadataFieldDefs, data.sceneMetadata, data.drafts, data.wordCountGoal, data.allFontSettings, data.scratchpad, data.sceneComments, data.tasks, data.taskFieldDefs, data.taskViews, data.inlineMetadataFields, data.showInlineLabels, data.taskColumnWidths, data.taskVisibleColumns, data.timelineDates, data.worldEvents);
+      } catch (err) {
+        console.error('Failed to save migrated timeline data:', err);
+      }
+      // Migrate notes sceneLinks from old keys to stable IDs
+      try {
+        const notesIdx = await dataService.loadNotesIndex(folderPath);
+        const notesMigration = migrateNotesSceneLinks(data.scenes, notesIdx);
+        if (notesMigration.migrated) {
+          await dataService.saveNotesIndex(folderPath, notesMigration.notesIndex);
+          console.log('Migrated notes sceneLinks to stable IDs');
+        }
+      } catch {
+        // Notes may not exist yet — that's fine
+      }
+    }
+
     // Derive project name from folder if not provided
     const name = projectName || folderPath.split('/').pop() || 'Untitled';
 
-    // Migrate old characterId:sceneNumber keys to scene.id if needed
-    let loadedDraft = data.draftContent || {};
-    let loadedDrafts = data.drafts || {};
-    let loadedScratchpad = data.scratchpad || {};
-    let loadedComments = data.sceneComments || {};
-    let loadedMetaData = data.sceneMetadata || {};
-    const loadedTasks = data.tasks || [];
-    const migrationData = {
-      draftContent: loadedDraft,
-      drafts: loadedDrafts,
-      sceneMetadata: loadedMetaData,
-      scratchpad: loadedScratchpad,
-      sceneComments: loadedComments,
-      positions: (data as any).positions || {},
-      wordCounts: (data as any).wordCounts || {},
-      timelineDates: data.timelineDates || {},
-      timelineEndDates: (data as any).timelineEndDates || {},
-      connections: data.connections || {},
-      tasks: loadedTasks,
-      worldEvents: (data as any).worldEvents || [],
-    };
-    const didMigrate = migrateSceneKeys(data.scenes, migrationData);
-    // Store scenes for analytics migration if keys were migrated
-    pendingKeyMigrationRef.current = didMigrate ? data.scenes : null;
-
-    // After migration, Object.assign inside migrateSceneKeys replaces migrationData
-    // properties with new remapped objects. Re-point local variables so orphan cleanup
-    // and state-setting use the migrated data, not the stale pre-migration references.
-    if (didMigrate) {
-      loadedDraft = migrationData.draftContent;
-      loadedDrafts = migrationData.drafts;
-      loadedScratchpad = migrationData.scratchpad;
-      loadedComments = migrationData.sceneComments;
-      loadedMetaData = migrationData.sceneMetadata;
-      // Trigger auto-save so migrated keys are persisted to timeline.json
-      isDirtyRef.current = true;
-    }
-
-    // After migration, connections are already keyed by scene.id
-    setSceneConnections(migrationData.connections);
+    // Connections are already keyed by scene.id (migrated in dataService)
+    setSceneConnections(data.connections);
     setBraidedChapters(data.chapters);
     const loadedColors = data.characterColors || {};
     setCharacterColors(loadedColors);
@@ -1243,10 +1085,14 @@ function App() {
     track('project_opened', {
       character_count: data.characters.length,
       scene_count: data.scenes.length,
-      total_words: Object.values(data.wordCounts || {}).reduce((sum: number, wc: number) => sum + wc, 0),
+      total_words: data.scenes.reduce((sum: number, s: Scene) => sum + (s.wordCount || 0), 0),
     });
 
     // Load editor data
+    const loadedDraft = data.draftContent || {};
+    const loadedDrafts = data.drafts || {};
+    const loadedScratchpad = data.scratchpad || {};
+    const loadedComments = data.sceneComments || {};
     const loadedMetaDefs = data.metadataFieldDefs || [];
     setMetadataFieldDefs(loadedMetaDefs);
     metadataFieldDefsRef.current = loadedMetaDefs;
@@ -1256,10 +1102,10 @@ function App() {
     const loadedShowLabels = data.showInlineLabels !== undefined ? data.showInlineLabels : true;
     setShowInlineLabels(loadedShowLabels);
     showInlineLabelsRef.current = loadedShowLabels;
+    const loadedMetaData = data.sceneMetadata || {};
 
-    // Note: orphan cleanup was removed — it was destroying data when scene numbers
-    // shifted between sessions. Save-time key remapping (in saveTimelineData) now
-    // ensures timeline.json keys always match what the parser will generate.
+    // Note: orphan cleanup was removed — it was destroying draft content
+    // when scene numbers shifted from archiving/reordering.
 
     setSceneMetadata(loadedMetaData);
     sceneMetadataRef.current = loadedMetaData;
@@ -1284,12 +1130,14 @@ function App() {
     setInlineTodos(loadedInlineTodos);
     inlineTodosRef.current = loadedInlineTodos;
 
+    // Load tasks
+    const loadedTasks: Task[] = (data as any).tasks || [];
+
     // Migrate inline todos to tasks (one-time, only if no tasks exist yet)
     if (!loadedTasks.length) {
       const migratedTasks: Task[] = [];
       let order = 0;
       for (const [sk, todos] of Object.entries(loadedInlineTodos)) {
-        const skScene = projectData.scenes.find(s => s.id === sk);
         for (const todo of todos) {
           migratedTasks.push({
             id: todo.todoId || crypto.randomUUID(),
@@ -1297,7 +1145,7 @@ function App() {
             status: todo.done ? 'done' : 'open',
             priority: 'none',
             tags: [],
-            characterIds: skScene ? [skScene.characterId] : [],
+            characterIds: [data.scenes.find(s => s.id === sk)?.characterId].filter(Boolean) as string[],
             sceneKey: sk,
             timeEntries: [],
             createdAt: Date.now(),
@@ -1331,17 +1179,15 @@ function App() {
     const loadedTaskVisibleColumns: string[] | undefined = (data as any).taskVisibleColumns;
     setTaskVisibleColumns(loadedTaskVisibleColumns);
     taskVisibleColumnsRef.current = loadedTaskVisibleColumns;
-    const loadedTimelineDates: Record<string, string> = migrationData.timelineDates;
+    const loadedTimelineDates: Record<string, string> = (data as any).timelineDates || {};
     setTimelineDates(loadedTimelineDates);
     timelineDatesRef.current = loadedTimelineDates;
-    const loadedTimelineEndDates: Record<string, string> = migrationData.timelineEndDates;
+    const loadedTimelineEndDates: Record<string, string> = (data as any).timelineEndDates || {};
     setTimelineEndDates(loadedTimelineEndDates);
     timelineEndDatesRef.current = loadedTimelineEndDates;
-    const loadedWorldEvents: WorldEvent[] = migrationData.worldEvents;
+    const loadedWorldEvents: WorldEvent[] = (data as any).worldEvents || [];
     setWorldEvents(loadedWorldEvents);
     worldEventsRef.current = loadedWorldEvents;
-    const loadedViewState: TimelineViewState | null = (data as any).viewState || null;
-    timelineViewStateRef.current = loadedViewState;
 
     // Select first character by default
     if (data.characters.length > 0) {
@@ -1351,9 +1197,7 @@ function App() {
     // View mode is now restored via the pane layout system (usePaneLayout)
 
     // Add to recent projects with summary stats
-    const totalWordCount = data.wordCounts
-      ? Object.values(data.wordCounts as Record<string, number>).reduce((sum: number, wc: number) => sum + wc, 0)
-      : 0;
+    const totalWordCount = data.scenes.reduce((sum: number, s: Scene) => sum + (s.wordCount || 0), 0);
     await dataService.addRecentProject({
       name,
       path: folderPath,
@@ -1562,20 +1406,6 @@ function App() {
     }
   };
 
-  const handleRestoreBackup = async (filename: string) => {
-    if (!projectData) return;
-    if (!confirm(`Restore from "${filename}"?\n\nA safety backup of the current data will be created first. The project will reload after restoring.`)) return;
-    try {
-      await dataService.restoreBackup(filename);
-      setShowRestoreBackupModal(false);
-      // Reload the project to pick up restored data
-      const data = await dataService.loadProject(projectData.projectPath);
-      setProjectData(data);
-    } catch (err) {
-      setError(String(err));
-    }
-  };
-
   const handleToggleFilter = (tagName: string) => {
     const newFilters = new Set(activeFilters);
     if (newFilters.has(tagName)) {
@@ -1742,7 +1572,7 @@ function App() {
 
   const handleSceneClick = (scene: Scene, e: React.MouseEvent) => {
     // Don't do anything if we're dragging
-    if (activeBraidedDragId) return;
+    if (draggedScene) return;
 
     // If we're in connection mode, complete the connection
     if (isConnecting && connectionSource && connectionSource !== scene.id && projectData) {
@@ -1848,18 +1678,8 @@ function App() {
     await saveTimelineData(projectData.scenes, sceneConnections, updatedChapters);
   };
 
-  const povSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
-
-  const handlePovDragStart = (event: DragStartEvent) => {
-    setActivePovDragId(event.active.id as string);
-  };
-
-  const handlePovDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActivePovDragId(null);
-    if (!over || active.id === over.id || !projectData || !selectedCharacterId) return;
+  const handlePovSceneDrop = async (targetSceneNumber: number, targetPlotPointId: string) => {
+    if (!projectData || !draggedPovScene || !selectedCharacterId) return;
 
     const character = projectData.characters.find(c => c.id === selectedCharacterId);
     if (!character) return;
@@ -1869,61 +1689,48 @@ function App() {
       .filter(s => s.characterId === selectedCharacterId)
       .sort((a, b) => a.sceneNumber - b.sceneNumber);
 
-    const overId = over.id as string;
+    // Find the dragged scene index
+    const draggedIndex = charScenes.findIndex(s => s.id === draggedPovScene.id);
+    if (draggedIndex === -1) return;
 
-    // Handle drop onto empty section
-    if (overId.startsWith('empty-section:')) {
-      const targetPlotPointId = overId.replace('empty-section:', '');
-      const draggedIndex = charScenes.findIndex(s => s.id === active.id);
-      if (draggedIndex === -1) return;
+    // Find target index BEFORE removing the dragged scene
+    // targetSceneNumber tells us what scene number position we're targeting
+    let targetIndex = charScenes.findIndex(s => s.sceneNumber >= targetSceneNumber);
 
-      const [movedScene] = charScenes.splice(draggedIndex, 1);
-      movedScene.plotPointId = targetPlotPointId;
-      charScenes.push(movedScene);
-
-      charScenes.forEach((scene, idx) => { scene.sceneNumber = idx + 1; });
-
-      const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
-      const updatedScenes = [...otherScenes, ...charScenes];
-      setProjectData({ ...projectData, scenes: updatedScenes });
-
-      const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
-      try {
-        await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-        await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
-      } catch (err) {
-        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-      }
-      return;
+    // If no scene found with that number or higher, insert at end
+    if (targetIndex === -1) {
+      targetIndex = charScenes.length;
     }
 
-    // Normal scene-to-scene reorder
-    const oldIndex = charScenes.findIndex(s => s.id === active.id);
-    const newIndex = charScenes.findIndex(s => s.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    // Get target scene's plotPointId before reordering
-    const overScene = charScenes[newIndex];
-    const targetPlotPointId = overScene.plotPointId;
-
-    const reordered = arrayMove(charScenes, oldIndex, newIndex);
-
-    // Update the moved scene's plotPointId to match the section it was dropped into
-    const movedScene = reordered[newIndex];
-    if (targetPlotPointId) {
-      movedScene.plotPointId = targetPlotPointId;
+    // Adjust if we're moving within the same list and the removal would affect the index
+    // If we're removing from before the target, the target shifts left by 1
+    if (draggedIndex < targetIndex) {
+      targetIndex -= 1;
     }
 
-    // Renumber all scenes
-    reordered.forEach((scene, idx) => {
+    // Remove the dragged scene
+    const [movedScene] = charScenes.splice(draggedIndex, 1);
+
+    // Ensure target index is valid after removal
+    targetIndex = Math.max(0, Math.min(targetIndex, charScenes.length));
+
+    // Update the plot point if moving to a different section
+    movedScene.plotPointId = targetPlotPointId;
+
+    // Insert at target position
+    charScenes.splice(targetIndex, 0, movedScene);
+
+    // Renumber all scenes (stable IDs mean no data remapping needed)
+    charScenes.forEach((scene, idx) => {
       scene.sceneNumber = idx + 1;
     });
 
     // Update the full scenes array
     const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
-    const updatedScenes = [...otherScenes, ...reordered];
+    const updatedScenes = [...otherScenes, ...charScenes];
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
+    setDraggedPovScene(null);
 
     // Save to file
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
@@ -2399,7 +2206,7 @@ function App() {
     const newCharScenes = [...charScenes];
     newCharScenes.splice(insertAfterIndex + 1, 0, newScene);
 
-    // Renumber all scenes
+    // Renumber all scenes (stable IDs mean no data remapping needed)
     newCharScenes.forEach((scene, idx) => {
       scene.sceneNumber = idx + 1;
     });
@@ -2430,54 +2237,17 @@ function App() {
     const positions: Record<string, number> = {};
     const sceneWordCounts: Record<string, number> = {};
 
-    // Build ID remap: in-memory scene.id → what parser will generate on reload.
-    // Scene numbers may have changed (archive/reorder/insert/duplicate), so the
-    // parser will produce different stableId values. Remap all keyed data so that
-    // timeline.json keys match the next parse.
-    const idRemap = new Map<string, string>();
     for (const scene of scenes) {
-      const futureId = stableId(`${scene.characterId}:${scene.sceneNumber}`);
-      if (futureId !== scene.id) {
-        idRemap.set(scene.id, futureId);
-      }
-    }
-
-    const remap = <V,>(obj: Record<string, V>): Record<string, V> => {
-      if (idRemap.size === 0) return obj;
-      const out: Record<string, V> = {};
-      for (const [k, v] of Object.entries(obj)) {
-        out[idRemap.get(k) ?? k] = v;
-      }
-      return out;
-    };
-
-    const remapConnections = (conn: Record<string, string[]>): Record<string, string[]> => {
-      if (idRemap.size === 0) return conn;
-      const out: Record<string, string[]> = {};
-      for (const [k, v] of Object.entries(conn)) {
-        out[idRemap.get(k) ?? k] = v.map(id => idRemap.get(id) ?? id);
-      }
-      return out;
-    };
-
-    for (const scene of scenes) {
-      const saveId = idRemap.get(scene.id) ?? scene.id;
       if (scene.timelinePosition !== null) {
-        positions[saveId] = scene.timelinePosition;
+        positions[scene.id] = scene.timelinePosition;
       }
       if (scene.wordCount !== undefined) {
-        sceneWordCounts[saveId] = scene.wordCount;
+        sceneWordCounts[scene.id] = scene.wordCount;
       }
     }
 
-    // Connections need both keys and values remapped
-    const keyConnections = remapConnections(connections);
-
-    if (isSavingRef.current) return; // Prevent overlapping saves
-    isSavingRef.current = true;
     try {
       setSaveStatus('saving');
-      // Always use the current characterColors from ref
       // Merge inline todos into sceneMetadata for persistence
       const metaForSave = { ...sceneMetadataRef.current };
       for (const [sk, todos] of Object.entries(inlineTodosRef.current)) {
@@ -2490,7 +2260,8 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      await dataService.saveTimeline(positions, keyConnections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, remap(draftContentRef.current), metadataFieldDefsRef.current, remap(metaForSave), remap(draftsRef.current), wordCountGoalRef.current, allFontSettingsRef.current, remap(scratchpadContentRef.current), remap(sceneCommentsRef.current), tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, remap(timelineDatesRef.current), worldEventsRef.current, remap(timelineEndDatesRef.current ?? {}), timelineViewStateRef.current);
+      // Connections are already keyed by scene.id at runtime — save directly
+      await dataService.saveTimeline(positions, connections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current, timelineEndDatesRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -2498,8 +2269,6 @@ function App() {
     } catch (err) {
       addToast('Couldn\u2019t save timeline data');
       setSaveStatus('idle');
-    } finally {
-      isSavingRef.current = false;
     }
   }, []);
 
@@ -2565,94 +2334,98 @@ function App() {
     }
   }, []);
 
-  // Braided scene reorder (shared by braided list + rails view)
-  const handleBraidedSceneReorder = async (sceneId: string, targetIndex: number) => {
-    if (!projectData) return;
+  // Drag handlers
+  const handleDragStart = (e: React.DragEvent, scene: Scene) => {
+    setDraggedScene(scene);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', scene.id);
+  };
 
+  const handleDragEnd = () => {
+    setDraggedScene(null);
+    setDropTargetIndex(null);
+  };
+
+  const handleDragOverTimeline = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetIndex(index);
+  };
+
+  const handleDropOnTimeline = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedScene || !projectData) return;
+
+    // Get currently braided scenes in order
     const braidedScenes = projectData.scenes
       .filter(s => s.timelinePosition !== null)
       .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
 
-    const draggedScene = projectData.scenes.find(s => s.id === sceneId);
-    if (!draggedScene) return;
+    // Remove the dragged scene if it's already in the list
+    const withoutDragged = braidedScenes.filter(s => s.id !== draggedScene.id);
 
-    const withoutDragged = braidedScenes.filter(s => s.id !== sceneId);
+    // Insert at the target position
     withoutDragged.splice(targetIndex, 0, draggedScene);
 
+    // Create a map of scene id to new position
     const newPositions = new Map<string, number>();
     withoutDragged.forEach((scene, idx) => {
       newPositions.set(scene.id, idx + 1);
     });
 
+    // Update all scenes with new positions
     const finalScenes = projectData.scenes.map(scene => {
       const newPos = newPositions.get(scene.id);
-      return newPos !== undefined ? { ...scene, timelinePosition: newPos } : scene;
+      if (newPos !== undefined) {
+        return { ...scene, timelinePosition: newPos };
+      }
+      return scene;
     });
 
     setProjectData({ ...projectData, scenes: finalScenes });
+    setDraggedScene(null);
+    setDropTargetIndex(null);
+
     await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
     track('scene_reordered', { view: 'braided' });
   };
 
-  const handleRemoveFromTimeline = async (sceneId: string) => {
-    if (!projectData) return;
+  const handleDragOverInbox = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
 
-    const updatedScenes = projectData.scenes.map(scene =>
-      scene.id === sceneId ? { ...scene, timelinePosition: null } : scene
-    );
+  const handleDropOnInbox = async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!draggedScene || !projectData) return;
 
+    // Remove from timeline (set timelinePosition to null)
+    const updatedScenes = projectData.scenes.map(scene => {
+      if (scene.id === draggedScene.id) {
+        return { ...scene, timelinePosition: null };
+      }
+      return scene;
+    });
+
+    // Renumber remaining braided scenes
     const braidedScenes = updatedScenes
       .filter(s => s.timelinePosition !== null)
       .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
 
     const finalScenes = updatedScenes.map(scene => {
       const idx = braidedScenes.findIndex(s => s.id === scene.id);
-      return idx !== -1 ? { ...scene, timelinePosition: idx + 1 } : scene;
+      if (idx !== -1) {
+        return { ...scene, timelinePosition: idx + 1 };
+      }
+      return scene;
     });
 
     setProjectData({ ...projectData, scenes: finalScenes });
+    setDraggedScene(null);
+    setDropTargetIndex(null);
+
     await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
-  };
-
-  const braidedSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
-
-  const [activeBraidedDragId, setActiveBraidedDragId] = useState<string | null>(null);
-
-  const handleBraidedDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveBraidedDragId(null);
-    if (!over || !projectData) return;
-
-    // Handle chapter drag
-    if (typeof active.id === 'string' && (active.id as string).startsWith('chapter:')) {
-      const chapterId = (active.id as string).slice(8);
-      if (over) {
-        const overScene = displayedScenes.find(s => s.id === over.id);
-        if (overScene) {
-          const targetPosition = displayedScenes.indexOf(overScene) + 1;
-          handleMoveChapter(chapterId, targetPosition);
-        }
-      }
-      return;
-    }
-
-    if (over.id === 'braided-inbox') {
-      await handleRemoveFromTimeline(active.id as string);
-      return;
-    }
-
-    const braidedScenes = projectData.scenes
-      .filter(s => s.timelinePosition !== null)
-      .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
-
-    const oldIndex = braidedScenes.findIndex(s => s.id === active.id);
-    const newIndex = braidedScenes.findIndex(s => s.id === over.id);
-
-    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-      await handleBraidedSceneReorder(active.id as string, newIndex);
-    }
   };
 
   // Tag management handlers
@@ -2799,8 +2572,7 @@ function App() {
     setProjectData(updatedData);
 
     // Assign the date
-    const sceneKey = newScene.id;
-    const updatedDates = { ...timelineDatesRef.current, [sceneKey]: date };
+    const updatedDates = { ...timelineDatesRef.current, [newScene.id]: date };
     handleTimelineDatesChange(updatedDates);
 
     // Save
@@ -2813,7 +2585,7 @@ function App() {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
 
-    return sceneKey;
+    return newScene.id;
   };
 
   const handleGoToPov = (sceneId: string, characterId: string) => {
@@ -2958,18 +2730,17 @@ function App() {
       .filter(s => s.characterId === scene.characterId)
       .sort((a, b) => a.sceneNumber - b.sceneNumber);
 
-    // Remove the archived scene's keyed data and capture old keys before renumbering
-    const archivedKey = scene.id;
+    // Remove the archived scene's keyed data
     const newDC = { ...draftContentRef.current };
-    delete newDC[archivedKey];
+    delete newDC[scene.id];
     draftContentRef.current = newDC;
     setDraftContent(newDC);
     const newDr = { ...draftsRef.current };
-    delete newDr[archivedKey];
+    delete newDr[scene.id];
     draftsRef.current = newDr;
     setDrafts(newDr);
     const newSM = { ...sceneMetadataRef.current };
-    delete newSM[archivedKey];
+    delete newSM[scene.id];
     sceneMetadataRef.current = newSM;
     setSceneMetadata(newSM);
 
@@ -3161,7 +2932,7 @@ function App() {
     // Insert duplicate after original
     charScenes.splice(originalIndex + 1, 0, duplicateScene);
 
-    // Renumber all scenes
+    // Renumber all scenes (stable IDs mean no data remapping needed)
     charScenes.forEach((s, idx) => {
       s.sceneNumber = idx + 1;
     });
@@ -3540,11 +3311,6 @@ function App() {
                 onRemoveConnection={handleRemoveConnection}
                 onInsertScene={handleInsertSceneOnTimeline}
                 onOpenInEditor={handleOpenInEditor}
-                viewState={timelineViewStateRef.current ?? undefined}
-                onViewStateChange={(state) => {
-                  timelineViewStateRef.current = state;
-                  isDirtyRef.current = true;
-                }}
               />
             ) : mode === 'editor' ? (
               <EditorView
@@ -3615,16 +3381,6 @@ function App() {
                     Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
                   </div>
                 )}
-                <DndContext
-                  sensors={povSensors}
-                  collisionDetection={closestCenter}
-                  onDragStart={handlePovDragStart}
-                  onDragEnd={handlePovDragEnd}
-                >
-                  <SortableContext
-                    items={displayedScenes.map(s => s.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
                 {displayedPlotPoints.map((plotPoint, index) => (
                   <PlotPointSection
                     key={plotPoint.id}
@@ -3647,7 +3403,10 @@ function App() {
                     onSceneMoveUp={handlePovSceneMoveUp}
                     onSceneMoveDown={handlePovSceneMoveDown}
                     allCharacterScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
-                    activeDragSceneId={activePovDragId}
+                    onSceneDragStart={(scene) => setDraggedPovScene(scene)}
+                    onSceneDragEnd={() => setDraggedPovScene(null)}
+                    onSceneDrop={handlePovSceneDrop}
+                    draggedScene={draggedPovScene}
                     hideHeader={hideSectionHeaders[tabId] ?? false}
                     getConnectedScenes={getConnectedScenes}
                     onStartConnection={(sceneId) => {
@@ -3663,10 +3422,7 @@ function App() {
                     metadataFieldDefs={metadataFieldDefs}
                     sceneMetadata={sceneMetadata}
                     onMetadataChange={(sceneId, fieldId, value) => {
-                      const scene = projectData.scenes.find(s => s.id === sceneId);
-                      if (scene) {
-                        handleMetadataChange(scene.id, fieldId, value);
-                      }
+                      handleMetadataChange(sceneId, fieldId, value);
                     }}
                     onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
                     inlineMetadataFields={inlineMetadataFields}
@@ -3692,20 +3448,6 @@ function App() {
                     }}
                   />
                 ))}
-                  </SortableContext>
-                  <DragOverlay>
-                    {activePovDragId ? (() => {
-                      const dragScene = projectData.scenes.find(s => s.id === activePovDragId);
-                      return dragScene ? (
-                        <SceneCard
-                          scene={dragScene}
-                          tags={projectData.tags}
-                          showCharacter={false}
-                        />
-                      ) : null;
-                    })() : null}
-                  </DragOverlay>
-                </DndContext>
                 {displayedScenes.filter(s => !s.plotPointId).map(scene => (
                   <SceneCard
                     key={scene.id}
@@ -3727,10 +3469,7 @@ function App() {
                     metadataFieldDefs={metadataFieldDefs}
                     sceneMetadata={sceneMetadata[scene.id]}
                     onMetadataChange={(sceneId, fieldId, value) => {
-                      const s = projectData.scenes.find(sc => sc.id === sceneId);
-                      if (s) {
-                        handleMetadataChange(s.id, fieldId, value);
-                      }
+                      handleMetadataChange(sceneId, fieldId, value);
                     }}
                     onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
                     inlineMetadataFields={inlineMetadataFields}
@@ -3872,8 +3611,10 @@ function App() {
                 unbraidedScenesByCharacter={unbraidedScenesByCharacter}
                 allCharacters={projectData.characters}
                 plotPoints={projectData.plotPoints}
-                onSceneReorder={handleBraidedSceneReorder}
-                onRemoveFromTimeline={handleRemoveFromTimeline}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDropOnTimeline={handleDropOnTimeline}
+                onDropOnInbox={handleDropOnInbox}
                 onRailReorder={handleRailReorder}
                 draftContent={draftContent}
                 onDraftChange={handleDraftChange}
@@ -3883,13 +3624,7 @@ function App() {
               />
             ) : (
               // Braided List View
-              <DndContext
-                sensors={braidedSensors}
-                collisionDetection={closestCenter}
-                onDragStart={(e) => setActiveBraidedDragId(e.active.id as string)}
-                onDragEnd={handleBraidedDragEnd}
-              >
-              <div className={`braided-layout ${activeBraidedDragId ? 'is-dragging' : ''} ${isConnecting ? 'is-connecting' : ''}`}>
+              <div className={`braided-layout ${draggedScene ? 'is-dragging' : ''} ${isConnecting ? 'is-connecting' : ''}`}>
                 <div className="braided-timeline" ref={timelineRef}>
                   <svg className="connection-lines">
                     {displayedScenes.map((scene, index) => {
@@ -3925,12 +3660,12 @@ function App() {
                       Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
                     </div>
                   )}
-                  <SortableContext
-                    items={displayedScenes.map(s => s.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
                   {displayedScenes.length === 0 && (
-                    <div className="drop-zone empty-timeline">
+                    <div
+                      className={`drop-zone empty-timeline ${dropTargetIndex === 0 ? 'active' : ''}`}
+                      onDragOver={(e) => handleDragOverTimeline(e, 0)}
+                      onDrop={(e) => handleDropOnTimeline(e, 0)}
+                    >
                       Drag scenes here to start braiding
                     </div>
                   )}
@@ -3940,7 +3675,17 @@ function App() {
                     return (
                       <div key={scene.id}>
                         {chapterBefore && (
-                          <DraggableChapter id={chapterBefore.id}>
+                          <div
+                            className={`braided-chapter ${draggedChapter?.id === chapterBefore.id ? 'dragging' : ''}`}
+                            draggable
+                            onDragStart={(e) => {
+                              setDraggedChapter(chapterBefore);
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', chapterBefore.id);
+                            }}
+                            onDragEnd={() => setDraggedChapter(null)}
+                          >
+                            <span className="chapter-drag-handle">&#8942;&#8942;</span>
                             <input
                               type="text"
                               className="braided-chapter-title"
@@ -3964,9 +3709,27 @@ function App() {
                             >
                               &#215;
                             </button>
-                          </DraggableChapter>
+                          </div>
                         )}
-                        {!activeBraidedDragId && (
+                        {!chapterBefore && draggedChapter && (
+                          <div
+                            className="chapter-drop-zone"
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              if (draggedChapter) {
+                                handleMoveChapter(draggedChapter.id, displayPosition);
+                                setDraggedChapter(null);
+                              }
+                            }}
+                          >
+                            Move chapter here
+                          </div>
+                        )}
+                        {!draggedScene && !draggedChapter && (
                           <div className="braided-insert-zone">
                             <button
                               className="braided-insert-btn"
@@ -4052,83 +3815,83 @@ function App() {
                             )}
                           </div>
                         )}
-                        <SortableBraidedScene id={scene.id}>
-                          {({ listeners, isDragging: _isDragging }) => (
-                            <div
-                              onClick={(e) => {
-                                if (isConnecting && connectionSource && connectionSource !== scene.id) {
-                                  handleSceneClick(scene, e);
-                                }
+                        <div className="braided-scene-wrapper" data-scene-id={scene.id}>
+                          <div
+                            className={`drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
+                            onDragOver={(e) => handleDragOverTimeline(e, index)}
+                            onDrop={(e) => handleDropOnTimeline(e, index)}
+                          />
+                          <div
+                            draggable="true"
+                            onDragStart={(e) => {
+                              if (canDragSceneRef.current) {
+                                handleDragStart(e, scene);
+                              } else {
+                                e.preventDefault();
+                              }
+                            }}
+                            onDragEnd={() => {
+                              handleDragEnd();
+                              canDragSceneRef.current = false;
+                            }}
+                            onClick={(e) => {
+                              if (isConnecting && connectionSource && connectionSource !== scene.id) {
+                                handleSceneClick(scene, e);
+                              }
+                            }}
+                            onMouseEnter={() => setHoveredSceneId(scene.id)}
+                            onMouseLeave={() => setHoveredSceneId(null)}
+                            className={`braided-scene-drag-wrapper ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${povReorderedScenes.has(scene.id) ? 'pov-reordered' : ''}`}
+                          >
+                            <SceneCard
+                              scene={scene}
+                              tags={projectData.tags}
+                              showCharacter={true}
+                              characterName={getCharacterName(scene.characterId)}
+                              displayNumber={displayPosition}
+                              plotPointTitle={scene.plotPointId ? projectData.plotPoints.find(p => p.id === scene.plotPointId)?.title : undefined}
+                              showDragHandle={true}
+                              dragHandleRef={dragHandleRefCallback}
+                              backgroundColor={undefined}
+                              onSceneChange={handleSceneChange}
+                              onTagsChange={handleTagsChange}
+                              onCreateTag={handleCreateTag}
+                              onDeleteScene={handleArchiveScene}
+                              onDuplicateScene={handleDuplicateScene}
+                              connectedScenes={getConnectedScenes(scene.id)}
+                              onStartConnection={() => {
+                                setConnectionSource(scene.id);
+                                setIsConnecting(true);
                               }}
-                              onMouseEnter={() => setHoveredSceneId(scene.id)}
-                              onMouseLeave={() => setHoveredSceneId(null)}
-                              className={`braided-scene-drag-wrapper ${activeBraidedDragId === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${povReorderedScenes.has(scene.id) ? 'pov-reordered' : ''}`}
-                            >
-                              <SceneCard
-                                scene={scene}
-                                tags={projectData.tags}
-                                showCharacter={true}
-                                characterName={getCharacterName(scene.characterId)}
-                                displayNumber={displayPosition}
-                                plotPointTitle={scene.plotPointId ? projectData.plotPoints.find(p => p.id === scene.plotPointId)?.title : undefined}
-                                showDragHandle={true}
-                                dragHandleListeners={listeners}
-                                backgroundColor={undefined}
-                                onSceneChange={handleSceneChange}
-                                onTagsChange={handleTagsChange}
-                                onCreateTag={handleCreateTag}
-                                onDeleteScene={handleArchiveScene}
-                                onDuplicateScene={handleDuplicateScene}
-                                connectedScenes={getConnectedScenes(scene.id)}
-                                onStartConnection={() => {
-                                  setConnectionSource(scene.id);
-                                  setIsConnecting(true);
-                                }}
-                                onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
-                                onWordCountChange={handleWordCountChange}
-                                connectableScenes={getConnectableScenes(scene.id)}
-                                onCompleteConnection={(targetId) => handleCompleteConnection(scene.id, targetId)}
-                                onOpenInEditor={handleOpenInEditor}
-                                metadataFieldDefs={metadataFieldDefs}
-                                sceneMetadata={sceneMetadata[scene.id]}
-                                onMetadataChange={(sceneId, fieldId, value) => {
-                                  const s = projectData.scenes.find(sc => sc.id === sceneId);
-                                  if (s) {
-                                    handleMetadataChange(s.id, fieldId, value);
-                                  }
-                                }}
-                                onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
-                                inlineMetadataFields={inlineMetadataFields}
-                                showInlineLabels={showInlineLabels}
-                                sceneDate={timelineDates[scene.id]}
-                                onDateChange={handleSceneDateChange}
-                              />
-                            </div>
-                          )}
-                        </SortableBraidedScene>
+                              onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
+                              onWordCountChange={handleWordCountChange}
+                              connectableScenes={getConnectableScenes(scene.id)}
+                              onCompleteConnection={(targetId) => handleCompleteConnection(scene.id, targetId)}
+                              onOpenInEditor={handleOpenInEditor}
+                              metadataFieldDefs={metadataFieldDefs}
+                              sceneMetadata={sceneMetadata[scene.id]}
+                              onMetadataChange={(sceneId, fieldId, value) => {
+                                handleMetadataChange(sceneId, fieldId, value);
+                              }}
+                              onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                              inlineMetadataFields={inlineMetadataFields}
+                              showInlineLabels={showInlineLabels}
+                              sceneDate={timelineDates[scene.id]}
+                              onDateChange={handleSceneDateChange}
+                            />
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
-                  </SortableContext>
-                  <DragOverlay>
-                    {activeBraidedDragId?.startsWith('chapter:') ? (
-                      <div className="braided-chapter dragging">
-                        <span className="chapter-drag-handle">&#8942;&#8942;</span>
-                        <span>{braidedChapters.find(ch => ch.id === activeBraidedDragId.slice(8))?.title}</span>
-                      </div>
-                    ) : activeBraidedDragId ? (() => {
-                      const dragScene = projectData.scenes.find(s => s.id === activeBraidedDragId);
-                      return dragScene ? (
-                        <SceneCard
-                          scene={dragScene}
-                          tags={projectData.tags}
-                          showCharacter={true}
-                          characterName={getCharacterName(dragScene.characterId)}
-                        />
-                      ) : null;
-                    })() : null}
-                  </DragOverlay>
-                  {displayedScenes.length > 0 && !activeBraidedDragId && (
+                  {displayedScenes.length > 0 && (
+                    <div
+                      className={`drop-zone ${dropTargetIndex === displayedScenes.length ? 'active' : ''}`}
+                      onDragOver={(e) => handleDragOverTimeline(e, displayedScenes.length)}
+                      onDrop={(e) => handleDropOnTimeline(e, displayedScenes.length)}
+                    />
+                  )}
+                  {displayedScenes.length > 0 && !draggedScene && !draggedChapter && (
                     <div className="braided-insert-zone">
                       <button
                         className="braided-insert-btn"
@@ -4224,7 +3987,11 @@ function App() {
                 </div>
 
                 {/* To Braid Inbox */}
-                <DroppableInbox className="to-braid-inbox">
+                <div
+                  className="to-braid-inbox"
+                  onDragOver={handleDragOverInbox}
+                  onDrop={handleDropOnInbox}
+                >
                   <div className="inbox-header">
                     <h2 className="inbox-title">To Braid</h2>
                     <select
@@ -4274,7 +4041,9 @@ function App() {
                                           key={scene.id}
                                           className="inbox-scene"
                                           style={{ '--char-color': charColor } as React.CSSProperties}
-
+                                          draggable
+                                          onDragStart={(e) => handleDragStart(e, scene)}
+                                          onDragEnd={handleDragEnd}
                                         >
                                           <span className="inbox-scene-number">{scene.sceneNumber}.</span>
                                           <span className="inbox-scene-title">{scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')}</span>
@@ -4288,6 +4057,9 @@ function App() {
                                     key={scene.id}
                                     className="inbox-scene"
                                     style={{ '--char-color': charColor } as React.CSSProperties}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, scene)}
+                                    onDragEnd={handleDragEnd}
                                   >
                                     <span className="inbox-scene-number">{scene.sceneNumber}.</span>
                                     <span className="inbox-scene-title">{scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')}</span>
@@ -4302,10 +4074,9 @@ function App() {
                       );
                     })}
                   </div>
-                </DroppableInbox>
+                </div>
 
               </div>
-              </DndContext>
             )}
 
             {displayedScenes.length === 0 && (
@@ -4650,8 +4421,8 @@ function App() {
           {/* Global writing timer indicator */}
           {timerSceneKey && (() => {
             const timerScene = projectData?.scenes.find(s => s.id === timerSceneKey);
-            const char = timerScene ? projectData?.characters.find(c => c.id === timerScene.characterId) : undefined;
-            const label = char ? `${char.name} #${timerScene!.sceneNumber}` : timerScene ? `Scene ${timerScene.sceneNumber}` : 'Scene';
+            const char = timerScene ? projectData?.characters.find(c => c.id === timerScene.characterId) : null;
+            const label = char && timerScene ? `${char.name} #${timerScene.sceneNumber}` : timerSceneKey;
             return (
               <button
                 className={`toolbar-timer-pill ${timerRunning ? 'running' : 'paused'}`}
@@ -4819,22 +4590,6 @@ function App() {
                   </svg>
                   Backup
                 </button>
-                <button onClick={async () => {
-                  setShowSettingsMenu(false);
-                  try {
-                    const list = await dataService.listBackups();
-                    setBackupList(list);
-                    setShowRestoreBackupModal(true);
-                  } catch (err) {
-                    setError(String(err));
-                  }
-                }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="1 4 1 10 7 10"/>
-                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-                  </svg>
-                  Restore Backup
-                </button>
                 {viewMode === 'editor' && (
                   <button onClick={() => { editorViewRef.current?.print(); setShowSettingsMenu(false); }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -4931,41 +4686,6 @@ function App() {
         />
       )}
 
-      {/* Restore Backup Modal */}
-      {showRestoreBackupModal && (
-        <div className="modal-overlay" onClick={() => setShowRestoreBackupModal(false)}>
-          <div className="modal-content restore-backup-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Restore Backup</h2>
-              <button className="modal-close-btn" onClick={() => setShowRestoreBackupModal(false)}>&times;</button>
-            </div>
-            <div className="modal-body">
-              {backupList.length === 0 ? (
-                <p className="backup-empty">No backups found. Backups are created automatically every 5 minutes when saving.</p>
-              ) : (
-                <div className="backup-list">
-                  {backupList.map(b => {
-                    const date = new Date(b.modifiedAt);
-                    const sizeKb = (b.size / 1024).toFixed(1);
-                    return (
-                      <div key={b.filename} className="backup-item">
-                        <div className="backup-info">
-                          <span className="backup-date">{date.toLocaleDateString()} {date.toLocaleTimeString()}</span>
-                          <span className="backup-size">{sizeKb} KB</span>
-                        </div>
-                        <button className="backup-restore-btn" onClick={() => handleRestoreBackup(b.filename)}>
-                          Restore
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Compile Modal */}
       {showCompileModal && projectData && (
         <CompileModal
@@ -5024,10 +4744,10 @@ function App() {
 
       {/* Check-in Modal */}
       {pendingSession && projectData && (() => {
-        const checkinScene = projectData.scenes.find(s => s.id === pendingSession.sceneKey);
-        const charName = checkinScene ? (projectData.characters.find(c => c.id === checkinScene.characterId)?.name || 'Unknown') : 'Unknown';
-        const sceneTitle = checkinScene?.title ? ` — ${checkinScene.title}` : '';
-        const sceneLabel = `${charName} — ${checkinScene?.sceneNumber ?? '?'}${sceneTitle}`;
+        const pendingScene = projectData.scenes.find(s => s.id === pendingSession.sceneKey);
+        const charName = pendingScene ? (projectData.characters.find(c => c.id === pendingScene.characterId)?.name || 'Unknown') : 'Unknown';
+        const sceneTitle = pendingScene?.title ? ` — ${pendingScene.title}` : '';
+        const sceneLabel = `${charName} — ${pendingScene?.sceneNumber ?? '?'}${sceneTitle}`;
         return (
           <CheckinModal
             sceneLabel={sceneLabel}

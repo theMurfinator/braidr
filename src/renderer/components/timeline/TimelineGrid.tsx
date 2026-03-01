@@ -1,16 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import type { Scene, Character, WorldEvent, PlotPoint } from '../../../shared/types';
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-  DragOverlay,
-  useDroppable,
-  useDraggable,
-} from '@dnd-kit/core';
 
 interface TimelineGridProps {
   scenes: Scene[];
@@ -35,15 +24,6 @@ interface TimelineGridProps {
   onWorldEventsChange: (events: WorldEvent[]) => void;
   plotPoints?: PlotPoint[];
   onInsertScene?: (characterId: string, plotPointId: string, date: string) => Promise<string | null>;
-  unassignedScenes?: Scene[];
-  onPlaceScene?: (sceneKey: string, date: string) => void;
-  collapsedLanes?: Set<string>;
-  onToggleLane?: (characterId: string) => void;
-  onOpenInEditor?: (sceneKey: string) => void;
-  /** When true, the grid skips its own DndContext/DragOverlay — the parent provides them. */
-  externalDndContext?: boolean;
-  /** Active drag ID from parent DndContext (used when externalDndContext is true). */
-  activeDragIdProp?: string | null;
 }
 
 /** Short weekday abbreviation from a date string. */
@@ -76,69 +56,6 @@ function dateSpanColumns(startDate: string, endDate: string | undefined, dateRan
   return endIdx - startIdx + 1;
 }
 
-/* ── dnd-kit sub-components ──────────────────────────────────────────────── */
-
-function DroppableCell({
-  id,
-  children,
-  className,
-  style,
-}: {
-  id: string;
-  children: React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id });
-  return (
-    <div
-      ref={setNodeRef}
-      className={`${className || ''} ${isOver ? 'drag-over' : ''}`}
-      style={style}
-    >
-      {children}
-    </div>
-  );
-}
-
-function DraggableSceneCard({
-  id,
-  children,
-}: {
-  id: string;
-  children: React.ReactNode;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
-  const style: React.CSSProperties = {
-    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-    opacity: isDragging ? 0.5 : 1,
-  };
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
-    </div>
-  );
-}
-
-function DraggableEventCard({
-  id,
-  children,
-}: {
-  id: string;
-  children: React.ReactNode;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
-  const style: React.CSSProperties = {
-    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-    opacity: isDragging ? 0.5 : 1,
-  };
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
-    </div>
-  );
-}
-
 export default function TimelineGrid({
   scenes,
   characters,
@@ -161,30 +78,10 @@ export default function TimelineGrid({
   onWorldEventsChange,
   plotPoints,
   onInsertScene,
-  unassignedScenes,
-  onPlaceScene,
-  collapsedLanes,
-  onToggleLane,
-  onOpenInEditor,
-  externalDndContext,
-  activeDragIdProp,
 }: TimelineGridProps) {
   const resizeDragRef = useRef<{ startX: number; initialWidth: number; target: 'label' | 'col' } | null>(null);
   const spanResizeRef = useRef<{ sceneKey: string; edge: 'left' | 'right'; startX: number; startDate: string; startEndDate: string | undefined } | null>(null);
   const [insertCell, setInsertCell] = useState<{ characterId: string; date: string } | null>(null);
-  const insertPopoverRef = useRef<HTMLDivElement>(null);
-
-  // Close insert popover on outside click
-  useEffect(() => {
-    if (!insertCell) return;
-    const handleMouseDown = (e: MouseEvent) => {
-      if (insertPopoverRef.current && !insertPopoverRef.current.contains(e.target as Node)) {
-        setInsertCell(null);
-      }
-    };
-    document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, [insertCell]);
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
@@ -269,30 +166,22 @@ export default function TimelineGrid({
     document.body.style.userSelect = 'none';
   }, [colWidth]);
   // ── Build lookup: sceneKey -> date ────────────────────────────────────────
-  // timelineDates is keyed by scene.id -> "YYYY-MM-DD"
+  // timelineDates is keyed "characterId:sceneNumber" -> "YYYY-MM-DD"
 
-  // ── Build lookup: date -> scenes per character ────────────────────────────
+  // ── Build lookup: date -> scene IDs per character ────────────────────────────
   const sceneDateMap = useMemo(() => {
     const map: Record<string, Record<string, string[]>> = {};
 
     for (const scene of scenes) {
-      const key = scene.id;
-      const date = timelineDates[key];
+      const date = timelineDates[scene.id];
       if (!date) continue;
       if (!map[date]) map[date] = {};
       if (!map[date][scene.characterId]) map[date][scene.characterId] = [];
-      map[date][scene.characterId].push(key);
+      map[date][scene.characterId].push(scene.id);
     }
 
     return map;
   }, [scenes, timelineDates]);
-
-  // ── Build lookup: sceneKey -> characterId ─────────────────────────────────
-  const sceneCharacterMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const s of scenes) map[s.id] = s.characterId;
-    return map;
-  }, [scenes]);
 
   // ── Build lookup: date -> world events ────────────────────────────────────
   const worldEventsByDate = useMemo(() => {
@@ -306,8 +195,8 @@ export default function TimelineGrid({
   }, [worldEvents]);
 
 
-  // ── Scene lookup by key ──────────────────────────────────────────────────
-  const sceneByKey = useMemo(() => {
+  // ── Scene lookup by id ──────────────────────────────────────────────────
+  const sceneById = useMemo(() => {
     const m: Record<string, Scene> = {};
     for (const s of scenes) {
       m[s.id] = s;
@@ -315,43 +204,51 @@ export default function TimelineGrid({
     return m;
   }, [scenes]);
 
-  // ── dnd-kit sensors and handlers ────────────────────────────────────────
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
-
-  const [activeDragIdInternal, setActiveDragIdInternal] = useState<string | null>(null);
-  const activeDragId = externalDndContext ? (activeDragIdProp ?? null) : activeDragIdInternal;
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveDragIdInternal(event.active.id as string);
+  // ── Drag-and-drop handlers ──────────────────────────────────────────────
+  const handleDragStart = useCallback((e: DragEvent<HTMLButtonElement>, sceneKey: string) => {
+    e.dataTransfer.setData('text/plain', sceneKey);
+    e.dataTransfer.effectAllowed = 'move';
+    // Add dragging class after a tick so the drag image captures normal state
+    requestAnimationFrame(() => {
+      (e.target as HTMLElement).classList.add('dragging');
+    });
   }, []);
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveDragIdInternal(null);
-    if (!over) return;
+  const handleDragEnd = useCallback((e: DragEvent<HTMLButtonElement>) => {
+    (e.target as HTMLElement).classList.remove('dragging');
+  }, []);
 
-    const activeId = active.id as string;
-    const overId = over.id as string;
+  const handleCellDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    (e.currentTarget as HTMLElement).classList.add('drag-over');
+  }, []);
 
-    if (!overId.startsWith('cell:')) return;
+  const handleCellDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    const related = e.relatedTarget as Node | null;
+    if (related && e.currentTarget.contains(related)) return;
+    (e.currentTarget as HTMLElement).classList.remove('drag-over');
+  }, []);
 
-    // Parse "cell:characterId:date" — date is everything after second colon
-    const firstColon = overId.indexOf(':');
-    const secondColon = overId.indexOf(':', firstColon + 1);
-    const targetDate = overId.slice(secondColon + 1);
+  const handleCellDrop = useCallback((e: DragEvent<HTMLDivElement>, date: string) => {
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).classList.remove('drag-over');
 
-    if (activeId.startsWith('scene:')) {
-      const sceneKey = activeId.replace('scene:', '');
-      onTimelineDatesChange({ ...timelineDates, [sceneKey]: targetDate });
-    } else if (activeId.startsWith('event:')) {
-      const eventId = activeId.replace('event:', '');
+    // Check if this is a world event drop
+    const eventId = e.dataTransfer.getData('application/x-event-id');
+    if (eventId) {
       const updated = worldEvents.map(ev =>
-        ev.id === eventId ? { ...ev, date: targetDate, updatedAt: Date.now() } : ev
+        ev.id === eventId ? { ...ev, date, updatedAt: Date.now() } : ev
       );
       onWorldEventsChange(updated);
+      return;
     }
+
+    // Otherwise it's a scene drop
+    const sceneKey = e.dataTransfer.getData('text/plain');
+    if (!sceneKey) return;
+    const updated = { ...timelineDates, [sceneKey]: date };
+    onTimelineDatesChange(updated);
   }, [timelineDates, onTimelineDatesChange, worldEvents, onWorldEventsChange]);
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────
@@ -403,7 +300,7 @@ export default function TimelineGrid({
 
   // ── Helper: render a scene card ──────────────────────────────────────────
   function renderSceneCard(sceneKey: string, gridPlacement?: { gridRow: number; gridColumn: string }) {
-    const scene = sceneByKey[sceneKey];
+    const scene = sceneById[sceneKey];
     if (!scene) return null;
     const color = characterColors[scene.characterId] || '#888';
     const endDate = timelineEndDates[sceneKey];
@@ -416,24 +313,24 @@ export default function TimelineGrid({
     const date = timelineDates[sceneKey];
     const dateLabel = date ? shortDate(date) : null;
 
-    const cardStyle: React.CSSProperties = { borderLeftColor: color };
+    const style: React.CSSProperties = { borderLeftColor: color };
     if (gridPlacement) {
-      cardStyle.gridRow = gridPlacement.gridRow;
-      cardStyle.gridColumn = gridPlacement.gridColumn;
-      cardStyle.zIndex = 2;
+      style.gridRow = gridPlacement.gridRow;
+      style.gridColumn = gridPlacement.gridColumn;
+      style.zIndex = 2;
     }
 
-    const cardContent = (
+    return (
       <button
+        key={sceneKey}
         className={`tg-scene-card${isSelected ? ' selected' : ''}${isMultiDay ? ' multi-day' : ''}`}
-        style={cardStyle}
+        style={style}
+        draggable="true"
+        onDragStart={(e) => handleDragStart(e, sceneKey)}
+        onDragEnd={handleDragEnd}
         onClick={(e) => {
           e.stopPropagation();
           onSelectScene(isSelected ? null : sceneKey);
-        }}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          onOpenInEditor?.(sceneKey);
         }}
         title={scene.title || `Scene ${scene.sceneNumber}`}
       >
@@ -466,12 +363,6 @@ export default function TimelineGrid({
         />
       </button>
     );
-
-    return (
-      <DraggableSceneCard key={sceneKey} id={`scene:${sceneKey}`}>
-        {cardContent}
-      </DraggableSceneCard>
-    );
   }
 
   // ── Helper: render a world event card ────────────────────────────────────
@@ -482,19 +373,24 @@ export default function TimelineGrid({
       : 'Untitled Event';
 
     return (
-      <DraggableEventCard key={ev.id} id={`event:${ev.id}`}>
-        <button
-          className={`tg-world-event-card${isSelected ? ' selected' : ''}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelectEvent(isSelected ? null : ev.id);
-          }}
-          title={ev.title}
-        >
-          <span className="tg-event-diamond">{'\u25C6'}</span>
-          <span className="tg-event-label">{title}</span>
-        </button>
-      </DraggableEventCard>
+      <button
+        key={ev.id}
+        className={`tg-world-event-card${isSelected ? ' selected' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectEvent(isSelected ? null : ev.id);
+        }}
+        title={ev.title}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData('application/x-event-id', ev.id);
+          e.dataTransfer.effectAllowed = 'move';
+          e.stopPropagation();
+        }}
+      >
+        <span className="tg-event-diamond">{'\u25C6'}</span>
+        <span className="tg-event-label">{title}</span>
+      </button>
     );
   }
 
@@ -502,50 +398,8 @@ export default function TimelineGrid({
   const totalRows = 1 + 1 + characters.length;
   const gridTemplateRows = `auto auto ${characters.map(() => 'auto').join(' ')}`;
 
-  // ── Build overlay content for DragOverlay ─────────────────────────────────
-  function renderDragOverlay() {
-    if (!activeDragId) return null;
-
-    if (activeDragId.startsWith('scene:')) {
-      const sceneKey = activeDragId.replace('scene:', '');
-      const scene = sceneByKey[sceneKey];
-      if (!scene) return null;
-      const color = characterColors[scene.characterId] || '#888';
-      const title = scene.title
-        ? scene.title.slice(0, 30) + (scene.title.length > 30 ? '...' : '')
-        : `Scene ${scene.sceneNumber}`;
-      return (
-        <div className="tg-scene-card" style={{ borderLeftColor: color, opacity: 0.9 }}>
-          <div className="tg-scene-card-content">
-            <div className="tg-scene-card-top">
-              <span className="tg-scene-num">{scene.sceneNumber}</span>
-              <span className="tg-scene-title">{title}</span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (activeDragId.startsWith('event:')) {
-      const eventId = activeDragId.replace('event:', '');
-      const ev = worldEvents.find(e => e.id === eventId);
-      if (!ev) return null;
-      const title = ev.title
-        ? ev.title.slice(0, 30) + (ev.title.length > 30 ? '...' : '')
-        : 'Untitled Event';
-      return (
-        <div className="tg-world-event-card" style={{ opacity: 0.9 }}>
-          <span className="tg-event-diamond">{'\u25C6'}</span>
-          <span className="tg-event-label">{title}</span>
-        </div>
-      );
-    }
-
-    return null;
-  }
-
-  const gridContent = (
-    <>
+  return (
+    <div className="timeline-grid">
       <div
         className="timeline-grid-table"
         style={{
@@ -608,14 +462,16 @@ export default function TimelineGrid({
         {dateRange.map((date, i) => {
           const events = worldEventsByDate[date] || [];
           return (
-            <DroppableCell
+            <div
               key={`we-${date}`}
-              id={`cell:__world__:${date}`}
               className={`tg-cell tg-world-cell${events.length === 0 ? ' empty' : ''}`}
               style={{ gridRow: 2, gridColumn: i + 2 }}
+              onDragOver={handleCellDragOver}
+              onDragLeave={handleCellDragLeave}
+              onDrop={(e) => handleCellDrop(e, date)}
             >
               {events.map((ev) => renderWorldEventCard(ev))}
-            </DroppableCell>
+            </div>
           );
         })}
 
@@ -623,30 +479,6 @@ export default function TimelineGrid({
         {characters.map((char, rowIdx) => {
           const color = characterColors[char.id] || '#888';
           const gridRow = rowIdx + 3; // 1-indexed: header=1, world=2, chars start at 3
-          const isCollapsed = collapsedLanes?.has(char.id);
-
-          if (isCollapsed) {
-            // Collapsed lane: thin row with just the character name and expand toggle
-            return (
-              <Fragment key={char.id}>
-                <div
-                  className="tg-lane-label tg-lane-collapsed"
-                  style={{ gridRow, gridColumn: 1, height: 16, minHeight: 16, cursor: 'pointer' }}
-                  onClick={() => onToggleLane?.(char.id)}
-                >
-                  <span className="tg-lane-color" style={{ background: color }} />
-                  <span className="tg-lane-name">{'\u25B6'} {char.name}</span>
-                </div>
-                {dateRange.map((date, colIdx) => (
-                  <div
-                    key={`${char.id}-${date}`}
-                    className="tg-cell empty tg-cell-collapsed"
-                    style={{ gridRow, gridColumn: colIdx + 2, height: 16, minHeight: 16 }}
-                  />
-                ))}
-              </Fragment>
-            );
-          }
 
           // Collect multi-day scenes to render as top-level grid items
           const multiDayScenes: { sceneKey: string; colStart: number; span: number }[] = [];
@@ -654,7 +486,7 @@ export default function TimelineGrid({
 
           // Pre-scan for multi-day scenes in this character's row
           for (const [sk, date] of Object.entries(timelineDates)) {
-            if (sceneCharacterMap[sk] !== char.id) continue;
+            if (!sk.startsWith(char.id + ':')) continue;
             const endDate = timelineEndDates[sk];
             const span = dateSpanColumns(date, endDate, dateRange);
             if (span > 1) {
@@ -670,11 +502,10 @@ export default function TimelineGrid({
             <Fragment key={char.id}>
               <div
                 className="tg-lane-label"
-                style={{ gridRow, gridColumn: 1, cursor: 'pointer' }}
-                onClick={() => onToggleLane?.(char.id)}
+                style={{ gridRow, gridColumn: 1 }}
               >
                 <span className="tg-lane-color" style={{ background: color }} />
-                <span className="tg-lane-name">{'\u25BC'} {char.name}</span>
+                <span className="tg-lane-name">{char.name}</span>
               </div>
               {dateRange.map((date, colIdx) => {
                 const sceneKeys = sceneDateMap[date]?.[char.id] || [];
@@ -686,47 +517,46 @@ export default function TimelineGrid({
                 // Check if this cell is covered by a multi-day scene (for styling)
                 const coveredByMultiDay = multiDayStartCols.has(colIdx);
                 const isInsertOpen = insertCell?.characterId === char.id && insertCell?.date === date;
-                const charUnassigned = unassignedScenes?.filter(s => s.characterId === char.id).sort((a, b) => a.sceneNumber - b.sceneNumber) || [];
-                const showInsertBtn = singleDayKeys.length === 0 && !coveredByMultiDay && (onPlaceScene || onInsertScene);
+                const charPlotPoints = plotPoints?.filter(p => p.characterId === char.id).sort((a, b) => a.order - b.order) || [];
                 return (
-                  <DroppableCell
+                  <div
                     key={`${char.id}-${date}`}
-                    id={`cell:${char.id}:${date}`}
                     className={`tg-cell${singleDayKeys.length === 0 && !coveredByMultiDay ? ' empty' : ''}`}
                     style={{ gridRow, gridColumn: colIdx + 2 }}
+                    onDragOver={handleCellDragOver}
+                    onDragLeave={handleCellDragLeave}
+                    onDrop={(e) => handleCellDrop(e, date)}
                   >
                     {singleDayKeys.map((sk) => renderSceneCard(sk))}
-                    {showInsertBtn && (
+                    {singleDayKeys.length === 0 && !coveredByMultiDay && onInsertScene && (
                       <button
                         className="tg-cell-insert-btn"
                         onClick={(e) => {
                           e.stopPropagation();
                           setInsertCell(isInsertOpen ? null : { characterId: char.id, date });
                         }}
-                        title="Place scene here"
+                        title="Add scene here"
                       >+</button>
                     )}
                     {isInsertOpen && (
-                      <div ref={insertPopoverRef} className="braided-insert-popover tg-insert-popover">
-                        <div className="braided-insert-popover-title">Place a scene</div>
-                        {charUnassigned.length > 0 ? charUnassigned.map(s => (
+                      <div className="braided-insert-popover tg-insert-popover">
+                        <div className="braided-insert-popover-title">Pick a section</div>
+                        {charPlotPoints.map(pp => (
                           <button
-                            key={s.id}
+                            key={pp.id}
                             className="braided-insert-popover-item"
-                            onClick={() => {
-                              onPlaceScene?.(s.id, date);
+                            onClick={async () => {
+                              const sceneKey = await onInsertScene!(char.id, pp.id, date);
                               setInsertCell(null);
-                              onSelectScene(s.id);
+                              if (sceneKey) onSelectScene(sceneKey);
                             }}
                           >
-                            #{s.sceneNumber} {s.title || `Scene ${s.sceneNumber}`}
+                            {pp.title}
                           </button>
-                        )) : (
-                          <div className="braided-insert-popover-empty">No unassigned scenes</div>
-                        )}
+                        ))}
                       </div>
                     )}
-                  </DroppableCell>
+                  </div>
                 );
               })}
               {/* Multi-day scene cards rendered as top-level grid items */}
@@ -741,17 +571,6 @@ export default function TimelineGrid({
         })}
 
       </div>
-    </>
-  );
-
-  return (
-    <div className="timeline-grid">
-      {externalDndContext ? gridContent : (
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          {gridContent}
-          <DragOverlay>{renderDragOverlay()}</DragOverlay>
-        </DndContext>
-      )}
     </div>
   );
 }

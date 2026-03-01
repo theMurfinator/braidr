@@ -5,14 +5,14 @@ import { createPortal } from 'react-dom';
 
 export interface TodoRow {
   id: string;
-  sceneKey: string; // scene.id or empty
+  sceneKey: string; // "characterId:sceneNumber" or empty
   sceneLabel: string; // Display label like "Noah — 3 — Intro scene"
   description: string;
   done: boolean;
 }
 
 interface SceneOption {
-  key: string;   // scene.id
+  key: string;   // "characterId:sceneNumber"
   label: string; // "Noah — 3 — Scene title"
 }
 

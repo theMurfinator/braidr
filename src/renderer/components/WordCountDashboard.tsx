@@ -26,6 +26,7 @@ function countWords(html: string): number {
   return text.split(/\s+/).length;
 }
 
+
 export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [], customCheckinCategories = [] }: WordCountDashboardProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(wordCountGoal || ''));
@@ -61,7 +62,8 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     const sceneCounts: number[] = [];
 
     scenes.forEach(scene => {
-      const content = draftContent[scene.id];
+      const key = scene.id;
+      const content = draftContent[key];
       const words = countWords(content || '');
 
       totalWords += words;
@@ -82,7 +84,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
       }
 
       // Per status
-      const meta = sceneMetadata[scene.id];
+      const meta = sceneMetadata[key];
       const status = (meta?.['_status'] as string) || 'No status';
       if (!perStatus[status]) perStatus[status] = { scenes: 0, words: 0 };
       perStatus[status].scenes++;
@@ -268,10 +270,10 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([key, ms]) => {
-        const scene = scenes.find(s => s.id === key);
-        const charName = characters.find(c => c.id === scene?.characterId)?.name || 'Unknown';
-        const sceneTitle = scene?.title ? ` — ${scene.title}` : '';
-        return { sceneKey: key, label: `${charName} — ${scene?.sceneNumber ?? '?'}${sceneTitle}`, totalMs: ms, characterId: scene?.characterId };
+        const matchScene = scenes.find(s => s.id === key);
+        const charName = matchScene ? (characters.find(c => c.id === matchScene.characterId)?.name || 'Unknown') : 'Unknown';
+        const sceneTitle = matchScene?.title ? ` — ${matchScene.title}` : '';
+        return { sceneKey: key, label: `${charName} — ${matchScene?.sceneNumber ?? '?'}${sceneTitle}`, totalMs: ms };
       });
   }, [sceneSessions, characters, scenes]);
 
@@ -709,7 +711,8 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
                 const mins = Math.floor((scene.totalMs % 3600000) / 60000);
                 const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
                 // Get character color
-                const color = (scene.characterId && characterColors[scene.characterId]) || '#3b82f6';
+                const timeScene = scenes.find(s => s.id === scene.sceneKey);
+                const color = timeScene ? (characterColors[timeScene.characterId] || '#3b82f6') : '#3b82f6';
                 return (
                   <div key={scene.sceneKey} className="analytics-scene-time-row">
                     <div className="analytics-scene-time-info">
@@ -753,13 +756,12 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
                     const mins = Math.round(ss.durationMs / 60000);
                     const hrs = ss.durationMs / 3600000;
                     const wph = hrs > 0 ? Math.round(ss.wordsNet / hrs) : 0;
-                    const scene = scenes.find(s => s.id === ss.sceneKey);
-                    const charName = characters.find(c => c.id === scene?.characterId)?.name || '?';
-                    const sceneNum = scene?.sceneNumber ?? '?';
-                    const sceneTitle = scene?.title || '';
+                    const ssScene = scenes.find(s => s.id === ss.sceneKey);
+                    const charName = ssScene ? (characters.find(c => c.id === ssScene.characterId)?.name || '?') : '?';
+                    const sceneTitle = ssScene?.title || '';
                     const sceneLabel = sceneTitle
-                      ? `${charName} — ${sceneNum} — ${sceneTitle}`
-                      : `${charName} — ${sceneNum}`;
+                      ? `${charName} — ${ssScene?.sceneNumber ?? '?'} — ${sceneTitle}`
+                      : `${charName} — ${ssScene?.sceneNumber ?? '?'}`;
                     return (
                       <tr key={ss.id}>
                         <td>{dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}</td>

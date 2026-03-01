@@ -12,7 +12,6 @@ interface TimelineContextBarProps {
   selectedSceneKey: string | null;
   selectedEventId: string | null;
   onSelectScene: (key: string | null) => void;
-  onOpenInEditor?: (sceneKey: string) => void;
   viewport: { start: number; end: number }; // 0..1 fractions
   onViewportChange: (start: number, end: number) => void;
 }
@@ -31,18 +30,15 @@ export default function TimelineContextBar({
   selectedSceneKey,
   selectedEventId,
   onSelectScene,
-  onOpenInEditor,
   viewport,
   onViewportChange,
 }: TimelineContextBarProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const lastClickRef = useRef<{ id: string; time: number } | null>(null);
   const dragRef = useRef<{
     type: 'pan' | 'resize-left' | 'resize-right';
     startX: number;
     startViewport: { start: number; end: number };
   } | null>(null);
-  const wasDragRef = useRef(false);
 
   // Keep props in refs for event handlers
   const viewportRef = useRef(viewport);
@@ -92,18 +88,17 @@ export default function TimelineContextBar({
 
     // Draw scene bars per character lane
     for (const scene of scenes) {
-      const key = scene.id;
-      const startDate = timelineDates[key];
+      const startDate = timelineDates[scene.id];
       if (!startDate) continue;
 
       const ci = charIndex[scene.characterId];
       if (ci === undefined) continue;
 
       const color = characterColors[scene.characterId] || '#888';
-      const isSelected = selectedSceneKey === key;
+      const isSelected = selectedSceneKey === scene.id;
 
       const startFrac = dateFraction(startDate);
-      const endDate = timelineEndDates[key];
+      const endDate = timelineEndDates[scene.id];
       const endFrac = endDate ? dateFraction(endDate) : startFrac;
 
       const x = startFrac * w;
@@ -175,7 +170,6 @@ export default function TimelineContextBar({
     resizeObserver.observe(canvas);
 
     const handleMouseDown = (e: MouseEvent) => {
-      wasDragRef.current = false;
       const rect = canvas.getBoundingClientRect();
       const mx = (e.clientX - rect.left) / rect.width; // fraction
       const vp = viewportRef.current;
@@ -225,7 +219,6 @@ export default function TimelineContextBar({
       const rect = canvas.getBoundingClientRect();
       const deltaFrac = (e.clientX - drag.startX) / rect.width;
 
-      wasDragRef.current = true;
       if (drag.type === 'pan') {
         canvas.style.cursor = 'grabbing';
         const vpWidth = drag.startViewport.end - drag.startViewport.start;
@@ -252,7 +245,7 @@ export default function TimelineContextBar({
 
     const handleClick = (e: MouseEvent) => {
       // Check if click was on a scene bar (for selection)
-      if (wasDragRef.current) return; // was dragging
+      if (dragRef.current) return; // was dragging
       const rect = canvas.getBoundingClientRect();
       const mx = (e.clientX - rect.left) / rect.width;
       const my = e.clientY - rect.top;
@@ -263,15 +256,14 @@ export default function TimelineContextBar({
       const barMinW = Math.max(3, 1 / dateRangeLen);
 
       for (const scene of scenes) {
-        const key = scene.id;
-        const startDate = timelineDates[key];
+        const startDate = timelineDates[scene.id];
         if (!startDate) continue;
 
         const ci = charIndex[scene.characterId];
         if (ci === undefined) continue;
 
         const startFrac = dateFraction(startDate);
-        const endDate = timelineEndDates[key];
+        const endDate = timelineEndDates[scene.id];
         const endFrac = endDate ? dateFraction(endDate) : startFrac;
 
         const barX = startFrac;
@@ -280,17 +272,7 @@ export default function TimelineContextBar({
         const barH = Math.max(2, laneH - 1);
 
         if (mx >= barX && mx <= barX + barW && my >= barY && my <= barY + barH) {
-          // Double-click detection
-          const now = Date.now();
-          const last = lastClickRef.current;
-          if (last && last.id === scene.id && now - last.time < 400 && onOpenInEditor) {
-            lastClickRef.current = null;
-            onOpenInEditor(key);
-            return;
-          }
-          lastClickRef.current = { id: scene.id, time: now };
-
-          onSelectScene(selectedSceneKey === key ? null : key);
+          onSelectScene(selectedSceneKey === scene.id ? null : scene.id);
           return;
         }
       }

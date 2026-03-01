@@ -1484,6 +1484,35 @@
   cursor: default;
 }
 
+.plot-point.dragging {
+  opacity: 0.4;
+}
+
+.section-drag-handle {
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: 2px;
+  cursor: grab;
+  user-select: none;
+  margin-right: 4px;
+}
+
+.section-drop-zone {
+  padding: 16px;
+  margin: 8px 0 24px 0;
+  border: 2px dashed var(--border);
+  border-radius: 6px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-family: var(--font-ui);
+  background: var(--bg-tertiary);
+}
+
+.section-drop-zone:hover {
+  border-color: var(--text-secondary);
+  background: #e8f4e8;
+}
 
 .plot-point-header {
   display: flex;
@@ -2846,6 +2875,17 @@ textarea.scene-metadata-field-input {
   background: var(--bg-primary);
 }
 
+/* Highlight scene card as drop target when dragging over it */
+.plot-point.scene-dragging .pov-scene-item:not(.dragging) {
+  transition: box-shadow 0.15s, border-color 0.15s;
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+
+.plot-point.scene-dragging .pov-scene-item:not(.dragging):hover {
+  border-color: var(--tag-people);
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+}
 
 .scene-drop-zone {
   height: 12px;
@@ -2866,6 +2906,14 @@ textarea.scene-metadata-field-input {
   border: 2px dashed var(--tag-people);
 }
 
+.scene-drop-zone-top {
+  height: 24px;
+  margin-bottom: 8px;
+}
+
+.scene-drop-zone-top.active {
+  height: 48px;
+}
 
 .scene-drop-zone-empty {
   height: 60px;
@@ -2891,6 +2939,10 @@ textarea.scene-metadata-field-input {
   cursor: default;
 }
 
+.plot-point.scene-dragging .section-drag-handle {
+  opacity: 0.3;
+  cursor: default;
+}
 
 /* Braided View Layout */
 .braided-layout {
@@ -2927,12 +2979,6 @@ textarea.scene-metadata-field-input {
   overflow-y: auto;
   position: sticky;
   top: 0;
-}
-
-.inbox-drag-over {
-  outline: 2px dashed var(--accent, #4a9eff);
-  outline-offset: -2px;
-  background: var(--bg-tertiary);
 }
 
 .inbox-header {
@@ -3779,6 +3825,28 @@ textarea.scene-metadata-field-input {
   margin: 2px 0;
 }
 
+.braided-drag-handle {
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: 2px;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+
+.braided-scene-item.pov-text:hover .braided-drag-handle {
+  opacity: 0.5;
+}
+
+.braided-drag-handle:hover {
+  opacity: 1 !important;
+  color: var(--text-secondary);
+}
+
+.braided-drag-handle:active {
+  cursor: grabbing;
+}
 
 .braided-scene-number {
   font-size: 13px;
@@ -4167,13 +4235,6 @@ textarea.scene-metadata-field-input {
 
 .braided-insert-popover-item:hover {
   background: var(--bg-tertiary);
-}
-
-.braided-insert-popover-empty {
-  padding: 8px 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: center;
 }
 
 .braided-insert-color-dot {
@@ -5096,6 +5157,16 @@ textarea.scene-metadata-field-input {
   border-color: var(--border);
 }
 
+.rails-header-cell.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.rails-header-cell.drop-target {
+  transform: scale(1.02);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 8px 20px rgba(0, 0, 0, 0.06);
+  border-color: var(--text-muted);
+}
 
 .rails-row-number-header {
   background: transparent !important;
@@ -5193,7 +5264,7 @@ textarea.scene-metadata-field-input {
   height: 30px;
   background: var(--connector-color);
   transform: translateX(-1px);
-  z-index: 1;
+  z-index: 6;
   pointer-events: none;
 }
 
@@ -5207,7 +5278,7 @@ textarea.scene-metadata-field-input {
   height: 30px;
   background: var(--connector-color);
   transform: translateX(-1px);
-  z-index: 1;
+  z-index: 6;
   pointer-events: none;
 }
 
@@ -5220,7 +5291,7 @@ textarea.scene-metadata-field-input {
   height: calc(100% + 60px);
   background: var(--connector-color);
   transform: translateX(-1px);
-  z-index: 1;
+  z-index: 6;
   pointer-events: none;
 }
 
@@ -5287,11 +5358,6 @@ textarea.scene-metadata-field-input {
   outline: 2px solid var(--tag-arcs, #e74c3c);
   outline-offset: -1px;
   background: rgba(231, 76, 60, 0.08);
-}
-
-.rails-scene-card.drag-overlay {
-  box-shadow: var(--shadow-lg);
-  opacity: 0.9;
 }
 
 .rails-scene-card.has-connections::before {
@@ -5386,7 +5452,7 @@ textarea.scene-metadata-field-input {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 1;
+  z-index: 5;
   overflow: visible;
 }
 
@@ -8351,83 +8417,6 @@ textarea.editor-meta-field-input {
   color: var(--text-primary);
 }
 
-/* Generic modal-content box (used by restore backup, etc.) */
-.modal-content {
-  background: var(--bg-primary);
-  border-radius: var(--radius-lg);
-  width: 440px;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-lg);
-}
-
-.modal-content .modal-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.modal-body {
-  padding: 16px 20px;
-  overflow-y: auto;
-}
-
-/* Restore Backup Modal */
-.backup-empty {
-  color: var(--text-muted);
-  font-size: 13px;
-  text-align: center;
-  padding: 20px 0;
-}
-
-.backup-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.backup-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-}
-
-.backup-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.backup-date {
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-.backup-size {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.backup-restore-btn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 4px 12px;
-  font-size: 12px;
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.backup-restore-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--text-muted);
-}
-
 /* Compile tab navigation */
 .compile-tabs {
   display: flex;
@@ -9088,6 +9077,14 @@ textarea.editor-meta-field-input {
   color: var(--text-secondary);
 }
 
+.table-header.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.table-header.drag-over {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
 
 .table-header-content {
   display: flex;
@@ -9703,6 +9700,12 @@ textarea.table-cell-input {
   color: var(--text-secondary);
 }
 
+.notes-sidebar-folder-header.drag-over {
+  background: rgba(61, 53, 48, 0.06);
+  border-radius: 6px;
+  outline: 2px dashed var(--text-muted);
+  outline-offset: -2px;
+}
 
 .notes-sidebar-root-drop {
   min-height: 8px;
@@ -9710,6 +9713,11 @@ textarea.table-cell-input {
   transition: background 0.15s;
 }
 
+.notes-sidebar-root-drop.drag-over {
+  background: rgba(61, 53, 48, 0.04);
+  outline: 2px dashed var(--text-muted);
+  outline-offset: -2px;
+}
 
 .notes-sidebar-folder-name {
   flex: 1;
@@ -14052,6 +14060,10 @@ textarea.table-cell-input {
   transition: opacity 0.2s, box-shadow 0.2s;
 }
 
+.sidebar-section-wrapper.dragging {
+  opacity: 0.35;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
 
 /* --- Section Header --- */
 .sidebar-section-header {
@@ -15432,36 +15444,6 @@ textarea.table-cell-input {
   color: var(--text-primary);
 }
 
-.timeline-search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 8px;
-}
-
-.timeline-search-input {
-  height: 26px;
-  width: 160px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 12px;
-  font-family: var(--font-ui);
-  outline: none;
-}
-
-.timeline-search-input:focus {
-  border-color: var(--accent);
-}
-
-.timeline-search-count {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
 .timeline-content {
   display: flex;
   flex: 1;
@@ -16223,6 +16205,11 @@ textarea.table-cell-input {
   flex-shrink: 0;
 }
 
+.timeline-unassigned-sidebar.drag-over {
+  background: var(--bg-tertiary);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
 
 .timeline-unassigned-controls {
   display: flex;
@@ -16337,6 +16324,14 @@ textarea.table-cell-input {
   border-radius: 2px;
 }
 
+.tg-scene-card[draggable="true"] {
+  cursor: grab;
+}
+
+.tg-scene-card.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
 
 
 /* ── Empty State ──────────────────────────────────────────────────────── */
@@ -16508,34 +16503,6 @@ textarea.table-cell-input {
 
 .timeline-canvas:active {
   cursor: grabbing;
-}
-
-/* ── Timeline zoom slider ── */
-.timeline-zoom-slider {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  background: var(--bg-secondary);
-  flex-shrink: 0;
-}
-
-.timeline-zoom-slider input[type="range"] {
-  flex: 1;
-  max-width: 120px;
-  height: 4px;
-}
-
-.timeline-zoom-slider .zoom-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  user-select: none;
-}
-
-.timeline-zoom-slider .zoom-value {
-  font-size: 11px;
-  color: var(--text-muted);
-  min-width: 40px;
 }
 
 /* ── Compile completion overlay ── */

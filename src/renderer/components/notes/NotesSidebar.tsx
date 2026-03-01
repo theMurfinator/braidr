@@ -1,20 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { NoteMetadata } from '../../../shared/types';
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragOverEvent,
-  DragOverlay,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 interface NotesSidebarProps {
   notes: NoteMetadata[];
@@ -94,54 +79,8 @@ function getAllDescendantIds(notes: NoteMetadata[], ancestorId: string): Set<str
   return ids;
 }
 
-/** Collect all visible note IDs in tree order (respecting collapsed state) */
-function flattenVisibleIds(tree: NoteTreeNode[], collapsedIds: Set<string>): string[] {
-  const result: string[] = [];
-  const walk = (nodes: NoteTreeNode[]) => {
-    for (const node of nodes) {
-      result.push(node.note.id);
-      if (!collapsedIds.has(node.note.id)) {
-        walk(node.children);
-      }
-    }
-  };
-  walk(tree);
-  return result;
-}
-
 type DropPosition = 'before' | 'inside' | 'after';
 
-// --- SortableNoteItem wrapper ---
-function SortableNoteItem({
-  id,
-  children,
-}: {
-  id: string;
-  children: React.ReactNode;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
-    </div>
-  );
-}
-
-// --- NoteTreeItem ---
 interface NoteTreeItemProps {
   node: NoteTreeNode;
   depth: number;
@@ -150,8 +89,12 @@ interface NoteTreeItemProps {
   onToggleCollapse: (id: string) => void;
   onSelect: (id: string) => void;
   onContextMenu: (e: React.MouseEvent, noteId: string) => void;
-  activeId: string | null;
+  draggedNoteId: string | null;
   dropTarget: { noteId: string; position: DropPosition } | null;
+  onDragStart: (e: React.DragEvent, noteId: string) => void;
+  onDragOver: (e: React.DragEvent, noteId: string) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent, noteId: string) => void;
   renamingNoteId: string | null;
   renameValue: string;
   onRenameValueChange: (val: string) => void;
@@ -168,8 +111,12 @@ function NoteTreeItem({
   onToggleCollapse,
   onSelect,
   onContextMenu,
-  activeId,
+  draggedNoteId,
   dropTarget,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
   renamingNoteId,
   renameValue,
   onRenameValueChange,
@@ -180,7 +127,7 @@ function NoteTreeItem({
   const hasChildren = node.children.length > 0;
   const isCollapsed = collapsedIds.has(node.note.id);
   const isSelected = selectedNoteId === node.note.id;
-  const isDragging = activeId === node.note.id;
+  const isDragging = draggedNoteId === node.note.id;
   const isDropTarget = dropTarget?.noteId === node.note.id;
   const isRenaming = renamingNoteId === node.note.id;
 
@@ -191,52 +138,54 @@ function NoteTreeItem({
 
   return (
     <>
-      <SortableNoteItem id={node.note.id}>
-        <div
-          className={`notes-sidebar-item ${isSelected ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${dropClass}`}
-          style={{ paddingLeft: `${12 + depth * 16}px` }}
-          data-note-id={node.note.id}
-          onClick={() => onSelect(node.note.id)}
-          onContextMenu={(e) => onContextMenu(e, node.note.id)}
+      <div
+        className={`notes-sidebar-item ${isSelected ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${dropClass}`}
+        style={{ paddingLeft: `${12 + depth * 16}px` }}
+        onClick={() => onSelect(node.note.id)}
+        onContextMenu={(e) => onContextMenu(e, node.note.id)}
+        draggable
+        onDragStart={(e) => onDragStart(e, node.note.id)}
+        onDragOver={(e) => onDragOver(e, node.note.id)}
+        onDragLeave={onDragLeave}
+        onDrop={(e) => onDrop(e, node.note.id)}
+      >
+        <button
+          className={`notes-sidebar-chevron-btn ${hasChildren ? '' : 'invisible'} ${!isCollapsed && hasChildren ? 'expanded' : ''}`}
+          onClick={(e) => { e.stopPropagation(); onToggleCollapse(node.note.id); }}
         >
-          <button
-            className={`notes-sidebar-chevron-btn ${hasChildren ? '' : 'invisible'} ${!isCollapsed && hasChildren ? 'expanded' : ''}`}
-            onClick={(e) => { e.stopPropagation(); onToggleCollapse(node.note.id); }}
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          {isRenaming ? (
-            <input
-              ref={renameInputRef}
-              className="notes-sidebar-rename-input"
-              value={renameValue}
-              onChange={(e) => onRenameValueChange(e.target.value)}
-              onBlur={() => onRenameSubmit(node.note.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') onRenameSubmit(node.note.id);
-                if (e.key === 'Escape') onRenameCancel();
-              }}
-            />
-          ) : (
-            <div className="notes-sidebar-item-stack">
-              <span className="notes-sidebar-item-title">{node.note.title || 'Untitled'}</span>
-              <span className="notes-sidebar-item-time">{timeAgo(node.note.modifiedAt)}</span>
-              {node.note.tags && node.note.tags.length > 0 && (
-                <div className="notes-sidebar-item-tags">
-                  {node.note.tags.slice(0, 3).map(t => (
-                    <span key={t} className="note-tag-pill">#{t}</span>
-                  ))}
-                  {node.note.tags.length > 3 && (
-                    <span className="note-tag-pill note-tag-overflow">+{node.note.tags.length - 3}</span>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </SortableNoteItem>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            className="notes-sidebar-rename-input"
+            value={renameValue}
+            onChange={(e) => onRenameValueChange(e.target.value)}
+            onBlur={() => onRenameSubmit(node.note.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onRenameSubmit(node.note.id);
+              if (e.key === 'Escape') onRenameCancel();
+            }}
+          />
+        ) : (
+          <div className="notes-sidebar-item-stack">
+            <span className="notes-sidebar-item-title">{node.note.title || 'Untitled'}</span>
+            <span className="notes-sidebar-item-time">{timeAgo(node.note.modifiedAt)}</span>
+            {node.note.tags && node.note.tags.length > 0 && (
+              <div className="notes-sidebar-item-tags">
+                {node.note.tags.slice(0, 3).map(t => (
+                  <span key={t} className="note-tag-pill">#{t}</span>
+                ))}
+                {node.note.tags.length > 3 && (
+                  <span className="note-tag-pill note-tag-overflow">+{node.note.tags.length - 3}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       {!isCollapsed && node.children.map(child => (
         <NoteTreeItem
           key={child.note.id}
@@ -247,8 +196,12 @@ function NoteTreeItem({
           onToggleCollapse={onToggleCollapse}
           onSelect={onSelect}
           onContextMenu={onContextMenu}
-          activeId={activeId}
+          draggedNoteId={draggedNoteId}
           dropTarget={dropTarget}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
           renamingNoteId={renamingNoteId}
           renameValue={renameValue}
           onRenameValueChange={onRenameValueChange}
@@ -281,14 +234,10 @@ export default function NotesSidebar({
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch { return new Set(); }
   });
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ noteId: string; position: DropPosition } | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
 
   useEffect(() => {
     localStorage.setItem('braidr-notes-collapsed-folders', JSON.stringify([...collapsedIds]));
@@ -315,11 +264,6 @@ export default function NotesSidebar({
 
   const tree = useMemo(() => buildNoteTree(notes, searchQuery), [notes, searchQuery]);
 
-  const sortableIds = useMemo(
-    () => flattenVisibleIds(tree, collapsedIds),
-    [tree, collapsedIds]
-  );
-
   const toggleCollapse = (id: string) => {
     setCollapsedIds(prev => {
       const next = new Set(prev);
@@ -342,70 +286,57 @@ export default function NotesSidebar({
     setContextMenu({ x: e.clientX, y: e.clientY, noteId });
   };
 
-  // --- dnd-kit handlers ---
-
-  const handleDragStart = (event: { active: { id: string | number } }) => {
-    setActiveId(String(event.active.id));
+  const handleDragStart = (e: React.DragEvent, noteId: string) => {
+    setDraggedNoteId(noteId);
+    e.dataTransfer.setData('text/plain', noteId);
+    e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) {
+  const handleDragOver = (e: React.DragEvent, targetNoteId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!draggedNoteId || draggedNoteId === targetNoteId) {
       setDropTarget(null);
       return;
     }
 
-    const draggedId = String(active.id);
-    const targetId = String(over.id);
-
-    // Prevent circular drops
-    const descendants = getAllDescendantIds(notes, draggedId);
-    if (descendants.has(targetId)) {
+    const descendants = getAllDescendantIds(notes, draggedNoteId);
+    if (descendants.has(targetNoteId)) {
       setDropTarget(null);
       return;
     }
 
-    // Get the over element's bounding rect
-    const overElement = document.querySelector(`[data-note-id="${targetId}"]`);
-    if (!overElement) return;
-    const rect = overElement.getBoundingClientRect();
-
-    // Get pointer Y from the event
-    const pointerY = (event.activatorEvent as PointerEvent).clientY + (event.delta?.y || 0);
-    const relativeY = pointerY - rect.top;
-    const ratio = relativeY / rect.height;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const height = rect.height;
 
     let position: DropPosition;
-    if (ratio < 0.25) position = 'before';
-    else if (ratio > 0.75) position = 'after';
-    else position = 'inside';
+    if (y < height * 0.25) {
+      position = 'before';
+    } else if (y > height * 0.75) {
+      position = 'after';
+    } else {
+      position = 'inside';
+    }
 
-    setDropTarget({ noteId: targetId, position });
+    setDropTarget({ noteId: targetNoteId, position });
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+  const handleDragLeave = () => {
+    setDropTarget(null);
+  };
 
-    if (!over || !dropTarget || active.id === over.id) {
-      setActiveId(null);
+  const handleDrop = (e: React.DragEvent, targetNoteId: string) => {
+    e.preventDefault();
+    if (!draggedNoteId || !dropTarget || draggedNoteId === targetNoteId) {
+      setDraggedNoteId(null);
       setDropTarget(null);
       return;
     }
 
-    const draggedId = String(active.id);
-    const targetNoteId = dropTarget.noteId;
     const targetNote = notes.find(n => n.id === targetNoteId);
-
     if (!targetNote) {
-      setActiveId(null);
-      setDropTarget(null);
-      return;
-    }
-
-    // Prevent circular drops
-    const descendants = getAllDescendantIds(notes, draggedId);
-    if (descendants.has(targetNoteId)) {
-      setActiveId(null);
+      setDraggedNoteId(null);
       setDropTarget(null);
       return;
     }
@@ -431,18 +362,19 @@ export default function NotesSidebar({
       newOrder = dropTarget.position === 'before' ? targetIdx : targetIdx + 1;
     }
 
-    onMoveNote(draggedId, newParentId, newOrder);
-    setActiveId(null);
+    onMoveNote(draggedNoteId, newParentId, newOrder);
+    setDraggedNoteId(null);
     setDropTarget(null);
   };
 
-  const handleDragCancel = () => {
-    setActiveId(null);
-    setDropTarget(null);
-  };
-
-  // Find the active note for the drag overlay
-  const activeNote = activeId ? notes.find(n => n.id === activeId) : null;
+  useEffect(() => {
+    const handleEnd = () => {
+      setDraggedNoteId(null);
+      setDropTarget(null);
+    };
+    document.addEventListener('dragend', handleEnd);
+    return () => document.removeEventListener('dragend', handleEnd);
+  }, []);
 
   return (
     <div className="notes-sidebar" style={width ? { width } : undefined}>
@@ -465,59 +397,45 @@ export default function NotesSidebar({
         </button>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
-      >
-        <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-          <div className="notes-sidebar-list">
-            {tree.map(node => (
-              <NoteTreeItem
-                key={node.note.id}
-                node={node}
-                depth={0}
-                selectedNoteId={selectedNoteId}
-                collapsedIds={collapsedIds}
-                onToggleCollapse={toggleCollapse}
-                onSelect={onSelectNote}
-                onContextMenu={handleContextMenu}
-                activeId={activeId}
-                dropTarget={dropTarget}
-                renamingNoteId={renamingNoteId}
-                renameValue={renameValue}
-                onRenameValueChange={setRenameValue}
-                onRenameSubmit={handleRenameSubmit}
-                onRenameCancel={() => { setRenamingNoteId(null); setRenameValue(''); }}
-                renameInputRef={renameInputRef}
-              />
-            ))}
+      <div className="notes-sidebar-list">
+        {tree.map(node => (
+          <NoteTreeItem
+            key={node.note.id}
+            node={node}
+            depth={0}
+            selectedNoteId={selectedNoteId}
+            collapsedIds={collapsedIds}
+            onToggleCollapse={toggleCollapse}
+            onSelect={onSelectNote}
+            onContextMenu={handleContextMenu}
+            draggedNoteId={draggedNoteId}
+            dropTarget={dropTarget}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            renamingNoteId={renamingNoteId}
+            renameValue={renameValue}
+            onRenameValueChange={setRenameValue}
+            onRenameSubmit={handleRenameSubmit}
+            onRenameCancel={() => { setRenamingNoteId(null); setRenameValue(''); }}
+            renameInputRef={renameInputRef}
+          />
+        ))}
 
-            {notes.length === 0 && !searchQuery && (
-              <div className="notes-sidebar-empty">
-                <p>No notes yet</p>
-                <p className="notes-sidebar-empty-hint">Create your first note to get started</p>
-              </div>
-            )}
-
-            {tree.length === 0 && searchQuery && (
-              <div className="notes-sidebar-empty">
-                <p>No matching notes</p>
-              </div>
-            )}
+        {notes.length === 0 && !searchQuery && (
+          <div className="notes-sidebar-empty">
+            <p>No notes yet</p>
+            <p className="notes-sidebar-empty-hint">Create your first note to get started</p>
           </div>
-        </SortableContext>
+        )}
 
-        <DragOverlay>
-          {activeNote ? (
-            <div className="notes-sidebar-item dragging-overlay">
-              <span className="notes-sidebar-item-title">{activeNote.title || 'Untitled'}</span>
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+        {tree.length === 0 && searchQuery && (
+          <div className="notes-sidebar-empty">
+            <p>No matching notes</p>
+          </div>
+        )}
+      </div>
 
       {contextMenu && (
         <div

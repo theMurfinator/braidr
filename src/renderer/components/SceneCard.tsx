@@ -23,7 +23,6 @@ interface SceneCardProps {
   backgroundColor?: string;
   showDragHandle?: boolean;
   dragHandleRef?: (el: HTMLSpanElement | null) => void;
-  dragHandleListeners?: Record<string, unknown>;
   forceNotesExpanded?: boolean | null;
   // Movement arrows for POV view
   onMoveUp?: () => void;
@@ -67,7 +66,6 @@ function SceneCard({
   backgroundColor,
   showDragHandle = false,
   dragHandleRef,
-  dragHandleListeners,
   forceNotesExpanded = null,
   onMoveUp,
   onMoveDown,
@@ -380,7 +378,6 @@ function SceneCard({
               <span
                 className="scene-drag-handle"
                 ref={dragHandleRef}
-                {...(dragHandleListeners || {})}
               >
                 ⋮⋮
               </span>

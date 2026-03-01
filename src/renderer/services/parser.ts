@@ -5,8 +5,8 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
 
-// Generate a stable ID from a string (for characters and scenes)
-export function stableId(str: string): string {
+// Generate a stable ID from a string (for characters)
+function stableId(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -76,20 +76,28 @@ function parsePlotPointHeader(line: string): { title: string; expectedCount: num
   return { title: line.replace(/^##\s+/, '').trim(), expectedCount: null };
 }
 
-// Parse a scene line
-function parseSceneLine(line: string): { sceneNumber: number; content: string; isHighlighted: boolean } {
+// Parse a scene line, extracting stable ID if present
+function parseSceneLine(line: string): { sceneNumber: number; content: string; isHighlighted: boolean; stableId: string | null } {
   const match = line.match(/^(\d+)\.\s+(.+)$/);
   if (!match) {
-    return { sceneNumber: 0, content: line, isHighlighted: false };
+    return { sceneNumber: 0, content: line, isHighlighted: false, stableId: null };
   }
 
   const sceneNumber = parseInt(match[1], 10);
   let content = match[2];
 
+  // Extract stable ID from <!-- sid:xxx --> comment
+  let sid: string | null = null;
+  const sidMatch = content.match(/<!--\s*sid:(\S+)\s*-->/);
+  if (sidMatch) {
+    sid = sidMatch[1];
+    content = content.replace(/\s*<!--\s*sid:\S+\s*-->/, '').trim();
+  }
+
   // Check for highlighting (==**text**== pattern)
   const isHighlighted = /==\*\*.*\*\*==/.test(content);
 
-  return { sceneNumber, content, isHighlighted };
+  return { sceneNumber, content, isHighlighted, stableId: sid };
 }
 
 // Check if a line is a sub-note (indented bullet)
@@ -177,7 +185,7 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
         currentPlotPointDescription = [];
       }
 
-      const { sceneNumber, content: sceneContent, isHighlighted } = parseSceneLine(trimmedLine);
+      const { sceneNumber, content: sceneContent, isHighlighted, stableId: parsedStableId } = parseSceneLine(trimmedLine);
       let tags = extractTags(sceneContent);
 
       // Filter out any old filename-based tag if it differs from the proper character tag
@@ -192,7 +200,7 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
       }
 
       currentScene = {
-        id: stableId(`${character.id}:${sceneNumber}`),
+        id: parsedStableId || generateId(),
         characterId: character.id,
         sceneNumber,
         title: sceneContent,
@@ -240,10 +248,12 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
   };
 }
 
-// Build scene line with tags appended from tags array
+// Build scene line with tags appended from tags array, plus stable ID comment
 function buildSceneLine(scene: Scene, characterName: string): string {
   // Strip existing tags from content to avoid duplicates
   let cleanContent = scene.content.replace(/#[a-zA-Z0-9_]+/g, '').trim();
+  // Strip any existing stable ID comment from content
+  cleanContent = cleanContent.replace(/\s*<!--\s*sid:\S+\s*-->/, '').trim();
 
   // Get tags to append (excluding character's own tag which is auto-added)
   const characterTag = characterName.toLowerCase().replace(/\s+/g, '_');
@@ -253,6 +263,9 @@ function buildSceneLine(scene: Scene, characterName: string): string {
   if (tagsToWrite.length > 0) {
     cleanContent += ' ' + tagsToWrite.map(t => `#${t}`).join(' ');
   }
+
+  // Append stable ID
+  cleanContent += ` <!-- sid:${scene.id} -->`;
 
   return cleanContent;
 }

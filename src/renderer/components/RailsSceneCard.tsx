@@ -12,7 +12,8 @@ interface RailsSceneCardProps {
   isConnecting: boolean;
   isConnectionSource: boolean;
   isConnectionTarget: boolean;
-  dragListeners?: Record<string, unknown>;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
   isPovReordered?: boolean;
 }
 
@@ -27,7 +28,8 @@ export default function RailsSceneCard({
   isConnecting,
   isConnectionSource,
   isConnectionTarget,
-  dragListeners,
+  onDragStart,
+  onDragEnd,
   isPovReordered,
 }: RailsSceneCardProps) {
   // Clean up the title for display (remove markdown formatting)
@@ -46,7 +48,9 @@ export default function RailsSceneCard({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       data-scene-id={scene.id}
-      {...(dragListeners || {})}
+      draggable={!isConnecting}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
     >
       <div className="rails-scene-title">{displayTitle || 'Untitled scene'}</div>
       {hasConnections && (

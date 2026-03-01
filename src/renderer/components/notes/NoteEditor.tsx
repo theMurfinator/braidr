@@ -89,8 +89,6 @@ export default function NoteEditor({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingContentRef = useRef<string | null>(null);
   const settingContentRef = useRef(false);
-  const onContentChangeRef = useRef(onContentChange);
-  onContentChangeRef.current = onContentChange;
   const editorRef = useRef<any>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
@@ -163,10 +161,9 @@ export default function NoteEditor({
         .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
         .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
       const label = cleanedContent || `${charName} Scene ${scene.sceneNumber}`;
-      const sceneKey = scene.id;
       if (label.toLowerCase().includes(q) || charName.toLowerCase().includes(q)) {
         items.push({
-          id: sceneKey,
+          id: scene.id,
           label,
           type: 'scene',
           description: `${charName} · Scene ${scene.sceneNumber}`,
@@ -417,7 +414,7 @@ export default function NoteEditor({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (pendingContentRef.current !== null) {
-        onContentChangeRef.current(pendingContentRef.current);
+        onContentChange(pendingContentRef.current);
       }
     };
   }, []);

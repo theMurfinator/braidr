@@ -119,10 +119,10 @@ export default function TaskRow({
   // Resolve scene
   let sceneLabel = '';
   if (task.sceneKey) {
-    const scene = scenes.find((s) => s.id === task.sceneKey);
-    const char = characters.find((c) => c.id === scene?.characterId);
-    if (char && scene) {
-      sceneLabel = `${char.name} \u2014 Scene #${scene.sceneNumber}`;
+    const taskScene = scenes.find((s) => s.id === task.sceneKey);
+    const char = taskScene ? characters.find((c) => c.id === taskScene.characterId) : null;
+    if (char && taskScene) {
+      sceneLabel = `${char.name} \u2014 Scene #${taskScene.sceneNumber}`;
     }
   }
 

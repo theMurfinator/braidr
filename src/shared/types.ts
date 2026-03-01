@@ -82,25 +82,16 @@ export interface TableViewConfig {
   createdAt: number; // timestamp
 }
 
-export interface TimelineViewState {
-  panX: number;
-  panY: number;
-  zoom: number;
-  selectedSceneKey: string | null;
-  subMode: 'canvas' | 'grid';
-  collapsedLanes?: string[];
-}
-
 export interface TimelineData {
-  // Maps scene.id to timeline position
+  // Maps "characterId:sceneNumber" to timeline position
   positions: Record<string, number>;
-  // Maps scene.id to array of connected scene IDs
+  // Maps "characterId:sceneNumber" to array of connected scene keys
   connections?: Record<string, string[]>;
   // Chapters in the braided timeline
   chapters?: BraidedChapter[];
   // Custom colors for characters (characterId -> color)
   characterColors?: Record<string, string>;
-  // Word counts for scenes (scene.id -> count)
+  // Word counts for scenes (characterId:sceneNumber -> count)
   wordCounts?: Record<string, number>;
   // Font settings (global — kept for backward compat)
   fontSettings?: FontSettings;
@@ -108,17 +99,17 @@ export interface TimelineData {
   allFontSettings?: AllFontSettings;
   // Archived (soft-deleted) scenes
   archivedScenes?: ArchivedScene[];
-  // Draft prose content keyed by scene.id
+  // Draft prose content keyed by "characterId:sceneNumber"
   draftContent?: Record<string, string>;
   // Metadata field definitions (project-wide)
   metadataFieldDefs?: MetadataFieldDef[];
-  // Per-scene metadata values keyed by scene.id
+  // Per-scene metadata values keyed by "characterId:sceneNumber"
   sceneMetadata?: Record<string, Record<string, string | string[]>>;
-  // Saved draft versions keyed by scene.id
+  // Saved draft versions keyed by "characterId:sceneNumber"
   drafts?: Record<string, DraftVersion[]>;
-  // Scratchpad content keyed by scene.id
+  // Scratchpad content keyed by "characterId:sceneNumber"
   scratchpad?: Record<string, string>;
-  // Comments keyed by scene.id
+  // Comments keyed by "characterId:sceneNumber"
   sceneComments?: Record<string, SceneComment[]>;
   // Saved table view configurations
   tableViews?: TableViewConfig[];
@@ -134,14 +125,12 @@ export interface TimelineData {
   // Inline metadata display preferences (POV view)
   inlineMetadataFields?: string[];
   showInlineLabels?: boolean;
-  // Scene dates keyed by scene.id
+  // Scene dates keyed by "characterId:sceneNumber"
   timelineDates?: Record<string, string>;
-  // Scene end dates keyed by scene.id (for multi-day scenes)
+  // Scene end dates keyed by "characterId:sceneNumber" (for multi-day scenes)
   timelineEndDates?: Record<string, string>;
   // World events
   worldEvents?: WorldEvent[];
-  // Saved view state (zoom, pan, selection, subMode)
-  viewState?: TimelineViewState;
 }
 
 // ── Task Management ──────────────────────────────────────────────────────────
@@ -210,7 +199,7 @@ export interface WorldEvent {
   endDate?: string;            // "YYYY-MM-DD" for multi-day events
   description: string;
   tags: string[];
-  linkedSceneKeys: string[];   // ["scene.id", ...]
+  linkedSceneKeys: string[];   // ["characterId:sceneNumber", ...]
   linkedNoteIds: string[];     // note IDs
   createdAt: number;
   updatedAt: number;
@@ -286,7 +275,7 @@ export interface NoteMetadata {
   createdAt: number;
   modifiedAt: number;
   outgoingLinks: string[];  // Note IDs this note links to
-  sceneLinks: string[];     // Scene IDs (scene.id) this note references
+  sceneLinks: string[];     // Scene keys ("characterId:sceneNumber") this note references
   tags?: string[];          // Tag names applied to this note
   // Deprecated — kept for migration from folder-based layout
   folderPath?: string;
@@ -377,7 +366,4 @@ export const IPC_CHANNELS = {
   REACTIVATE_SUBSCRIPTION: 'reactivate-subscription',
   // Analytics (PostHog)
   CAPTURE_ANALYTICS_EVENT: 'capture-analytics-event',
-  // Backups
-  LIST_BACKUPS: 'list-backups',
-  RESTORE_BACKUP: 'restore-backup',
 } as const;

@@ -11,7 +11,7 @@ export interface WritingSession {
 
 export interface SceneSession {
   id: string;              // unique ID
-  sceneKey: string;        // scene.id (stable UUID)
+  sceneKey: string;        // "characterId:sceneNumber"
   date: string;            // ISO date
   startTime: number;       // epoch ms
   endTime: number;         // epoch ms

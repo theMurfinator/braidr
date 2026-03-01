@@ -1,19 +1,6 @@
+import { useRef, useState } from 'react';
 import { Tab, TabParams, defaultTabTitle } from '../../../shared/paneTypes';
 import { usePaneContext } from './PaneContext';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  horizontalListSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 interface TabBarProps {
   paneId: string;
@@ -32,72 +19,38 @@ const VIEW_ICONS: Record<TabParams['type'], string> = {
   account: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
 };
 
-function SortableTab({
-  tab,
-  activeTabId,
-  paneId,
-  tabs,
-  dispatch,
-}: {
-  tab: Tab;
-  activeTabId: string;
-  paneId: string;
-  tabs: Tab[];
-  dispatch: ReturnType<typeof usePaneContext>['dispatch'];
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`tab-item ${tab.id === activeTabId ? 'active' : ''} ${isDragging ? 'dragging' : ''}`}
-      onClick={() => dispatch({ type: 'SET_ACTIVE_TAB', paneId, tabId: tab.id })}
-      {...attributes}
-      {...listeners}
-    >
-      <svg className="tab-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d={VIEW_ICONS[tab.params.type]} />
-      </svg>
-      <span className="tab-title">{tab.title}</span>
-      {tabs.length > 1 && !tab.isPinned && (
-        <button
-          className="tab-close"
-          onClick={e => {
-            e.stopPropagation();
-            dispatch({ type: 'CLOSE_TAB', paneId, tabId: tab.id });
-          }}
-          title="Close tab"
-        >
-          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M2 2l8 8M10 2l-8 8" />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
-}
-
 export default function TabBar({ paneId, tabs, activeTabId }: TabBarProps) {
   const { dispatch } = usePaneContext();
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
+  const dragRef = useRef<number | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    dragRef.current = idx;
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = 'move';
+  };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const fromIndex = tabs.findIndex(t => t.id === active.id);
-    const toIndex = tabs.findIndex(t => t.id === over.id);
-    if (fromIndex !== -1 && toIndex !== -1) {
-      dispatch({ type: 'REORDER_TAB', paneId, fromIndex, toIndex });
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropIdx(idx);
+  };
+
+  const handleDrop = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragRef.current !== null && dragRef.current !== idx) {
+      dispatch({ type: 'REORDER_TAB', paneId, fromIndex: dragRef.current, toIndex: idx });
     }
+    setDragIdx(null);
+    setDropIdx(null);
+    dragRef.current = null;
+  };
+
+  const handleDragEnd = () => {
+    setDragIdx(null);
+    setDropIdx(null);
+    dragRef.current = null;
   };
 
   const handleNewTab = () => {
@@ -111,20 +64,37 @@ export default function TabBar({ paneId, tabs, activeTabId }: TabBarProps) {
 
   return (
     <div className="tab-bar">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
-          {tabs.map(tab => (
-            <SortableTab
-              key={tab.id}
-              tab={tab}
-              activeTabId={activeTabId}
-              paneId={paneId}
-              tabs={tabs}
-              dispatch={dispatch}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+      {tabs.map((tab, idx) => (
+        <div
+          key={tab.id}
+          className={`tab-item ${tab.id === activeTabId ? 'active' : ''} ${dragIdx === idx ? 'dragging' : ''} ${dropIdx === idx ? 'drop-target' : ''}`}
+          onClick={() => dispatch({ type: 'SET_ACTIVE_TAB', paneId, tabId: tab.id })}
+          draggable
+          onDragStart={e => handleDragStart(e, idx)}
+          onDragOver={e => handleDragOver(e, idx)}
+          onDrop={e => handleDrop(e, idx)}
+          onDragEnd={handleDragEnd}
+        >
+          <svg className="tab-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d={VIEW_ICONS[tab.params.type]} />
+          </svg>
+          <span className="tab-title">{tab.title}</span>
+          {tabs.length > 1 && !tab.isPinned && (
+            <button
+              className="tab-close"
+              onClick={e => {
+                e.stopPropagation();
+                dispatch({ type: 'CLOSE_TAB', paneId, tabId: tab.id });
+              }}
+              title="Close tab"
+            >
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M2 2l8 8M10 2l-8 8" />
+              </svg>
+            </button>
+          )}
+        </div>
+      ))}
       <button className="tab-bar-add" onClick={handleNewTab} title="New tab (Cmd+T)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 5v14M5 12h14" />

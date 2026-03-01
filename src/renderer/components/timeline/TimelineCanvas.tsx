@@ -9,10 +9,6 @@ const EVENT_HEIGHT = 32;
 const LANE_GAP = 8;
 const TOP_MARGIN = 50;
 
-// Semantic zoom thresholds based on effective column width (colWidth * zoom)
-const ZOOM_LEVEL_DOT = 40;      // Below this: colored dot only
-const ZOOM_LEVEL_LABEL = 120;   // Below this: label only; above: full card
-
 // ── Light-theme color palette ─────────────────────────────────────────────────
 const COLORS = {
   background: '#FAFAF8',
@@ -50,13 +46,7 @@ interface TimelineCanvasProps {
   labelWidth: number;
   colWidth: number;
   dateRange: string[];
-  onOpenInEditor?: (sceneKey: string) => void;
   onViewportChange?: (viewport: { start: number; end: number }) => void;
-  viewport?: { start: number; end: number }; // Incoming viewport from context bar
-  zoom?: number;
-  onZoomChange?: (zoom: number) => void;
-  collapsedLanes?: Set<string>;
-  onToggleLane?: (characterId: string) => void;
 }
 
 interface HitResult {
@@ -115,32 +105,14 @@ export default function TimelineCanvas({
   selectedEventId,
   onSelectScene,
   onSelectEvent,
-  onOpenInEditor,
   labelWidth,
   colWidth,
   dateRange,
   onViewportChange,
-  viewport,
-  zoom,
-  onZoomChange,
-  collapsedLanes,
-  onToggleLane,
 }: TimelineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const onViewportChangeRef = useRef(onViewportChange);
   useEffect(() => { onViewportChangeRef.current = onViewportChange; }, [onViewportChange]);
-
-  const onZoomChangeRef = useRef(onZoomChange);
-  useEffect(() => { onZoomChangeRef.current = onZoomChange; }, [onZoomChange]);
-
-  const onOpenInEditorRef = useRef(onOpenInEditor);
-  useEffect(() => { onOpenInEditorRef.current = onOpenInEditor; }, [onOpenInEditor]);
-
-  const onToggleLaneRef = useRef(onToggleLane);
-  useEffect(() => { onToggleLaneRef.current = onToggleLane; }, [onToggleLane]);
-
-  const collapsedLanesRef = useRef(collapsedLanes);
-  useEffect(() => { collapsedLanesRef.current = collapsedLanes; }, [collapsedLanes]);
 
   // Keep labelWidth and colWidth in refs so draw/dayX can read them without being deps
   const labelWidthRef = useRef(labelWidth);
@@ -152,9 +124,7 @@ export default function TimelineCanvas({
   // Transient interaction state — refs to avoid re-renders
   const panRef = useRef({ x: labelWidth + 20, y: 20 });
   const zoomRef = useRef(1);
-  const isExternalZoomUpdate = useRef(false);
   const hoverRef = useRef<HitResult | null>(null);
-  const lastClickRef = useRef<{ id: string; time: number } | null>(null);
   const dragRef = useRef({
     isDragging: false,
     hasMoved: false,
@@ -172,7 +142,7 @@ export default function TimelineCanvas({
 
   // ── Derived data ────────────────────────────────────────────────────────────
 
-  // sceneId -> Scene lookup
+  // scene.id -> Scene lookup
   const sceneById = useMemo(() => {
     const m: Record<string, Scene> = {};
     for (const s of scenes) {
@@ -181,16 +151,15 @@ export default function TimelineCanvas({
     return m;
   }, [scenes]);
 
-  // date -> sceneKeys per character
+  // date -> sceneIds per character
   const sceneDateMap = useMemo(() => {
     const map: Record<string, Record<string, string[]>> = {};
     for (const scene of scenes) {
-      const key = scene.id;
-      const date = timelineDates[key];
+      const date = timelineDates[scene.id];
       if (!date) continue;
       if (!map[date]) map[date] = {};
       if (!map[date][scene.characterId]) map[date][scene.characterId] = [];
-      map[date][scene.characterId].push(key);
+      map[date][scene.characterId].push(scene.id);
     }
     return map;
   }, [scenes, timelineDates]);
@@ -206,16 +175,8 @@ export default function TimelineCanvas({
     return map;
   }, [worldEvents]);
 
-  // ── External viewport refs (used by reportViewport and the viewport effect) ──
-  const viewportRef = useRef(viewport);
-  const isExternalViewportUpdate = useRef(false);
-
   // ── Report viewport to context bar ──────────────────────────────────────────
   const reportViewport = useCallback(() => {
-    if (isExternalViewportUpdate.current) {
-      isExternalViewportUpdate.current = false;
-      return;
-    }
     const canvas = canvasRef.current;
     if (!canvas || dateRange.length === 0 || !onViewportChangeRef.current) return;
     const zoom = zoomRef.current;
@@ -226,66 +187,8 @@ export default function TimelineCanvas({
     const offset = labelWidthRef.current * zoom + pan.x;
     const startFrac = Math.max(0, -offset / totalW);
     const endFrac = Math.min(1, (w - offset) / totalW);
-    viewportRef.current = { start: startFrac, end: endFrac };
     onViewportChangeRef.current({ start: startFrac, end: endFrac });
   }, [dateRange.length]);
-
-  // ── Drive canvas from external viewport (context bar) ──────────────────────
-  useEffect(() => {
-    if (!viewport || dateRange.length === 0) return;
-    // Skip if this is just our own reportViewport echoing back
-    const prev = viewportRef.current;
-    viewportRef.current = viewport;
-    if (prev && Math.abs(prev.start - viewport.start) < 0.001 && Math.abs(prev.end - viewport.end) < 0.001) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const w = canvas.clientWidth;
-    const zoom = zoomRef.current;
-    const totalW = dateRange.length * colWidthRef.current * zoom;
-    if (totalW <= 0) return;
-
-    // Compute new zoom from viewport width
-    const vpWidth = viewport.end - viewport.start;
-    if (vpWidth > 0 && vpWidth < 1) {
-      const newZoom = w / (vpWidth * dateRange.length * colWidthRef.current);
-      zoomRef.current = Math.max(0.3, Math.min(3, newZoom));
-    }
-
-    // Compute new pan from viewport start
-    const newTotalW = dateRange.length * colWidthRef.current * zoomRef.current;
-    panRef.current = {
-      ...panRef.current,
-      x: -(viewport.start * newTotalW) - labelWidthRef.current * zoomRef.current,
-    };
-
-    onZoomChangeRef.current?.(zoomRef.current);
-    isExternalViewportUpdate.current = true;
-    drawRef.current();
-    // Don't call reportViewport here to avoid feedback loop
-  }, [viewport, dateRange.length]);
-
-  // ── Drive zoom from external prop (slider) ──────────────────────────────────
-  useEffect(() => {
-    if (zoom === undefined) return;
-    if (isExternalZoomUpdate.current) {
-      isExternalZoomUpdate.current = false;
-      return;
-    }
-    if (Math.abs(zoomRef.current - zoom) < 0.01) return;
-    const oldZoom = zoomRef.current;
-    const canvas = canvasRef.current;
-    const cx = canvas ? canvas.clientWidth / 2 : 0;
-    const cy = canvas ? canvas.clientHeight / 2 : 0;
-    zoomRef.current = zoom;
-    // Zoom toward canvas center
-    panRef.current = {
-      x: cx - (cx - panRef.current.x) * (zoom / oldZoom),
-      y: cy - (cy - panRef.current.y) * (zoom / oldZoom),
-    };
-    drawRef.current();
-    reportViewport();
-  }, [zoom, reportViewport]);
 
   // ── Position helpers ────────────────────────────────────────────────────────
 
@@ -295,12 +198,8 @@ export default function TimelineCanvas({
   }, [dateRange]);
 
   const laneY = useCallback((charIndex: number): number => {
-    let y = TOP_MARGIN + EVENT_HEIGHT + LANE_GAP;
-    for (let i = 0; i < charIndex; i++) {
-      y += collapsedLanes?.has(characters[i]?.id) ? 16 : LANE_HEIGHT;
-    }
-    return y;
-  }, [characters, collapsedLanes]);
+    return TOP_MARGIN + EVENT_HEIGHT + LANE_GAP + charIndex * LANE_HEIGHT;
+  }, []);
 
   /** Get the rect for a scene card, handling stacking within the same day & character lane. */
   const sceneRect = useCallback((sceneKey: string): Rect | null => {
@@ -349,34 +248,12 @@ export default function TimelineCanvas({
     const x = (canvasX - pan.x) / zoom;
     const y = (canvasY - pan.y) / zoom;
 
-    const effectiveColW = colWidthRef.current * zoom;
-
-    // Check scenes — adjust hit bounds to match semantic zoom rendering
+    // Check scenes
     for (const scene of scenes) {
-      if (collapsedLanesRef.current?.has(scene.characterId)) continue;
-      const key = scene.id;
-      const r = sceneRect(key);
+      const r = sceneRect(scene.id);
       if (!r) continue;
-
-      let hit = false;
-      if (effectiveColW < ZOOM_LEVEL_DOT) {
-        // Dot level: hit test as circle around center
-        const cx = r.x + r.w / 2;
-        const cy = r.y + r.h / 2;
-        const hitRadius = 6; // slightly larger than drawn radius for easier clicking
-        hit = (x - cx) ** 2 + (y - cy) ** 2 <= hitRadius ** 2;
-      } else if (effectiveColW < ZOOM_LEVEL_LABEL) {
-        // Label level: thin bar (height 20, centered vertically)
-        const barH = 20;
-        const barY = r.y + (r.h - barH) / 2;
-        hit = x >= r.x && x <= r.x + r.w && y >= barY && y <= barY + barH;
-      } else {
-        // Full card level: standard rect
-        hit = x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
-      }
-
-      if (hit) {
-        return { type: 'scene', id: scene.id, key };
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+        return { type: 'scene', id: scene.id, key: scene.id };
       }
     }
 
@@ -416,8 +293,8 @@ export default function TimelineCanvas({
     const selScene = selectedSceneRef.current;
     const selEvent = selectedEventRef.current;
 
-    // Convert selected scene key to sceneId for comparison
-    const selSceneId = selScene ? sceneById[selScene]?.id ?? null : null;
+    // Selected scene key IS the scene ID now
+    const selSceneId = selScene ?? null;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -430,8 +307,7 @@ export default function TimelineCanvas({
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom, zoom);
 
-    const totalLaneHeight = characters.reduce((sum, char) =>
-      sum + (collapsedLanes?.has(char.id) ? 16 : LANE_HEIGHT), 0);
+    const totalLaneHeight = characters.length * LANE_HEIGHT;
 
     // 3. Day column backgrounds
     for (const date of dateRange) {
@@ -450,49 +326,58 @@ export default function TimelineCanvas({
       }
     }
 
-    // Semantic zoom: effective column width
-    const effectiveColW = colWidthRef.current * zoom;
+    // 4. Day labels at top
+    ctx.textAlign = 'center';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+    for (const date of dateRange) {
+      const x = dayX(date);
+      const charMap = sceneDateMap[date] || {};
+      const hasScenes = Object.keys(charMap).length > 0;
 
-    // 4. Day labels at top (hidden at dot zoom level)
-    if (effectiveColW >= ZOOM_LEVEL_DOT) {
-      ctx.textAlign = 'center';
-      ctx.font = '11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-      for (const date of dateRange) {
-        const x = dayX(date);
-        const charMap = sceneDateMap[date] || {};
-        const hasScenes = Object.keys(charMap).length > 0;
+      ctx.fillStyle = hasScenes ? COLORS.dayLabelText : COLORS.dayLabelMuted;
+      // Short date label: "3/14"
+      const d = new Date(date + 'T00:00:00');
+      const label = `${d.getMonth() + 1}/${d.getDate()}`;
+      ctx.fillText(label, x + CARD_W / 2, TOP_MARGIN - 16);
 
-        ctx.fillStyle = hasScenes ? COLORS.dayLabelText : COLORS.dayLabelMuted;
-        // Short date label: "3/14"
-        const d = new Date(date + 'T00:00:00');
-        const label = `${d.getMonth() + 1}/${d.getDate()}`;
-        ctx.fillText(label, x + CARD_W / 2, TOP_MARGIN - 16);
-
-        // Tick mark
-        ctx.strokeStyle = hasScenes ? COLORS.dayLabelText : COLORS.dayLabelMuted;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(x + CARD_W / 2, TOP_MARGIN - 8);
-        ctx.lineTo(x + CARD_W / 2, TOP_MARGIN - 2);
-        ctx.stroke();
-      }
+      // Tick mark
+      ctx.strokeStyle = hasScenes ? COLORS.dayLabelText : COLORS.dayLabelMuted;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + CARD_W / 2, TOP_MARGIN - 8);
+      ctx.lineTo(x + CARD_W / 2, TOP_MARGIN - 2);
+      ctx.stroke();
     }
 
     // 5. Character lane stripes (alternating)
     for (let i = 0; i < characters.length; i++) {
       const y = laneY(i);
-      const isCollapsed = collapsedLanes?.has(characters[i].id);
-      const laneH = isCollapsed ? 16 : LANE_HEIGHT;
       ctx.fillStyle = i % 2 === 0 ? COLORS.laneStripeEven : COLORS.laneStripeOdd;
       ctx.fillRect(
         -20,
         y,
         dateRange.length * colWidthRef.current + labelWidthRef.current + 40,
-        laneH,
+        LANE_HEIGHT,
       );
     }
 
-    // 6–7. Character lane labels + World label: moved after ctx.restore() to pin to left edge
+    // 6. Character lane labels (left side)
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+    for (let i = 0; i < characters.length; i++) {
+      const char = characters[i];
+      const color = characterColors[char.id] || '#888';
+      const y = laneY(i);
+      // 60% opacity: append '99' (hex for ~60%)
+      ctx.fillStyle = color + '99';
+      ctx.fillText(char.name, labelWidthRef.current - 12, y + LANE_HEIGHT / 2 + 4);
+    }
+
+    // 7. World events row label
+    ctx.fillStyle = COLORS.worldEventStroke + '99';
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('World', labelWidthRef.current - 12, TOP_MARGIN + EVENT_HEIGHT / 2 + 4);
 
     // 8. Connection lines (Bezier curves between connected scenes)
     ctx.setLineDash([]);
@@ -550,11 +435,9 @@ export default function TimelineCanvas({
       }
     }
 
-    // 10. Scene cards — semantic zoom
+    // 10. Scene cards
     for (const scene of scenes) {
-      if (collapsedLanes?.has(scene.characterId)) continue;
-      const key = scene.id;
-      const r = sceneRect(key);
+      const r = sceneRect(scene.id);
       if (!r) continue;
 
       const color = characterColors[scene.characterId] || '#888';
@@ -569,111 +452,71 @@ export default function TimelineCanvas({
 
       // Check if linked to selected event
       const isEventLinked = selEvent != null && worldEvents.some(
-        e => e.id === selEvent && e.linkedSceneKeys.includes(key),
+        e => e.id === selEvent && e.linkedSceneKeys.includes(scene.id),
       );
 
-      if (effectiveColW < ZOOM_LEVEL_DOT) {
-        // ── Dot level: colored circle ──
-        const cx = r.x + r.w / 2;
-        const cy = r.y + r.h / 2;
-        const radius = isSelected ? 5 : isHovered ? 4 : 3;
-        ctx.fillStyle = color;
-        ctx.globalAlpha = isSelected ? 1 : isHovered ? 0.9 : 0.7;
+      // Glow
+      if (isHovered || isSelected) {
+        ctx.shadowColor = color + '40';
+        ctx.shadowBlur = 12;
+      }
+
+      // Card background
+      ctx.fillStyle = isSelected
+        ? color + '15'
+        : isHovered
+          ? color + '10'
+          : COLORS.cardFill;
+
+      // Stroke
+      ctx.strokeStyle = isEventLinked
+        ? COLORS.worldEventStroke
+        : isConnected
+          ? COLORS.connectionHighlight
+          : isSelected
+            ? color
+            : isHovered
+              ? color + '80'
+              : COLORS.cardStroke;
+      ctx.lineWidth = isSelected || isEventLinked ? 2 : 1;
+
+      roundRect(ctx, r.x, r.y, r.w, r.h, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+
+      // Left color bar
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(r.x, r.y, 5, r.h);
+      ctx.clip();
+      ctx.fillStyle = color;
+      roundRect(ctx, r.x, r.y, 10, r.h, 6);
+      ctx.fill();
+      ctx.restore();
+
+      // Scene number
+      ctx.fillStyle = color + '99';
+      ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`#${scene.sceneNumber}`, r.x + 10, r.y + 14);
+
+      // Scene title
+      ctx.fillStyle = isHovered || isSelected ? COLORS.cardText : '#555555';
+      ctx.font = '12px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+      const title = scene.title || `Scene ${scene.sceneNumber}`;
+      const displayTitle = truncateText(ctx, title, r.w - 16);
+      ctx.fillText(displayTitle, r.x + 10, r.y + 32);
+
+      // Connection dot indicator
+      const hasConnection = (connections[scene.id] && connections[scene.id].length > 0) ||
+        Object.values(connections).some(targets => targets.includes(scene.id));
+      if (hasConnection) {
+        ctx.fillStyle = COLORS.connectionHighlight;
         ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.arc(r.x + r.w - 8, r.y + 10, 3, 0, Math.PI * 2);
         ctx.fill();
-        if (isSelected) {
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      } else if (effectiveColW < ZOOM_LEVEL_LABEL) {
-        // ── Label level: thin bar with title ──
-        const barH = 20;
-        const barY = r.y + (r.h - barH) / 2;
-        ctx.fillStyle = isSelected ? color + '25' : isHovered ? color + '15' : color + '08';
-        ctx.strokeStyle = isSelected ? color : isHovered ? color + '80' : color + '40';
-        ctx.lineWidth = isSelected ? 1.5 : 1;
-        roundRect(ctx, r.x, barY, r.w, barH, 3);
-        ctx.fill();
-        ctx.stroke();
-        // Left color bar
-        ctx.fillStyle = color;
-        ctx.fillRect(r.x, barY, 3, barH);
-        // Title
-        ctx.fillStyle = COLORS.cardText;
-        ctx.font = '10px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        const title = scene.title || `#${scene.sceneNumber}`;
-        const visibleW = Math.min(r.w, colWidthRef.current) - 10;
-        ctx.fillText(truncateText(ctx, title, visibleW), r.x + 8, barY + 13);
-      } else {
-        // ── Full card level: existing rendering ──
-
-        // Glow
-        if (isHovered || isSelected) {
-          ctx.shadowColor = color + '40';
-          ctx.shadowBlur = 12;
-        }
-
-        // Card background
-        ctx.fillStyle = isSelected
-          ? color + '15'
-          : isHovered
-            ? color + '10'
-            : COLORS.cardFill;
-
-        // Stroke
-        ctx.strokeStyle = isEventLinked
-          ? COLORS.worldEventStroke
-          : isConnected
-            ? COLORS.connectionHighlight
-            : isSelected
-              ? color
-              : isHovered
-                ? color + '80'
-                : COLORS.cardStroke;
-        ctx.lineWidth = isSelected || isEventLinked ? 2 : 1;
-
-        roundRect(ctx, r.x, r.y, r.w, r.h, 6);
-        ctx.fill();
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = 'transparent';
-
-        // Left color bar
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(r.x, r.y, 5, r.h);
-        ctx.clip();
-        ctx.fillStyle = color;
-        roundRect(ctx, r.x, r.y, 10, r.h, 6);
-        ctx.fill();
-        ctx.restore();
-
-        // Scene number
-        ctx.fillStyle = color + '99';
-        ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(`#${scene.sceneNumber}`, r.x + 10, r.y + 14);
-
-        // Scene title
-        ctx.fillStyle = isHovered || isSelected ? COLORS.cardText : '#555555';
-        ctx.font = '12px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
-        const title = scene.title || `Scene ${scene.sceneNumber}`;
-        const displayTitle = truncateText(ctx, title, r.w - 16);
-        ctx.fillText(displayTitle, r.x + 10, r.y + 32);
-
-        // Connection dot indicator
-        const hasConnection = (connections[scene.id] && connections[scene.id].length > 0) ||
-          Object.values(connections).some(targets => targets.includes(scene.id));
-        if (hasConnection) {
-          ctx.fillStyle = COLORS.connectionHighlight;
-          ctx.beginPath();
-          ctx.arc(r.x + r.w - 8, r.y + 10, 3, 0, Math.PI * 2);
-          ctx.fill();
-        }
       }
     }
 
@@ -730,26 +573,8 @@ export default function TimelineCanvas({
           ctx.shadowBlur = 16;
           ctx.strokeStyle = color;
           ctx.lineWidth = 2;
-
-          if (effectiveColW < ZOOM_LEVEL_DOT) {
-            // Dot level: circle outline
-            const cx = r.x + r.w / 2;
-            const cy = r.y + r.h / 2;
-            ctx.beginPath();
-            ctx.arc(cx, cy, 6, 0, Math.PI * 2);
-            ctx.stroke();
-          } else if (effectiveColW < ZOOM_LEVEL_LABEL) {
-            // Label level: thin bar outline
-            const barH = 20;
-            const barY = r.y + (r.h - barH) / 2;
-            roundRect(ctx, r.x, barY, r.w, barH, 3);
-            ctx.stroke();
-          } else {
-            // Full card level: full rect outline
-            roundRect(ctx, r.x, r.y, r.w, r.h, 6);
-            ctx.stroke();
-          }
-
+          roundRect(ctx, r.x, r.y, r.w, r.h, 6);
+          ctx.stroke();
           ctx.shadowBlur = 0;
           ctx.shadowColor = 'transparent';
         }
@@ -773,56 +598,6 @@ export default function TimelineCanvas({
 
     // 13. Restore context
     ctx.restore();
-
-    // 14. Pinned lane labels (drawn in screen coordinates, fixed to left edge)
-    const lw = labelWidthRef.current;
-
-    // Solid background column to mask scrolling content
-    ctx.fillStyle = COLORS.background;
-    ctx.fillRect(0, 0, lw, h);
-
-    // Subtle right border
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(lw, 0);
-    ctx.lineTo(lw, h);
-    ctx.stroke();
-
-    const labelFontSize = Math.min(11, 11 * Math.min(zoom, 1.2));
-
-    // Character labels in screen space
-    for (let i = 0; i < characters.length; i++) {
-      const char = characters[i];
-      const color = characterColors[char.id] || '#888';
-      const worldY = laneY(i);
-      const screenY = worldY * zoom + pan.y;
-      const isCollapsed = collapsedLanes?.has(char.id);
-      const laneH = isCollapsed ? 16 : LANE_HEIGHT;
-      const screenLaneH = laneH * zoom;
-
-      // Skip if entirely off-screen
-      if (screenY + screenLaneH < 0 || screenY > h) continue;
-
-      if (isCollapsed) {
-        ctx.fillStyle = COLORS.cardText;
-        ctx.font = `${labelFontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.fillText('\u25B6 ' + char.name, 8, screenY + 12 * zoom);
-      } else {
-        ctx.textAlign = 'right';
-        ctx.font = `bold ${labelFontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
-        ctx.fillStyle = color + '99';
-        ctx.fillText('\u25BC ' + char.name, lw - 12, screenY + screenLaneH / 2 + 4);
-      }
-    }
-
-    // World events row label in screen space
-    const worldScreenY = TOP_MARGIN * zoom + pan.y;
-    ctx.fillStyle = COLORS.worldEventStroke + '99';
-    ctx.font = `bold ${labelFontSize}px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`;
-    ctx.textAlign = 'right';
-    ctx.fillText('World', lw - 12, worldScreenY + (EVENT_HEIGHT * zoom) / 2 + 4);
   }, [
     characters,
     characterColors,
@@ -837,12 +612,7 @@ export default function TimelineCanvas({
     laneY,
     sceneRect,
     eventRect,
-    collapsedLanes,
   ]);
-
-  // Keep draw in a ref so the viewport effect can call it without depending on it
-  const drawRef = useRef(draw);
-  useEffect(() => { drawRef.current = draw; }, [draw]);
 
   // ── Event handling & animation loop ─────────────────────────────────────────
 
@@ -931,42 +701,10 @@ export default function TimelineCanvas({
         const rect = canvas.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
-
-        // Check if click is on a lane label (left column area)
-        const zoom = zoomRef.current;
-        const pan = panRef.current;
-        const worldX = (mx - pan.x) / zoom;
-        const worldY = (my - pan.y) / zoom;
-
-        if (worldX < labelWidthRef.current && onToggleLaneRef.current) {
-          // Determine which lane was clicked based on Y position
-          for (let i = 0; i < characters.length; i++) {
-            const ly = laneY(i);
-            const isCollapsed = collapsedLanesRef.current?.has(characters[i].id);
-            const laneH = isCollapsed ? 16 : LANE_HEIGHT;
-            if (worldY >= ly && worldY < ly + laneH) {
-              onToggleLaneRef.current(characters[i].id);
-              draw();
-              return;
-            }
-          }
-          return; // prevent fall-through deselect for any click in label column
-        }
-
         const hit = hitTest(mx, my);
 
         if (hit) {
           if (hit.type === 'scene' && hit.key) {
-            // Double-click detection
-            const now = Date.now();
-            const last = lastClickRef.current;
-            if (last && last.id === hit.id && now - last.time < 400) {
-              lastClickRef.current = null;
-              onOpenInEditorRef.current?.(hit.key);
-              return;
-            }
-            lastClickRef.current = { id: hit.id, time: now };
-
             onSelectScene(selectedSceneRef.current === hit.key ? null : hit.key);
             onSelectEvent(null);
           } else if (hit.type === 'event') {
@@ -1009,8 +747,6 @@ export default function TimelineCanvas({
         y: my - (my - panRef.current.y) * (newZoom / oldZoom),
       };
 
-      isExternalZoomUpdate.current = true;
-      onZoomChangeRef.current?.(zoomRef.current);
       draw();
       reportViewport();
     };
@@ -1029,7 +765,7 @@ export default function TimelineCanvas({
       canvas.removeEventListener('mouseleave', handleMouseLeave);
       canvas.removeEventListener('wheel', handleWheel);
     };
-  }, [draw, hitTest, onSelectScene, onSelectEvent, reportViewport, characters, laneY]);
+  }, [draw, hitTest, onSelectScene, onSelectEvent, reportViewport]);
 
   // Redraw when selection, label width, or column width changes from outside
   useEffect(() => {

@@ -4,50 +4,6 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { PlotPoint, Scene, Tag, MetadataFieldDef } from '../../shared/types';
 import SceneCard from './SceneCard';
-import { useSortable } from '@dnd-kit/sortable';
-import { useDroppable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
-
-function SortablePovScene({
-  id,
-  children,
-}: {
-  id: string;
-  children: (listeners: Record<string, unknown>) => React.ReactNode;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} className="pov-scene-wrapper" data-scene-id={id} {...attributes}>
-      {children(listeners || {})}
-    </div>
-  );
-}
-
-function EmptySectionDropZone({ plotPointId }: { plotPointId: string }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `empty-section:${plotPointId}` });
-  return (
-    <div
-      ref={setNodeRef}
-      className={`scene-drop-zone scene-drop-zone-empty ${isOver ? 'active' : ''}`}
-    >
-      <span className="drop-indicator">Drop scene here</span>
-    </div>
-  );
-}
 
 interface PlotPointSectionProps {
   plotPoint: PlotPoint;
@@ -70,8 +26,11 @@ interface PlotPointSectionProps {
   onSceneMoveUp?: (sceneId: string) => void;
   onSceneMoveDown?: (sceneId: string) => void;
   allCharacterScenes?: Scene[]; // All scenes for the character to determine global boundaries
-  // Scene dragging props (dnd-kit)
-  activeDragSceneId?: string | null;
+  // Scene dragging props
+  onSceneDragStart?: (scene: Scene) => void;
+  onSceneDragEnd?: () => void;
+  onSceneDrop?: (targetSceneNumber: number, targetPlotPointId: string) => void;
+  draggedScene?: Scene | null;
   hideHeader?: boolean;
   // Connection props
   getConnectedScenes?: (sceneId: string) => { id: string; label: string }[];
@@ -96,12 +55,13 @@ interface PlotPointSectionProps {
   onDateChange?: (sceneId: string, date: string | undefined) => void;
 }
 
-function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onDeletePlotPoint, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, activeDragSceneId, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange, inlineMetadataFields, showInlineLabels, timelineDates, onDateChange }: PlotPointSectionProps) {
+function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onDeletePlotPoint, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange, inlineMetadataFields, showInlineLabels, timelineDates, onDateChange }: PlotPointSectionProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingCount, setIsEditingCount] = useState(false);
   // Ensure title always has a fallback value
   const [editTitle, setEditTitle] = useState(plotPoint.title || 'New Section');
   const [editCount, setEditCount] = useState<string>(plotPoint.expectedSceneCount?.toString() || '');
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const countInputRef = useRef<HTMLInputElement>(null);
   const plotPointRef = useRef(plotPoint);
@@ -110,6 +70,15 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
   plotPointRef.current = plotPoint;
   editTitleRef.current = editTitle;
   onPlotPointChangeRef.current = onPlotPointChange;
+  // Ref-based drag gate: set true on handle mousedown, checked in onDragStart
+  const canDragPovRef = useRef(false);
+
+  // Reset drag ref on mouseup (in case drag is cancelled without dragEnd firing)
+  useEffect(() => {
+    const resetDrag = () => { canDragPovRef.current = false; };
+    document.addEventListener('mouseup', resetDrag);
+    return () => document.removeEventListener('mouseup', resetDrag);
+  }, []);
 
   const sortedScenes = [...scenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
 
@@ -212,8 +181,35 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
 
   return (
     <>
+      {/* Drop zone at top of section - for scenes dragged from other sections */}
+      {draggedScene && !sortedScenes.some(s => s.id === draggedScene.id) && (
+        <div
+          className={`scene-drop-zone scene-drop-zone-top ${dropTargetIndex === -1 ? 'active' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            setDropTargetIndex(-1);
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setDropTargetIndex(null);
+            }
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDropTargetIndex(null);
+            // Drop at the beginning of this section (before scene 1)
+            const firstScene = sortedScenes[0];
+            onSceneDrop?.(firstScene?.sceneNumber ?? 1, plotPoint.id);
+          }}
+        >
+          {dropTargetIndex === -1 && <span className="drop-indicator">Drop here</span>}
+        </div>
+      )}
       <div
-        className={`plot-point ${activeDragSceneId ? 'scene-dragging' : ''}`}
+        className={`plot-point ${draggedScene ? 'scene-dragging' : ''}`}
         data-plotpoint-id={plotPoint.id}
       >
         {!hideHeader && (
@@ -290,65 +286,178 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
       )}
 
       {sortedScenes.map((scene, index) => (
-        <SortablePovScene key={scene.id} id={scene.id}>
-          {(listeners) => (
+        <div key={scene.id} className="pov-scene-wrapper" data-scene-id={scene.id}>
+          {/* Drop zone before this scene */}
+          {draggedScene && draggedScene.id !== scene.id && (
             <div
-              className={`pov-scene-item ${activeDragSceneId === scene.id ? 'dragging' : ''} ${isConnecting ? 'connect-target' : ''}`}
-              onClick={() => {
-                if (isConnecting && onSceneClick) {
-                  onSceneClick(scene.id);
+              className={`scene-drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+                setDropTargetIndex(index);
+              }}
+              onDragLeave={(e) => {
+                // Only clear if we're leaving the drop zone entirely
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDropTargetIndex(null);
                 }
               }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDropTargetIndex(null);
+                onSceneDrop?.(scene.sceneNumber, plotPoint.id);
+              }}
             >
-              <SceneCard
-                scene={scene}
-                tags={tags}
-                showCharacter={false}
-                onSceneChange={onSceneChange}
-                onTagsChange={onTagsChange}
-                onCreateTag={onCreateTag}
-                onDeleteScene={onDeleteScene}
-                onDuplicateScene={onDuplicateScene}
-                forceNotesExpanded={forceNotesExpanded}
-                showDragHandle={true}
-                dragHandleListeners={listeners}
-                onMoveUp={onSceneMoveUp ? () => onSceneMoveUp(scene.id) : undefined}
-                onMoveDown={onSceneMoveDown ? () => onSceneMoveDown(scene.id) : undefined}
-                canMoveUp={(() => {
-                  if (!allCharacterScenes) return index > 0;
-                  const globalSorted = [...allCharacterScenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
-                  const globalIndex = globalSorted.findIndex(s => s.id === scene.id);
-                  return globalIndex > 0;
-                })()}
-                canMoveDown={(() => {
-                  if (!allCharacterScenes) return index < sortedScenes.length - 1;
-                  const globalSorted = [...allCharacterScenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
-                  const globalIndex = globalSorted.findIndex(s => s.id === scene.id);
-                  return globalIndex < globalSorted.length - 1;
-                })()}
-                connectedScenes={getConnectedScenes?.(scene.id)}
-                onStartConnection={onStartConnection ? () => onStartConnection(scene.id) : undefined}
-                onRemoveConnection={onRemoveConnection ? (targetId) => onRemoveConnection(scene.id, targetId) : undefined}
-                onWordCountChange={onWordCountChange}
-                connectableScenes={getConnectableScenes?.(scene.id)}
-                onCompleteConnection={onCompleteConnection ? (targetId) => onCompleteConnection(scene.id, targetId) : undefined}
-                onOpenInEditor={onOpenInEditor}
-                metadataFieldDefs={metadataFieldDefs}
-                sceneMetadata={sceneMetadata?.[scene.id]}
-                onMetadataChange={onMetadataChange}
-                onMetadataFieldDefsChange={onMetadataFieldDefsChange}
-                inlineMetadataFields={inlineMetadataFields}
-                showInlineLabels={showInlineLabels}
-                sceneDate={timelineDates?.[scene.id]}
-                onDateChange={onDateChange}
-              />
+              {dropTargetIndex === index && <span className="drop-indicator">Drop here</span>}
             </div>
           )}
-        </SortablePovScene>
+          <div
+            className={`pov-scene-item ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting ? 'connect-target' : ''}`}
+            draggable="true"
+            onDragStart={(e) => {
+              if (canDragPovRef.current && onSceneDragStart) {
+                e.stopPropagation();
+                onSceneDragStart(scene);
+              } else {
+                e.preventDefault();
+              }
+            }}
+            onDragEnd={() => {
+              onSceneDragEnd?.();
+              setDropTargetIndex(null);
+              canDragPovRef.current = false;
+            }}
+            onDragOver={(e) => {
+              // Allow dropping on scene cards - will insert after this scene
+              if (draggedScene && draggedScene.id !== scene.id) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+                setDropTargetIndex(index + 0.5); // Use .5 to indicate "after this scene"
+              }
+            }}
+            onDragLeave={(e) => {
+              if (draggedScene && !e.currentTarget.contains(e.relatedTarget as Node)) {
+                setDropTargetIndex(null);
+              }
+            }}
+            onDrop={(e) => {
+              if (draggedScene && draggedScene.id !== scene.id) {
+                e.preventDefault();
+                e.stopPropagation();
+                setDropTargetIndex(null);
+                // Drop after this scene
+                onSceneDrop?.(scene.sceneNumber + 1, plotPoint.id);
+              }
+            }}
+            onClick={() => {
+              if (isConnecting && onSceneClick) {
+                onSceneClick(scene.id);
+              }
+            }}
+          >
+            <SceneCard
+              scene={scene}
+              tags={tags}
+              showCharacter={false}
+              onSceneChange={onSceneChange}
+              onTagsChange={onTagsChange}
+              onCreateTag={onCreateTag}
+              onDeleteScene={onDeleteScene}
+              onDuplicateScene={onDuplicateScene}
+              forceNotesExpanded={forceNotesExpanded}
+              showDragHandle={!!onSceneDragStart}
+              dragHandleRef={(el) => {
+                if (el) {
+                  el.onmousedown = () => { canDragPovRef.current = true; };
+                }
+              }}
+              onMoveUp={onSceneMoveUp ? () => onSceneMoveUp(scene.id) : undefined}
+              onMoveDown={onSceneMoveDown ? () => onSceneMoveDown(scene.id) : undefined}
+              canMoveUp={(() => {
+                if (!allCharacterScenes) return index > 0;
+                const globalSorted = [...allCharacterScenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+                const globalIndex = globalSorted.findIndex(s => s.id === scene.id);
+                return globalIndex > 0;
+              })()}
+              canMoveDown={(() => {
+                if (!allCharacterScenes) return index < sortedScenes.length - 1;
+                const globalSorted = [...allCharacterScenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+                const globalIndex = globalSorted.findIndex(s => s.id === scene.id);
+                return globalIndex < globalSorted.length - 1;
+              })()}
+              connectedScenes={getConnectedScenes?.(scene.id)}
+              onStartConnection={onStartConnection ? () => onStartConnection(scene.id) : undefined}
+              onRemoveConnection={onRemoveConnection ? (targetId) => onRemoveConnection(scene.id, targetId) : undefined}
+              onWordCountChange={onWordCountChange}
+              connectableScenes={getConnectableScenes?.(scene.id)}
+              onCompleteConnection={onCompleteConnection ? (targetId) => onCompleteConnection(scene.id, targetId) : undefined}
+              onOpenInEditor={onOpenInEditor}
+              metadataFieldDefs={metadataFieldDefs}
+              sceneMetadata={sceneMetadata?.[scene.id]}
+              onMetadataChange={onMetadataChange}
+              onMetadataFieldDefsChange={onMetadataFieldDefsChange}
+              inlineMetadataFields={inlineMetadataFields}
+              showInlineLabels={showInlineLabels}
+              sceneDate={timelineDates?.[scene.id]}
+              onDateChange={onDateChange}
+            />
+          </div>
+        </div>
       ))}
-      {/* Droppable zone for empty sections */}
-      {sortedScenes.length === 0 && (
-        <EmptySectionDropZone plotPointId={plotPoint.id} />
+      {/* Drop zone at the end */}
+      {draggedScene && sortedScenes.length > 0 && !sortedScenes.some(s => s.id === draggedScene.id) && (
+        <div
+          className={`scene-drop-zone scene-drop-zone-end ${dropTargetIndex === sortedScenes.length ? 'active' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            setDropTargetIndex(sortedScenes.length);
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setDropTargetIndex(null);
+            }
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDropTargetIndex(null);
+            const lastScene = sortedScenes[sortedScenes.length - 1];
+            onSceneDrop?.(lastScene.sceneNumber + 1, plotPoint.id);
+          }}
+        >
+          {dropTargetIndex === sortedScenes.length && <span className="drop-indicator">Drop here</span>}
+        </div>
+      )}
+      {/* Drop zone for empty sections (when dragging from another section) */}
+      {draggedScene && sortedScenes.length === 0 && (
+        <div
+          className={`scene-drop-zone scene-drop-zone-empty ${dropTargetIndex === 0 ? 'active' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            setDropTargetIndex(0);
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setDropTargetIndex(null);
+            }
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDropTargetIndex(null);
+            // For empty sections, use scene number 1
+            onSceneDrop?.(1, plotPoint.id);
+          }}
+        >
+          <span className="drop-indicator">Drop scene here</span>
+        </div>
       )}
 
       {onAddScene && (

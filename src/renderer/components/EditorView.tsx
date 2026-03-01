@@ -13,21 +13,6 @@ import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
 import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
 import { htmlToNotes, notesToHtml } from '../utils/notesHtml';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 interface EditorViewProps {
   scenes: Scene[];
@@ -97,6 +82,7 @@ const DEFAULT_STATUSES = [
 
 const STATUS_COLORS = ['#9e9e9e', '#4a90d9', '#e8973d', '#4caf7a', '#e74c3c', '#9b59b6', '#1abc9c', '#f39c12'];
 
+
 function cleanContent(text: string): string {
   return text
     .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
@@ -138,36 +124,6 @@ function computeWordDiff(oldText: string, newText: string): DiffChunk[] {
     }
   }
   return chunks;
-}
-
-function SortableSection({
-  id,
-  children,
-}: {
-  id: string;
-  children: (listeners: ReturnType<typeof useSortable>['listeners']) => React.ReactNode;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    position: 'relative',
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      {children(listeners)}
-    </div>
-  );
 }
 
 const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function EditorView({
@@ -269,8 +225,6 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   selectedSceneKeyRef.current = selectedSceneKey;
   const onScratchpadChangeRef = useRef(onScratchpadChange);
   onScratchpadChangeRef.current = onScratchpadChange;
-  const onDraftChangeRef = useRef(onDraftChange);
-  onDraftChangeRef.current = onDraftChange;
   // Preserve sidebar scroll position across re-renders (timer ticks cause full re-render)
   const metaPanelRef = useRef<HTMLDivElement>(null);
   const metaScrollTopRef = useRef(0);
@@ -312,6 +266,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   });
   const [showSectionSettings, setShowSectionSettings] = useState(false);
   const sectionSettingsRef = useRef<HTMLDivElement>(null);
+  const [dragSectionId, setDragSectionId] = useState<string | null>(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
   // Timer state is now lifted to App — use props
   const isTimerForThisScene = timerSceneKeyProp !== null && selectedSceneKey !== null && timerSceneKeyProp === selectedSceneKey;
@@ -449,7 +405,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (pendingContentRef.current) {
-        onDraftChangeRef.current(pendingContentRef.current.key, pendingContentRef.current.html);
+        onDraftChange(pendingContentRef.current.key, pendingContentRef.current.html);
       }
     };
   }, []);
@@ -1040,32 +996,45 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // Section drag (dnd-kit)
-  const sectionSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
+  // Section drag handlers
+  const handleSectionDragStart = (e: React.DragEvent, sectionId: string) => {
+    setDragSectionId(sectionId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', sectionId);
+  };
 
-  const handleSectionDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  const handleSectionDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetIdx(idx);
+  };
 
+  const handleSectionDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (!dragSectionId) return;
     const visibleOrder = sectionOrder.filter(id => !sectionHidden[id]);
-    const oldIndex = visibleOrder.indexOf(active.id as string);
-    const newIndex = visibleOrder.indexOf(over.id as string);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    // Reorder within the full sectionOrder (including hidden items)
-    const newOrder = [...sectionOrder];
-    const fromFullIdx = newOrder.indexOf(active.id as string);
-    newOrder.splice(fromFullIdx, 1);
-    const targetSectionId = visibleOrder[newIndex];
-    const toFullIdx = newOrder.indexOf(targetSectionId);
-    if (oldIndex < newIndex) {
-      newOrder.splice(toFullIdx + 1, 0, active.id as string);
-    } else {
-      newOrder.splice(toFullIdx, 0, active.id as string);
+    const dragIdx = visibleOrder.indexOf(dragSectionId);
+    if (dragIdx === -1 || dragIdx === targetIdx) {
+      setDragSectionId(null);
+      setDropTargetIdx(null);
+      return;
     }
+    // Build new full order by removing dragged item and inserting at target position
+    const newOrder = [...sectionOrder];
+    const fromFullIdx = newOrder.indexOf(dragSectionId);
+    newOrder.splice(fromFullIdx, 1);
+    // Find the full-order index of the target position
+    const targetSectionId = visibleOrder[targetIdx];
+    const toFullIdx = targetSectionId ? newOrder.indexOf(targetSectionId) : newOrder.length;
+    newOrder.splice(dragIdx < targetIdx ? toFullIdx : toFullIdx, 0, dragSectionId);
     setSectionOrder(newOrder);
+    setDragSectionId(null);
+    setDropTargetIdx(null);
+  };
+
+  const handleSectionDragEnd = () => {
+    setDragSectionId(null);
+    setDropTargetIdx(null);
   };
 
   const toggleSectionCollapse = (sectionId: string) => {
@@ -1613,7 +1582,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                 const sceneTasks = (tasks || []).filter(t => t.sceneKey === sceneKey);
 
                 // Legacy note-linked todos
-                const noteTodos = getTodosForScene(sceneTodos, selectedScene.id);
+                const charName = characters.find(c => c.id === selectedScene.characterId)?.name || '';
+                const noteTodos = getTodosForScene(sceneTodos, selectedScene.id, charName, selectedScene.sceneNumber);
 
                 return (
                   <>
@@ -1739,12 +1709,11 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               label: 'Time Tracking',
               render: () => {
                 if (!selectedScene) return null;
-                const key = selectedScene.id;
-                const totals = getSceneSessionTotals(sceneSessions, key);
+                const totals = getSceneSessionTotals(sceneSessions, selectedScene.id);
                 const totalHrs = Math.floor(totals.totalMs / 3600000);
                 const totalMins = Math.floor((totals.totalMs % 3600000) / 60000);
                 const totalStr = totals.totalMs > 0 ? (totalHrs > 0 ? `${totalHrs}h ${totalMins}m` : `${totalMins}m`) : '0m';
-                const sessions = sceneSessionsList ? sceneSessionsList(key) : [];
+                const sessions = sceneSessionsList ? sceneSessionsList(selectedScene.id) : [];
                 return (
                   <>
                     <div className="time-track-header">
@@ -1802,7 +1771,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                             onClick={() => {
                               const totalMinsVal = (parseInt(manualHours) || 0) * 60 + (parseInt(manualMinutes) || 0);
                               if (totalMinsVal > 0) {
-                                onAddManualTime?.(key, totalMinsVal);
+                                onAddManualTime?.(selectedScene.id, totalMinsVal);
                                 setManualHours('');
                                 setManualMinutes('');
                                 setShowManualTimeInput(false);
@@ -1874,54 +1843,59 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
             .filter(Boolean) as typeof sectionDefs;
 
           return (
-            <DndContext
-              sensors={sectionSensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleSectionDragEnd}
-            >
-              <SortableContext
-                items={visibleSections.map(s => s.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="sidebar-sections-container">
-                  {visibleSections.map((section) => {
-                    const isCollapsed = !!sectionCollapsed[section.id];
-                    const content = section.render();
-                    if (content === null && section.id === 'linkedNotes') return null;
-                    return (
-                      <SortableSection key={section.id} id={section.id}>
-                        {(listeners) => (
-                          <div className="sidebar-section-wrapper">
-                            <div
-                              className="sidebar-section-header"
-                              onClick={() => toggleSectionCollapse(section.id)}
-                            >
-                              <span className="sidebar-grip" title="Drag to reorder" {...listeners}>
-                                <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
-                                  <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
-                                  <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
-                                  <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
-                                </svg>
-                              </span>
-                              <h4 className="editor-meta-label">{section.label}</h4>
-                              {section.headerExtra && <span className="sidebar-section-header-extra" onClick={e => e.stopPropagation()}>{section.headerExtra}</span>}
-                              <span className={`sidebar-chevron ${isCollapsed ? 'collapsed' : ''}`}>
-                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                  <path d="M2.5 3.5L5 6L7.5 3.5"/>
-                                </svg>
-                              </span>
-                            </div>
-                            <div className={`sidebar-section-body ${isCollapsed ? 'collapsed' : ''}`}>
-                              {content}
-                            </div>
-                          </div>
-                        )}
-                      </SortableSection>
-                    );
-                  })}
-                </div>
-              </SortableContext>
-            </DndContext>
+            <div className="sidebar-sections-container">
+              {visibleSections.map((section, idx) => {
+                const isCollapsed = !!sectionCollapsed[section.id];
+                const isDragging = dragSectionId === section.id;
+                const content = section.render();
+                if (content === null && section.id === 'linkedNotes') return null;
+                return (
+                  <React.Fragment key={section.id}>
+                    {dropTargetIdx === idx && dragSectionId && dragSectionId !== section.id && (
+                      <div className="sidebar-drop-indicator" />
+                    )}
+                    <div
+                      className={`sidebar-section-wrapper ${isDragging ? 'dragging' : ''}`}
+                      onDragOver={(e) => handleSectionDragOver(e, idx)}
+                      onDrop={(e) => handleSectionDrop(e, idx)}
+                    >
+                      <div
+                        className="sidebar-section-header"
+                        draggable
+                        onDragStart={(e) => handleSectionDragStart(e, section.id)}
+                        onDragEnd={handleSectionDragEnd}
+                        onClick={() => toggleSectionCollapse(section.id)}
+                      >
+                        <span className="sidebar-grip" title="Drag to reorder">
+                          <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
+                            <circle cx="2" cy="2" r="1.2"/><circle cx="6" cy="2" r="1.2"/>
+                            <circle cx="2" cy="7" r="1.2"/><circle cx="6" cy="7" r="1.2"/>
+                            <circle cx="2" cy="12" r="1.2"/><circle cx="6" cy="12" r="1.2"/>
+                          </svg>
+                        </span>
+                        <h4 className="editor-meta-label">{section.label}</h4>
+                        {section.headerExtra && <span className="sidebar-section-header-extra" onClick={e => e.stopPropagation()}>{section.headerExtra}</span>}
+                        <span className={`sidebar-chevron ${isCollapsed ? 'collapsed' : ''}`}>
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M2.5 3.5L5 6L7.5 3.5"/>
+                          </svg>
+                        </span>
+                      </div>
+                      <div className={`sidebar-section-body ${isCollapsed ? 'collapsed' : ''}`}>
+                        {content}
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+              {dropTargetIdx === visibleSections.length && dragSectionId && (
+                <div
+                  className="sidebar-drop-indicator"
+                  onDragOver={(e) => handleSectionDragOver(e, visibleSections.length)}
+                  onDrop={(e) => handleSectionDrop(e, visibleSections.length)}
+                />
+              )}
+            </div>
           );
         })()}
 

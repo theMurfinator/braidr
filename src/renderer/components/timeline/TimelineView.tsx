@@ -1,19 +1,10 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import type { Scene, Character, WorldEvent, Tag, PlotPoint, TagCategory, TimelineViewState } from '../../../shared/types';
+import type { Scene, Character, WorldEvent, Tag, PlotPoint, TagCategory } from '../../../shared/types';
 import SceneDetailPanel from '../SceneDetailPanel';
 import TimelineGrid from './TimelineGrid';
 import TimelineCanvas from './TimelineCanvas';
 import TimelineSidebar from './TimelineSidebar';
 import TimelineContextBar from './TimelineContextBar';
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragOverlay,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core';
 
 type TimelineSubMode = 'grid' | 'canvas';
 
@@ -71,8 +62,6 @@ interface TimelineViewProps {
   onRemoveConnection: (sourceId: string, targetId: string) => void;
   onInsertScene?: (characterId: string, plotPointId: string, date: string) => Promise<string | null>;
   onOpenInEditor?: (sceneKey: string) => void;
-  viewState?: TimelineViewState;
-  onViewStateChange?: (state: TimelineViewState) => void;
 }
 
 export default function TimelineView({
@@ -94,60 +83,14 @@ export default function TimelineView({
   onRemoveConnection,
   onInsertScene,
   onOpenInEditor,
-  viewState,
-  onViewStateChange,
 }: TimelineViewProps) {
-  const [subMode, setSubMode] = useState<TimelineSubMode>(() => viewState?.subMode ?? 'grid');
-  const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(() => viewState?.selectedSceneKey ?? null);
+  const [subMode, setSubMode] = useState<TimelineSubMode>('grid');
+  const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const timelineMainRef = useRef<HTMLDivElement>(null);
-
-  // Collapsible character lanes
-  const [collapsedLanes, setCollapsedLanes] = useState<Set<string>>(
-    () => new Set(viewState?.collapsedLanes ?? [])
-  );
-
-  const toggleLaneCollapse = useCallback((characterId: string) => {
-    setCollapsedLanes(prev => {
-      const next = new Set(prev);
-      if (next.has(characterId)) next.delete(characterId);
-      else next.add(characterId);
-      return next;
-    });
-  }, []);
 
   // Context bar viewport (0..1 fractions)
   const [contextBarViewport, setContextBarViewport] = useState<{ start: number; end: number }>({ start: 0, end: 1 });
-  const contextBarViewportRef = useRef(contextBarViewport);
-  useEffect(() => { contextBarViewportRef.current = contextBarViewport; }, [contextBarViewport]);
-
-  // Canvas zoom level (synced bidirectionally with TimelineCanvas)
-  const [canvasZoom, setCanvasZoom] = useState(() => viewState?.zoom ?? 1);
-
-  // Report view state changes to parent (debounced to avoid excessive saves)
-  const onViewStateChangeRef = useRef(onViewStateChange);
-  useEffect(() => { onViewStateChangeRef.current = onViewStateChange; }, [onViewStateChange]);
-
-  const viewStateChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (!onViewStateChangeRef.current) return;
-    if (viewStateChangeTimerRef.current) clearTimeout(viewStateChangeTimerRef.current);
-    viewStateChangeTimerRef.current = setTimeout(() => {
-      onViewStateChangeRef.current?.({
-        panX: 0,
-        panY: 0,
-        zoom: canvasZoom,
-        selectedSceneKey,
-        subMode,
-        collapsedLanes: [...collapsedLanes],
-      });
-    }, 300);
-    return () => {
-      if (viewStateChangeTimerRef.current) clearTimeout(viewStateChangeTimerRef.current);
-    };
-  }, [canvasZoom, selectedSceneKey, subMode, collapsedLanes]);
 
   const [labelWidth, setLabelWidth] = useState<number>(() => {
     try {
@@ -415,28 +358,15 @@ export default function TimelineView({
     return sortedDatedSceneKeys.indexOf(selectedSceneKey);
   }, [selectedSceneKey, sortedDatedSceneKeys]);
 
-  const navigateToScene = useCallback((sceneKey: string) => {
-    setSelectedSceneKey(sceneKey);
-    const date = timelineDates[sceneKey];
-    if (!date || dateRange.length === 0) return;
-    const idx = dateRange.indexOf(date);
-    if (idx < 0) return;
-    const dateFrac = dateRange.length === 1 ? 0 : idx / (dateRange.length - 1);
-    const vp = contextBarViewportRef.current;
-    const vpWidth = vp.end - vp.start;
-    const newStart = Math.max(0, Math.min(1 - vpWidth, dateFrac - vpWidth / 2));
-    handleContextBarViewportChange(newStart, newStart + vpWidth);
-  }, [timelineDates, dateRange, handleContextBarViewportChange]);
-
   const handlePrevScene = useMemo(() => {
     if (selectedSceneIndex <= 0) return undefined;
-    return () => navigateToScene(sortedDatedSceneKeys[selectedSceneIndex - 1]);
-  }, [selectedSceneIndex, sortedDatedSceneKeys, navigateToScene]);
+    return () => setSelectedSceneKey(sortedDatedSceneKeys[selectedSceneIndex - 1]);
+  }, [selectedSceneIndex, sortedDatedSceneKeys]);
 
   const handleNextScene = useMemo(() => {
     if (selectedSceneIndex < 0 || selectedSceneIndex >= sortedDatedSceneKeys.length - 1) return undefined;
-    return () => navigateToScene(sortedDatedSceneKeys[selectedSceneIndex + 1]);
-  }, [selectedSceneIndex, sortedDatedSceneKeys, navigateToScene]);
+    return () => setSelectedSceneKey(sortedDatedSceneKeys[selectedSceneIndex + 1]);
+  }, [selectedSceneIndex, sortedDatedSceneKeys]);
 
   // ── Detail panel: selected event data & editing ─────────────────────
   const selectedEvent = useMemo(() => {
@@ -498,9 +428,8 @@ export default function TimelineView({
 
   function getSceneLabel(sceneKey: string): string {
     const scene = scenes.find(s => s.id === sceneKey);
-    if (!scene) return sceneKey;
-    const character = characters.find(c => c.id === scene.characterId);
-    return `${character?.name ?? '?'} #${scene.sceneNumber}`;
+    const character = scene ? characters.find(c => c.id === scene.characterId) : null;
+    return `${character?.name ?? '?'} #${scene?.sceneNumber ?? '?'}`;
   }
 
   function getAvailableScenes(): { key: string; label: string }[] {
@@ -508,164 +437,13 @@ export default function TimelineView({
     const linked = new Set(selectedEvent.linkedSceneKeys);
     const results: { key: string; label: string }[] = [];
     for (const scene of scenes) {
-      const key = scene.id;
-      if (linked.has(key)) continue;
-      const label = getSceneLabel(key);
+      if (linked.has(scene.id)) continue;
+      const label = getSceneLabel(scene.id);
       if (linkSearch && !label.toLowerCase().includes(linkSearch.toLowerCase())) continue;
-      results.push({ key, label });
+      results.push({ key: scene.id, label });
     }
     return results;
   }
-
-  // ── Shared dnd-kit context (wraps grid + sidebar for cross-component drag) ──
-  const timelineSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
-  const [timelineDragId, setTimelineDragId] = useState<string | null>(null);
-
-  const handleTimelineDragStart = useCallback((event: DragStartEvent) => {
-    setTimelineDragId(event.active.id as string);
-  }, []);
-
-  const handleTimelineDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    setTimelineDragId(null);
-    if (!over) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    // Drop on "unassigned" zone — remove date from scene or clear date from event
-    if (overId === 'timeline-unassigned-events' || overId === 'timeline-unassigned-scenes') {
-      if (activeId.startsWith('scene:')) {
-        const sceneKey = activeId.replace('scene:', '');
-        const updated = { ...timelineDates };
-        delete updated[sceneKey];
-        onTimelineDatesChange(updated);
-      } else if (activeId.startsWith('event:')) {
-        const eventId = activeId.replace('event:', '');
-        const updatedEvents = worldEvents.map(ev =>
-          ev.id === eventId ? { ...ev, date: '', updatedAt: Date.now() } : ev
-        );
-        onWorldEventsChange(updatedEvents);
-      }
-      return;
-    }
-
-    // Drop on a grid cell
-    if (overId.startsWith('cell:')) {
-      const firstColon = overId.indexOf(':');
-      const secondColon = overId.indexOf(':', firstColon + 1);
-      const targetDate = overId.slice(secondColon + 1);
-
-      if (activeId.startsWith('scene:')) {
-        const sceneKey = activeId.replace('scene:', '');
-        onTimelineDatesChange({ ...timelineDates, [sceneKey]: targetDate });
-      } else if (activeId.startsWith('event:')) {
-        const eventId = activeId.replace('event:', '');
-        const updatedEvents = worldEvents.map(ev =>
-          ev.id === eventId ? { ...ev, date: targetDate, updatedAt: Date.now() } : ev
-        );
-        onWorldEventsChange(updatedEvents);
-      }
-    }
-  }, [timelineDates, onTimelineDatesChange, worldEvents, onWorldEventsChange]);
-
-  // Render drag overlay for timeline drags
-  const sceneById = useMemo(() => {
-    const m: Record<string, Scene> = {};
-    for (const s of scenes) m[s.id] = s;
-    return m;
-  }, [scenes]);
-
-  function renderTimelineDragOverlay() {
-    if (!timelineDragId) return null;
-
-    if (timelineDragId.startsWith('scene:')) {
-      const sceneKey = timelineDragId.replace('scene:', '');
-      const scene = sceneById[sceneKey];
-      if (!scene) return null;
-      const color = characterColors[scene.characterId] || '#888';
-      const title = scene.title
-        ? scene.title.slice(0, 30) + (scene.title.length > 30 ? '...' : '')
-        : `Scene ${scene.sceneNumber}`;
-      return (
-        <div className="tg-scene-card" style={{ borderLeftColor: color, opacity: 0.9 }}>
-          <div className="tg-scene-card-content">
-            <div className="tg-scene-card-top">
-              <span className="tg-scene-num">{scene.sceneNumber}</span>
-              <span className="tg-scene-title">{title}</span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (timelineDragId.startsWith('event:')) {
-      const eventId = timelineDragId.replace('event:', '');
-      const ev = worldEvents.find(e => e.id === eventId);
-      if (!ev) return null;
-      const title = ev.title
-        ? ev.title.slice(0, 30) + (ev.title.length > 30 ? '...' : '')
-        : 'Untitled Event';
-      return (
-        <div className="tg-event-card" style={{ opacity: 0.9 }}>
-          <div className="tg-event-title">{title}</div>
-        </div>
-      );
-    }
-
-    return null;
-  }
-
-  // Scene search
-  const charNameById = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const c of characters) m[c.id] = c.name;
-    return m;
-  }, [characters]);
-
-  const searchMatches = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.trim().toLowerCase();
-    return sortedDatedSceneKeys.filter(key => {
-      const scene = sceneById[key];
-      if (!scene) return false;
-      const title = (scene.title || '').toLowerCase();
-      const num = `#${scene.sceneNumber}`;
-      const charName = (charNameById[scene.characterId] || '').toLowerCase();
-      return title.includes(q) || num.includes(q) || charName.includes(q);
-    });
-  }, [searchQuery, sortedDatedSceneKeys, sceneById, charNameById]);
-
-  // Navigate to the current search match
-  useEffect(() => {
-    if (searchMatches.length === 0) return;
-    if (searchMatchIndex >= searchMatches.length) {
-      setSearchMatchIndex(0);
-      return;
-    }
-    navigateToScene(searchMatches[searchMatchIndex]);
-  }, [searchMatches, searchMatchIndex, navigateToScene]);
-
-  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && searchMatches.length > 0) {
-      e.preventDefault();
-      setSearchMatchIndex(prev => (prev + 1) % searchMatches.length);
-    } else if (e.key === 'Escape') {
-      setSearchQuery('');
-      setSearchMatchIndex(0);
-    }
-  }, [searchMatches.length]);
-
-  // Scenes not yet placed on the timeline
-  const unassignedScenes = useMemo(() => {
-    return scenes.filter(s => !timelineDates[s.id]);
-  }, [scenes, timelineDates]);
-
-  const handlePlaceScene = useCallback((sceneKey: string, date: string) => {
-    onTimelineDatesChange({ ...timelineDates, [sceneKey]: date });
-  }, [timelineDates, onTimelineDatesChange]);
 
   const hasDetail = !!(selectedSceneKey || selectedEventId);
 
@@ -705,29 +483,8 @@ export default function TimelineView({
               Go to scenes
             </button>
           )}
-          <div className="timeline-search">
-            <input
-              className="timeline-search-input"
-              type="text"
-              placeholder="Search scenes..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setSearchMatchIndex(0);
-              }}
-              onKeyDown={handleSearchKeyDown}
-            />
-            {searchQuery && (
-              <span className="timeline-search-count">
-                {searchMatches.length > 0
-                  ? `${searchMatchIndex + 1}/${searchMatches.length}`
-                  : 'No matches'}
-              </span>
-            )}
-          </div>
         </div>
       </div>
-      <DndContext sensors={timelineSensors} onDragStart={handleTimelineDragStart} onDragEnd={handleTimelineDragEnd}>
       <div className={`timeline-content${hasDetail ? ' has-detail' : ''}`}>
         <div className="timeline-main" ref={timelineMainRef}>
           {showSetup ? (
@@ -786,13 +543,6 @@ export default function TimelineView({
               onWorldEventsChange={onWorldEventsChange}
               plotPoints={plotPoints}
               onInsertScene={onInsertScene}
-              unassignedScenes={unassignedScenes}
-              onPlaceScene={handlePlaceScene}
-              onOpenInEditor={onOpenInEditor}
-              collapsedLanes={collapsedLanes}
-              onToggleLane={toggleLaneCollapse}
-              externalDndContext
-              activeDragIdProp={timelineDragId}
             />
           ) : (
             <TimelineCanvas
@@ -807,16 +557,10 @@ export default function TimelineView({
               selectedEventId={selectedEventId}
               onSelectScene={setSelectedSceneKey}
               onSelectEvent={setSelectedEventId}
-              onOpenInEditor={onOpenInEditor}
               labelWidth={labelWidth}
               colWidth={colWidth}
               dateRange={dateRange}
               onViewportChange={(vp) => setContextBarViewport(vp)}
-              viewport={contextBarViewport}
-              zoom={canvasZoom}
-              onZoomChange={setCanvasZoom}
-              collapsedLanes={collapsedLanes}
-              onToggleLane={toggleLaneCollapse}
             />
           )}
         </div>
@@ -1038,8 +782,6 @@ export default function TimelineView({
           onTimelineDatesChange={onTimelineDatesChange}
         />
       </div>
-      <DragOverlay>{renderTimelineDragOverlay()}</DragOverlay>
-      </DndContext>
       {dateRange.length > 0 && (
         <TimelineContextBar
           scenes={scenes}
@@ -1052,25 +794,9 @@ export default function TimelineView({
           selectedSceneKey={selectedSceneKey}
           selectedEventId={selectedEventId}
           onSelectScene={setSelectedSceneKey}
-          onOpenInEditor={onOpenInEditor}
           viewport={contextBarViewport}
           onViewportChange={handleContextBarViewportChange}
         />
-      )}
-      {subMode === 'canvas' && (
-        <div className="timeline-zoom-slider">
-          <span className="zoom-label">-</span>
-          <input
-            type="range"
-            min="0.3"
-            max="3"
-            step="0.1"
-            value={canvasZoom}
-            onChange={(e) => setCanvasZoom(parseFloat(e.target.value))}
-          />
-          <span className="zoom-label">+</span>
-          <span className="zoom-value">{Math.round(canvasZoom * 100)}%</span>
-        </div>
       )}
     </div>
   );

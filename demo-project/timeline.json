@@ -1,125 +1,125 @@
 {
   "positions": {
-    "cceiiks:1": 2,
-    "cceiiks:2": 10,
-    "cceiiks:3": 11,
-    "cceiiks:4": 17,
-    "cceiiks:5": 26,
-    "cceiiks:6": 27,
-    "cceiiks:7": 31,
-    "cceiiks:8": 34,
-    "cceiiks:9": 36,
-    "cceiiks:10": 37,
-    "cceiiks:11": 47,
-    "cceiiks:12": 48,
-    "cceiiks:13": 52,
-    "cceiiks:14": 53,
-    "c1m65ta:1": 1,
-    "c1m65ta:2": 6,
-    "c1m65ta:3": 8,
-    "c1m65ta:4": 12,
-    "c1m65ta:5": 13,
-    "c1m65ta:6": 14,
-    "c1m65ta:7": 15,
-    "c1m65ta:8": 19,
-    "c1m65ta:9": 22,
-    "c1m65ta:10": 24,
-    "c1m65ta:11": 25,
-    "c1m65ta:12": 28,
-    "c1m65ta:13": 39,
-    "c1m65ta:14": 40,
-    "c1m65ta:15": 43,
-    "c1m65ta:16": 45,
-    "c1m65ta:17": 49,
-    "c37xbp1:1": 3,
-    "c37xbp1:2": 7,
-    "c37xbp1:3": 16,
-    "c37xbp1:4": 21,
-    "c37xbp1:5": 23,
-    "c37xbp1:6": 32,
-    "c37xbp1:7": 33,
-    "c37xbp1:8": 38,
-    "c37xbp1:9": 42,
-    "c37xbp1:10": 46,
-    "c37xbp1:11": 51,
-    "c2fof:1": 4,
-    "c2fof:2": 5,
-    "c2fof:3": 9,
-    "c2fof:4": 18,
-    "c2fof:5": 20,
-    "c2fof:6": 29,
-    "c2fof:7": 30,
-    "c2fof:8": 35,
-    "c2fof:9": 41,
-    "c2fof:10": 44,
-    "c2fof:11": 50,
-    "c2fof:12": 54
+    "oez0ds6qu": 2,
+    "5x2teaqk1": 10,
+    "ltixsrfwc": 11,
+    "0y2bmmuzh": 17,
+    "5s1rei6wg": 26,
+    "9l8fgqrdb": 27,
+    "60lt632qo": 31,
+    "go3fkw06t": 34,
+    "ccgmo0e13": 36,
+    "2sxsper6i": 37,
+    "bct5ls18t": 47,
+    "0jg5so3mc": 48,
+    "fhxpsjzmk": 52,
+    "9fyes2shp": 53,
+    "zl1mn8j3z": 1,
+    "i12dot9rs": 6,
+    "wdqobi8pz": 8,
+    "0dxujgoue": 12,
+    "795vv91ay": 13,
+    "42mpvqgxl": 14,
+    "wlz8mylwq": 15,
+    "yiui0hxxs": 19,
+    "bc6ypfrq5": 22,
+    "e4u8up8au": 24,
+    "vjwjwy3rx": 25,
+    "cwpcsw5u8": 28,
+    "ngfpgi8hn": 39,
+    "uvqzlc7ks": 40,
+    "bqku4tfay": 43,
+    "g9mc7qvmz": 45,
+    "3nyuwet7v": 49,
+    "mk0gncifn": 3,
+    "f8qchi997": 7,
+    "msycqvl3b": 16,
+    "rcbvbbfx5": 21,
+    "f0rhogwj0": 23,
+    "hz09zuar3": 32,
+    "ycetu5e11": 33,
+    "imwmp0vjn": 38,
+    "lewyic9lt": 42,
+    "pa33cokij": 46,
+    "w67yrktua": 51,
+    "doq9kcuk6": 4,
+    "p80xnrsjw": 5,
+    "gaxx8xjm9": 9,
+    "smxnqva9t": 18,
+    "6eek13sxa": 20,
+    "qgiq1g5ca": 29,
+    "h0zewhod0": 30,
+    "m70lkg982": 35,
+    "5i51mmv1s": 41,
+    "7pc9iv1uq": 44,
+    "7mcz22hbs": 50,
+    "ybfwop4gq": 54
   },
   "connections": {
-    "c1m65ta:4": [
-      "cceiiks:2"
+    "0dxujgoue": [
+      "5x2teaqk1"
     ],
-    "cceiiks:2": [
-      "c1m65ta:4"
+    "5x2teaqk1": [
+      "0dxujgoue"
     ],
-    "c1m65ta:7": [
-      "cceiiks:4",
-      "c37xbp1:3",
-      "c2fof:4"
+    "wlz8mylwq": [
+      "0y2bmmuzh",
+      "msycqvl3b",
+      "smxnqva9t"
     ],
-    "cceiiks:4": [
-      "c1m65ta:7"
+    "0y2bmmuzh": [
+      "wlz8mylwq"
     ],
-    "c37xbp1:3": [
-      "c1m65ta:7"
+    "msycqvl3b": [
+      "wlz8mylwq"
     ],
-    "c37xbp1:4": [
-      "c1m65ta:9"
+    "rcbvbbfx5": [
+      "bc6ypfrq5"
     ],
-    "c1m65ta:9": [
-      "c37xbp1:4"
+    "bc6ypfrq5": [
+      "rcbvbbfx5"
     ],
-    "cceiiks:6": [
-      "c1m65ta:11"
+    "9l8fgqrdb": [
+      "vjwjwy3rx"
     ],
-    "c1m65ta:11": [
-      "cceiiks:6"
+    "vjwjwy3rx": [
+      "9l8fgqrdb"
     ],
-    "c37xbp1:6": [
-      "cceiiks:8"
+    "hz09zuar3": [
+      "go3fkw06t"
     ],
-    "cceiiks:8": [
-      "c37xbp1:6"
+    "go3fkw06t": [
+      "hz09zuar3"
     ],
-    "c37xbp1:8": [
-      "cceiiks:10"
+    "imwmp0vjn": [
+      "2sxsper6i"
     ],
-    "cceiiks:10": [
-      "c37xbp1:8"
+    "2sxsper6i": [
+      "imwmp0vjn"
     ],
-    "c1m65ta:15": [
-      "c2fof:9"
+    "bqku4tfay": [
+      "5i51mmv1s"
     ],
-    "c2fof:9": [
-      "c1m65ta:15"
+    "5i51mmv1s": [
+      "bqku4tfay"
     ],
-    "c1m65ta:17": [
-      "c2fof:11",
-      "c37xbp1:11",
-      "cceiiks:14"
+    "3nyuwet7v": [
+      "7mcz22hbs",
+      "w67yrktua",
+      "9fyes2shp"
     ],
-    "c2fof:11": [
-      "c1m65ta:17"
+    "7mcz22hbs": [
+      "3nyuwet7v"
     ],
-    "c37xbp1:11": [
-      "c1m65ta:17",
-      "cceiiks:13"
+    "w67yrktua": [
+      "3nyuwet7v",
+      "fhxpsjzmk"
     ],
-    "cceiiks:13": [
-      "c37xbp1:11"
+    "fhxpsjzmk": [
+      "w67yrktua"
     ],
-    "cceiiks:14": [
-      "c1m65ta:17"
+    "9fyes2shp": [
+      "3nyuwet7v"
     ]
   },
   "chapters": [
@@ -161,60 +161,60 @@
     "c2fof": "#F59E0B"
   },
   "wordCounts": {
-    "cceiiks:1": 2600,
-    "cceiiks:2": 2100,
-    "cceiiks:3": 3100,
-    "cceiiks:4": 3500,
-    "cceiiks:5": 2400,
-    "cceiiks:6": 3800,
-    "cceiiks:7": 2200,
-    "cceiiks:8": 3300,
-    "cceiiks:9": 2700,
-    "cceiiks:10": 4100,
-    "cceiiks:11": 2500,
-    "cceiiks:12": 3900,
-    "cceiiks:13": 2800,
-    "cceiiks:14": 3200,
-    "c1m65ta:1": 222,
-    "c1m65ta:2": 3200,
-    "c1m65ta:3": 1800,
-    "c1m65ta:4": 2900,
-    "c1m65ta:5": 3400,
-    "c1m65ta:6": 2100,
-    "c1m65ta:7": 4200,
-    "c1m65ta:8": 2800,
-    "c1m65ta:9": 3600,
-    "c1m65ta:10": 2500,
-    "c1m65ta:11": 2200,
-    "c1m65ta:12": 1900,
-    "c1m65ta:13": 2100,
-    "c1m65ta:14": 1700,
-    "c1m65ta:15": 3800,
-    "c1m65ta:16": 2300,
-    "c1m65ta:17": 4500,
-    "c37xbp1:1": 3400,
-    "c37xbp1:2": 2600,
-    "c37xbp1:3": 2900,
-    "c37xbp1:4": 4200,
-    "c37xbp1:5": 3100,
-    "c37xbp1:6": 2800,
-    "c37xbp1:7": 2400,
-    "c37xbp1:8": 3500,
-    "c37xbp1:9": 2700,
-    "c37xbp1:10": 3300,
-    "c37xbp1:11": 4000,
-    "c2fof:1": 2300,
-    "c2fof:2": 1900,
-    "c2fof:3": 2100,
-    "c2fof:4": 1800,
-    "c2fof:5": 2400,
-    "c2fof:6": 1700,
-    "c2fof:7": 2600,
-    "c2fof:8": 2200,
-    "c2fof:9": 3700,
-    "c2fof:10": 2500,
-    "c2fof:11": 3900,
-    "c2fof:12": 3400
+    "oez0ds6qu": 2600,
+    "5x2teaqk1": 2100,
+    "ltixsrfwc": 3100,
+    "0y2bmmuzh": 3500,
+    "5s1rei6wg": 2400,
+    "9l8fgqrdb": 3800,
+    "60lt632qo": 2200,
+    "go3fkw06t": 3300,
+    "ccgmo0e13": 2700,
+    "2sxsper6i": 4100,
+    "bct5ls18t": 2500,
+    "0jg5so3mc": 3900,
+    "fhxpsjzmk": 2800,
+    "9fyes2shp": 3200,
+    "zl1mn8j3z": 222,
+    "i12dot9rs": 3200,
+    "wdqobi8pz": 1800,
+    "0dxujgoue": 2900,
+    "795vv91ay": 3400,
+    "42mpvqgxl": 2100,
+    "wlz8mylwq": 4200,
+    "yiui0hxxs": 2800,
+    "bc6ypfrq5": 3600,
+    "e4u8up8au": 2500,
+    "vjwjwy3rx": 2200,
+    "cwpcsw5u8": 1900,
+    "ngfpgi8hn": 2100,
+    "uvqzlc7ks": 1700,
+    "bqku4tfay": 3800,
+    "g9mc7qvmz": 2300,
+    "3nyuwet7v": 4500,
+    "mk0gncifn": 3400,
+    "f8qchi997": 2600,
+    "msycqvl3b": 2900,
+    "rcbvbbfx5": 4200,
+    "f0rhogwj0": 3100,
+    "hz09zuar3": 2800,
+    "ycetu5e11": 2400,
+    "imwmp0vjn": 3500,
+    "lewyic9lt": 2700,
+    "pa33cokij": 3300,
+    "w67yrktua": 4000,
+    "doq9kcuk6": 2300,
+    "p80xnrsjw": 1900,
+    "gaxx8xjm9": 2100,
+    "smxnqva9t": 1800,
+    "6eek13sxa": 2400,
+    "qgiq1g5ca": 1700,
+    "h0zewhod0": 2600,
+    "m70lkg982": 2200,
+    "5i51mmv1s": 3700,
+    "7pc9iv1uq": 2500,
+    "7mcz22hbs": 3900,
+    "ybfwop4gq": 3400
   },
   "fontSettings": {
     "sectionTitle": "Lora",
@@ -226,9 +226,9 @@
   },
   "archivedScenes": [],
   "draftContent": {
-    "c1m65ta:1": "<p>The night was warm and the stars were bright over Hobbiton when Bilbo Baggins stood on the stage beneath the Party Tree and surveyed the crowd of one hundred and forty-four hobbits — twelve dozen, a Gross, as they said in the Shire — and cleared his throat.</p><p>\"My dear Bagginses and Boffins, Tooks and Brandybucks, Grubbs, Chubbs, Hornblowers, Bolgers, Bracegirdles, and Proudfoots!\"</p><p>\"ProudFEET!\" shouted old Odo Proudfoot from the back, and several hobbits laughed.</p><p>Frodo watched from the head table, his chin resting on his hand. Uncle Bilbo had been planning this party for months, growing more secretive and more excited with each passing week. There was something in his manner tonight — a brightness in his eyes, almost feverish — that made Frodo uneasy.</p><p>The old hobbit patted something in his waistcoat pocket. A small, unconscious gesture that Frodo had noticed more and more often lately. Always reaching, always checking that it was still there.</p><p>\"I have things to do,\" Bilbo announced, and his voice took on a strange quality. \"I regret to announce that — though, as I said, eleventy-one years is far too short a time to spend among such excellent and admirable hobbits — this is the END. I am going. I am leaving NOW. GOODBYE!\"</p><p>There was a blinding flash of light. And Bilbo Baggins vanished.</p>",
-    "c1m65ta:9": "<p>They should not have come this way.</p><p>The thought repeated in Frodo's mind as they stumbled through the dark, the air thick with the reek of ancient stone and stale water. Somewhere behind them — far behind, or perhaps not far enough — drums beat in the deep. <em>Doom, doom, doom.</em></p><p>Gandalf led them with his staff raised, its pale light barely enough to see the walls pressing in on either side. The wizard's face was grim, grimmer than Frodo had ever seen it.</p><p>Then the light changed. The tunnel opened into a vast hall, pillars stretching upward beyond the reach of any light, carved in an age when dwarves still delved with joy rather than greed. The hall of Dwarrowdelf.</p><p>\"There is one last thing,\" Gandalf said quietly, and Frodo felt something shift — a presence, ancient and terrible, stirring in the foundations of the world.</p><p>Fire.</p><p>The Balrog came wreathed in shadow and flame, a darkness that swallowed the torchlight and made the great pillars seem like matchsticks. Its whip cracked across the ceiling, sending shards of stone raining down.</p><p>\"You cannot pass!\" Gandalf's voice rang out, no longer old, no longer tired. He stood on the bridge with his staff blazing white and his sword Glamdring shining cold. \"I am a servant of the Secret Fire, wielder of the flame of Anor. The dark fire will not avail you, flame of Udun!\"</p>",
-    "c2fof:11": "<p>The land was dead. Not sleeping, not resting, not waiting for spring — dead, the way a fire-gutted house is dead, the way a poisoned well is dead. Nothing would ever grow here again. Sam knew this the way a gardener knows soil: by instinct, by grief.</p><p>They had been walking for two days across the plains of Gorgoroth, if you could call it walking. Stumbling was closer. Crawling, sometimes. The dust got into everything — their eyes, their mouths, the cracks between their fingers. And always the mountain ahead, belching smoke and fire into a sky that had forgotten the sun.</p><p>\"Mr. Frodo?\"</p><p>No answer. Frodo was on his hands and knees, the chain around his neck pulled taut, dragging him downward as if the Ring weighed as much as a millstone. His lips moved but no sound came out.</p><p>Sam knelt beside him. He didn't bother with words of encouragement — they were past that now, past pretending that everything would be all right, past hoping for rescue or rest or even water. There was only the mountain, and the fire, and the thing that had to be done.</p><p>\"Come, Mr. Frodo,\" Sam said, and his voice cracked. \"I can't carry it for you. But I can carry you.\"</p><p>He bent down and lifted Frodo onto his back. The hobbit weighed almost nothing — skin and bone and the terrible weight of the Ring, which Sam could feel even through Frodo's shirt, a cold spot like a hole in the world.</p><p>Sam began to climb.</p><p>One step. Another. His legs burned. His back screamed. The mountain loomed above, impossibly high, wreathed in fumes that stung his eyes and scorched his throat. But Sam Gamgee had spent his whole life on his knees in the dirt, pulling weeds and turning soil and carrying loads that would break a pony, and if there was one thing a gardener understood, it was that some work simply had to be done, no matter how hard, no matter how long, no matter how much it hurt.</p><p>He thought of the Shire. Of the row of beans he'd planted last spring, the ones that came up crooked and had to be staked. Of Rosie Cotton's laugh. Of his father's garden, and the way the morning light came through the kitchen window at Bag End.</p><p>He climbed.</p>"
+    "zl1mn8j3z": "<p>The night was warm and the stars were bright over Hobbiton when Bilbo Baggins stood on the stage beneath the Party Tree and surveyed the crowd of one hundred and forty-four hobbits — twelve dozen, a Gross, as they said in the Shire — and cleared his throat.</p><p>\"My dear Bagginses and Boffins, Tooks and Brandybucks, Grubbs, Chubbs, Hornblowers, Bolgers, Bracegirdles, and Proudfoots!\"</p><p>\"ProudFEET!\" shouted old Odo Proudfoot from the back, and several hobbits laughed.</p><p>Frodo watched from the head table, his chin resting on his hand. Uncle Bilbo had been planning this party for months, growing more secretive and more excited with each passing week. There was something in his manner tonight — a brightness in his eyes, almost feverish — that made Frodo uneasy.</p><p>The old hobbit patted something in his waistcoat pocket. A small, unconscious gesture that Frodo had noticed more and more often lately. Always reaching, always checking that it was still there.</p><p>\"I have things to do,\" Bilbo announced, and his voice took on a strange quality. \"I regret to announce that — though, as I said, eleventy-one years is far too short a time to spend among such excellent and admirable hobbits — this is the END. I am going. I am leaving NOW. GOODBYE!\"</p><p>There was a blinding flash of light. And Bilbo Baggins vanished.</p>",
+    "bc6ypfrq5": "<p>They should not have come this way.</p><p>The thought repeated in Frodo's mind as they stumbled through the dark, the air thick with the reek of ancient stone and stale water. Somewhere behind them — far behind, or perhaps not far enough — drums beat in the deep. <em>Doom, doom, doom.</em></p><p>Gandalf led them with his staff raised, its pale light barely enough to see the walls pressing in on either side. The wizard's face was grim, grimmer than Frodo had ever seen it.</p><p>Then the light changed. The tunnel opened into a vast hall, pillars stretching upward beyond the reach of any light, carved in an age when dwarves still delved with joy rather than greed. The hall of Dwarrowdelf.</p><p>\"There is one last thing,\" Gandalf said quietly, and Frodo felt something shift — a presence, ancient and terrible, stirring in the foundations of the world.</p><p>Fire.</p><p>The Balrog came wreathed in shadow and flame, a darkness that swallowed the torchlight and made the great pillars seem like matchsticks. Its whip cracked across the ceiling, sending shards of stone raining down.</p><p>\"You cannot pass!\" Gandalf's voice rang out, no longer old, no longer tired. He stood on the bridge with his staff blazing white and his sword Glamdring shining cold. \"I am a servant of the Secret Fire, wielder of the flame of Anor. The dark fire will not avail you, flame of Udun!\"</p>",
+    "7mcz22hbs": "<p>The land was dead. Not sleeping, not resting, not waiting for spring — dead, the way a fire-gutted house is dead, the way a poisoned well is dead. Nothing would ever grow here again. Sam knew this the way a gardener knows soil: by instinct, by grief.</p><p>They had been walking for two days across the plains of Gorgoroth, if you could call it walking. Stumbling was closer. Crawling, sometimes. The dust got into everything — their eyes, their mouths, the cracks between their fingers. And always the mountain ahead, belching smoke and fire into a sky that had forgotten the sun.</p><p>\"Mr. Frodo?\"</p><p>No answer. Frodo was on his hands and knees, the chain around his neck pulled taut, dragging him downward as if the Ring weighed as much as a millstone. His lips moved but no sound came out.</p><p>Sam knelt beside him. He didn't bother with words of encouragement — they were past that now, past pretending that everything would be all right, past hoping for rescue or rest or even water. There was only the mountain, and the fire, and the thing that had to be done.</p><p>\"Come, Mr. Frodo,\" Sam said, and his voice cracked. \"I can't carry it for you. But I can carry you.\"</p><p>He bent down and lifted Frodo onto his back. The hobbit weighed almost nothing — skin and bone and the terrible weight of the Ring, which Sam could feel even through Frodo's shirt, a cold spot like a hole in the world.</p><p>Sam began to climb.</p><p>One step. Another. His legs burned. His back screamed. The mountain loomed above, impossibly high, wreathed in fumes that stung his eyes and scorched his throat. But Sam Gamgee had spent his whole life on his knees in the dirt, pulling weeds and turning soil and carrying loads that would break a pony, and if there was one thing a gardener understood, it was that some work simply had to be done, no matter how hard, no matter how long, no matter how much it hurt.</p><p>He thought of the Shire. Of the row of beans he'd planted last spring, the ones that came up crooked and had to be staked. Of Rosie Cotton's laugh. Of his father's garden, and the way the morning light came through the kitchen window at Bag End.</p><p>He climbed.</p>"
   },
   "metadataFieldDefs": [
     {
@@ -278,92 +278,92 @@
     }
   ],
   "sceneMetadata": {
-    "c1m65ta:1": {
+    "zl1mn8j3z": {
       "md_status": "Revised",
       "md_pov_type": "Close Third",
       "md_tension": "Low"
     },
-    "c1m65ta:4": {
+    "0dxujgoue": {
       "md_status": "Draft",
       "md_pov_type": "Close Third",
       "md_tension": "Medium"
     },
-    "c1m65ta:5": {
+    "795vv91ay": {
       "md_status": "Draft",
       "md_pov_type": "Close Third",
       "md_tension": "High"
     },
-    "c1m65ta:7": {
+    "wlz8mylwq": {
       "md_status": "Revised",
       "md_pov_type": "Close Third",
       "md_tension": "Medium"
     },
-    "c1m65ta:9": {
+    "bc6ypfrq5": {
       "md_status": "Revised",
       "md_pov_type": "Close Third",
       "md_tension": "Peak"
     },
-    "c1m65ta:11": {
+    "vjwjwy3rx": {
       "md_status": "Draft",
       "md_pov_type": "Close Third",
       "md_tension": "High"
     },
-    "c1m65ta:17": {
+    "3nyuwet7v": {
       "md_status": "Draft",
       "md_pov_type": "Close Third",
       "md_tension": "Peak"
     },
-    "cceiiks:4": {
+    "0y2bmmuzh": {
       "md_status": "Revised",
       "md_pov_type": "Close Third",
       "md_tension": "Medium"
     },
-    "cceiiks:6": {
+    "9l8fgqrdb": {
       "md_status": "Draft",
       "md_pov_type": "Close Third",
       "md_tension": "Peak"
     },
-    "cceiiks:10": {
+    "2sxsper6i": {
       "md_status": "Revised",
       "md_pov_type": "Close Third",
       "md_tension": "Peak"
     },
-    "cceiiks:12": {
+    "0jg5so3mc": {
       "md_status": "Draft",
       "md_pov_type": "Close Third",
       "md_tension": "Peak"
     },
-    "cceiiks:14": {
+    "9fyes2shp": {
       "md_status": "Draft",
       "md_pov_type": "Close Third",
       "md_tension": "Medium"
     },
-    "c37xbp1:1": {
+    "mk0gncifn": {
       "md_status": "Revised",
       "md_pov_type": "Omniscient",
       "md_tension": "Medium"
     },
-    "c37xbp1:4": {
+    "rcbvbbfx5": {
       "md_status": "Revised",
       "md_pov_type": "Close Third",
       "md_tension": "Peak"
     },
-    "c37xbp1:11": {
+    "w67yrktua": {
       "md_status": "Draft",
       "md_pov_type": "Omniscient",
       "md_tension": "Peak"
     },
-    "c2fof:1": {
+    "doq9kcuk6": {
       "md_status": "Revised",
       "md_pov_type": "Close Third",
       "md_tension": "Low"
     },
-    "c2fof:9": {
+    "5i51mmv1s": {
       "md_status": "Revised",
       "md_pov_type": "Close Third",
       "md_tension": "Peak"
     },
-    "c2fof:11": {
+    "7mcz22hbs": {
       "md_status": "Revised",
       "md_pov_type": "Close Third",
       "md_tension": "Peak"
@@ -380,5 +380,13 @@
       "body": "Lora",
       "bodySize": 16
     }
-  }
+  },
+  "scratchpad": {},
+  "sceneComments": {},
+  "tasks": [],
+  "taskFieldDefs": [],
+  "taskViews": [],
+  "taskColumnWidths": {},
+  "timelineDates": {},
+  "worldEvents": []
 }

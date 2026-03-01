@@ -39,7 +39,7 @@ export default function BacklinksPanel({
   const linkedScenes = currentNote
     ? currentNote.sceneLinks.map(sceneKey => {
         const scene = scenes.find(s => s.id === sceneKey);
-        const character = scene ? characters.find(c => c.id === scene.characterId) : undefined;
+        const character = scene ? characters.find(c => c.id === scene.characterId) : null;
         return scene && character
           ? { key: sceneKey, scene, character }
           : null;

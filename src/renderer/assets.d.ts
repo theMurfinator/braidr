@@ -45,9 +45,6 @@ interface Window {
     readAnalytics: (projectPath: string) => Promise<{ success: boolean; data?: any; error?: string }>;
     saveAnalytics: (projectPath: string, data: any) => Promise<{ success: boolean; error?: string }>;
     openFeedbackEmail: (category: string, message: string) => Promise<{ success: boolean; error?: string }>;
-    // Backups
-    listBackups: (projectPath: string) => Promise<any>;
-    restoreBackup: (projectPath: string, filename: string) => Promise<any>;
     // Auto-updater
     onUpdateStatus: (callback: (data: any) => void) => () => void;
     updateDownload: () => void;

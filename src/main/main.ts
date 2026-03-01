@@ -618,8 +618,7 @@ ipcMain.handle(IPC_CHANNELS.LOAD_TIMELINE, async (_event, folderPath: string) =>
     const timelinePath = path.join(folderPath, 'timeline.json');
     if (fs.existsSync(timelinePath)) {
       const content = fs.readFileSync(timelinePath, 'utf-8');
-      const parsed = JSON.parse(content);
-      return { success: true, data: parsed };
+      return { success: true, data: JSON.parse(content) };
     }
     return { success: true, data: { positions: {} } };
   } catch (error) {
@@ -627,131 +626,45 @@ ipcMain.handle(IPC_CHANNELS.LOAD_TIMELINE, async (_event, folderPath: string) =>
   }
 });
 
-// Auto-backup state: track last backup time per project folder
-const lastBackupTime = new Map<string, number>();
-const BACKUP_MIN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_BACKUPS = 20;
-
-function createTimelineBackup(folderPath: string, timelinePath: string): void {
-  try {
-    if (!fs.existsSync(timelinePath)) return;
-
-    const now = Date.now();
-    const lastTime = lastBackupTime.get(folderPath) || 0;
-    if (now - lastTime < BACKUP_MIN_INTERVAL_MS) return;
-
-    const backupDir = path.join(folderPath, '.braidr', 'backups');
-    fs.mkdirSync(backupDir, { recursive: true });
-
-    const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\.\d+Z$/, '');
-    const backupName = `timeline-${timestamp}.json`;
-    fs.copyFileSync(timelinePath, path.join(backupDir, backupName));
-    lastBackupTime.set(folderPath, now);
-
-    // Prune old backups beyond MAX_BACKUPS
-    const backups = fs.readdirSync(backupDir)
-      .filter(f => f.startsWith('timeline-') && f.endsWith('.json'))
-      .sort()
-      .reverse();
-    for (const old of backups.slice(MAX_BACKUPS)) {
-      fs.unlinkSync(path.join(backupDir, old));
-    }
-  } catch (err) {
-    console.error('Backup failed (non-fatal):', err);
-  }
-}
+// Track last backup time per project to avoid backing up on every auto-save
+const lastBackupTime: Record<string, number> = {};
+const BACKUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_BACKUPS = 50;
 
 ipcMain.handle(IPC_CHANNELS.SAVE_TIMELINE, async (_event, folderPath: string, data: { positions: Record<string, number> }) => {
   try {
     const timelinePath = path.join(folderPath, 'timeline.json');
+    const backupDir = path.join(folderPath, '.braidr', 'backups');
 
-    // Safety guard: refuse to overwrite a file that has positions with empty positions
-    const incomingPositions = Object.keys(data.positions || {}).length;
-    if (incomingPositions === 0 && fs.existsSync(timelinePath)) {
+    // Auto-backup: copy current file before overwriting (max once per 5 min)
+    const now = Date.now();
+    const lastBackup = lastBackupTime[folderPath] || 0;
+    if (fs.existsSync(timelinePath) && (now - lastBackup) >= BACKUP_INTERVAL_MS) {
       try {
-        const existing = JSON.parse(fs.readFileSync(timelinePath, 'utf-8'));
-        const existingPositions = Object.keys(existing.positions || {}).length;
-        if (existingPositions > 0) {
-          console.error(`[SAVE] BLOCKED: refusing to overwrite ${existingPositions} positions with 0. Merging instead.`);
-          // Merge: keep existing positions/draftContent/etc, update everything else
-          const merged = { ...existing, ...data };
-          merged.positions = existing.positions;
-          if (Object.keys(existing.draftContent || {}).length > 0 && Object.keys((data as any).draftContent || {}).length === 0) {
-            merged.draftContent = existing.draftContent;
-          }
-          if (Object.keys(existing.sceneMetadata || {}).length > 0 && Object.keys((data as any).sceneMetadata || {}).length === 0) {
-            merged.sceneMetadata = existing.sceneMetadata;
-          }
-          if (Object.keys(existing.drafts || {}).length > 0 && Object.keys((data as any).drafts || {}).length === 0) {
-            merged.drafts = existing.drafts;
-          }
-          data = merged;
+        if (!fs.existsSync(backupDir)) {
+          fs.mkdirSync(backupDir, { recursive: true });
         }
-      } catch {}
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupPath = path.join(backupDir, `timeline-${timestamp}.json`);
+        fs.copyFileSync(timelinePath, backupPath);
+        lastBackupTime[folderPath] = now;
+
+        // Prune old backups beyond MAX_BACKUPS
+        const backups = fs.readdirSync(backupDir)
+          .filter((f: string) => f.startsWith('timeline-') && f.endsWith('.json'))
+          .sort()
+          .reverse();
+        for (const old of backups.slice(MAX_BACKUPS)) {
+          fs.unlinkSync(path.join(backupDir, old));
+        }
+      } catch (backupErr) {
+        console.error('Auto-backup failed (non-fatal):', backupErr);
+      }
     }
 
-    // Create backup before writing (rate-limited to every 5 min)
-    createTimelineBackup(folderPath, timelinePath);
-
-    // Atomic write: write to .tmp, then rename
+    // Atomic write: write to temp file, then rename
     const tmpPath = timelinePath + '.tmp';
     fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(tmpPath, timelinePath);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: String(error) };
-  }
-});
-
-// List available timeline backups
-ipcMain.handle(IPC_CHANNELS.LIST_BACKUPS, async (_event, projectPath: string) => {
-  try {
-    const backupDir = path.join(projectPath, '.braidr', 'backups');
-    if (!fs.existsSync(backupDir)) {
-      return { success: true, data: [] };
-    }
-    const files = fs.readdirSync(backupDir)
-      .filter(f => f.startsWith('timeline-') && f.endsWith('.json'))
-      .sort()
-      .reverse();
-    const backups = files.map(f => {
-      const stat = fs.statSync(path.join(backupDir, f));
-      return { filename: f, size: stat.size, modifiedAt: stat.mtimeMs };
-    });
-    return { success: true, data: backups };
-  } catch (error) {
-    return { success: false, error: String(error) };
-  }
-});
-
-// Restore a timeline backup
-ipcMain.handle(IPC_CHANNELS.RESTORE_BACKUP, async (_event, projectPath: string, filename: string) => {
-  try {
-    const timelinePath = path.join(projectPath, 'timeline.json');
-    const backupDir = path.join(projectPath, '.braidr', 'backups');
-    const backupPath = path.join(backupDir, filename);
-
-    // Validate filename to prevent path traversal
-    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-      return { success: false, error: 'Invalid backup filename' };
-    }
-
-    if (!fs.existsSync(backupPath)) {
-      return { success: false, error: 'Backup file not found' };
-    }
-
-    // Safety backup of current timeline before restoring
-    createTimelineBackup(projectPath, timelinePath);
-    // Force the backup regardless of 5-min interval
-    if (fs.existsSync(timelinePath)) {
-      fs.mkdirSync(backupDir, { recursive: true });
-      const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\.\d+Z$/, '');
-      fs.copyFileSync(timelinePath, path.join(backupDir, `timeline-${timestamp}-pre-restore.json`));
-    }
-
-    // Restore: atomic copy
-    const tmpPath = timelinePath + '.tmp';
-    fs.copyFileSync(backupPath, tmpPath);
     fs.renameSync(tmpPath, timelinePath);
     return { success: true };
   } catch (error) {

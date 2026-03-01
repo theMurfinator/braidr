@@ -15,6 +15,7 @@ interface CompileModalProps {
   onClose: () => void;
 }
 
+
 function cleanSceneContent(text: string): string {
   return text
     .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
@@ -94,7 +95,8 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
     // Apply status filter
     if (filterStatus !== 'all') {
       filtered = filtered.filter(s => {
-        const meta = sceneMetadata[s.id];
+        const key = s.id;
+        const meta = sceneMetadata[key];
         const status = meta?.['_status'] as string | undefined;
         return status === filterStatus;
       });
@@ -111,7 +113,8 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
   useEffect(() => {
     const scenesWithDrafts = new Set<string>();
     orderedScenes.forEach(scene => {
-      if (draftContent[scene.id] && draftContent[scene.id] !== '<p></p>') {
+      const key = scene.id;
+      if (draftContent[key] && draftContent[key] !== '<p></p>') {
         scenesWithDrafts.add(scene.id);
       }
     });
@@ -152,7 +155,8 @@ export default function CompileModal({ scenes, characters, plotPoints, chapters,
         items.push({ type: 'chapter', chapterTitle: sortedChapters[chapterIdx].title });
         chapterIdx++;
       }
-      const hasDraft = !!(draftContent[scene.id] && draftContent[scene.id] !== '<p></p>');
+      const key = scene.id;
+      const hasDraft = !!(draftContent[key] && draftContent[key] !== '<p></p>');
       const isSelected = selectedSceneIds.has(scene.id);
       if (hasDraft && isSelected) sceneNum++;
       items.push({

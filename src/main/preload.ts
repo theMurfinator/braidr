@@ -40,8 +40,6 @@ const IPC_CHANNELS = {
   CANCEL_SUBSCRIPTION: 'cancel-subscription',
   REACTIVATE_SUBSCRIPTION: 'reactivate-subscription',
   CAPTURE_ANALYTICS_EVENT: 'capture-analytics-event',
-  LIST_BACKUPS: 'list-backups',
-  RESTORE_BACKUP: 'restore-backup',
   APP_CLOSING: 'app-closing',
   SAFE_TO_CLOSE: 'safe-to-close',
 } as const;
@@ -69,9 +67,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createProject: (parentPath: string, projectName: string, template: ProjectTemplate) => ipcRenderer.invoke(IPC_CHANNELS.CREATE_PROJECT, parentPath, projectName, template),
   deleteFile: (filePath: string) => ipcRenderer.invoke(IPC_CHANNELS.DELETE_FILE, filePath),
   backupProject: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.BACKUP_PROJECT, projectPath),
-  // Backups
-  listBackups: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.LIST_BACKUPS, projectPath),
-  restoreBackup: (projectPath: string, filename: string) => ipcRenderer.invoke(IPC_CHANNELS.RESTORE_BACKUP, projectPath, filename),
   // Notes
   loadNotesIndex: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.LOAD_NOTES_INDEX, projectPath),
   saveNotesIndex: (projectPath: string, data: any) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_NOTES_INDEX, projectPath, data),
