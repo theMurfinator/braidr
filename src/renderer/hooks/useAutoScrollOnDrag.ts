@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, RefObject } from 'react';
 
 /**
  * Auto-scrolls a container when dragging near its top/bottom edges.
@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react';
  * @param edgeSize - size of the scroll zone in pixels (default 80)
  */
 export function useAutoScrollOnDrag(
-  scrollContainerRef: React.RefObject<HTMLElement | null>,
+  scrollContainerRef: RefObject<HTMLElement | null>,
   isDragging: boolean,
   edgeSize: number = 80,
 ) {
