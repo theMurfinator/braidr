@@ -39,6 +39,7 @@ import { ViewRendererProvider } from './components/panes/TabContent';
 import { usePaneLayout, createTab } from './components/panes/usePaneLayout';
 import { findLeafPane, findTabByType } from './components/panes/paneUtils';
 import PaneManager from './components/panes/PaneManager';
+import { useAutoScrollOnDrag } from './hooks/useAutoScrollOnDrag';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
@@ -181,6 +182,7 @@ function App() {
   const [noteContentCache, setNoteContentCache] = useState<Record<string, string>>({});
   const [pendingNoteId, setPendingNoteId] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  useAutoScrollOnDrag(timelineRef, !!draggedScene);
   const editorViewRef = useRef<EditorViewHandle>(null);
   const isDirtyRef = useRef(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
