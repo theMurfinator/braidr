@@ -5418,14 +5418,43 @@ textarea.scene-metadata-field-input {
   margin: 2px 0;
 }
 
-.rails-drop-zone.active {
-  height: 32px;
+/* Expand drop zones when dragging so they're easy to hit */
+.rails-grid-inner.is-dragging .rails-drop-zone {
+  height: 20px;
+  background: var(--bg-tertiary);
+  border: 2px dashed var(--border);
+  border-radius: 4px;
+}
+
+.rails-drop-zone.active,
+.rails-grid-inner.is-dragging .rails-drop-zone:hover {
+  height: 40px;
   background: rgba(34, 197, 94, 0.15);
   border: 2px dashed rgba(34, 197, 94, 0.5);
 }
 
 .rails-drop-zone-end {
   margin-top: 8px;
+}
+
+/* Dragging visual feedback */
+.rails-scene-card.dragging {
+  opacity: 0.4;
+  box-shadow: none;
+}
+
+/* Row highlight: shows where the dragged scene will be inserted above */
+.rails-row.drop-target-row > .rails-cell {
+  background: rgba(34, 197, 94, 0.08) !important;
+  box-shadow: inset 0 -2px 0 rgba(34, 197, 94, 0.4);
+}
+
+.rails-row.drop-target-row > .rails-cell .rails-scene-card {
+  border-top: 2px solid rgba(34, 197, 94, 0.5);
+}
+
+.rails-row.drop-target-row > .rails-row-number {
+  color: rgba(34, 197, 94, 0.8);
 }
 
 .rails-empty-drop {

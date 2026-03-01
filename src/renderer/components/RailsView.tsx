@@ -77,6 +77,7 @@ export default function RailsView({
   const [scenePositions, setScenePositions] = useState<Record<string, { left: number; right: number; y: number }>>({});
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const [draggedSceneId, setDraggedSceneId] = useState<string | null>(null);
   const [draggedRailIndex, setDraggedRailIndex] = useState<number | null>(null);
   const [railDropTarget, setRailDropTarget] = useState<number | null>(null);
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
@@ -161,16 +162,71 @@ export default function RailsView({
     setFloatingEditorScene(scene);
   };
 
+  const wrappedDragStart = (e: React.DragEvent, scene: Scene) => {
+    setDraggedSceneId(scene.id);
+    onDragStart(e, scene);
+  };
+
+  const wrappedDragEnd = () => {
+    setDraggedSceneId(null);
+    setDropTargetIndex(null);
+    onDragEnd();
+  };
+
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     setDropTargetIndex(index);
   };
 
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear if we're leaving the drop zone entirely (not entering a child)
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDropTargetIndex(null);
+    }
+  };
+
   const handleDrop = (e: React.DragEvent, index: number) => {
     e.preventDefault();
+    e.stopPropagation();
     setDropTargetIndex(null);
+    setDraggedSceneId(null);
     onDropOnTimeline(e, index);
+  };
+
+  // Determine drop index from mouse position by checking which row the mouse is over.
+  // Top half of a row → insert before that row; bottom half → insert after (before next row).
+  const findDropIndexFromMouse = (clientY: number): number => {
+    if (!gridRef.current) return 0;
+
+    const cards = gridRef.current.querySelectorAll('.rails-scene-card');
+    for (let i = 0; i < cards.length; i++) {
+      const rect = cards[i].getBoundingClientRect();
+      if (clientY < rect.bottom) {
+        const midY = rect.top + rect.height / 2;
+        return clientY < midY ? i : i + 1;
+      }
+    }
+
+    // Below all rows → drop at end
+    return scenes.length;
+  };
+
+  // Grid-level drag handler: highlights the row the mouse is over
+  const handleGridDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTargetIndex(findDropIndexFromMouse(e.clientY));
+  };
+
+  // Grid-level drop
+  const handleGridDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const index = findDropIndexFromMouse(e.clientY);
+    setDraggedSceneId(null);
+    onDropOnTimeline(e, index);
+    setDropTargetIndex(null);
   };
 
   const handleInboxDragOver = (e: React.DragEvent) => {
@@ -325,7 +381,12 @@ export default function RailsView({
         </div>
 
         {/* Rails Grid */}
-        <div className="rails-grid" ref={gridRef}>
+        <div
+          className="rails-grid"
+          ref={gridRef}
+          onDragOver={draggedSceneId ? handleGridDragOver : undefined}
+          onDrop={draggedSceneId ? handleGridDrop : undefined}
+        >
           {/* Connection Lines SVG */}
           {showConnections && (
             <svg className="rails-connection-svg">
@@ -413,24 +474,27 @@ export default function RailsView({
 
           {/* Grid rows */}
           <div
-            className="rails-grid-inner"
+            className={`rails-grid-inner ${draggedSceneId ? 'is-dragging' : ''}`}
             style={{ '--rails-columns': numColumns } as React.CSSProperties}
           >
             {gridRows.map((row, index) => {
               const charIndex = characters.findIndex(c => c.id === row.characterId);
               const rowHeight = getRowHeight(row.scene.wordCount);
+              const isDropRow = dropTargetIndex === index;
 
               return (
                 <div
                   key={row.scene.id}
-                  className="rails-row"
+                  className={`rails-row ${isDropRow ? 'drop-target-row' : ''}`}
                   style={{ '--row-height': `${rowHeight}px` } as React.CSSProperties}
                 >
                   {/* Drop zone before this row */}
                   <div
                     className={`rails-drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
                     style={{ gridColumn: `1 / -1` }}
+                    data-drop-index={index}
                     onDragOver={(e) => handleDragOver(e, index)}
+                    onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, index)}
                   />
 
@@ -519,8 +583,9 @@ export default function RailsView({
                           isConnecting={isConnecting}
                           isConnectionSource={connectionSource === row.scene.id}
                           isConnectionTarget={isConnecting && connectionSource !== row.scene.id}
-                          onDragStart={(e) => onDragStart(e, row.scene)}
-                          onDragEnd={onDragEnd}
+                          onDragStart={(e) => wrappedDragStart(e, row.scene)}
+                          onDragEnd={wrappedDragEnd}
+                          isDragging={draggedSceneId === row.scene.id}
                           isPovReordered={povReorderedScenes?.has(row.scene.id) || false}
                         />
                       )}
@@ -536,7 +601,9 @@ export default function RailsView({
               <div
                 className={`rails-drop-zone rails-drop-zone-end ${dropTargetIndex === scenes.length ? 'active' : ''}`}
                 style={{ gridColumn: `1 / -1` }}
+                data-drop-index={scenes.length}
                 onDragOver={(e) => handleDragOver(e, scenes.length)}
+                onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, scenes.length)}
               />
             )}
@@ -663,8 +730,8 @@ export default function RailsView({
                                 className="inbox-scene"
                                 style={{ '--char-color': charColor } as React.CSSProperties}
                                 draggable
-                                onDragStart={(e) => onDragStart(e, scene)}
-                                onDragEnd={onDragEnd}
+                                onDragStart={(e) => wrappedDragStart(e, scene)}
+                                onDragEnd={wrappedDragEnd}
                               >
                                 <span className="inbox-scene-number">{scene.sceneNumber}.</span>
                                 <span className="inbox-scene-title">
@@ -682,8 +749,8 @@ export default function RailsView({
                           className="inbox-scene"
                           style={{ '--char-color': charColor } as React.CSSProperties}
                           draggable
-                          onDragStart={(e) => onDragStart(e, scene)}
-                          onDragEnd={onDragEnd}
+                          onDragStart={(e) => wrappedDragStart(e, scene)}
+                          onDragEnd={wrappedDragEnd}
                         >
                           <span className="inbox-scene-number">{scene.sceneNumber}.</span>
                           <span className="inbox-scene-title">

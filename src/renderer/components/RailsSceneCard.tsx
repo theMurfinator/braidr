@@ -14,6 +14,7 @@ interface RailsSceneCardProps {
   isConnectionTarget: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
+  isDragging?: boolean;
   isPovReordered?: boolean;
 }
 
@@ -30,6 +31,7 @@ export default function RailsSceneCard({
   isConnectionTarget,
   onDragStart,
   onDragEnd,
+  isDragging,
   isPovReordered,
 }: RailsSceneCardProps) {
   // Clean up the title for display (remove markdown formatting)
@@ -42,7 +44,7 @@ export default function RailsSceneCard({
 
   return (
     <div
-      className={`rails-scene-card ${isHighlighted ? 'highlighted' : ''} ${hasConnections ? 'has-connections' : ''} ${isConnectionSource ? 'connection-source' : ''} ${isConnectionTarget ? 'connection-target' : ''} ${isPovReordered ? 'pov-reordered' : ''}`}
+      className={`rails-scene-card ${isHighlighted ? 'highlighted' : ''} ${hasConnections ? 'has-connections' : ''} ${isConnectionSource ? 'connection-source' : ''} ${isConnectionTarget ? 'connection-target' : ''} ${isDragging ? 'dragging' : ''} ${isPovReordered ? 'pov-reordered' : ''}`}
       style={{ borderLeftColor: characterColor }}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
