@@ -195,40 +195,6 @@ export default function RailsView({
     onDropOnTimeline(e, index);
   };
 
-  // Determine drop index from mouse position by checking which row the mouse is over.
-  // Top half of a row → insert before that row; bottom half → insert after (before next row).
-  const findDropIndexFromMouse = (clientY: number): number => {
-    if (!gridRef.current) return 0;
-
-    const cards = gridRef.current.querySelectorAll('.rails-scene-card');
-    for (let i = 0; i < cards.length; i++) {
-      const rect = cards[i].getBoundingClientRect();
-      if (clientY < rect.bottom) {
-        const midY = rect.top + rect.height / 2;
-        return clientY < midY ? i : i + 1;
-      }
-    }
-
-    // Below all rows → drop at end
-    return scenes.length;
-  };
-
-  // Grid-level drag handler: highlights the row the mouse is over
-  const handleGridDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDropTargetIndex(findDropIndexFromMouse(e.clientY));
-  };
-
-  // Grid-level drop
-  const handleGridDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const index = findDropIndexFromMouse(e.clientY);
-    setDraggedSceneId(null);
-    onDropOnTimeline(e, index);
-    setDropTargetIndex(null);
-  };
-
   const handleInboxDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -384,8 +350,6 @@ export default function RailsView({
         <div
           className="rails-grid"
           ref={gridRef}
-          onDragOver={draggedSceneId ? handleGridDragOver : undefined}
-          onDrop={draggedSceneId ? handleGridDrop : undefined}
         >
           {/* Connection Lines SVG */}
           {showConnections && (
@@ -480,12 +444,11 @@ export default function RailsView({
             {gridRows.map((row, index) => {
               const charIndex = characters.findIndex(c => c.id === row.characterId);
               const rowHeight = getRowHeight(row.scene.wordCount);
-              const isDropRow = dropTargetIndex === index;
 
               return (
                 <div
                   key={row.scene.id}
-                  className={`rails-row ${isDropRow ? 'drop-target-row' : ''}`}
+                  className="rails-row"
                   style={{ '--row-height': `${rowHeight}px` } as React.CSSProperties}
                 >
                   {/* Drop zone before this row */}
