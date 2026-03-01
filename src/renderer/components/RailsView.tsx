@@ -179,27 +179,23 @@ export default function RailsView({
   const wrappedDragStart = (e: React.DragEvent, scene: Scene) => {
     setDraggedSceneId(scene.id);
 
-    // Create a compact drag image from the scene card
-    const card = (e.target as HTMLElement).closest('.rails-scene-card') as HTMLElement;
-    if (card) {
-      const clone = card.cloneNode(true) as HTMLElement;
-      clone.style.width = `${card.offsetWidth}px`;
-      clone.style.height = 'auto';
-      clone.style.maxHeight = '40px';
-      clone.style.overflow = 'hidden';
-      clone.style.opacity = '0.9';
-      clone.style.transform = 'scale(0.95)';
-      clone.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-      clone.style.background = 'var(--bg-primary, #fff)';
-      clone.style.borderRadius = '4px';
-      clone.style.padding = '6px 10px';
-      clone.style.position = 'absolute';
-      clone.style.top = '-9999px';
-      clone.style.left = '-9999px';
-      document.body.appendChild(clone);
-      e.dataTransfer.setDragImage(clone, card.offsetWidth / 2, 20);
-      requestAnimationFrame(() => document.body.removeChild(clone));
-    }
+    // Create a compact drag ghost element
+    const title = scene.content
+      .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
+      .replace(/#\w+/g, '').trim() || 'Untitled scene';
+    const ghost = document.createElement('div');
+    ghost.textContent = title.length > 40 ? title.slice(0, 40) + '...' : title;
+    ghost.style.cssText = `
+      position: absolute; top: -9999px; left: -9999px;
+      padding: 6px 12px; border-radius: 4px; font-size: 13px;
+      background: #1a1a2e; color: #e0e0e0;
+      border-left: 3px solid ${getCharacterHexColor(scene.characterId)};
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    `;
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 100, 16);
+    requestAnimationFrame(() => document.body.removeChild(ghost));
 
     onDragStart(e, scene);
   };
