@@ -179,20 +179,25 @@ export default function RailsView({
   const wrappedDragStart = (e: React.DragEvent, scene: Scene) => {
     setDraggedSceneId(scene.id);
 
-    // Create a clean drag image from the scene card
+    // Create a compact drag image from the scene card
     const card = (e.target as HTMLElement).closest('.rails-scene-card') as HTMLElement;
     if (card) {
       const clone = card.cloneNode(true) as HTMLElement;
       clone.style.width = `${card.offsetWidth}px`;
+      clone.style.height = 'auto';
+      clone.style.maxHeight = '40px';
+      clone.style.overflow = 'hidden';
       clone.style.opacity = '0.9';
       clone.style.transform = 'scale(0.95)';
       clone.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+      clone.style.background = 'var(--bg-primary, #fff)';
+      clone.style.borderRadius = '4px';
+      clone.style.padding = '6px 10px';
       clone.style.position = 'absolute';
       clone.style.top = '-9999px';
       clone.style.left = '-9999px';
       document.body.appendChild(clone);
       e.dataTransfer.setDragImage(clone, card.offsetWidth / 2, 20);
-      // Clean up the clone after drag starts
       requestAnimationFrame(() => document.body.removeChild(clone));
     }
 
