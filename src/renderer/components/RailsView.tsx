@@ -86,7 +86,6 @@ export default function RailsView({
   const gridRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollTop = useRef<number | null>(null);
-  const scrollAnchor = useRef<{ sceneId: string; offsetFromTop: number } | null>(null);
   useAutoScrollOnDrag(scrollRef, !!draggedSceneId);
 
   // Get hex color for a character
@@ -156,22 +155,8 @@ export default function RailsView({
     };
   }, [scenes, showConnections, characters]);
 
-  // Restore scroll position after re-renders
+  // Restore scroll position after floating editor opens
   useLayoutEffect(() => {
-    // After drop: use element anchor (immune to drop zone height changes)
-    if (scrollAnchor.current && scrollRef.current && gridRef.current) {
-      const { sceneId, offsetFromTop } = scrollAnchor.current;
-      scrollAnchor.current = null;
-      const card = gridRef.current.querySelector(`[data-scene-id="${sceneId}"]`);
-      if (card) {
-        const containerRect = scrollRef.current.getBoundingClientRect();
-        const cardRect = card.getBoundingClientRect();
-        const currentOffset = cardRect.top - containerRect.top;
-        scrollRef.current.scrollTop += currentOffset - offsetFromTop;
-      }
-      return;
-    }
-    // After floating editor open: use pixel offset (no layout shift involved)
     if (savedScrollTop.current !== null && scrollRef.current) {
       const saved = savedScrollTop.current;
       savedScrollTop.current = null;
@@ -181,7 +166,7 @@ export default function RailsView({
       });
       return () => cancelAnimationFrame(raf);
     }
-  }, [floatingEditorScene, scenes]);
+  }, [floatingEditorScene]);
 
   const handleSceneClick = (scene: Scene, e: React.MouseEvent) => {
     // If in connection mode, complete the connection
@@ -253,27 +238,6 @@ export default function RailsView({
   const handleDrop = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     e.stopPropagation();
-    // Anchor on a visible scene element before drop zones collapse
-    if (scrollRef.current && gridRef.current) {
-      const containerRect = scrollRef.current.getBoundingClientRect();
-      const cards = gridRef.current.querySelectorAll('.rails-scene-card');
-      let bestCard: Element | null = null;
-      let bestOffset = Infinity;
-      cards.forEach((card) => {
-        const rect = card.getBoundingClientRect();
-        const distFromTop = rect.top - containerRect.top;
-        if (rect.bottom > containerRect.top && Math.abs(distFromTop) < Math.abs(bestOffset)) {
-          bestOffset = distFromTop;
-          bestCard = card;
-        }
-      });
-      if (bestCard) {
-        const sceneId = (bestCard as HTMLElement).getAttribute('data-scene-id');
-        if (sceneId) {
-          scrollAnchor.current = { sceneId, offsetFromTop: bestOffset };
-        }
-      }
-    }
     setDropTargetIndex(null);
     setDraggedSceneId(null);
     onDropOnTimeline(e, index);

@@ -3190,18 +3190,10 @@ textarea.scene-metadata-field-input {
 }
 
 /* Drop zones */
+/* Braided drop zones — constant height, never changes */
 .drop-zone {
-  height: 0;
+  height: 4px;
   position: relative;
-}
-
-/* Show drop zones when dragging */
-.is-dragging .drop-zone {
-  height: 12px;
-}
-
-.drop-zone.active {
-  height: 12px;
 }
 
 .drop-zone.active::before {
@@ -5419,21 +5411,13 @@ textarea.scene-metadata-field-input {
 }
 
 /* Rails drop zones — insertion line between rows */
+/* Rails drop zones — constant height, never changes */
 .rails-drop-zone {
-  height: 0;
+  height: 4px;
   position: relative;
 }
 
-/* During drag: expand zones for easier hit targets */
-.rails-grid-inner.is-dragging .rails-drop-zone {
-  height: 12px;
-}
-
-/* Active drop target: show bold insertion line */
-.rails-drop-zone.active {
-  height: 12px;
-}
-
+/* Active drop target: show bold insertion line (absolutely positioned, no layout shift) */
 .rails-drop-zone.active::before {
   content: '';
   position: absolute;
