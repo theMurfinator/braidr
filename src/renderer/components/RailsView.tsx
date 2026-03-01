@@ -179,23 +179,32 @@ export default function RailsView({
   const wrappedDragStart = (e: React.DragEvent, scene: Scene) => {
     setDraggedSceneId(scene.id);
 
-    // Create a compact drag ghost element
-    const title = scene.content
-      .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
-      .replace(/#\w+/g, '').trim() || 'Untitled scene';
-    const ghost = document.createElement('div');
-    ghost.textContent = title.length > 40 ? title.slice(0, 40) + '...' : title;
-    ghost.style.cssText = `
-      position: absolute; top: -9999px; left: -9999px;
-      padding: 6px 12px; border-radius: 4px; font-size: 13px;
-      background: #1a1a2e; color: #e0e0e0;
-      border-left: 3px solid ${getCharacterHexColor(scene.characterId)};
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    `;
-    document.body.appendChild(ghost);
-    e.dataTransfer.setDragImage(ghost, 100, 16);
-    requestAnimationFrame(() => document.body.removeChild(ghost));
+    // Create a drag ghost that looks like a compact scene card
+    const card = (e.target as HTMLElement).closest('.rails-scene-card') as HTMLElement;
+    if (card) {
+      const ghost = card.cloneNode(true) as HTMLElement;
+      // Reset all sizing — override inherited grid/cell stretch
+      ghost.style.cssText = `
+        position: absolute; top: -9999px; left: -9999px;
+        width: ${Math.min(card.offsetWidth, 220)}px;
+        height: auto !important; min-height: 0 !important; max-height: 44px;
+        overflow: hidden;
+        padding: 10px 14px;
+        border-radius: 6px;
+        border-left: 3px solid ${getCharacterHexColor(scene.characterId)};
+        border-top: 1px solid rgba(255,255,255,0.1);
+        border-right: 1px solid rgba(255,255,255,0.1);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        background: var(--bg-primary, #1a1a2e);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+        font-size: 13px;
+        color: var(--text-primary, #e0e0e0);
+        box-sizing: border-box;
+      `;
+      document.body.appendChild(ghost);
+      e.dataTransfer.setDragImage(ghost, Math.min(card.offsetWidth, 220) / 2, 22);
+      requestAnimationFrame(() => document.body.removeChild(ghost));
+    }
 
     onDragStart(e, scene);
   };
