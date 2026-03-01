@@ -2,6 +2,7 @@ import React, { useState, useRef, useLayoutEffect } from 'react';
 import { Scene, Character, Tag, TagCategory, PlotPoint } from '../../shared/types';
 import RailsSceneCard from './RailsSceneCard';
 import FloatingEditor from './FloatingEditor';
+import { useAutoScrollOnDrag } from '../hooks/useAutoScrollOnDrag';
 
 interface RailsViewProps {
   scenes: Scene[];
@@ -84,6 +85,7 @@ export default function RailsView({
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  useAutoScrollOnDrag(scrollRef, !!draggedSceneId);
 
   // Get hex color for a character
   const getCharacterHexColor = (characterId: string): string => {
