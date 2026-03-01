@@ -3193,7 +3193,6 @@ textarea.scene-metadata-field-input {
 .drop-zone {
   height: 0;
   position: relative;
-  transition: height 0.1s ease;
 }
 
 /* Show drop zones when dragging */
@@ -5423,7 +5422,6 @@ textarea.scene-metadata-field-input {
 .rails-drop-zone {
   height: 0;
   position: relative;
-  transition: height 0.1s ease;
 }
 
 /* During drag: expand zones for easier hit targets */
