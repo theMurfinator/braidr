@@ -47,12 +47,18 @@ Applied to:
 - Set clean drag image via `e.dataTransfer.setDragImage()` — cloned card with slight scale-down and drop shadow
 - Insertion line between rows is the **only** drop indicator — no row highlights, no card border changes
 
+### 4. Fix Scroll Jump When Opening Scene Editor (Rails View)
+
+Clicking a scene in Rails view causes the scroll position to jump. The `setFloatingEditorScene(scene)` state change triggers a re-render that loses the scroll container's position.
+
+**Fix:** Save `scrollRef.current.scrollTop` before setting state in `handleSceneClick`, then restore it in a `useLayoutEffect` that fires when `floatingEditorScene` changes.
+
 ## Files Changed
 
 | File | Changes |
 |------|---------|
 | `src/renderer/hooks/useAutoScrollOnDrag.ts` | New file — shared auto-scroll hook |
-| `src/renderer/components/RailsView.tsx` | Remove `findDropIndexFromMouse`, grid-level handlers, `drop-target-row` logic. Add auto-scroll hook. Add drag image setup. |
+| `src/renderer/components/RailsView.tsx` | Remove `findDropIndexFromMouse`, grid-level handlers, `drop-target-row` logic. Add auto-scroll hook. Add drag image setup. Fix scroll jump on scene click. |
 | `src/renderer/styles.css` | New insertion line styles (green line + circle marker). Remove `drop-target-row` styles. Clean drop zone states. |
 | `src/renderer/App.tsx` | Import and call auto-scroll hook for Braided view |
 | `src/renderer/components/RailsSceneCard.tsx` | No changes needed |
