@@ -592,10 +592,6 @@ server.tool(
     if (query) {
       const queryLower = query.toLowerCase();
 
-      // First filter by title match
-      const titleMatches = results.filter((n) => n.title.toLowerCase().includes(queryLower));
-
-      // Then check content for remaining
       const contentChecks = await Promise.all(
         results.map(async (n) => {
           if (n.title.toLowerCase().includes(queryLower)) return true;
