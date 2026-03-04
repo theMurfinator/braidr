@@ -148,7 +148,7 @@ function parseSceneLine(line: string): {
 }
 
 function isSubNote(line: string): boolean {
-  return /^\s+[\d\-*]\.?\s/.test(line) || /^\s+\d+\.\s/.test(line);
+  return /^\s+[\d\-\*]\.\s/.test(line) || /^\s+\d+\.\s/.test(line);
 }
 
 function wordCount(text: string): number {
@@ -282,7 +282,7 @@ export function parseOutlineFile(
 
     // Check for sub-note
     if (isSubNote(line) && currentScene) {
-      currentSceneNotes.push(trimmedLine.replace(/^\s*[\d\-*]+\.?\s*/, ''));
+      currentSceneNotes.push(trimmedLine.replace(/^\s*[\d\-\*]+\.\s*/, ''));
       continue;
     }
 
