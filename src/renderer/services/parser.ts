@@ -288,11 +288,15 @@ export function serializeOutline(outline: OutlineFile): string {
   // Sort plot points by order
   const sortedPlotPoints = [...outline.plotPoints].sort((a, b) => a.order - b.order);
 
+  // Use a running counter so scene numbers are always sequential across all sections
+  let sceneCounter = 1;
+
   // Write scenes without plot points first
   const orphanScenes = scenesByPlotPoint.get(null) || [];
   for (const scene of orphanScenes.sort((a, b) => a.sceneNumber - b.sceneNumber)) {
     const sceneLine = buildSceneLine(scene, outline.character.name);
-    content += `${scene.sceneNumber}. ${sceneLine}\n`;
+    content += `${sceneCounter}. ${sceneLine}\n`;
+    sceneCounter++;
     for (const note of scene.notes) {
       content += `\t1. ${note}\n`;
     }
@@ -310,7 +314,8 @@ export function serializeOutline(outline: OutlineFile): string {
     const scenes = scenesByPlotPoint.get(plotPoint.id) || [];
     for (const scene of scenes.sort((a, b) => a.sceneNumber - b.sceneNumber)) {
       const sceneLine = buildSceneLine(scene, outline.character.name);
-      content += `${scene.sceneNumber}. ${sceneLine}\n`;
+      content += `${sceneCounter}. ${sceneLine}\n`;
+      sceneCounter++;
       for (const note of scene.notes) {
         content += `\t1. ${note}\n`;
       }

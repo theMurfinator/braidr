@@ -1069,18 +1069,21 @@ function App() {
         (s: Scene) => !archivedSet.has(`${s.characterId}::${s.content.trim()}`)
       );
       if (data.scenes.length < beforeCount) {
-        // Re-renumber scenes per character
-        const byChar: Record<string, Scene[]> = {};
-        for (const s of data.scenes) {
-          if (!byChar[s.characterId]) byChar[s.characterId] = [];
-          byChar[s.characterId].push(s);
-        }
-        for (const charScenes of Object.values(byChar)) {
-          charScenes.sort((a: Scene, b: Scene) => a.sceneNumber - b.sceneNumber);
-          charScenes.forEach((s: Scene, i: number) => { s.sceneNumber = i + 1; });
-        }
         console.log(`Removed ${beforeCount - data.scenes.length} archived scenes that persisted in markdown`);
       }
+    }
+
+    // Always renumber scenes per character to ensure sequential 1-based numbering.
+    // Scenes are ordered by their position in the file (plot point order, then scene order
+    // within each plot point), so we sort by the parsed sceneNumber and re-assign sequentially.
+    const byChar: Record<string, Scene[]> = {};
+    for (const s of data.scenes) {
+      if (!byChar[s.characterId]) byChar[s.characterId] = [];
+      byChar[s.characterId].push(s);
+    }
+    for (const charScenes of Object.values(byChar)) {
+      charScenes.sort((a: Scene, b: Scene) => a.sceneNumber - b.sceneNumber);
+      charScenes.forEach((s: Scene, i: number) => { s.sceneNumber = i + 1; });
     }
 
     setProjectData({ ...data, projectName: name });
