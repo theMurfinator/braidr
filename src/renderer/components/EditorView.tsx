@@ -1208,6 +1208,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     onClick={(e) => handleSceneClick(key, e)}
                     onContextMenu={(e) => { e.preventDefault(); setNavContextMenu({ x: e.clientX, y: e.clientY, sceneId: scene.id }); }}
                   >
+                    <span className="editor-nav-item-braided-num">{scene.timelinePosition}</span>
                     <div className="editor-nav-item-stack">
                       <span className="editor-nav-item-char-label" style={{ color: charColor }}>{char?.name} {scene.sceneNumber}</span>
                       <span className="editor-nav-item-title">{cleanContent(scene.content)}</span>

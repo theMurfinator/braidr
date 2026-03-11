@@ -130,6 +130,11 @@ Description of what happens in this plot point section...
 - Team ID: CBMC9F64HB (hardcoded in `scripts/notarize.js` and workflow)
 - **Always read the release workflow and notarize script before giving release instructions**
 
+## Bug Workflow
+- When a bug is reported, **do not start by trying to fix it**
+- First, write a test that reproduces the bug
+- Then, use subagents to fix the bug and prove the fix with a passing test
+
 ## Technical Notes
 - Use data service abstraction from day 1 for web migration path
 - Store tags in local SQLite or JSON database

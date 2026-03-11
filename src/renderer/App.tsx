@@ -382,6 +382,7 @@ function App() {
   const timelineEndDatesRef = useRef<Record<string, string>>({});
   const [worldEvents, setWorldEvents] = useState<WorldEvent[]>([]);
   const worldEventsRef = useRef<WorldEvent[]>([]);
+  const tagsRef = useRef<Tag[]>([]);
 
   // Combined todos: note-linked + inline
   const allSceneTodos = useMemo(() => {
@@ -1040,6 +1041,10 @@ function App() {
     applyFontSettings(loadedAllFonts.global);
     // Apply per-screen overrides immediately (the viewMode effect already ran on mount with empty settings)
     applyScreenFontOverrides(viewMode, loadedAllFonts);
+    // Ensure screen overrides apply after React renders the .scene-list
+    requestAnimationFrame(() => {
+      applyScreenFontOverrides(viewMode, loadedAllFonts);
+    });
 
     // Load archived scenes
     const loadedArchived = data.archivedScenes || [];
@@ -1087,6 +1092,7 @@ function App() {
     }
 
     setProjectData({ ...data, projectName: name });
+    tagsRef.current = data.tags || [];
     track('project_opened', {
       character_count: data.characters.length,
       scene_count: data.scenes.length,
@@ -1482,7 +1488,7 @@ function App() {
 
   // Apply per-screen font overrides on .scene-list (overrides :root when set)
   const applyScreenFontOverrides = (screen: ScreenKey | string, all: AllFontSettings) => {
-    const el = sceneListRef.current;
+    const el = sceneListRef.current || document.querySelector('.scene-list') as HTMLElement | null;
     if (!el) return;
     const screenSettings = (all.screens as Record<string, FontSettings> | undefined)?.[screen];
     const vars: Array<[keyof FontSettings, string, string?]> = [
@@ -2266,7 +2272,7 @@ function App() {
         }
       }
       // Connections are already keyed by scene.id at runtime — save directly
-      await dataService.saveTimeline(positions, connections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current, timelineEndDatesRef.current);
+      await dataService.saveTimeline(positions, connections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current, timelineEndDatesRef.current, tagsRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -2440,6 +2446,8 @@ function App() {
       tag.id === tagId ? { ...tag, category } : tag
     );
     setProjectData({ ...projectData, tags: updatedTags });
+    tagsRef.current = updatedTags;
+    isDirtyRef.current = true;
   };
 
   const handleCreateTag = (name: string, category: TagCategory) => {
@@ -2449,7 +2457,10 @@ function App() {
       name,
       category,
     };
-    setProjectData({ ...projectData, tags: [...projectData.tags, newTag] });
+    const updatedTags = [...projectData.tags, newTag];
+    setProjectData({ ...projectData, tags: updatedTags });
+    tagsRef.current = updatedTags;
+    isDirtyRef.current = true;
   };
 
   const handleDeleteTag = (tagId: string) => {
@@ -2467,6 +2478,8 @@ function App() {
     }));
 
     setProjectData({ ...projectData, tags: updatedTags, scenes: updatedScenes });
+    tagsRef.current = updatedTags;
+    isDirtyRef.current = true;
   };
 
   const handleOpenInEditor = (sceneKey: string) => {
@@ -2991,12 +3004,14 @@ function App() {
       return { ...scene, tags: newTags };
     });
 
+    const updatedTags = [...projectData.tags, ...newMasterTags];
     const updatedData = {
       ...projectData,
       scenes: updatedScenes,
-      tags: [...projectData.tags, ...newMasterTags],
+      tags: updatedTags,
     };
     setProjectData(updatedData);
+    tagsRef.current = updatedTags;
 
     // Save to file
     const scene = updatedScenes.find(s => s.id === sceneId);

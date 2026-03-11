@@ -131,6 +131,8 @@ export interface TimelineData {
   timelineEndDates?: Record<string, string>;
   // World events
   worldEvents?: WorldEvent[];
+  // Persisted tags with user-assigned categories
+  tags?: Tag[];
 }
 
 // ── Task Management ──────────────────────────────────────────────────────────

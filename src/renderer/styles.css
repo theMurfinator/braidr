@@ -2560,10 +2560,10 @@ textarea.scene-metadata-field-input {
 /* Scene edit textarea */
 .scene-edit-textarea {
   flex: 1;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: var(--font-scene-title-size);
+  font-weight: var(--font-scene-title-weight);
   font-family: var(--font-scene-title);
-  color: var(--text-primary);
+  color: var(--font-scene-title-color);
   background: var(--bg-primary);
   border: 1px solid var(--border);
   outline: none;
@@ -6888,7 +6888,7 @@ textarea.scene-metadata-field-input {
 /* Scene items — stacked layout: character+number on top, title below */
 .editor-nav-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   padding: 9px 16px;
   cursor: pointer;
@@ -6910,6 +6910,24 @@ textarea.scene-metadata-field-input {
 
 .editor-nav-item.active::before {
   display: none;
+}
+
+/* Braided scene number badge */
+.editor-nav-item-braided-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 4px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  align-self: center;
+  font-family: var(--font-ui);
 }
 
 /* Stacked layout container */
@@ -6945,7 +6963,6 @@ textarea.scene-metadata-field-input {
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
-  margin-top: 7px;
   opacity: 0.8;
 }
 
