@@ -43,8 +43,8 @@ interface PersistedTimer {
 
 **On app launch (in existing state initialization):**
 - Check both localStorage keys.
-- If a scene timer is found: set `timerSceneKey = id`, calculate `timerElapsed = Math.floor((Date.now() - startedAt) / 1000)`, set `timerRunning = true`.
-- If a task timer is found: set `taskTimerTaskId = id`, set `taskTimerStartRef = startedAt`, calculate `taskTimerElapsed = Date.now() - startedAt`, set `taskTimerRunning = true`.
+- If a scene timer is found: set `timerSceneKey = id`, calculate `timerElapsed = Math.floor((Date.now() - startedAt) / 1000)`, then set `timerRunning = true`. The scene timer uses a pure seconds counter (`prev + 1` each tick), so the restored elapsed value seeds that counter correctly.
+- If a task timer is found: assign `taskTimerStartRef.current = startedAt` **before** calling `setTaskTimerRunning(true)` (the running effect reads this ref). Then set `taskTimerTaskId = id`, `taskTimerElapsed = Date.now() - startedAt`, and `taskTimerRunning = true`. The task timer recalculates elapsed each tick via `Date.now() - startedAt`, so restoring the original `startedAt` is all that's needed.
 - If both somehow exist (shouldn't happen, but defensive): restore the scene timer, clear the task timer key.
 
 **On timer reset (discard without saving):**
@@ -52,13 +52,13 @@ interface PersistedTimer {
 
 ### Mutual Exclusivity
 
-The existing mutual exclusivity logic (starting one timer stops the other) already handles clearing state. We just need to also clear the corresponding localStorage key in the stop handlers.
+The existing mutual exclusivity logic (starting one timer stops the other) already handles clearing state via the stop handlers. We add localStorage removal to `handleStopTimer`, `handleResetTimer`, and `handleStopTaskTimer`. Since there is no `handleResetTaskTimer` today, only stop+clear is needed for tasks.
 
 ### Edge Cases
 
 - App closed overnight: timer auto-resumes with full elapsed time. Since time entries are now editable, the user can adjust after stopping.
-- Task deleted while timer was running: on restore, if the taskId doesn't exist in the current tasks list, silently clear the localStorage key and don't restore.
-- Scene deleted while timer was running: same — if sceneKey can't be resolved, clear and skip.
+- Task deleted while timer was running: tasks load asynchronously via IPC, so the deleted-entity check cannot run at `useState` init time. Instead, use a `useEffect` that watches for tasks to be loaded — if a persisted task timer's `taskId` is not found in the loaded tasks list, clear the localStorage key and reset timer state. Until tasks load, the timer can optimistically run (it just won't display a title).
+- Scene deleted while timer was running: same pattern — validate the sceneKey in a `useEffect` after scenes load. If invalid, clear and reset.
 
 ---
 
