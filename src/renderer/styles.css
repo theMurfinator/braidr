@@ -15337,6 +15337,86 @@ textarea.table-cell-input {
   cursor: pointer;
 }
 
+.task-time-entry-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.task-time-entry-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  font-size: 12px;
+  font-family: var(--font-ui);
+}
+
+.task-time-entry-item + .task-time-entry-item {
+  border-top: 1px solid var(--border-light, var(--border));
+}
+
+.task-time-entry-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 46px;
+  flex-shrink: 0;
+}
+
+.task-time-entry-edit-input {
+  width: 40px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  text-align: center;
+}
+
+.task-time-entry-edit-desc {
+  flex: 1;
+  min-width: 60px;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-ui);
+}
+
+.task-time-entry-edit-desc:hover,
+.task-time-entry-edit-desc:focus {
+  border-color: var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.task-time-entry-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  line-height: 1;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.task-time-entry-delete-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.task-time-entry-add-section {
+  padding-top: 4px;
+}
+
 .task-row-actions {
   display: flex;
   align-items: center;
