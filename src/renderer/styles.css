@@ -2981,6 +2981,21 @@ textarea.scene-metadata-field-input {
   top: 0;
 }
 
+.rails-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.rails-toolbar-spacer {
+  flex: 1;
+}
+
 .inbox-header {
   display: flex;
   align-items: center;

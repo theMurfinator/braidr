@@ -83,6 +83,7 @@ export default function RailsView({
   const [railDropTarget, setRailDropTarget] = useState<number | null>(null);
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
+  const [inboxCollapsed, setInboxCollapsed] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollTop = useRef<number | null>(null);
@@ -340,6 +341,15 @@ export default function RailsView({
   return (
     <div className={`rails-view ${isConnecting ? 'is-connecting' : ''}`}>
       <div className="rails-main" ref={scrollRef}>
+        <div className="rails-toolbar">
+          <div className="rails-toolbar-spacer" />
+          <button className="editor-panel-toggle" onClick={() => setInboxCollapsed(!inboxCollapsed)} title={inboxCollapsed ? 'Show To Braid panel' : 'Hide To Braid panel'}>
+            <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+              <rect x="0.75" y="0.75" width="16.5" height="12.5" rx="2.25" stroke="currentColor" strokeWidth="1.5"/>
+              <line x1="12.5" y1="0.75" x2="12.5" y2="13.25" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+          </button>
+        </div>
         {/* Connection Mode Banner */}
         {isConnecting && (
           <div className="connecting-banner">
@@ -682,7 +692,7 @@ export default function RailsView({
       </div>
 
       {/* To Braid Inbox - Right sidebar */}
-      <div
+      {!inboxCollapsed && <div
         className="to-braid-inbox"
         onDragOver={handleInboxDragOver}
         onDrop={onDropOnInbox}
@@ -778,7 +788,7 @@ export default function RailsView({
             );
           })}
         </div>
-      </div>
+      </div>}
 
       {/* Slide-in Scene Panel */}
       {floatingEditorScene && (
