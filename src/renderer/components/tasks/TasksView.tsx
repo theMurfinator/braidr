@@ -123,6 +123,24 @@ export default function TasksView({
     onTasksChange(updated);
   };
 
+  const handleUpdateTimeEntry = (taskId: string, entryId: string, updates: Partial<Pick<TimeEntry, 'duration' | 'description'>>) => {
+    const updated = tasks.map(t =>
+      t.id === taskId
+        ? { ...t, timeEntries: t.timeEntries.map(e => e.id === entryId ? { ...e, ...updates } : e), updatedAt: Date.now() }
+        : t
+    );
+    onTasksChange(updated);
+  };
+
+  const handleDeleteTimeEntry = (taskId: string, entryId: string) => {
+    const updated = tasks.map(t =>
+      t.id === taskId
+        ? { ...t, timeEntries: t.timeEntries.filter(e => e.id !== entryId), updatedAt: Date.now() }
+        : t
+    );
+    onTasksChange(updated);
+  };
+
   // Get active timer task title
   const activeTimerTaskTitle = activeTimerTaskId
     ? tasks.find(t => t.id === activeTimerTaskId)?.title || 'Untitled'
@@ -264,6 +282,8 @@ export default function TasksView({
           onStartTimer={startTimer}
           onStopTimer={stopTimer}
           onAddTimeEntry={handleAddTimeEntry}
+          onUpdateTimeEntry={handleUpdateTimeEntry}
+          onDeleteTimeEntry={handleDeleteTimeEntry}
           visibleColumns={visibleColumns}
           columnWidths={columnWidths}
           onColumnWidthsChange={handleColumnWidthsChange}

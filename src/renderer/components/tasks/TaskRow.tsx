@@ -23,6 +23,8 @@ interface TaskRowProps {
   onStartTimer: (taskId: string) => void;
   onStopTimer: () => void;
   onAddTimeEntry: (taskId: string, entry: TimeEntry) => void;
+  onUpdateTimeEntry: (taskId: string, entryId: string, updates: Partial<Pick<TimeEntry, 'duration' | 'description'>>) => void;
+  onDeleteTimeEntry: (taskId: string, entryId: string) => void;
   visibleColumns?: string[];
 }
 
@@ -70,6 +72,45 @@ function formatDuration(ms: number): string {
   return `${minutes}m`;
 }
 
+function TimeEntryRow({ entry, onUpdate, onDelete }: {
+  entry: TimeEntry;
+  onUpdate: (updates: Partial<Pick<TimeEntry, 'duration' | 'description'>>) => void;
+  onDelete: () => void;
+}) {
+  const [hours, setHours] = useState(Math.floor(entry.duration / 3600000));
+  const [minutes, setMinutes] = useState(Math.floor((entry.duration % 3600000) / 60000));
+  const [desc, setDesc] = useState(entry.description || '');
+  const dateStr = new Date(entry.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  const commitDuration = () => {
+    const newDuration = (hours * 3600000) + (minutes * 60000);
+    if (newDuration !== entry.duration && newDuration > 0) {
+      onUpdate({ duration: newDuration });
+    }
+  };
+
+  return (
+    <div className="task-time-entry-item">
+      <span className="task-time-entry-date">{dateStr}</span>
+      <input type="number" min={0} className="task-time-entry-edit-input"
+        value={hours} onChange={e => setHours(Math.max(0, parseInt(e.target.value) || 0))}
+        onBlur={commitDuration} />
+      <label>h</label>
+      <input type="number" min={0} max={59} className="task-time-entry-edit-input"
+        value={minutes} onChange={e => setMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+        onBlur={commitDuration} />
+      <label>m</label>
+      <input type="text" className="task-time-entry-edit-desc"
+        value={desc} onChange={e => setDesc(e.target.value)} placeholder="Note"
+        onBlur={() => {
+          const trimmed = desc.trim() || undefined;
+          if (trimmed !== (entry.description || undefined)) onUpdate({ description: trimmed });
+        }} />
+      <button className="task-time-entry-delete-btn" onClick={onDelete} title="Delete entry">&times;</button>
+    </div>
+  );
+}
+
 export default function TaskRow({
   task,
   characters,
@@ -83,6 +124,8 @@ export default function TaskRow({
   onStartTimer,
   onStopTimer,
   onAddTimeEntry,
+  onUpdateTimeEntry,
+  onDeleteTimeEntry,
   visibleColumns,
 }: TaskRowProps) {
   const isVisible = (colId: string) => !visibleColumns || visibleColumns.includes(colId);
@@ -344,50 +387,64 @@ export default function TaskRow({
         </div>
         {showTimePopover && (
           <div className="task-time-entry-popover" ref={timePopoverRef}>
-            <div className="task-time-entry-row">
+            {task.timeEntries.length > 0 && (
+              <div className="task-time-entry-list">
+                {[...task.timeEntries].reverse().map(entry => (
+                  <TimeEntryRow
+                    key={entry.id}
+                    entry={entry}
+                    onUpdate={(updates) => onUpdateTimeEntry(task.id, entry.id, updates)}
+                    onDelete={() => onDeleteTimeEntry(task.id, entry.id)}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="task-time-entry-add-section">
+              <div className="task-time-entry-row">
+                <input
+                  type="number"
+                  min={0}
+                  value={manualHours}
+                  onChange={(e) => setManualHours(Math.max(0, parseInt(e.target.value) || 0))}
+                />
+                <label>h</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={manualMinutes}
+                  onChange={(e) => setManualMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                />
+                <label>m</label>
+              </div>
               <input
-                type="number"
-                min={0}
-                value={manualHours}
-                onChange={(e) => setManualHours(Math.max(0, parseInt(e.target.value) || 0))}
+                className="task-time-entry-desc"
+                type="text"
+                placeholder="Description (optional)"
+                value={manualDescription}
+                onChange={(e) => setManualDescription(e.target.value)}
               />
-              <label>h</label>
-              <input
-                type="number"
-                min={0}
-                max={59}
-                value={manualMinutes}
-                onChange={(e) => setManualMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-              />
-              <label>m</label>
+              <button
+                className="task-time-entry-add-btn"
+                onClick={() => {
+                  const duration = (manualHours * 3600000) + (manualMinutes * 60000);
+                  if (duration <= 0) return;
+                  const entry: TimeEntry = {
+                    id: crypto.randomUUID(),
+                    startedAt: Date.now(),
+                    duration,
+                    description: manualDescription || undefined,
+                  };
+                  onAddTimeEntry(task.id, entry);
+                  setManualHours(0);
+                  setManualMinutes(0);
+                  setManualDescription('');
+                  setShowTimePopover(false);
+                }}
+              >
+                Add
+              </button>
             </div>
-            <input
-              className="task-time-entry-desc"
-              type="text"
-              placeholder="Description (optional)"
-              value={manualDescription}
-              onChange={(e) => setManualDescription(e.target.value)}
-            />
-            <button
-              className="task-time-entry-add-btn"
-              onClick={() => {
-                const duration = (manualHours * 3600000) + (manualMinutes * 60000);
-                if (duration <= 0) return;
-                const entry: TimeEntry = {
-                  id: crypto.randomUUID(),
-                  startedAt: Date.now(),
-                  duration,
-                  description: manualDescription || undefined,
-                };
-                onAddTimeEntry(task.id, entry);
-                setManualHours(0);
-                setManualMinutes(0);
-                setManualDescription('');
-                setShowTimePopover(false);
-              }}
-            >
-              Add
-            </button>
           </div>
         )}
       </td>

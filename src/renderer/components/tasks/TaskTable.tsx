@@ -32,6 +32,8 @@ interface TaskTableProps {
   onStartTimer: (taskId: string) => void;
   onStopTimer: () => void;
   onAddTimeEntry: (taskId: string, entry: TimeEntry) => void;
+  onUpdateTimeEntry: (taskId: string, entryId: string, updates: Partial<Pick<TimeEntry, 'duration' | 'description'>>) => void;
+  onDeleteTimeEntry: (taskId: string, entryId: string) => void;
   visibleColumns?: string[];
   columnWidths: Record<string, number>;
   onColumnWidthsChange: (widths: Record<string, number>) => void;
@@ -153,6 +155,8 @@ export default function TaskTable({
   onStartTimer,
   onStopTimer,
   onAddTimeEntry,
+  onUpdateTimeEntry,
+  onDeleteTimeEntry,
   visibleColumns,
   columnWidths,
   onColumnWidthsChange,
@@ -325,6 +329,8 @@ export default function TaskTable({
         onStartTimer={onStartTimer}
         onStopTimer={onStopTimer}
         onAddTimeEntry={onAddTimeEntry}
+        onUpdateTimeEntry={onUpdateTimeEntry}
+        onDeleteTimeEntry={onDeleteTimeEntry}
         visibleColumns={visibleColumns}
       />
     ));
