@@ -216,6 +216,48 @@ function App() {
   useEffect(() => { timerRunningRef.current = timerRunning; }, [timerRunning]);
   useEffect(() => { taskTimerRunningRef.current = taskTimerRunning; }, [taskTimerRunning]);
 
+  // Restore persisted timer on mount
+  useEffect(() => {
+    const sceneRaw = localStorage.getItem('braidr-active-scene-timer');
+    const taskRaw = localStorage.getItem('braidr-active-task-timer');
+
+    if (sceneRaw) {
+      try {
+        const { id, startedAt } = JSON.parse(sceneRaw);
+        setTimerSceneKey(id);
+        setTimerElapsed(Math.floor((Date.now() - startedAt) / 1000));
+        setTimerRunning(true);
+      } catch {
+        localStorage.removeItem('braidr-active-scene-timer');
+      }
+      if (taskRaw) localStorage.removeItem('braidr-active-task-timer');
+    } else if (taskRaw) {
+      try {
+        const { id, startedAt } = JSON.parse(taskRaw);
+        taskTimerStartRef.current = startedAt;
+        setTaskTimerTaskId(id);
+        setTaskTimerElapsed(Date.now() - startedAt);
+        setTaskTimerRunning(true);
+      } catch {
+        localStorage.removeItem('braidr-active-task-timer');
+      }
+    }
+  }, []);
+
+  // Validate persisted scene timer target after data loads
+  useEffect(() => {
+    if (timerSceneKey && projectData && projectData.scenes.length > 0) {
+      const [charId, sceneNumStr] = timerSceneKey.split(':');
+      const exists = projectData.scenes.some(s => s.characterId === charId && String(s.sceneNumber) === sceneNumStr);
+      if (!exists) {
+        localStorage.removeItem('braidr-active-scene-timer');
+        setTimerRunning(false);
+        setTimerElapsed(0);
+        setTimerSceneKey(null);
+      }
+    }
+  }, [timerSceneKey, projectData]);
+
   // Reset drag ref on mouseup (in case drag is cancelled without dragEnd firing)
   useEffect(() => {
     const resetDrag = () => { canDragSceneRef.current = false; };
@@ -260,6 +302,7 @@ function App() {
   }, []);
 
   const handleStopTimer = useCallback(() => {
+    localStorage.removeItem('braidr-active-scene-timer');
     setTimerRunning(false);
     // Save elapsed time as a session when stopping the timer
     setTimerElapsed(prev => {
@@ -287,6 +330,7 @@ function App() {
   }, [timerSceneKey, projectData]);
 
   const handleResetTimer = useCallback(() => {
+    localStorage.removeItem('braidr-active-scene-timer');
     setTimerRunning(false);
     setTimerElapsed(0);
     setTimerSceneKey(null);
@@ -294,6 +338,7 @@ function App() {
 
   const handleStopTaskTimer = useCallback(() => {
     if (!taskTimerTaskId || !taskTimerStartRef.current) return;
+    localStorage.removeItem('braidr-active-task-timer');
     const duration = Date.now() - taskTimerStartRef.current;
     const entry: TimeEntry = {
       id: crypto.randomUUID(),
@@ -324,6 +369,7 @@ function App() {
     taskTimerStartRef.current = Date.now();
     setTaskTimerElapsed(0);
     setTaskTimerRunning(true);
+    localStorage.setItem('braidr-active-task-timer', JSON.stringify({ id: taskId, startedAt: Date.now() }));
   }, [handleStopTimer, taskTimerTaskId, handleStopTaskTimer]);
 
   const handleStartTimer = useCallback((sceneKey: string) => {
@@ -334,6 +380,7 @@ function App() {
     setTimerSceneKey(sceneKey);
     setTimerElapsed(0);
     setTimerRunning(true);
+    localStorage.setItem('braidr-active-scene-timer', JSON.stringify({ id: sceneKey, startedAt: Date.now() }));
   }, [handleStopTaskTimer]);
 
   const handleAddManualTime = useCallback((sceneKey: string, minutes: number) => {
@@ -374,6 +421,20 @@ function App() {
   const taskColumnWidthsRef = useRef<Record<string, number>>({});
   const [taskVisibleColumns, setTaskVisibleColumns] = useState<string[] | undefined>(undefined);
   const taskVisibleColumnsRef = useRef<string[] | undefined>(undefined);
+
+  // Validate persisted task timer target after data loads
+  useEffect(() => {
+    if (taskTimerTaskId && tasks.length > 0) {
+      const exists = tasks.some(t => t.id === taskTimerTaskId);
+      if (!exists) {
+        localStorage.removeItem('braidr-active-task-timer');
+        setTaskTimerTaskId(null);
+        taskTimerStartRef.current = null;
+        setTaskTimerElapsed(0);
+        setTaskTimerRunning(false);
+      }
+    }
+  }, [taskTimerTaskId, tasks]);
 
   // Timeline state
   const [timelineDates, setTimelineDates] = useState<Record<string, string>>({});
