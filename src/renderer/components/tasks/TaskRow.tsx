@@ -92,14 +92,16 @@ function TimeEntryRow({ entry, onUpdate, onDelete }: {
   return (
     <div className="task-time-entry-item">
       <span className="task-time-entry-date">{dateStr}</span>
-      <input type="number" min={0} className="task-time-entry-edit-input"
-        value={hours} onChange={e => setHours(Math.max(0, parseInt(e.target.value) || 0))}
-        onBlur={commitDuration} />
-      <label>h</label>
-      <input type="number" min={0} max={59} className="task-time-entry-edit-input"
-        value={minutes} onChange={e => setMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-        onBlur={commitDuration} />
-      <label>m</label>
+      <div className="task-time-entry-duration" onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) commitDuration();
+      }}>
+        <input type="number" min={0} className="task-time-entry-edit-input"
+          value={hours} onChange={e => setHours(Math.max(0, parseInt(e.target.value) || 0))} />
+        <label>h</label>
+        <input type="number" min={0} max={59} className="task-time-entry-edit-input"
+          value={minutes} onChange={e => setMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))} />
+        <label>m</label>
+      </div>
       <input type="text" className="task-time-entry-edit-desc"
         value={desc} onChange={e => setDesc(e.target.value)} placeholder="Note"
         onBlur={() => {

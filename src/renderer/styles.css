@@ -15365,6 +15365,12 @@ textarea.table-cell-input {
   flex-shrink: 0;
 }
 
+.task-time-entry-duration {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .task-time-entry-edit-input {
   width: 40px;
   padding: 2px 4px;

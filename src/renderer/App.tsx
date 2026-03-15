@@ -365,11 +365,12 @@ function App() {
     if (taskTimerTaskId) {
       handleStopTaskTimer();
     }
+    const startedAt = Date.now();
     setTaskTimerTaskId(taskId);
-    taskTimerStartRef.current = Date.now();
+    taskTimerStartRef.current = startedAt;
     setTaskTimerElapsed(0);
     setTaskTimerRunning(true);
-    localStorage.setItem('braidr-active-task-timer', JSON.stringify({ id: taskId, startedAt: Date.now() }));
+    localStorage.setItem('braidr-active-task-timer', JSON.stringify({ id: taskId, startedAt }));
   }, [handleStopTimer, taskTimerTaskId, handleStopTaskTimer]);
 
   const handleStartTimer = useCallback((sceneKey: string) => {
