@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { Scene, Character, Tag, TagCategory, PlotPoint } from '../../shared/types';
 import RailsSceneCard from './RailsSceneCard';
 import FloatingEditor from './FloatingEditor';
@@ -87,7 +87,22 @@ export default function RailsView({
   const gridRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollTop = useRef<number | null>(null);
+  const railsViewRef = useRef<HTMLDivElement>(null);
   useAutoScrollOnDrag(scrollRef, !!draggedSceneId);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!railsViewRef.current?.closest('.leaf-pane.active')) return;
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifier = isMac ? e.metaKey : e.ctrlKey;
+      if (modifier && e.key === ']') {
+        e.preventDefault();
+        setInboxCollapsed(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Get hex color for a character
   const getCharacterHexColor = (characterId: string): string => {
@@ -339,11 +354,11 @@ export default function RailsView({
   };
 
   return (
-    <div className={`rails-view ${isConnecting ? 'is-connecting' : ''}`}>
+    <div ref={railsViewRef} className={`rails-view ${isConnecting ? 'is-connecting' : ''}`}>
       <div className="rails-main" ref={scrollRef}>
         <div className="rails-toolbar">
           <div className="rails-toolbar-spacer" />
-          <button className="editor-panel-toggle" onClick={() => setInboxCollapsed(!inboxCollapsed)} title={inboxCollapsed ? 'Show To Braid panel' : 'Hide To Braid panel'}>
+          <button className="editor-panel-toggle" onClick={() => setInboxCollapsed(!inboxCollapsed)} title={inboxCollapsed ? 'Show To Braid panel (Cmd+])' : 'Hide To Braid panel (Cmd+])'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
               <rect x="0.75" y="0.75" width="16.5" height="12.5" rx="2.25" stroke="currentColor" strokeWidth="1.5"/>
               <line x1="12.5" y1="0.75" x2="12.5" y2="13.25" stroke="currentColor" strokeWidth="1.5"/>
@@ -789,6 +804,16 @@ export default function RailsView({
           })}
         </div>
       </div>}
+
+      {inboxCollapsed && (
+        <div className="to-braid-inbox-collapsed" onClick={() => setInboxCollapsed(false)} title="Show To Braid panel (Cmd+])">
+          <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+            <rect x="0.75" y="0.75" width="16.5" height="12.5" rx="2.25" stroke="currentColor" strokeWidth="1.5"/>
+            <line x1="12.5" y1="0.75" x2="12.5" y2="13.25" stroke="currentColor" strokeWidth="1.5"/>
+          </svg>
+          <span className="to-braid-inbox-collapsed-label">To Braid</span>
+        </div>
+      )}
 
       {/* Slide-in Scene Panel */}
       {floatingEditorScene && (

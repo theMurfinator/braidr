@@ -212,9 +212,11 @@ function App() {
   const taskTimerStartRef = useRef<number | null>(null);
   const taskTimerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const taskTimerRunningRef = useRef(false);
+  const taskTimerTaskIdRef = useRef<string | null>(null);
 
   useEffect(() => { timerRunningRef.current = timerRunning; }, [timerRunning]);
   useEffect(() => { taskTimerRunningRef.current = taskTimerRunning; }, [taskTimerRunning]);
+  useEffect(() => { taskTimerTaskIdRef.current = taskTimerTaskId; }, [taskTimerTaskId]);
 
   // Restore persisted timer on mount
   useEffect(() => {
@@ -247,8 +249,7 @@ function App() {
   // Validate persisted scene timer target after data loads
   useEffect(() => {
     if (timerSceneKey && projectData && projectData.scenes.length > 0) {
-      const [charId, sceneNumStr] = timerSceneKey.split(':');
-      const exists = projectData.scenes.some(s => s.characterId === charId && String(s.sceneNumber) === sceneNumStr);
+      const exists = projectData.scenes.some(s => s.id === timerSceneKey);
       if (!exists) {
         localStorage.removeItem('braidr-active-scene-timer');
         setTimerRunning(false);
@@ -337,7 +338,8 @@ function App() {
   }, []);
 
   const handleStopTaskTimer = useCallback(() => {
-    if (!taskTimerTaskId || !taskTimerStartRef.current) return;
+    const currentTaskId = taskTimerTaskIdRef.current;
+    if (!currentTaskId || !taskTimerStartRef.current) return;
     localStorage.removeItem('braidr-active-task-timer');
     const duration = Date.now() - taskTimerStartRef.current;
     const entry: TimeEntry = {
@@ -346,7 +348,7 @@ function App() {
       duration,
     };
     setTasks(prev => prev.map(t =>
-      t.id === taskTimerTaskId
+      t.id === currentTaskId
         ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
         : t
     ));
@@ -354,7 +356,7 @@ function App() {
     taskTimerStartRef.current = null;
     setTaskTimerElapsed(0);
     setTaskTimerRunning(false);
-  }, [taskTimerTaskId]);
+  }, []);
 
   const handleStartTaskTimer = useCallback((taskId: string) => {
     // Stop scene timer if running (mutual exclusivity)
@@ -362,7 +364,7 @@ function App() {
       handleStopTimer();
     }
     // Stop any existing task timer
-    if (taskTimerTaskId) {
+    if (taskTimerTaskIdRef.current) {
       handleStopTaskTimer();
     }
     const startedAt = Date.now();
@@ -371,7 +373,7 @@ function App() {
     setTaskTimerElapsed(0);
     setTaskTimerRunning(true);
     localStorage.setItem('braidr-active-task-timer', JSON.stringify({ id: taskId, startedAt }));
-  }, [handleStopTimer, taskTimerTaskId, handleStopTaskTimer]);
+  }, [handleStopTimer, handleStopTaskTimer]);
 
   const handleStartTimer = useCallback((sceneKey: string) => {
     // Stop task timer if running (mutual exclusivity)
@@ -3925,6 +3927,12 @@ function App() {
                             onMouseLeave={() => setHoveredSceneId(null)}
                             className={`braided-scene-drag-wrapper ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${povReorderedScenes.has(scene.id) ? 'pov-reordered' : ''}`}
                           >
+                            <div
+                              className="scene-drag-gutter"
+                              onMouseDown={() => { canDragSceneRef.current = true; }}
+                            >
+                              <span className="scene-drag-gutter-icon">⋮⋮</span>
+                            </div>
                             <SceneCard
                               scene={scene}
                               tags={projectData.tags}
@@ -3932,8 +3940,7 @@ function App() {
                               characterName={getCharacterName(scene.characterId)}
                               displayNumber={displayPosition}
                               plotPointTitle={scene.plotPointId ? projectData.plotPoints.find(p => p.id === scene.plotPointId)?.title : undefined}
-                              showDragHandle={true}
-                              dragHandleRef={dragHandleRefCallback}
+                              showDragHandle={false}
                               backgroundColor={undefined}
                               onSceneChange={handleSceneChange}
                               onTagsChange={handleTagsChange}

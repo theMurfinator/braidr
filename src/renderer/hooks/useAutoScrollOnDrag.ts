@@ -9,7 +9,7 @@ import { useEffect, useRef, RefObject } from 'react';
 export function useAutoScrollOnDrag(
   scrollContainerRef: RefObject<HTMLElement | null>,
   isDragging: boolean,
-  edgeSize: number = 80,
+  edgeSize: number = 150,
 ) {
   const rafId = useRef<number | null>(null);
   const mouseY = useRef<number>(0);
@@ -44,8 +44,8 @@ export function useAutoScrollOnDrag(
       const distFromTop = y - rect.top;
       const distFromBottom = rect.bottom - y;
 
-      const maxSpeed = 15;
-      const minSpeed = 2;
+      const maxSpeed = 25;
+      const minSpeed = 3;
 
       if (distFromTop < edgeSize && distFromTop >= 0) {
         // Scroll up — faster the closer to the edge

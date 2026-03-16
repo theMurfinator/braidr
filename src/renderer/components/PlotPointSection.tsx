@@ -317,6 +317,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
             className={`pov-scene-item ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting ? 'connect-target' : ''}`}
             draggable="true"
             onDragStart={(e) => {
+              console.log('[DRAG] onDragStart, canDragPovRef:', canDragPovRef.current);
               if (canDragPovRef.current && onSceneDragStart) {
                 e.stopPropagation();
                 onSceneDragStart(scene);
@@ -358,6 +359,14 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
               }
             }}
           >
+            {!!onSceneDragStart && (
+              <div
+                className="scene-drag-gutter"
+                onMouseDown={() => { console.log('[DRAG] gutter mousedown'); canDragPovRef.current = true; }}
+              >
+                <span className="scene-drag-gutter-icon">⋮⋮</span>
+              </div>
+            )}
             <SceneCard
               scene={scene}
               tags={tags}
@@ -368,12 +377,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
               onDeleteScene={onDeleteScene}
               onDuplicateScene={onDuplicateScene}
               forceNotesExpanded={forceNotesExpanded}
-              showDragHandle={!!onSceneDragStart}
-              dragHandleRef={(el) => {
-                if (el) {
-                  el.onmousedown = () => { canDragPovRef.current = true; };
-                }
-              }}
+              showDragHandle={false}
               onMoveUp={onSceneMoveUp ? () => onSceneMoveUp(scene.id) : undefined}
               onMoveDown={onSceneMoveDown ? () => onSceneMoveDown(scene.id) : undefined}
               canMoveUp={(() => {
