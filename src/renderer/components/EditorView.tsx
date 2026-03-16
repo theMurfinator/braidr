@@ -50,6 +50,7 @@ interface EditorViewProps {
   onStopTimer?: () => void;
   onResetTimer?: () => void;
   onAddManualTime?: (sceneKey: string, minutes: number) => void;
+  onUpdateSession?: (sessionId: string, durationMs: number) => void;
   onDeleteSession?: (sessionId: string) => void;
   sceneSessionsByDate?: (sceneKey: string) => { date: string; totalMs: number; sessionCount: number }[];
   sceneSessionsList?: (sceneKey: string) => SceneSession[];
@@ -91,6 +92,61 @@ function cleanContent(text: string): string {
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
+}
+
+function EditableSessionRow({ session, onUpdate, onDelete }: {
+  session: SceneSession;
+  onUpdate?: (sessionId: string, durationMs: number) => void;
+  onDelete?: (sessionId: string) => void;
+}) {
+  const [hours, setHours] = useState(Math.floor(session.durationMs / 3600000));
+  const [minutes, setMinutes] = useState(Math.floor((session.durationMs % 3600000) / 60000));
+  const isManual = session.id.startsWith('manual-');
+  const dateObj = new Date(session.startTime);
+  const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const commitDuration = () => {
+    const newMs = (hours * 3600000) + (minutes * 60000);
+    if (newMs > 0 && newMs !== session.durationMs) {
+      onUpdate?.(session.id, newMs);
+    }
+  };
+
+  return (
+    <div className="time-track-session-row">
+      <div className="time-track-session-info">
+        <span className="time-track-session-date">{session.date}</span>
+        <span className="time-track-session-time">
+          {isManual ? 'Manual entry' : timeStr}
+        </span>
+      </div>
+      <div className="time-track-session-right">
+        <div className="time-track-session-edit" onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) commitDuration();
+        }}>
+          <input type="number" min={0} className="time-track-session-input"
+            value={hours} onChange={e => setHours(Math.max(0, parseInt(e.target.value) || 0))}
+            onKeyDown={e => { if (e.key === 'Enter') commitDuration(); }}
+          />
+          <span className="time-track-session-input-label">h</span>
+          <input type="number" min={0} max={59} className="time-track-session-input"
+            value={minutes} onChange={e => setMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+            onKeyDown={e => { if (e.key === 'Enter') commitDuration(); }}
+          />
+          <span className="time-track-session-input-label">m</span>
+        </div>
+        <button
+          className="time-track-session-delete"
+          onClick={() => onDelete?.(session.id)}
+          title="Delete entry"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
 }
 
 type DiffChunk = { type: 'same' | 'added' | 'removed'; text: string };
@@ -161,6 +217,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   onStopTimer,
   onResetTimer,
   onAddManualTime,
+  onUpdateSession,
   onDeleteSession,
   sceneSessionsByDate,
   sceneSessionsList,
@@ -1794,41 +1851,14 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                           <span className="time-track-sessions-count">{sessions.length}</span>
                         </div>
                         <div className="time-track-sessions-list">
-                          {sessions.map(s => {
-                            const sHrs = Math.floor(s.durationMs / 3600000);
-                            const sMins = Math.floor((s.durationMs % 3600000) / 60000);
-                            const sSecs = Math.floor((s.durationMs % 60000) / 1000);
-                            const durStr = sHrs > 0
-                              ? `${sHrs}h ${sMins}m`
-                              : sMins > 0
-                                ? `${sMins}m ${sSecs}s`
-                                : `${sSecs}s`;
-                            const isManual = s.id.startsWith('manual-');
-                            const dateObj = new Date(s.startTime);
-                            const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                            return (
-                              <div key={s.id} className="time-track-session-row">
-                                <div className="time-track-session-info">
-                                  <span className="time-track-session-date">{s.date}</span>
-                                  <span className="time-track-session-time">
-                                    {isManual ? 'Manual entry' : timeStr}
-                                  </span>
-                                </div>
-                                <div className="time-track-session-right">
-                                  <span className="time-track-session-dur">{durStr}</span>
-                                  <button
-                                    className="time-track-session-delete"
-                                    onClick={() => onDeleteSession?.(s.id)}
-                                    title="Delete entry"
-                                  >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                      <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                                    </svg>
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
+                          {sessions.map(s => (
+                            <EditableSessionRow
+                              key={s.id}
+                              session={s}
+                              onUpdate={onUpdateSession}
+                              onDelete={onDeleteSession}
+                            />
+                          ))}
                         </div>
                       </div>
                     )}

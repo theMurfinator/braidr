@@ -290,6 +290,22 @@ export function getSceneSessionsByDate(
 }
 
 /**
+ * Update a specific scene session's duration by ID.
+ */
+export function updateSceneSession(
+  analytics: AnalyticsData,
+  sessionId: string,
+  updates: { durationMs: number },
+): AnalyticsData {
+  return {
+    ...analytics,
+    sceneSessions: (analytics.sceneSessions || []).map(s =>
+      s.id === sessionId ? { ...s, ...updates } : s
+    ),
+  };
+}
+
+/**
  * Delete a specific scene session by ID.
  */
 export function deleteSceneSession(
