@@ -497,8 +497,10 @@ app.on('activate', () => {
  * Safe to re-run — only acts if extracted fields still exist in timeline.json.
  */
 function migrateTimelineToPerSceneFiles(folderPath: string, data: any): any {
+  const hasContent = (obj: any) => obj && typeof obj === 'object' && Object.keys(obj).length > 0;
   const hasExtractedFields =
-    data.draftContent || data.scratchpad || data.drafts || data.sceneComments;
+    hasContent(data.draftContent) || hasContent(data.scratchpad) ||
+    hasContent(data.drafts) || hasContent(data.sceneComments);
   if (!hasExtractedFields) return data;
 
   // Step 1: Backup original timeline.json before any writes
@@ -516,45 +518,50 @@ function migrateTimelineToPerSceneFiles(folderPath: string, data: any): any {
   if (!fs.existsSync(scratchpadDir)) fs.mkdirSync(scratchpadDir, { recursive: true });
   if (!fs.existsSync(commentsDir)) fs.mkdirSync(commentsDir, { recursive: true });
 
-  // Step 3: Write individual files
-  if (data.draftContent) {
-    for (const [sceneId, content] of Object.entries(data.draftContent)) {
-      if (content) fs.writeFileSync(path.join(draftsDir, `${sceneId}.md`), content as string, 'utf-8');
-    }
-  }
-  if (data.scratchpad) {
-    for (const [sceneId, content] of Object.entries(data.scratchpad)) {
-      if (content) fs.writeFileSync(path.join(scratchpadDir, `${sceneId}.md`), content as string, 'utf-8');
-    }
-  }
-  if (data.drafts) {
-    for (const [sceneId, versions] of Object.entries(data.drafts)) {
-      if (versions && (versions as any[]).length > 0) {
-        fs.writeFileSync(path.join(draftsDir, `${sceneId}.versions.json`), JSON.stringify(versions, null, 2), 'utf-8');
+  try {
+    // Step 3: Write individual files
+    if (data.draftContent) {
+      for (const [sceneId, content] of Object.entries(data.draftContent)) {
+        if (content) fs.writeFileSync(path.join(draftsDir, `${sceneId}.md`), content as string, 'utf-8');
       }
     }
-  }
-  if (data.sceneComments) {
-    for (const [sceneId, comments] of Object.entries(data.sceneComments)) {
-      if (comments && (comments as any[]).length > 0) {
-        fs.writeFileSync(path.join(commentsDir, `${sceneId}.json`), JSON.stringify(comments, null, 2), 'utf-8');
+    if (data.scratchpad) {
+      for (const [sceneId, content] of Object.entries(data.scratchpad)) {
+        if (content) fs.writeFileSync(path.join(scratchpadDir, `${sceneId}.md`), content as string, 'utf-8');
       }
     }
+    if (data.drafts) {
+      for (const [sceneId, versions] of Object.entries(data.drafts)) {
+        if (versions && (versions as any[]).length > 0) {
+          fs.writeFileSync(path.join(draftsDir, `${sceneId}.versions.json`), JSON.stringify(versions, null, 2), 'utf-8');
+        }
+      }
+    }
+    if (data.sceneComments) {
+      for (const [sceneId, comments] of Object.entries(data.sceneComments)) {
+        if (comments && (comments as any[]).length > 0) {
+          fs.writeFileSync(path.join(commentsDir, `${sceneId}.json`), JSON.stringify(comments, null, 2), 'utf-8');
+        }
+      }
+    }
+
+    // Step 4: Remove extracted fields from data
+    const cleaned = { ...data };
+    delete cleaned.draftContent;
+    delete cleaned.scratchpad;
+    delete cleaned.drafts;
+    delete cleaned.sceneComments;
+
+    // Step 5: Save cleaned timeline.json
+    const tmpPath = timelinePath + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(cleaned, null, 2), 'utf-8');
+    fs.renameSync(tmpPath, timelinePath);
+
+    return cleaned;
+  } catch (error: any) {
+    console.error('Migration partially failed, project will load from timeline.json:', error.message);
+    return data;
   }
-
-  // Step 4: Remove extracted fields from data
-  const cleaned = { ...data };
-  delete cleaned.draftContent;
-  delete cleaned.scratchpad;
-  delete cleaned.drafts;
-  delete cleaned.sceneComments;
-
-  // Step 5: Save cleaned timeline.json
-  const tmpPath = timelinePath + '.tmp';
-  fs.writeFileSync(tmpPath, JSON.stringify(cleaned, null, 2), 'utf-8');
-  fs.renameSync(tmpPath, timelinePath);
-
-  return cleaned;
 }
 
 // IPC Handlers
