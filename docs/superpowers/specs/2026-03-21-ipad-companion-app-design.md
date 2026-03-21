@@ -193,7 +193,6 @@ These components are shared but reference platform-specific APIs that need atten
 - `src/renderer/components/notes/NoteEditor.tsx` — imports the `dataService` singleton directly (for `saveNoteImage`, `selectNoteImage`). Works as-is once the singleton is made platform-aware (see Platform Detection below). Also uses `braidr-img://` protocol for images — see Image Handling below.
 - `src/renderer/components/notes/NotesView.tsx` — same `dataService` singleton import. Works once singleton is swapped.
 - `src/renderer/components/EditorView.tsx` — imports `posthogTracker` which references `window.electronAPI`. Analytics calls silently no-op on iPad (see Analytics below).
-- `src/renderer/components/FloatingEditor.tsx` — same `posthogTracker` dependency.
 - `src/renderer/components/RailsView.tsx` — uses HTML5 Drag and Drop API (`onDragStart`/`onDragEnd`/`onDrop`), which is not supported in iOS WebKit. Requires replacement with a pointer-event or touch-event based drag implementation (e.g., `dnd-kit` or custom touch handlers). This is a meaningful rewrite of the drag interaction, not a minor tweak.
 
 ### New code for iPad
@@ -233,7 +232,9 @@ This is critical because several components (`NoteEditor`, `NotesView`, and othe
 
 ### Analytics on iPad
 
-`posthogTracker.ts` and `analyticsStore.ts` reference `window.electronAPI` directly. On iPad, these calls silently no-op (`window.electronAPI` is `undefined`, and the tracker uses optional chaining). This is acceptable for the initial build — analytics are disabled on iPad. If Word Count Dashboard is added later, `analyticsStore.ts` will need its own `DataService` methods (`readAnalytics`/`saveAnalytics`).
+`posthogTracker.ts` references `window.electronAPI` with optional chaining — calls silently no-op on iPad when `window.electronAPI` is `undefined`. This is acceptable for the initial build; analytics tracking is disabled on iPad.
+
+`analyticsStore.ts` references `window.electronAPI.readAnalytics()` and `window.electronAPI.saveAnalytics()` **without** optional chaining — these would crash if called. This is safe because the I/O functions are only called from `App.tsx` (replaced by `MobileApp.tsx` on iPad) and `WordCountDashboard` (excluded). `EditorView.tsx` imports only pure computation functions from `analyticsStore` that don't touch `window.electronAPI`. If Word Count Dashboard is added later, `analyticsStore.ts` will need its own `DataService` methods (`readAnalytics`/`saveAnalytics`).
 
 ### DataService methods on iPad
 
