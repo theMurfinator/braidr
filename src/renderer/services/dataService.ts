@@ -65,6 +65,12 @@ class ElectronDataService implements DataService {
       ? timelineResult.data
       : { positions: {}, connections: {} };
 
+    // Load per-scene content from individual files
+    const perSceneResult = await window.electronAPI.readAllPerSceneContent(folderPath);
+    const perSceneContent = perSceneResult.success && perSceneResult.data
+      ? perSceneResult.data
+      : { draftContent: {}, scratchpad: {}, drafts: {}, sceneComments: {} };
+
     const characters: Character[] = [];
     const allScenes: Scene[] = [];
     const allPlotPoints: PlotPoint[] = [];
@@ -131,13 +137,21 @@ class ElectronDataService implements DataService {
       fontSettings: timelineData.fontSettings || {},
       allFontSettings: timelineData.allFontSettings,
       archivedScenes: timelineData.archivedScenes || [],
-      draftContent: timelineData.draftContent || {},
+      draftContent: Object.keys(perSceneContent.draftContent).length > 0
+        ? perSceneContent.draftContent
+        : (timelineData.draftContent || {}),
       metadataFieldDefs: timelineData.metadataFieldDefs || [],
       sceneMetadata: timelineData.sceneMetadata || {},
-      drafts: timelineData.drafts || {},
+      drafts: Object.keys(perSceneContent.drafts).length > 0
+        ? perSceneContent.drafts
+        : (timelineData.drafts || {}),
       wordCountGoal: timelineData.wordCountGoal || 0,
-      scratchpad: timelineData.scratchpad || {},
-      sceneComments: timelineData.sceneComments || {},
+      scratchpad: Object.keys(perSceneContent.scratchpad).length > 0
+        ? perSceneContent.scratchpad
+        : (timelineData.scratchpad || {}),
+      sceneComments: Object.keys(perSceneContent.sceneComments).length > 0
+        ? perSceneContent.sceneComments
+        : (timelineData.sceneComments || {}),
       tasks: timelineData.tasks || [],
       taskFieldDefs: timelineData.taskFieldDefs || [],
       taskViews: timelineData.taskViews || [],
