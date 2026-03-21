@@ -25,6 +25,17 @@ export interface DataService {
   // Note images
   saveNoteImage(projectPath: string, imageData: string, fileName: string): Promise<string>;
   selectNoteImage(projectPath: string): Promise<string | null>;
+  // Per-scene content (extracted from timeline.json)
+  readDraft(projectPath: string, sceneId: string): Promise<string>;
+  saveDraft(projectPath: string, sceneId: string, content: string): Promise<void>;
+  readScratchpad(projectPath: string, sceneId: string): Promise<string>;
+  saveScratchpad(projectPath: string, sceneId: string, content: string): Promise<void>;
+  readDraftVersions(projectPath: string, sceneId: string): Promise<DraftVersion[]>;
+  saveDraftVersions(projectPath: string, sceneId: string, versions: DraftVersion[]): Promise<void>;
+  readSceneComments(projectPath: string, sceneId: string): Promise<SceneComment[]>;
+  saveSceneComments(projectPath: string, sceneId: string, comments: SceneComment[]): Promise<void>;
+  // Conflict detection (iPad companion)
+  listProjectFiles?(projectPath: string): Promise<string[]>;
 }
 
 // Local file system implementation (Electron)
@@ -312,6 +323,59 @@ class ElectronDataService implements DataService {
       throw new Error(result.error || 'Failed to select image');
     }
     return result.data!;
+  }
+
+  // Per-scene content
+  async readDraft(projectPath: string, sceneId: string): Promise<string> {
+    const result = await window.electronAPI.readDraft(projectPath, sceneId);
+    if (!result.success) throw new Error(result.error || 'Failed to read draft');
+    return result.data;
+  }
+
+  async saveDraft(projectPath: string, sceneId: string, content: string): Promise<void> {
+    const result = await window.electronAPI.saveDraft(projectPath, sceneId, content);
+    if (!result.success) throw new Error(result.error || 'Failed to save draft');
+  }
+
+  async readScratchpad(projectPath: string, sceneId: string): Promise<string> {
+    const result = await window.electronAPI.readScratchpad(projectPath, sceneId);
+    if (!result.success) throw new Error(result.error || 'Failed to read scratchpad');
+    return result.data;
+  }
+
+  async saveScratchpad(projectPath: string, sceneId: string, content: string): Promise<void> {
+    const result = await window.electronAPI.saveScratchpad(projectPath, sceneId, content);
+    if (!result.success) throw new Error(result.error || 'Failed to save scratchpad');
+  }
+
+  async readDraftVersions(projectPath: string, sceneId: string): Promise<DraftVersion[]> {
+    const result = await window.electronAPI.readDraftVersions(projectPath, sceneId);
+    if (!result.success) throw new Error(result.error || 'Failed to read draft versions');
+    return result.data;
+  }
+
+  async saveDraftVersions(projectPath: string, sceneId: string, versions: DraftVersion[]): Promise<void> {
+    const result = await window.electronAPI.saveDraftVersions(
+      projectPath, sceneId, JSON.stringify(versions, null, 2)
+    );
+    if (!result.success) throw new Error(result.error || 'Failed to save draft versions');
+  }
+
+  async readSceneComments(projectPath: string, sceneId: string): Promise<SceneComment[]> {
+    const result = await window.electronAPI.readSceneComments(projectPath, sceneId);
+    if (!result.success) throw new Error(result.error || 'Failed to read scene comments');
+    return result.data;
+  }
+
+  async saveSceneComments(projectPath: string, sceneId: string, comments: SceneComment[]): Promise<void> {
+    const result = await window.electronAPI.saveSceneComments(
+      projectPath, sceneId, JSON.stringify(comments, null, 2)
+    );
+    if (!result.success) throw new Error(result.error || 'Failed to save scene comments');
+  }
+
+  async listProjectFiles(_projectPath: string): Promise<string[]> {
+    return []; // Conflict detection is iPad-only for now
   }
 }
 
