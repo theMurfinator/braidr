@@ -672,6 +672,191 @@ ipcMain.handle(IPC_CHANNELS.SAVE_TIMELINE, async (_event, folderPath: string, da
   }
 });
 
+// ── Per-scene content handlers ───────────────────────────────────────────────
+
+// Read draft content for a scene
+ipcMain.handle(IPC_CHANNELS.READ_DRAFT, async (_event, folderPath: string, sceneId: string) => {
+  try {
+    const filePath = path.join(folderPath, 'drafts', `${sceneId}.md`);
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return { success: true, data: content };
+    }
+    return { success: true, data: '' };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Save draft content for a scene
+ipcMain.handle(IPC_CHANNELS.SAVE_DRAFT, async (_event, folderPath: string, sceneId: string, content: string) => {
+  try {
+    const dir = path.join(folderPath, 'drafts');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const filePath = path.join(dir, `${sceneId}.md`);
+    const tmpPath = filePath + '.tmp';
+    fs.writeFileSync(tmpPath, content, 'utf-8');
+    fs.renameSync(tmpPath, filePath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Read scratchpad content for a scene
+ipcMain.handle(IPC_CHANNELS.READ_SCRATCHPAD, async (_event, folderPath: string, sceneId: string) => {
+  try {
+    const filePath = path.join(folderPath, 'scratchpad', `${sceneId}.md`);
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return { success: true, data: content };
+    }
+    return { success: true, data: '' };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Save scratchpad content for a scene
+ipcMain.handle(IPC_CHANNELS.SAVE_SCRATCHPAD, async (_event, folderPath: string, sceneId: string, content: string) => {
+  try {
+    const dir = path.join(folderPath, 'scratchpad');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const filePath = path.join(dir, `${sceneId}.md`);
+    const tmpPath = filePath + '.tmp';
+    fs.writeFileSync(tmpPath, content, 'utf-8');
+    fs.renameSync(tmpPath, filePath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Read draft versions for a scene
+ipcMain.handle(IPC_CHANNELS.READ_DRAFT_VERSIONS, async (_event, folderPath: string, sceneId: string) => {
+  try {
+    const filePath = path.join(folderPath, 'drafts', `${sceneId}.versions.json`);
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return { success: true, data: JSON.parse(content) };
+    }
+    return { success: true, data: [] };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Save draft versions for a scene
+ipcMain.handle(IPC_CHANNELS.SAVE_DRAFT_VERSIONS, async (_event, folderPath: string, sceneId: string, versions: string) => {
+  try {
+    const dir = path.join(folderPath, 'drafts');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const filePath = path.join(dir, `${sceneId}.versions.json`);
+    const tmpPath = filePath + '.tmp';
+    fs.writeFileSync(tmpPath, versions, 'utf-8');
+    fs.renameSync(tmpPath, filePath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Read scene comments
+ipcMain.handle(IPC_CHANNELS.READ_SCENE_COMMENTS, async (_event, folderPath: string, sceneId: string) => {
+  try {
+    const filePath = path.join(folderPath, 'comments', `${sceneId}.json`);
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return { success: true, data: JSON.parse(content) };
+    }
+    return { success: true, data: [] };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Save scene comments
+ipcMain.handle(IPC_CHANNELS.SAVE_SCENE_COMMENTS, async (_event, folderPath: string, sceneId: string, comments: string) => {
+  try {
+    const dir = path.join(folderPath, 'comments');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const filePath = path.join(dir, `${sceneId}.json`);
+    const tmpPath = filePath + '.tmp';
+    fs.writeFileSync(tmpPath, comments, 'utf-8');
+    fs.renameSync(tmpPath, filePath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// Bulk read all per-scene content for project loading
+ipcMain.handle(IPC_CHANNELS.READ_ALL_PER_SCENE_CONTENT, async (_event, folderPath: string) => {
+  try {
+    const draftContent: Record<string, string> = {};
+    const scratchpad: Record<string, string> = {};
+    const drafts: Record<string, any[]> = {};
+    const sceneComments: Record<string, any[]> = {};
+
+    // Read drafts directory (.md files = draft content, .versions.json = version history)
+    const draftsDir = path.join(folderPath, 'drafts');
+    if (fs.existsSync(draftsDir)) {
+      const files = fs.readdirSync(draftsDir);
+      for (const file of files) {
+        if (file.endsWith('.versions.json')) {
+          const sceneId = file.replace('.versions.json', '');
+          try {
+            const content = fs.readFileSync(path.join(draftsDir, file), 'utf-8');
+            drafts[sceneId] = JSON.parse(content);
+          } catch { /* skip malformed files */ }
+        } else if (file.endsWith('.md')) {
+          const sceneId = file.replace('.md', '');
+          draftContent[sceneId] = fs.readFileSync(path.join(draftsDir, file), 'utf-8');
+        }
+      }
+    }
+
+    // Read scratchpad directory
+    const scratchpadDir = path.join(folderPath, 'scratchpad');
+    if (fs.existsSync(scratchpadDir)) {
+      const files = fs.readdirSync(scratchpadDir);
+      for (const file of files) {
+        if (file.endsWith('.md')) {
+          const sceneId = file.replace('.md', '');
+          scratchpad[sceneId] = fs.readFileSync(path.join(scratchpadDir, file), 'utf-8');
+        }
+      }
+    }
+
+    // Read comments directory
+    const commentsDir = path.join(folderPath, 'comments');
+    if (fs.existsSync(commentsDir)) {
+      const files = fs.readdirSync(commentsDir);
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const sceneId = file.replace('.json', '');
+          try {
+            const content = fs.readFileSync(path.join(commentsDir, file), 'utf-8');
+            sceneComments[sceneId] = JSON.parse(content);
+          } catch { /* skip malformed files */ }
+        }
+      }
+    }
+
+    return { success: true, data: { draftContent, scratchpad, drafts, sceneComments } };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
 // Stable character ID from name (must match renderer's parser.ts stableId)
 function stableCharId(str: string): string {
   const s = str.toLowerCase();
