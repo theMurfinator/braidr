@@ -14,6 +14,7 @@ interface RailsSceneCardProps {
   isConnectionTarget: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
   isDragging?: boolean;
   isPovReordered?: boolean;
 }
@@ -31,6 +32,7 @@ export default function RailsSceneCard({
   isConnectionTarget,
   onDragStart,
   onDragEnd,
+  onPointerDown,
   isDragging,
   isPovReordered,
 }: RailsSceneCardProps) {
@@ -53,6 +55,7 @@ export default function RailsSceneCard({
       draggable={!isConnecting}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onPointerDown={onPointerDown}
     >
       <div className="rails-scene-title">{displayTitle || 'Untitled scene'}</div>
       {hasConnections && (

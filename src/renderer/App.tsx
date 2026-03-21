@@ -2435,9 +2435,11 @@ function App() {
     setDropTargetIndex(index);
   };
 
-  const handleDropOnTimeline = async (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDropOnTimeline = async (e: React.DragEvent | null, targetIndex: number) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!draggedScene || !projectData) return;
 
     // Get currently braided scenes in order
@@ -2479,8 +2481,10 @@ function App() {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDropOnInbox = async (e: React.DragEvent) => {
-    e.preventDefault();
+  const handleDropOnInbox = async (e: React.DragEvent | null) => {
+    if (e) {
+      e.preventDefault();
+    }
     if (!draggedScene || !projectData) return;
 
     // Remove from timeline (set timelinePosition to null)
