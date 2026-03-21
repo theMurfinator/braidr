@@ -492,6 +492,71 @@ app.on('activate', () => {
   }
 });
 
+/**
+ * One-time migration: extract per-scene content from timeline.json into individual files.
+ * Safe to re-run — only acts if extracted fields still exist in timeline.json.
+ */
+function migrateTimelineToPerSceneFiles(folderPath: string, data: any): any {
+  const hasExtractedFields =
+    data.draftContent || data.scratchpad || data.drafts || data.sceneComments;
+  if (!hasExtractedFields) return data;
+
+  // Step 1: Backup original timeline.json before any writes
+  const backupDir = path.join(folderPath, '.braidr', 'backups');
+  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const timelinePath = path.join(folderPath, 'timeline.json');
+  fs.copyFileSync(timelinePath, path.join(backupDir, `timeline-pre-migration-${timestamp}.json`));
+
+  // Step 2: Create directories
+  const draftsDir = path.join(folderPath, 'drafts');
+  const scratchpadDir = path.join(folderPath, 'scratchpad');
+  const commentsDir = path.join(folderPath, 'comments');
+  if (!fs.existsSync(draftsDir)) fs.mkdirSync(draftsDir, { recursive: true });
+  if (!fs.existsSync(scratchpadDir)) fs.mkdirSync(scratchpadDir, { recursive: true });
+  if (!fs.existsSync(commentsDir)) fs.mkdirSync(commentsDir, { recursive: true });
+
+  // Step 3: Write individual files
+  if (data.draftContent) {
+    for (const [sceneId, content] of Object.entries(data.draftContent)) {
+      if (content) fs.writeFileSync(path.join(draftsDir, `${sceneId}.md`), content as string, 'utf-8');
+    }
+  }
+  if (data.scratchpad) {
+    for (const [sceneId, content] of Object.entries(data.scratchpad)) {
+      if (content) fs.writeFileSync(path.join(scratchpadDir, `${sceneId}.md`), content as string, 'utf-8');
+    }
+  }
+  if (data.drafts) {
+    for (const [sceneId, versions] of Object.entries(data.drafts)) {
+      if (versions && (versions as any[]).length > 0) {
+        fs.writeFileSync(path.join(draftsDir, `${sceneId}.versions.json`), JSON.stringify(versions, null, 2), 'utf-8');
+      }
+    }
+  }
+  if (data.sceneComments) {
+    for (const [sceneId, comments] of Object.entries(data.sceneComments)) {
+      if (comments && (comments as any[]).length > 0) {
+        fs.writeFileSync(path.join(commentsDir, `${sceneId}.json`), JSON.stringify(comments, null, 2), 'utf-8');
+      }
+    }
+  }
+
+  // Step 4: Remove extracted fields from data
+  const cleaned = { ...data };
+  delete cleaned.draftContent;
+  delete cleaned.scratchpad;
+  delete cleaned.drafts;
+  delete cleaned.sceneComments;
+
+  // Step 5: Save cleaned timeline.json
+  const tmpPath = timelinePath + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(cleaned, null, 2), 'utf-8');
+  fs.renameSync(tmpPath, timelinePath);
+
+  return cleaned;
+}
+
 // IPC Handlers
 
 // PostHog analytics event relay from renderer
@@ -618,7 +683,9 @@ ipcMain.handle(IPC_CHANNELS.LOAD_TIMELINE, async (_event, folderPath: string) =>
     const timelinePath = path.join(folderPath, 'timeline.json');
     if (fs.existsSync(timelinePath)) {
       const content = fs.readFileSync(timelinePath, 'utf-8');
-      return { success: true, data: JSON.parse(content) };
+      let data = JSON.parse(content);
+      data = migrateTimelineToPerSceneFiles(folderPath, data);
+      return { success: true, data };
     }
     return { success: true, data: { positions: {} } };
   } catch (error) {
