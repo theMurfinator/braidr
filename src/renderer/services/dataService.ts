@@ -1,6 +1,7 @@
 import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent } from '../../shared/types';
 import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
+import { CapacitorDataService } from './capacitorDataService';
 
 // Data service interface - this abstraction allows swapping to a web API later
 export interface DataService {
@@ -393,5 +394,8 @@ class ElectronDataService implements DataService {
   }
 }
 
-// Export singleton instance
-export const dataService: DataService = new ElectronDataService();
+// Export singleton instance — use CapacitorDataService on iPad, ElectronDataService on desktop
+const isCapacitor = typeof (window as any).Capacitor !== 'undefined';
+export const dataService: DataService = isCapacitor
+  ? new CapacitorDataService()
+  : new ElectronDataService();
