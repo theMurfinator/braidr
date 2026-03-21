@@ -40,7 +40,7 @@ Extract four per-scene content fields from `timeline.json` into individual files
 
 ### What stays in timeline.json
 
-All structural and project-wide data: `positions`, `connections`, `chapters`, `characterColors`, `wordCounts`, `fontSettings`, `allFontSettings`, `archivedScenes`, `metadataFieldDefs`, `sceneMetadata`, `wordCountGoal`, `tasks`, `taskFieldDefs`, `taskViews`, `taskColumnWidths`, `taskVisibleColumns`, `inlineMetadataFields`, `showInlineLabels`, `timelineDates`, `timelineEndDates`, `worldEvents`, `tags`.
+All structural and project-wide data: `positions`, `connections`, `chapters`, `characterColors`, `wordCounts`, `fontSettings`, `allFontSettings`, `archivedScenes`, `metadataFieldDefs`, `sceneMetadata`, `wordCountGoal`, `tasks`, `taskFieldDefs`, `taskViews`, `taskColumnWidths`, `taskVisibleColumns`, `inlineMetadataFields`, `showInlineLabels`, `timelineDates`, `timelineEndDates`, `worldEvents`, `tags`, `tableViews`.
 
 ### New project folder structure
 
@@ -72,11 +72,13 @@ my-project/
 
 On project load, if `timeline.json` contains any of the extracted fields (`draftContent`, `scratchpad`, `drafts`, `sceneComments`):
 
-1. Create `drafts/`, `scratchpad/`, `comments/` directories if they don't exist
-2. Write each entry to its individual file
-3. Remove the extracted fields from `timeline.json`
-4. Save the cleaned `timeline.json`
-5. Back up the original `timeline.json` to `.braidr/backups/` before migration
+1. Back up the original `timeline.json` to `.braidr/backups/` **before any writes**
+2. Create `drafts/`, `scratchpad/`, `comments/` directories if they don't exist
+3. Write each entry to its individual file
+4. Only after all files are written successfully: remove the extracted fields from `timeline.json`
+5. Save the cleaned `timeline.json`
+
+If step 3 partially fails (e.g., disk full), the backup from step 1 preserves the original data, and the extracted fields remain in `timeline.json` (steps 4-5 are skipped). Next launch will retry migration.
 
 Migration is one-way and automatic. No user action required.
 
@@ -105,6 +107,8 @@ saveSceneComments(projectPath: string, sceneId: string, comments: SceneComment[]
 ```
 
 `loadProject` reads from these individual files instead of `timeline.json`, assembling the same in-memory shape the app already expects. Calling code in App.tsx and components does not change — the data shape is identical, only the storage layer differs.
+
+Both `ElectronDataService` and `CapacitorDataService` must implement this post-migration interface (with the new per-scene methods). The assembly logic for `loadProject` — reading individual draft/scratchpad/comment files and composing the return object — should live in a shared utility function to avoid duplication between the two implementations.
 
 ### IPC channel changes
 
@@ -177,14 +181,20 @@ Sidebar + content layout for the 13" iPad:
 - `src/renderer/services/migration.ts` — scene key migration
 - `src/renderer/hooks/useHistory.ts` — undo/redo
 - `src/renderer/extensions/*` — all 7 TipTap extensions (wikilink, hashtag, slashCommand, columns, coloredTableRow, dragHandle, todoWidget)
-- `src/renderer/components/notes/*` — NoteEditor, NotesSidebar, BacklinksPanel, NoteToolbar, etc.
-- `src/renderer/components/EditorView.tsx` — prose editor
 - `src/renderer/components/SceneCard.tsx` — scene card UI
 - `src/renderer/components/PlotPointSection.tsx` — POV grouping
-- `src/renderer/components/RailsView.tsx` — braided view
 - `src/renderer/components/FilterBar.tsx` — tag filtering
-- `src/renderer/components/FloatingEditor.tsx` — inline editor
 - `src/renderer/components/SearchOverlay.tsx` — global search
+
+### Shared code (requires minor platform adaptation)
+
+These components are shared but reference platform-specific APIs that need attention:
+
+- `src/renderer/components/notes/NoteEditor.tsx` — imports the `dataService` singleton directly (for `saveNoteImage`, `selectNoteImage`). Works as-is once the singleton is made platform-aware (see Platform Detection below). Also uses `braidr-img://` protocol for images — see Image Handling below.
+- `src/renderer/components/notes/NotesView.tsx` — same `dataService` singleton import. Works once singleton is swapped.
+- `src/renderer/components/EditorView.tsx` — imports `posthogTracker` which references `window.electronAPI`. Analytics calls silently no-op on iPad (see Analytics below).
+- `src/renderer/components/FloatingEditor.tsx` — same `posthogTracker` dependency.
+- `src/renderer/components/RailsView.tsx` — uses HTML5 Drag and Drop API (`onDragStart`/`onDragEnd`/`onDrop`), which is not supported in iOS WebKit. Requires replacement with a pointer-event or touch-event based drag implementation (e.g., `dnd-kit` or custom touch handlers). This is a meaningful rewrite of the drag interaction, not a minor tweak.
 
 ### New code for iPad
 
@@ -194,24 +204,54 @@ Sidebar + content layout for the 13" iPad:
 
 **`capacitor.config.ts`** + native iOS project scaffolding (Xcode project, Info.plist, entitlements for iCloud/document access).
 
-### Modified code (minor touch adaptations)
+### Modified code (touch adaptations)
 
 - Scene cards — slightly larger tap targets for touch
-- Rails view — long-press-to-drag instead of click-drag for scene reordering
+- Rails view — replace HTML5 Drag and Drop with pointer-event based drag (e.g., `dnd-kit`). This is the most significant touch adaptation.
 - Notes sidebar — full-width list view when sidebar is the active panel
 
 ### Platform detection
 
-The app detects whether it's running in Capacitor or Electron:
+The `dataService` singleton in `src/renderer/services/dataService.ts` must be changed from a hard-coded `ElectronDataService` to a platform-conditional export:
 
 ```typescript
 const isCapacitor = typeof (window as any).Capacitor !== 'undefined';
-const dataService: DataService = isCapacitor
+export const dataService: DataService = isCapacitor
   ? new CapacitorDataService()
   : new ElectronDataService();
 ```
 
-This keeps a single React codebase with the platform-specific code isolated to the DataService implementations and the top-level shell.
+This is critical because several components (`NoteEditor`, `NotesView`, and others) import the `dataService` singleton directly rather than receiving it via props. The singleton swap ensures all components get the correct platform implementation without refactoring their imports.
+
+### Image handling on iPad
+
+`NoteEditor` constructs image URLs using `braidr-img://`, a custom Electron protocol registered in the main process. This protocol does not exist in Capacitor's WebView. On iPad, note images must be served differently:
+
+- On save: same behavior (write image file to `notes/images/` via `CapacitorDataService.saveNoteImage`)
+- On display: convert `braidr-img://` URLs to Capacitor-compatible local file URLs (e.g., `capacitor://localhost/_capacitor_file_/path/to/image.png` or inline base64 data URIs)
+- The conversion can happen in `CapacitorDataService.readNote()` — do a string replace on the HTML content before returning it
+
+### Analytics on iPad
+
+`posthogTracker.ts` and `analyticsStore.ts` reference `window.electronAPI` directly. On iPad, these calls silently no-op (`window.electronAPI` is `undefined`, and the tracker uses optional chaining). This is acceptable for the initial build — analytics are disabled on iPad. If Word Count Dashboard is added later, `analyticsStore.ts` will need its own `DataService` methods (`readAnalytics`/`saveAnalytics`).
+
+### DataService methods on iPad
+
+Not all `DataService` methods apply on iPad. For the initial build:
+
+| Method | iPad behavior |
+|--------|--------------|
+| `selectProjectFolder` | iOS document picker (Capacitor) |
+| `loadProject` | Full implementation via Filesystem plugin |
+| `saveCharacterOutline` | Full implementation (required for POV editing) |
+| `saveTimeline` | Full implementation |
+| `createCharacter` | Full implementation |
+| `deleteFile` | Full implementation |
+| `readDraft` / `saveDraft` / etc. | Full implementation |
+| All notes methods | Full implementation |
+| `selectSaveLocation` | Stub (not needed — no export on iPad) |
+| `createProject` | Stub initially (create projects on desktop, sync to iPad) |
+| `getRecentProjects` / `addRecentProject` | Local to iPad (stored in Capacitor Preferences, separate from Mac's list) |
 
 ### Data flow
 
@@ -272,7 +312,7 @@ With per-scene file extraction, conflicts are unlikely (different files change o
 
 The app handles conflicts as follows:
 
-1. **Detection:** On project load, scan for conflict-copy files matching common patterns (`* 2.*`, `*(conflicted copy)*`, etc.)
+1. **Detection:** On project load, scan for conflict-copy files. iCloud uses the pattern `filename (hostname's conflicted copy YYYY-MM-DD).ext`. Dropbox uses `filename (conflicted copy YYYY-MM-DD).ext`. Match with regex: `/\(.*conflicted copy.*\)/i` and `/\(.*'s conflicted copy.*\)/i`.
 2. **Notification:** If found, show a banner: "Sync conflicts detected — some files were edited on both devices"
 3. **Resolution for draft files (.md):** Show a diff view with both versions, letting the user pick one or manually merge
 4. **Resolution for timeline.json:** Use the newer version (by modification time), move the older to `.braidr/backups/` as a safety net
@@ -299,3 +339,5 @@ The app handles conflicts as follows:
 | Capacitor Filesystem edge cases on iOS | Low | Well-maintained plugin with strong iOS support. Document picker API is stable. |
 | Large projects with many draft files | Low | Even a 500-scene novel produces 500 small files. Both iCloud and Dropbox handle this fine (unlike Scrivener's thousands-of-RTF-files problem). |
 | Apple review rejection | Low | Capacitor apps pass review routinely. No private APIs, no web-only content restrictions. |
+| iOS WebKit lacks HTML5 Drag and Drop | Certain | RailsView drag-and-drop must be rewritten using pointer events or `dnd-kit`. Budget 3-4 days for this specifically. |
+| `braidr-img://` protocol in WebView | Certain | Custom Electron protocol won't resolve. Mitigated by URL rewriting in `CapacitorDataService.readNote()`. |
