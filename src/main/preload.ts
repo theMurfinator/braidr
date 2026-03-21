@@ -42,6 +42,16 @@ const IPC_CHANNELS = {
   CAPTURE_ANALYTICS_EVENT: 'capture-analytics-event',
   APP_CLOSING: 'app-closing',
   SAFE_TO_CLOSE: 'safe-to-close',
+  // Per-scene content (extracted from timeline.json)
+  READ_DRAFT: 'read-draft',
+  SAVE_DRAFT: 'save-draft',
+  READ_SCRATCHPAD: 'read-scratchpad',
+  SAVE_SCRATCHPAD: 'save-scratchpad',
+  READ_DRAFT_VERSIONS: 'read-draft-versions',
+  SAVE_DRAFT_VERSIONS: 'save-draft-versions',
+  READ_SCENE_COMMENTS: 'read-scene-comments',
+  SAVE_SCENE_COMMENTS: 'save-scene-comments',
+  READ_ALL_PER_SCENE_CONTENT: 'read-all-per-scene-content',
 } as const;
 
 // Types for preload
@@ -99,6 +109,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // PostHog analytics
   captureAnalyticsEvent: (eventName: string, properties: Record<string, any>) =>
     ipcRenderer.invoke(IPC_CHANNELS.CAPTURE_ANALYTICS_EVENT, eventName, properties),
+  // Per-scene content
+  readDraft: (folderPath: string, sceneId: string) =>
+    ipcRenderer.invoke('read-draft', folderPath, sceneId),
+  saveDraft: (folderPath: string, sceneId: string, content: string) =>
+    ipcRenderer.invoke('save-draft', folderPath, sceneId, content),
+  readScratchpad: (folderPath: string, sceneId: string) =>
+    ipcRenderer.invoke('read-scratchpad', folderPath, sceneId),
+  saveScratchpad: (folderPath: string, sceneId: string, content: string) =>
+    ipcRenderer.invoke('save-scratchpad', folderPath, sceneId, content),
+  readDraftVersions: (folderPath: string, sceneId: string) =>
+    ipcRenderer.invoke('read-draft-versions', folderPath, sceneId),
+  saveDraftVersions: (folderPath: string, sceneId: string, versions: string) =>
+    ipcRenderer.invoke('save-draft-versions', folderPath, sceneId, versions),
+  readSceneComments: (folderPath: string, sceneId: string) =>
+    ipcRenderer.invoke('read-scene-comments', folderPath, sceneId),
+  saveSceneComments: (folderPath: string, sceneId: string, comments: string) =>
+    ipcRenderer.invoke('save-scene-comments', folderPath, sceneId, comments),
+  readAllPerSceneContent: (folderPath: string) =>
+    ipcRenderer.invoke('read-all-per-scene-content', folderPath),
   // License dialog (triggered from menu)
   onShowLicenseDialog: (callback: () => void) => {
     const listener = () => callback();
