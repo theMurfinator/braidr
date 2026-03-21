@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Scene, ProjectData, BraidedChapter, SceneComment, DraftVersion, NotesIndex } from '../shared/types';
 import { dataService } from './services/dataService';
+import { detectConflicts } from './services/conflictDetector';
 import EditorView from './components/EditorView';
 import MobileSidebar, { MobileView } from './components/MobileSidebar';
 
@@ -9,6 +10,7 @@ export function MobileApp() {
   const [projectData, setProjectData] = useState<ProjectData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflictBanner, setConflictBanner] = useState<string | null>(null);
 
   // ── Per-scene content (mirrors App.tsx state+ref pattern) ──────────────────
   const [draftContent, setDraftContent] = useState<Record<string, string>>({});
@@ -114,6 +116,17 @@ export function MobileApp() {
         characterCount: data.characters.length,
         sceneCount: data.scenes.length,
       });
+
+      // Detect sync conflict files (iCloud / Dropbox)
+      try {
+        const files = await dataService.listProjectFiles?.(folderPath) || [];
+        const conflicts = detectConflicts(files, folderPath);
+        if (conflicts.length > 0) {
+          setConflictBanner(`Sync conflicts detected: ${conflicts.length} file(s) were edited on both devices`);
+        }
+      } catch {
+        // Non-critical — don't block project load
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load project');
     } finally {
@@ -673,6 +686,23 @@ export function MobileApp() {
             {projectData.characters.length} characters &middot; {projectData.scenes.length} scenes
           </span>
         </div>
+
+        {/* Sync conflict banner */}
+        {conflictBanner && (
+          <div style={{
+            background: '#fef3c7', color: '#92400e', padding: '8px 16px',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            borderBottom: '1px solid #fcd34d',
+          }}>
+            <span>{conflictBanner}</span>
+            <button
+              onClick={() => setConflictBanner(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Content area */}
         {renderContent()}
