@@ -7,7 +7,8 @@ import LicenseGate from './components/LicenseGate';
 import { MobileApp } from './MobileApp';
 import './styles.css';
 
-const isCapacitor = typeof (window as any).Capacitor !== 'undefined';
+const isCapacitor = typeof (window as any).Capacitor !== 'undefined'
+  && (window as any).Capacitor.isNativePlatform?.();
 
 const root = isCapacitor ? (
   <MobileApp />

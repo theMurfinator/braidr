@@ -395,7 +395,8 @@ class ElectronDataService implements DataService {
 }
 
 // Export singleton instance — use CapacitorDataService on iPad, ElectronDataService on desktop
-const isCapacitor = typeof (window as any).Capacitor !== 'undefined';
+const isCapacitor = typeof (window as any).Capacitor !== 'undefined'
+  && (window as any).Capacitor.isNativePlatform?.();
 export const dataService: DataService = isCapacitor
   ? new CapacitorDataService()
   : new ElectronDataService();
