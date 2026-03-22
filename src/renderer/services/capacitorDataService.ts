@@ -1,4 +1,4 @@
-import { Filesystem, Encoding } from '@capacitor/filesystem';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Preferences } from '@capacitor/preferences';
 import {
   Character,
@@ -31,12 +31,24 @@ import type { DataService } from './dataService';
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Determine if a path is absolute (starts with / or a URI scheme).
+ * Absolute paths go through Filesystem without a directory enum;
+ * relative paths use Directory.Documents.
+ */
+function fsOptions(path: string) {
+  if (path.startsWith('/') || path.includes('://')) {
+    return { path };
+  }
+  return { path, directory: Directory.Documents };
+}
+
 /** Read a UTF-8 text file; returns null when the file does not exist. */
 async function readTextFile(path: string): Promise<string | null> {
   try {
-    const result = await Filesystem.readFile({ path, encoding: Encoding.UTF8 });
+    const result = await Filesystem.readFile({ ...fsOptions(path), encoding: Encoding.UTF8 });
     return result.data as string;
-  } catch {
+  } catch (_e) {
     return null;
   }
 }
@@ -44,7 +56,7 @@ async function readTextFile(path: string): Promise<string | null> {
 /** Write a UTF-8 text file, creating parent directories as needed. */
 async function writeTextFile(path: string, content: string): Promise<void> {
   await Filesystem.writeFile({
-    path,
+    ...fsOptions(path),
     data: content,
     encoding: Encoding.UTF8,
     recursive: true,
@@ -54,9 +66,9 @@ async function writeTextFile(path: string, content: string): Promise<void> {
 /** List entries in a directory; returns an empty array if the dir is missing. */
 async function listDir(path: string): Promise<{ name: string; type: 'file' | 'directory' }[]> {
   try {
-    const result = await Filesystem.readdir({ path });
+    const result = await Filesystem.readdir(fsOptions(path));
     return result.files.map(f => ({ name: f.name, type: f.type }));
-  } catch {
+  } catch (_e) {
     return [];
   }
 }
@@ -76,22 +88,31 @@ export class CapacitorDataService implements DataService {
   // ── Folder selection ────────────────────────────────────────────────────
 
   async selectProjectFolder(): Promise<string | null> {
-    // Capacitor 6+ exposes pickDirectory() on the Filesystem plugin which
-    // opens the native iOS document picker (iCloud Drive, Dropbox, etc.).
-    // The method is not yet reflected in the TS type-defs for v8 so we cast.
-    const fs = Filesystem as unknown as {
-      pickDirectory(): Promise<{ url: string }>;
-    };
+    // Try native document picker first (Capacitor 6+).
+    // Falls back to a prompt for the simulator where pickDirectory may not exist.
     try {
-      const result = await fs.pickDirectory();
-      if (result?.url) {
-        this.projectPath = result.url;
-        return result.url;
+      const fs = Filesystem as unknown as {
+        pickDirectory?: () => Promise<{ url: string }>;
+      };
+      if (typeof fs.pickDirectory === 'function') {
+        const result = await fs.pickDirectory();
+        if (result?.url) {
+          this.projectPath = result.url;
+          return result.url;
+        }
+        return null;
       }
-      return null;
-    } catch {
-      return null;
+    } catch (err) {
+      console.warn('pickDirectory failed, falling back to prompt:', err);
     }
+
+    // Fallback: prompt for path (useful in simulator / dev)
+    const path = prompt('Enter project folder path (simulator fallback):');
+    if (path) {
+      this.projectPath = path;
+      return path;
+    }
+    return null;
   }
 
   // ── Load project ────────────────────────────────────────────────────────
@@ -190,7 +211,7 @@ export class CapacitorDataService implements DataService {
       if (text !== null) {
         try {
           drafts[sceneId] = JSON.parse(text) as DraftVersion[];
-        } catch {
+        } catch (_e) {
           // ignore corrupt version files
         }
       }
@@ -203,7 +224,7 @@ export class CapacitorDataService implements DataService {
       if (text !== null) {
         try {
           sceneCommentsMap[sceneId] = JSON.parse(text) as SceneComment[];
-        } catch {
+        } catch (_e) {
           // ignore corrupt comment files
         }
       }
@@ -418,7 +439,7 @@ export class CapacitorDataService implements DataService {
     if (!value) return [];
     try {
       return JSON.parse(value) as RecentProject[];
-    } catch {
+    } catch (_e) {
       return [];
     }
   }
@@ -462,7 +483,7 @@ export class CapacitorDataService implements DataService {
     if (!raw) return { notes: [] };
     try {
       return JSON.parse(raw) as NotesIndex;
-    } catch {
+    } catch (_e) {
       return { notes: [] };
     }
   }
@@ -568,7 +589,7 @@ export class CapacitorDataService implements DataService {
     if (!raw) return [];
     try {
       return JSON.parse(raw) as DraftVersion[];
-    } catch {
+    } catch (_e) {
       return [];
     }
   }
@@ -589,7 +610,7 @@ export class CapacitorDataService implements DataService {
     if (!raw) return [];
     try {
       return JSON.parse(raw) as SceneComment[];
-    } catch {
+    } catch (_e) {
       return [];
     }
   }

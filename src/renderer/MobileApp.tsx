@@ -3,7 +3,9 @@ import { Scene, ProjectData, BraidedChapter, SceneComment, DraftVersion, NotesIn
 import { dataService } from './services/dataService';
 import { detectConflicts } from './services/conflictDetector';
 import EditorView from './components/EditorView';
+import RailsView from './components/RailsView';
 import MobileSidebar, { MobileView } from './components/MobileSidebar';
+import { Tag, TagCategory, PlotPoint } from '../shared/types';
 
 export function MobileApp() {
   // ── Project data ───────────────────────────────────────────────────────────
@@ -47,16 +49,10 @@ export function MobileApp() {
   // scenePositions will be used when timeline drag interactions are added
 
   // ── Project loading ────────────────────────────────────────────────────────
-  const loadProject = useCallback(async () => {
+  const loadProjectFromPath = useCallback(async (folderPath: string) => {
     try {
       setLoading(true);
       setError(null);
-
-      const folderPath = await dataService.selectProjectFolder();
-      if (!folderPath) {
-        setLoading(false);
-        return;
-      }
 
       const data = await dataService.loadProject(folderPath);
       const name = folderPath.split('/').pop() || 'Untitled';
@@ -104,7 +100,7 @@ export function MobileApp() {
       try {
         const idx = await dataService.loadNotesIndex(folderPath);
         setNotesIndex(idx);
-      } catch {
+      } catch (_e) {
         // Notes may not exist yet
       }
 
@@ -124,7 +120,7 @@ export function MobileApp() {
         if (conflicts.length > 0) {
           setConflictBanner(`Sync conflicts detected: ${conflicts.length} file(s) were edited on both devices`);
         }
-      } catch {
+      } catch (_e) {
         // Non-critical — don't block project load
       }
     } catch (err) {
@@ -133,6 +129,26 @@ export function MobileApp() {
       setLoading(false);
     }
   }, []);
+
+  const loadProject = useCallback(async () => {
+    try {
+      const folderPath = await dataService.selectProjectFolder();
+      if (!folderPath) return;
+      await loadProjectFromPath(folderPath);
+    } catch (err: any) {
+      setError(err.message || 'Failed to open project');
+      setLoading(false);
+    }
+  }, [loadProjectFromPath]);
+
+  // Dev-only: auto-load demo project when previewing via ?mobile
+  useEffect(() => {
+    if (window.location.search.includes('mobile') && !projectData && !loading) {
+      loadProjectFromPath('/Users/brian/braidr/demo-project').catch(err => {
+        setError(err.message || 'Failed to load demo project');
+      });
+    }
+  }, [loadProjectFromPath, projectData, loading]);
 
   // ── Save handlers (same patterns as App.tsx) ──────────────────────────────
   const handleDraftChange = useCallback(async (sceneKey: string, html: string) => {
@@ -286,6 +302,43 @@ export function MobileApp() {
       .filter(s => s.timelinePosition !== null)
       .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
   }, [projectData]);
+
+  // ── Helpers for RailsView ─────────────────────────────────────────────────
+  const getCharacterName = useCallback((characterId: string) => {
+    return projectData?.characters.find(c => c.id === characterId)?.name || '';
+  }, [projectData]);
+
+  const getConnectedScenes = useCallback((sceneId: string) => {
+    const connected = sceneConnections[sceneId] || [];
+    return connected.map(id => {
+      const s = projectData?.scenes.find(sc => sc.id === id);
+      const charName = s ? getCharacterName(s.characterId) : '';
+      return { id, label: s ? `${charName} ${s.sceneNumber}` : id };
+    });
+  }, [sceneConnections, projectData, getCharacterName]);
+
+  const unbraidedScenesByCharacter = useMemo(() => {
+    if (!projectData) return new Map();
+    const map = new Map<string, Map<string, Scene[]>>();
+    for (const scene of projectData.scenes) {
+      if (scene.timelinePosition !== null) continue;
+      if (!map.has(scene.characterId)) map.set(scene.characterId, new Map());
+      const charMap = map.get(scene.characterId)!;
+      const ppId = scene.plotPointId || '__none__';
+      if (!charMap.has(ppId)) charMap.set(ppId, []);
+      charMap.get(ppId)!.push(scene);
+    }
+    return map;
+  }, [projectData]);
+
+  // Drag handlers (no-ops for connections, real handlers for reorder)
+  const handleDragStart = useCallback((_e: React.DragEvent, _scene: Scene) => {}, []);
+  const handleDragEnd = useCallback(() => {}, []);
+  const handleDropOnTimeline = useCallback((_e: React.DragEvent | null, _targetIndex: number) => {
+    // TODO: implement reorder via saveTimeline
+  }, []);
+  const handleDropOnInbox = useCallback((_e: React.DragEvent | null) => {}, []);
+  const handleRailReorder = useCallback((_from: number, _to: number) => {}, []);
 
   // ── Open editor for a scene ───────────────────────────────────────────────
   const openEditor = useCallback((sceneKey: string) => {
@@ -603,21 +656,38 @@ export function MobileApp() {
 
     if (currentView === 'rails') {
       return (
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#888',
-          padding: 40,
-          textAlign: 'center',
-        }}>
-          <p style={{ fontSize: 16, marginBottom: 8 }}>Rails View</p>
-          <p style={{ fontSize: 13, color: '#666' }}>
-            Tap a scene in the sidebar to open it in the editor
-          </p>
-        </div>
+        <RailsView
+          scenes={braidedScenes}
+          characters={projectData.characters}
+          characterColors={characterColors}
+          connections={sceneConnections}
+          showConnections={true}
+          showPovColors={true}
+          tags={projectData.tags}
+          getCharacterName={getCharacterName}
+          onSceneChange={() => {}}
+          onTagsChange={() => {}}
+          onCreateTag={() => {}}
+          onWordCountChange={() => {}}
+          isConnecting={false}
+          connectionSource={null}
+          onStartConnection={() => {}}
+          onCompleteConnection={() => {}}
+          onCancelConnection={() => {}}
+          onRemoveConnection={() => {}}
+          getConnectedScenes={getConnectedScenes}
+          unbraidedScenesByCharacter={unbraidedScenesByCharacter}
+          allCharacters={projectData.characters}
+          plotPoints={projectData.plotPoints}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDropOnTimeline={handleDropOnTimeline}
+          onDropOnInbox={handleDropOnInbox}
+          onRailReorder={handleRailReorder}
+          draftContent={draftContent}
+          onDraftChange={handleDraftChange}
+          onOpenInEditor={openEditor}
+        />
       );
     }
 
