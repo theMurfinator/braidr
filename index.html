@@ -29,18 +29,61 @@
       .mobile-safe-area-top .app-sidebar {
         padding-top: 8px !important;
       }
-      /* iPad layout fixes */
+      /* iPad layout fixes — ensure every container in the chain has
+         a fixed height so overflow-y: auto works on iOS */
+      .mobile-safe-area-top {
+        height: 100vh !important;
+        overflow: hidden !important;
+      }
+      .mobile-safe-area-top .app-sidebar {
+        top: 48px !important;
+        height: calc(100vh - 48px) !important;
+      }
       .mobile-safe-area-top .app-body {
         height: calc(100vh - 48px) !important;
         padding-top: 0 !important;
+        overflow: hidden !important;
       }
+      /* Editor: all three panels need bounded height */
+      .mobile-safe-area-top .editor-view {
+        height: 100% !important;
+        max-height: 100% !important;
+      }
+      .mobile-safe-area-top .editor-nav {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+      .mobile-safe-area-top .editor-meta {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+      .mobile-safe-area-top .main-content--editor {
+        height: 100% !important;
+        overflow: hidden !important;
+      }
+      /* POV: scrollable content */
       .mobile-safe-area-top .pov-layout {
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
+        height: 100% !important;
       }
       .mobile-safe-area-top .pov-content {
         max-width: none !important;
         padding-bottom: 120px !important;
+      }
+      /* Notes: scrollable panels */
+      .mobile-safe-area-top .notes-view {
+        height: 100% !important;
+      }
+      .mobile-safe-area-top .main-content--notes {
+        height: 100% !important;
+        overflow: hidden !important;
+      }
+      /* Rails: scrollable */
+      .mobile-safe-area-top .rails-view {
+        height: 100% !important;
+        overflow: auto !important;
+        -webkit-overflow-scrolling: touch !important;
       }
 
       /* Full-width view layout — nuclear override to eliminate gaps.
