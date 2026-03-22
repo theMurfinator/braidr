@@ -29,10 +29,18 @@
       .mobile-safe-area-top .app-sidebar {
         padding-top: 8px !important;
       }
-      /* Prevent editor view from overflowing on iPad due to safe area padding */
+      /* iPad layout fixes */
       .mobile-safe-area-top .app-body {
         height: calc(100vh - 48px) !important;
         padding-top: 0 !important;
+      }
+      .mobile-safe-area-top .pov-layout {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+      .mobile-safe-area-top .pov-content {
+        max-width: none !important;
+        padding-bottom: 120px !important;
       }
 
       /* Full-width view layout — nuclear override to eliminate gaps.

@@ -267,11 +267,58 @@ export function MobileApp() {
     return map;
   }, [projectData]);
 
-  const handleDragStart = useCallback((_e: React.DragEvent, _scene: Scene) => {}, []);
-  const handleDragEnd = useCallback(() => {}, []);
-  const handleDropOnTimeline = useCallback((_e: React.DragEvent | null, _targetIndex: number) => {}, []);
-  const handleDropOnInbox = useCallback((_e: React.DragEvent | null) => {}, []);
-  const handleRailReorder = useCallback((_from: number, _to: number) => {}, []);
+  // ── Drag handlers for Rails ────────────────────────────────────────────────
+  const [draggedScene, setDraggedScene] = useState<Scene | null>(null);
+
+  const handleDragStart = useCallback((_e: React.DragEvent, scene: Scene) => {
+    setDraggedScene(scene);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedScene(null);
+  }, []);
+
+  const handleDropOnTimeline = useCallback((_e: React.DragEvent | null, targetIndex: number) => {
+    if (!draggedScene || !projectData) return;
+    const scenes = [...projectData.scenes];
+    const scene = scenes.find(s => s.id === draggedScene.id);
+    if (!scene) return;
+
+    // Assign timeline position
+    scene.timelinePosition = targetIndex;
+
+    // Renumber all braided scenes
+    const braided = scenes.filter(s => s.timelinePosition !== null).sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+    braided.forEach((s, i) => { s.timelinePosition = i + 1; });
+
+    setProjectData({ ...projectData, scenes });
+    isDirtyRef.current = true;
+    setDraggedScene(null);
+  }, [draggedScene, projectData]);
+
+  const handleDropOnInbox = useCallback((_e: React.DragEvent | null) => {
+    if (!draggedScene || !projectData) return;
+    const scenes = [...projectData.scenes];
+    const scene = scenes.find(s => s.id === draggedScene.id);
+    if (scene) {
+      scene.timelinePosition = null;
+      // Renumber remaining braided scenes
+      const braided = scenes.filter(s => s.timelinePosition !== null).sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+      braided.forEach((s, i) => { s.timelinePosition = i + 1; });
+      setProjectData({ ...projectData, scenes });
+      isDirtyRef.current = true;
+    }
+    setDraggedScene(null);
+  }, [draggedScene, projectData]);
+
+  const handleRailReorder = useCallback((fromIndex: number, toIndex: number) => {
+    if (!projectData) return;
+    const chars = [...projectData.characters];
+    const [moved] = chars.splice(fromIndex, 1);
+    chars.splice(toIndex, 0, moved);
+    setProjectData({ ...projectData, characters: chars });
+    isDirtyRef.current = true;
+  }, [projectData]);
 
   const handleAddScene = useCallback(async (plotPointId: string, afterSceneNumber?: number) => {
     if (!projectData || !selectedCharacterId) return;
