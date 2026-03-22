@@ -9,7 +9,6 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   ios: {
-    contentInset: 'always',
     allowsLinkPreview: false,
   },
 };

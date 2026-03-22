@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Scene, ProjectData, BraidedChapter, SceneComment, DraftVersion, NotesIndex } from '../shared/types';
 import { dataService } from './services/dataService';
 import { detectConflicts } from './services/conflictDetector';
@@ -7,16 +8,14 @@ import RailsView from './components/RailsView';
 import SceneCard from './components/SceneCard';
 import NotesView from './components/notes/NotesView';
 import { MobileView } from './components/MobileSidebar';
-import { Tag, TagCategory, PlotPoint } from '../shared/types';
 
 export function MobileApp() {
-  // ── Project data ───────────────────────────────────────────────────────────
+  // ── State ─────────────────────────────────────────────────────────────────
   const [projectData, setProjectData] = useState<ProjectData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflictBanner, setConflictBanner] = useState<string | null>(null);
 
-  // ── Per-scene content (mirrors App.tsx state+ref pattern) ──────────────────
   const [draftContent, setDraftContent] = useState<Record<string, string>>({});
   const draftContentRef = useRef<Record<string, string>>({});
   const [scratchpadContent, setScratchpadContent] = useState<Record<string, string>>({});
@@ -26,31 +25,23 @@ export function MobileApp() {
   const [drafts, setDrafts] = useState<Record<string, DraftVersion[]>>({});
   const draftsRef = useRef<Record<string, DraftVersion[]>>({});
 
-  // ── Braided / timeline state ───────────────────────────────────────────────
   const [sceneConnections, setSceneConnections] = useState<Record<string, string[]>>({});
   const [braidedChapters, setBraidedChapters] = useState<BraidedChapter[]>([]);
   const [characterColors, setCharacterColors] = useState<Record<string, string>>({});
   const characterColorsRef = useRef<Record<string, string>>({});
 
-  // ── Selection state ────────────────────────────────────────────────────────
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [editingSceneKey, setEditingSceneKey] = useState<string | null>(null);
-
-  // ── View state ─────────────────────────────────────────────────────────────
   const [currentView, setCurrentView] = useState<MobileView>('pov');
-
-  // ── Notes state ────────────────────────────────────────────────────────────
   const [notesIndex, setNotesIndex] = useState<NotesIndex | null>(null);
-
-  // ── Auto-save bookkeeping ──────────────────────────────────────────────────
   const isDirtyRef = useRef(false);
+  const editorViewRef = useRef<any>(null);
 
-  // ── Project loading ────────────────────────────────────────────────────────
+  // ── Project loading ───────────────────────────────────────────────────────
   const loadProjectFromPath = useCallback(async (folderPath: string) => {
     try {
       setLoading(true);
       setError(null);
-
       const data = await dataService.loadProject(folderPath);
       const name = folderPath.split('/').pop() || 'Untitled';
 
@@ -60,7 +51,6 @@ export function MobileApp() {
       setCharacterColors(loadedColors);
       characterColorsRef.current = loadedColors;
 
-      // Renumber scenes per character
       const byChar: Record<string, Scene[]> = {};
       for (const s of data.scenes) {
         if (!byChar[s.characterId]) byChar[s.characterId] = [];
@@ -72,11 +62,8 @@ export function MobileApp() {
       }
 
       setProjectData({ ...data, projectName: name });
-
-      // Load per-scene content
-      const loadedDraft = data.draftContent || {};
-      setDraftContent(loadedDraft);
-      draftContentRef.current = loadedDraft;
+      setDraftContent(data.draftContent || {});
+      draftContentRef.current = data.draftContent || {};
       setScratchpadContent(data.scratchpad || {});
       scratchpadContentRef.current = data.scratchpad || {};
       setSceneComments(data.sceneComments || {});
@@ -84,23 +71,16 @@ export function MobileApp() {
       setDrafts(data.drafts || {});
       draftsRef.current = data.drafts || {};
 
-      if (data.characters.length > 0) {
-        setSelectedCharacterId(data.characters[0].id);
-      }
+      if (data.characters.length > 0) setSelectedCharacterId(data.characters[0].id);
 
       try {
         const idx = await dataService.loadNotesIndex(folderPath);
         setNotesIndex(idx);
-      } catch (_e) {
-        // Notes may not exist yet
-      }
+      } catch (_e) { /* Notes may not exist yet */ }
 
       await dataService.addRecentProject({
-        name,
-        path: folderPath,
-        lastOpened: Date.now(),
-        characterCount: data.characters.length,
-        sceneCount: data.scenes.length,
+        name, path: folderPath, lastOpened: Date.now(),
+        characterCount: data.characters.length, sceneCount: data.scenes.length,
       });
 
       try {
@@ -109,9 +89,7 @@ export function MobileApp() {
         if (conflicts.length > 0) {
           setConflictBanner(`Sync conflicts detected: ${conflicts.length} file(s) were edited on both devices`);
         }
-      } catch (_e) {
-        // Non-critical
-      }
+      } catch (_e) { /* Non-critical */ }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load project');
     } finally {
@@ -130,28 +108,33 @@ export function MobileApp() {
     }
   }, [loadProjectFromPath]);
 
-  // Dev-only: auto-load demo project when previewing via ?mobile
-  useEffect(() => {
-    if (window.location.search.includes('mobile') && !projectData && !loading) {
-      loadProjectFromPath('/Users/brian/braidr/demo-project').catch(err => {
-        setError(err instanceof Error ? err.message : 'Failed to load demo project');
-      });
+  // Simulator demo loader
+  const loadDemoProject = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const demoPath = 'demo-project';
+      await Filesystem.writeFile({ path: `${demoPath}/frodo.md`, directory: Directory.Documents, data: '---\ncharacter: Frodo\n---\n\n## The Shire (2)\n1. A Long-Expected Party. Bilbo\'s 111th birthday party. #the_shire\n2. The Shadow of the Past. Gandalf reveals the Ring\'s true nature. #gandalf\n', encoding: Encoding.UTF8, recursive: true });
+      await Filesystem.writeFile({ path: `${demoPath}/aragorn.md`, directory: Directory.Documents, data: '---\ncharacter: Aragorn\n---\n\n## The Ranger (2)\n1. Strider Revealed. At the Prancing Pony in Bree. #bree\n2. Weathertop. Aragorn defends the hobbits. #weathertop\n', encoding: Encoding.UTF8, recursive: true });
+      await Filesystem.writeFile({ path: `${demoPath}/timeline.json`, directory: Directory.Documents, data: JSON.stringify({ positions: {}, connections: {} }, null, 2), encoding: Encoding.UTF8, recursive: true });
+      const uri = await Filesystem.getUri({ path: demoPath, directory: Directory.Documents });
+      const resolvedPath = decodeURIComponent(uri.uri.replace('file://', ''));
+      await loadProjectFromPath(resolvedPath);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setLoading(false);
     }
-  }, [loadProjectFromPath, projectData, loading]);
+  }, [loadProjectFromPath]);
 
-  // ── Save handlers ──────────────────────────────────────────────────────────
+  // ── Save handlers ─────────────────────────────────────────────────────────
   const handleDraftChange = useCallback(async (sceneKey: string, html: string) => {
     isDirtyRef.current = true;
     const updated = { ...draftContentRef.current, [sceneKey]: html };
     setDraftContent(updated);
     draftContentRef.current = updated;
-
     if (projectData?.projectPath) {
-      try {
-        await dataService.saveDraft(projectData.projectPath, sceneKey, html);
-      } catch (err) {
-        console.error('Failed to save draft:', err);
-      }
+      try { await dataService.saveDraft(projectData.projectPath, sceneKey, html); }
+      catch (err) { console.error('Failed to save draft:', err); }
     }
   }, [projectData]);
 
@@ -160,28 +143,20 @@ export function MobileApp() {
     const updated = { ...scratchpadContentRef.current, [sceneKey]: html };
     setScratchpadContent(updated);
     scratchpadContentRef.current = updated;
-
     if (projectData?.projectPath) {
-      dataService.saveScratchpad(projectData.projectPath, sceneKey, html)
-        .catch(err => console.error('Failed to save scratchpad:', err));
+      dataService.saveScratchpad(projectData.projectPath, sceneKey, html).catch(console.error);
     }
   }, [projectData]);
 
   const handleAddComment = useCallback((sceneKey: string, text: string) => {
     isDirtyRef.current = true;
     const existing = sceneCommentsRef.current[sceneKey] || [];
-    const comment: SceneComment = {
-      id: Math.random().toString(36).substring(2, 11),
-      text,
-      createdAt: Date.now(),
-    };
+    const comment: SceneComment = { id: Math.random().toString(36).substring(2, 11), text, createdAt: Date.now() };
     const updated = { ...sceneCommentsRef.current, [sceneKey]: [comment, ...existing] };
     setSceneComments(updated);
     sceneCommentsRef.current = updated;
-
     if (projectData?.projectPath) {
-      dataService.saveSceneComments(projectData.projectPath, sceneKey, updated[sceneKey])
-        .catch(err => console.error('Failed to save comments:', err));
+      dataService.saveSceneComments(projectData.projectPath, sceneKey, updated[sceneKey]).catch(console.error);
     }
   }, [projectData]);
 
@@ -191,36 +166,24 @@ export function MobileApp() {
     const updated = { ...sceneCommentsRef.current, [sceneKey]: existing.filter(c => c.id !== commentId) };
     setSceneComments(updated);
     sceneCommentsRef.current = updated;
-
     if (projectData?.projectPath) {
-      dataService.saveSceneComments(projectData.projectPath, sceneKey, updated[sceneKey])
-        .catch(err => console.error('Failed to save comments:', err));
+      dataService.saveSceneComments(projectData.projectPath, sceneKey, updated[sceneKey]).catch(console.error);
     }
   }, [projectData]);
 
   const handleSaveDraft = useCallback(async (sceneKey: string, content: string) => {
     if (!content || content === '<p></p>') return;
     const existing = draftsRef.current[sceneKey] || [];
-    const newVersion: DraftVersion = {
-      version: existing.length + 1,
-      content,
-      savedAt: Date.now(),
-    };
+    const newVersion: DraftVersion = { version: existing.length + 1, content, savedAt: Date.now() };
     const updated = { ...draftsRef.current, [sceneKey]: [...existing, newVersion] };
     setDrafts(updated);
     draftsRef.current = updated;
-
     if (projectData?.projectPath) {
-      dataService.saveDraftVersions(projectData.projectPath, sceneKey, draftsRef.current[sceneKey])
-        .catch(err => console.error('Failed to save draft versions:', err));
+      dataService.saveDraftVersions(projectData.projectPath, sceneKey, draftsRef.current[sceneKey]).catch(console.error);
     }
   }, [projectData]);
 
-  const saveTimelineData = useCallback(async (
-    scenes: Scene[],
-    connections: Record<string, string[]>,
-    chapters: BraidedChapter[],
-  ) => {
+  const saveTimelineData = useCallback(async (scenes: Scene[], connections: Record<string, string[]>, chapters: BraidedChapter[]) => {
     const positions: Record<string, number> = {};
     const wordCounts: Record<string, number> = {};
     for (const scene of scenes) {
@@ -230,15 +193,14 @@ export function MobileApp() {
     try {
       await dataService.saveTimeline(positions, connections, chapters, characterColorsRef.current, wordCounts);
       isDirtyRef.current = false;
-    } catch (err) {
-      console.error('Failed to save timeline data:', err);
-    }
+    } catch (err) { console.error('Failed to save timeline:', err); }
   }, []);
 
-  // ── Auto-save ──────────────────────────────────────────────────────────────
+  // ── Auto-save ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       if (projectData && isDirtyRef.current) {
+        editorViewRef.current?.flush?.();
         saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
       }
     }, 10000);
@@ -248,6 +210,7 @@ export function MobileApp() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && projectData && isDirtyRef.current) {
+        editorViewRef.current?.flush?.();
         saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
       }
     };
@@ -263,26 +226,19 @@ export function MobileApp() {
 
   const characterScenes = useMemo(() => {
     if (!projectData || !selectedCharacterId) return [];
-    return projectData.scenes
-      .filter(s => s.characterId === selectedCharacterId)
-      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    return projectData.scenes.filter(s => s.characterId === selectedCharacterId).sort((a, b) => a.sceneNumber - b.sceneNumber);
   }, [projectData, selectedCharacterId]);
 
   const characterPlotPoints = useMemo(() => {
     if (!projectData || !selectedCharacterId) return [];
-    return projectData.plotPoints
-      .filter(p => p.characterId === selectedCharacterId)
-      .sort((a, b) => a.order - b.order);
+    return projectData.plotPoints.filter(p => p.characterId === selectedCharacterId).sort((a, b) => a.order - b.order);
   }, [projectData, selectedCharacterId]);
 
   const braidedScenes = useMemo(() => {
     if (!projectData) return [];
-    return projectData.scenes
-      .filter(s => s.timelinePosition !== null)
-      .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+    return projectData.scenes.filter(s => s.timelinePosition !== null).sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
   }, [projectData]);
 
-  // ── RailsView helpers ─────────────────────────────────────────────────────
   const getCharacterName = useCallback((characterId: string) => {
     return projectData?.characters.find(c => c.id === characterId)?.name || '';
   }, [projectData]);
@@ -316,122 +272,161 @@ export function MobileApp() {
   const handleDropOnInbox = useCallback((_e: React.DragEvent | null) => {}, []);
   const handleRailReorder = useCallback((_from: number, _to: number) => {}, []);
 
-  // ── Navigation ────────────────────────────────────────────────────────────
   const openEditor = useCallback((sceneKey: string) => {
     setEditingSceneKey(sceneKey);
     setCurrentView('editor');
   }, []);
+
+  const handleSceneChange = useCallback((sceneId: string, newContent: string, newNotes: string[]) => {
+    if (!projectData) return;
+    const scene = projectData.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    scene.content = newContent;
+    scene.notes = newNotes;
+    isDirtyRef.current = true;
+    setProjectData({ ...projectData });
+    const char = projectData.characters.find(c => c.id === scene.characterId);
+    const plotPoints = projectData.plotPoints.filter(p => p.characterId === scene.characterId);
+    const charScenes = projectData.scenes.filter(s => s.characterId === scene.characterId);
+    if (char) dataService.saveCharacterOutline(char, plotPoints, charScenes).catch(console.error);
+  }, [projectData]);
 
   // ── Welcome screen ────────────────────────────────────────────────────────
   if (!projectData) {
     return (
       <div className="mobile-safe-area-top" style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        height: '100vh', background: '#1a1a2e', color: '#e0e0e0',
-        fontFamily: 'system-ui, -apple-system, sans-serif', padding: 20,
+        height: '100vh', background: 'var(--bg-primary, #fff)', fontFamily: 'var(--font-ui)',
       }}>
-        <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8 }}>Braidr</h1>
-        <p style={{ color: '#888', marginBottom: 24 }}>Novel outlining for iPad</p>
-        {error && <p style={{ color: '#e57373', marginBottom: 16, textAlign: 'center' }}>{error}</p>}
-        <button
-          onClick={loadProject}
-          disabled={loading}
-          style={{
-            padding: '12px 32px', fontSize: 16, background: '#4a90d9', color: '#fff',
-            border: 'none', borderRadius: 8, cursor: loading ? 'wait' : 'pointer',
-            opacity: loading ? 0.7 : 1,
-          }}
-        >
+        <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>Braidr</h1>
+        <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>Novel outlining for iPad</p>
+        {error && <p style={{ color: '#C44D5E', marginBottom: 16, textAlign: 'center', maxWidth: 500, fontSize: 13, whiteSpace: 'pre-wrap' }}>{error}</p>}
+        <button onClick={loadProject} disabled={loading} className="btn-primary" style={{ padding: '12px 32px', fontSize: 16, borderRadius: 8 }}>
           {loading ? 'Loading...' : 'Open Project'}
+        </button>
+        <button onClick={loadDemoProject} disabled={loading} style={{
+          padding: '10px 24px', fontSize: 14, background: 'transparent', color: 'var(--accent)',
+          border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', marginTop: 12,
+        }}>
+          Load Demo Project
         </button>
       </div>
     );
   }
 
-  // ── Render content per view ────────────────────────────────────────────────
+  // ── View content renderer ─────────────────────────────────────────────────
   const renderContent = () => {
-    // ── Editor: full EditorView with its own scene sidebar ──
     if (currentView === 'editor') {
       return (
-        <EditorView
-          scenes={projectData.scenes}
-          characters={projectData.characters}
-          plotPoints={projectData.plotPoints}
-          tags={projectData.tags}
-          characterColors={characterColors}
-          draftContent={draftContent}
-          drafts={drafts}
-          sceneMetadata={{}}
-          metadataFieldDefs={[]}
-          onDraftChange={handleDraftChange}
-          onSaveDraft={handleSaveDraft}
-          onMetadataChange={() => {}}
-          onMetadataFieldDefsChange={() => {}}
-          onTagsChange={() => {}}
-          onNotesChange={() => {}}
-          onCreateTag={() => {}}
-          onWordCountChange={() => {}}
-          initialSceneKey={editingSceneKey}
-          scratchpad={scratchpadContent}
-          onScratchpadChange={handleScratchpadChange}
-          sceneComments={sceneComments}
-          onAddComment={handleAddComment}
-          onDeleteComment={handleDeleteComment}
-        />
+        <div className="main-content--editor">
+          <EditorView
+            ref={editorViewRef}
+            scenes={projectData.scenes}
+            characters={projectData.characters}
+            plotPoints={projectData.plotPoints}
+            tags={projectData.tags}
+            characterColors={characterColors}
+            draftContent={draftContent}
+            drafts={drafts}
+            sceneMetadata={{}}
+            metadataFieldDefs={[]}
+            onDraftChange={handleDraftChange}
+            onSaveDraft={handleSaveDraft}
+            onMetadataChange={() => {}}
+            onMetadataFieldDefsChange={() => {}}
+            onTagsChange={() => {}}
+            onNotesChange={(sceneId: string, notes: string[]) => {
+              const scene = projectData.scenes.find(s => s.id === sceneId);
+              if (scene) handleSceneChange(sceneId, scene.content, notes);
+            }}
+            onSceneContentChange={(sceneId: string, newContent: string) => {
+              const scene = projectData.scenes.find(s => s.id === sceneId);
+              if (scene) handleSceneChange(sceneId, newContent, scene.notes);
+            }}
+            onCreateTag={() => {}}
+            onWordCountChange={() => {}}
+            initialSceneKey={editingSceneKey}
+            onSceneSelect={(key: string) => setEditingSceneKey(key)}
+            onGoToPov={() => setCurrentView('pov')}
+            onGoToBraid={() => setCurrentView('rails')}
+            scratchpad={scratchpadContent}
+            onScratchpadChange={handleScratchpadChange}
+            sceneComments={sceneComments}
+            onAddComment={handleAddComment}
+            onDeleteComment={handleDeleteComment}
+            onDeleteScene={() => {}}
+            onDuplicateScene={() => {}}
+          />
+        </div>
       );
     }
 
-    // ── POV: character's scenes grouped by plot points ──
     if (currentView === 'pov') {
       return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {/* Character selector */}
-          <div style={{ padding: '8px 16px', borderBottom: '1px solid #333', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <select
-              value={selectedCharacterId || ''}
-              onChange={(e) => setSelectedCharacterId(e.target.value || null)}
-              style={{
-                padding: '6px 10px', background: '#2a2a3e', color: '#e0e0e0',
-                border: '1px solid #444', borderRadius: 6, fontSize: 14,
-              }}
-            >
-              {projectData.characters.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <span style={{ color: '#666', fontSize: 12 }}>
-              {characterScenes.length} scenes
-            </span>
-          </div>
-
-          {/* Scene cards */}
-          <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
-            {characterPlotPoints.map(pp => {
-              const ppScenes = characterScenes.filter(s => s.plotPointId === pp.id);
-              return (
-                <div key={pp.id} style={{ marginBottom: 24 }}>
-                  <h3 style={{
-                    fontSize: 14, color: '#aaa', fontWeight: 600, marginBottom: 4,
-                    textTransform: 'uppercase', letterSpacing: 0.5,
-                  }}>
-                    {pp.title}
-                    {pp.expectedSceneCount !== null && (
-                      <span style={{ color: '#666', fontWeight: 400 }}> ({ppScenes.length}/{pp.expectedSceneCount})</span>
-                    )}
-                  </h3>
-                  {pp.description && (
-                    <p style={{ fontSize: 13, color: '#777', marginBottom: 8, lineHeight: 1.4 }}>{pp.description}</p>
-                  )}
-                  {ppScenes.map(scene => (
+        <div className="pov-layout">
+          <div className="pov-content">
+            {!selectedCharacter ? (
+              <p style={{ padding: 40, color: 'var(--text-muted)', textAlign: 'center' }}>Select a character</p>
+            ) : (
+              <>
+                {characterPlotPoints.map(pp => {
+                  const ppScenes = characterScenes.filter(s => s.plotPointId === pp.id);
+                  return (
+                    <div key={pp.id}>
+                      <div className="pov-section-header">
+                        <h2 style={{ fontSize: 'var(--font-section-title-size, 20px)', fontWeight: 700, fontFamily: 'var(--font-section-title, Lora, Georgia, serif)' }}>
+                          {pp.title}
+                          {pp.expectedSceneCount !== null && (
+                            <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 14, marginLeft: 8 }}>
+                              {ppScenes.length}/{pp.expectedSceneCount}
+                            </span>
+                          )}
+                        </h2>
+                        {pp.description && (
+                          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4, lineHeight: 1.5, fontFamily: 'var(--font-body, Lora, Georgia, serif)' }}>
+                            {pp.description}
+                          </p>
+                        )}
+                      </div>
+                      {ppScenes.map(scene => (
+                        <SceneCard
+                          key={scene.id}
+                          scene={scene}
+                          tags={projectData.tags}
+                          showCharacter={false}
+                          characterName={selectedCharacter.name}
+                          displayNumber={scene.sceneNumber}
+                          plotPointTitle={pp.title}
+                          onSceneChange={handleSceneChange}
+                          onTagsChange={() => {}}
+                          onCreateTag={() => {}}
+                          onDeleteScene={() => {}}
+                          onDuplicateScene={() => {}}
+                          collapsedNotes={true}
+                          connectedScenes={getConnectedScenes(scene.id)}
+                          onStartConnection={() => {}}
+                          onRemoveConnection={() => {}}
+                          metadataFieldDefs={[]}
+                          sceneMetadata={{}}
+                          onMetadataChange={() => {}}
+                          onOpenInEditor={() => openEditor(scene.id)}
+                          onWordCountChange={() => {}}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+                {characterScenes
+                  .filter(s => !s.plotPointId || !characterPlotPoints.some(pp => pp.id === s.plotPointId))
+                  .map(scene => (
                     <SceneCard
                       key={scene.id}
                       scene={scene}
                       tags={projectData.tags}
                       showCharacter={false}
-                      characterName={selectedCharacter?.name || ''}
+                      characterName={selectedCharacter.name}
                       displayNumber={scene.sceneNumber}
-                      plotPointTitle={pp.title}
-                      onSceneChange={() => {}}
+                      onSceneChange={handleSceneChange}
                       onTagsChange={() => {}}
                       onCreateTag={() => {}}
                       onDeleteScene={() => {}}
@@ -444,43 +439,16 @@ export function MobileApp() {
                       sceneMetadata={{}}
                       onMetadataChange={() => {}}
                       onOpenInEditor={() => openEditor(scene.id)}
+                      onWordCountChange={() => {}}
                     />
                   ))}
-                </div>
-              );
-            })}
-            {/* Orphan scenes */}
-            {characterScenes
-              .filter(s => !s.plotPointId || !characterPlotPoints.some(pp => pp.id === s.plotPointId))
-              .map(scene => (
-                <SceneCard
-                  key={scene.id}
-                  scene={scene}
-                  tags={projectData.tags}
-                  showCharacter={false}
-                  characterName={selectedCharacter?.name || ''}
-                  displayNumber={scene.sceneNumber}
-                  onSceneChange={() => {}}
-                  onTagsChange={() => {}}
-                  onCreateTag={() => {}}
-                  onDeleteScene={() => {}}
-                  onDuplicateScene={() => {}}
-                  collapsedNotes={true}
-                  connectedScenes={getConnectedScenes(scene.id)}
-                  onStartConnection={() => {}}
-                  onRemoveConnection={() => {}}
-                  metadataFieldDefs={[]}
-                  sceneMetadata={{}}
-                  onMetadataChange={() => {}}
-                  onOpenInEditor={() => openEditor(scene.id)}
-                />
-              ))}
+              </>
+            )}
           </div>
         </div>
       );
     }
 
-    // ── Rails: full RailsView (self-contained) ──
     if (currentView === 'rails') {
       return (
         <RailsView
@@ -492,7 +460,7 @@ export function MobileApp() {
           showPovColors={true}
           tags={projectData.tags}
           getCharacterName={getCharacterName}
-          onSceneChange={() => {}}
+          onSceneChange={handleSceneChange}
           onTagsChange={() => {}}
           onCreateTag={() => {}}
           onWordCountChange={() => {}}
@@ -518,78 +486,75 @@ export function MobileApp() {
       );
     }
 
-    // ── Notes: full NotesView (self-contained) ──
     if (currentView === 'notes') {
       return (
-        <NotesView
-          projectPath={projectData.projectPath}
-          scenes={projectData.scenes}
-          characters={projectData.characters}
-          tags={projectData.tags}
-        />
+        <div className="main-content--notes">
+          <NotesView
+            projectPath={projectData.projectPath}
+            scenes={projectData.scenes}
+            characters={projectData.characters}
+            tags={projectData.tags}
+          />
+        </div>
       );
     }
 
     return null;
   };
 
-  // ── Main layout ────────────────────────────────────────────────────────────
+  // ── Main layout: reuse desktop CSS classes ────────────────────────────────
   return (
-    <div className="mobile-safe-area-top" style={{
-      display: 'flex', height: '100vh', width: '100vw',
-      background: '#1a1a2e', color: '#e0e0e0',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      overflow: 'hidden', boxSizing: 'border-box',
-    }}>
-      {/* View tab bar */}
-      <div style={{
-        width: 56, borderRight: '1px solid #333',
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        paddingTop: 8, gap: 2, flexShrink: 0,
+    <div className="app mobile-safe-area-top">
+      {/* Left sidebar — reuses .app-sidebar styling */}
+      <div className="app-sidebar" style={{
+        position: 'relative', padding: '12px 0',
+        width: 58, /* fixed on iPad, no hover-expand */
       }}>
         {(['pov', 'editor', 'rails', 'notes'] as MobileView[]).map(view => (
           <button
             key={view}
+            className={`app-sidebar-btn ${currentView === view ? 'active' : ''}`}
             onClick={() => setCurrentView(view)}
-            style={{
-              width: 46, padding: '10px 0',
-              background: currentView === view ? '#3a3a5a' : 'transparent',
-              color: currentView === view ? '#7c9ef5' : '#666',
-              border: 'none', borderRadius: 6, cursor: 'pointer',
-              fontSize: 10, fontWeight: 600, textTransform: 'uppercase',
-            }}
           >
-            {view === 'pov' ? 'POV' : view === 'editor' ? 'Edit' : view === 'rails' ? 'Rails' : 'Notes'}
+            <span style={{ fontSize: 11, fontWeight: 600 }}>
+              {view === 'pov' ? 'POV' : view === 'editor' ? 'Edit' : view === 'rails' ? 'Rails' : 'Notes'}
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Content area — each view manages its own layout */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Project header */}
-        <div style={{
-          padding: '6px 16px', borderBottom: '1px solid #333',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          minHeight: 36, flexShrink: 0,
-        }}>
-          <span style={{ fontWeight: 600, fontSize: 14 }}>{projectData.projectName}</span>
-          <span style={{ fontSize: 12, color: '#666' }}>
+      {/* Main content area */}
+      <div className="app-body">
+        {/* Toolbar */}
+        <div className="app-toolbar">
+          <div className="toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontWeight: 600, fontSize: 14 }}>{projectData.projectName}</span>
+            {currentView === 'pov' && (
+              <select
+                value={selectedCharacterId || ''}
+                onChange={(e) => setSelectedCharacterId(e.target.value || null)}
+                style={{ padding: '4px 8px', fontSize: 13, borderRadius: 6, border: '1px solid var(--border)' }}
+              >
+                {projectData.characters.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="toolbar-right" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
             {projectData.characters.length} characters &middot; {projectData.scenes.length} scenes
-          </span>
+          </div>
         </div>
 
-        {/* Sync conflict banner */}
+        {/* Conflict banner */}
         {conflictBanner && (
           <div style={{
             background: '#fef3c7', color: '#92400e', padding: '8px 16px',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            borderBottom: '1px solid #fcd34d', flexShrink: 0,
+            borderBottom: '1px solid #fcd34d',
           }}>
             <span>{conflictBanner}</span>
-            <button onClick={() => setConflictBanner(null)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#92400e' }}>
-              ✕
-            </button>
+            <button onClick={() => setConflictBanner(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#92400e' }}>✕</button>
           </div>
         )}
 
