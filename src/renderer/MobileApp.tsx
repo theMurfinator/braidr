@@ -6,6 +6,7 @@ import { detectConflicts } from './services/conflictDetector';
 import EditorView from './components/EditorView';
 import RailsView from './components/RailsView';
 import SceneCard from './components/SceneCard';
+import PlotPointSection from './components/PlotPointSection';
 import NotesView from './components/notes/NotesView';
 import { MobileView } from './components/MobileSidebar';
 
@@ -272,6 +273,57 @@ export function MobileApp() {
   const handleDropOnInbox = useCallback((_e: React.DragEvent | null) => {}, []);
   const handleRailReorder = useCallback((_from: number, _to: number) => {}, []);
 
+  const handleAddScene = useCallback(async (plotPointId: string, afterSceneNumber?: number) => {
+    if (!projectData || !selectedCharacterId) return;
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === selectedCharacterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    let insertAfterIndex: number;
+    if (afterSceneNumber !== undefined) {
+      insertAfterIndex = charScenes.findIndex(s => s.sceneNumber === afterSceneNumber);
+      if (insertAfterIndex === -1) insertAfterIndex = charScenes.length - 1;
+    } else {
+      const ppScenes = charScenes.filter(s => s.plotPointId === plotPointId);
+      insertAfterIndex = ppScenes.length > 0
+        ? charScenes.findIndex(s => s.id === ppScenes[ppScenes.length - 1].id)
+        : charScenes.length - 1;
+    }
+
+    const characterTag = character.name.toLowerCase().replace(/\s+/g, '_');
+    const newScene: Scene = {
+      id: Math.random().toString(36).substring(2, 11),
+      characterId: selectedCharacterId,
+      sceneNumber: insertAfterIndex + 2,
+      title: 'New scene',
+      content: 'New scene',
+      tags: [characterTag],
+      timelinePosition: null,
+      isHighlighted: false,
+      notes: [],
+      plotPointId,
+    };
+
+    const newCharScenes = [...charScenes];
+    newCharScenes.splice(insertAfterIndex + 1, 0, newScene);
+    newCharScenes.forEach((s, i) => { s.sceneNumber = i + 1; });
+
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
+    const updatedScenes = [...otherScenes, ...newCharScenes];
+    setProjectData({ ...projectData, scenes: updatedScenes });
+
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+    } catch (err) {
+      console.error('Failed to save after adding scene:', err);
+    }
+  }, [projectData, selectedCharacterId, sceneConnections, braidedChapters, saveTimelineData]);
+
   const openEditor = useCallback((sceneKey: string) => {
     setEditingSceneKey(sceneKey);
     setCurrentView('editor');
@@ -369,53 +421,35 @@ export function MobileApp() {
               <p style={{ padding: 40, color: 'var(--text-muted)', textAlign: 'center' }}>Select a character</p>
             ) : (
               <>
-                {characterPlotPoints.map(pp => {
-                  const ppScenes = characterScenes.filter(s => s.plotPointId === pp.id);
-                  return (
-                    <div key={pp.id}>
-                      <div className="pov-section-header">
-                        <h2 style={{ fontSize: 'var(--font-section-title-size, 20px)', fontWeight: 700, fontFamily: 'var(--font-section-title, Lora, Georgia, serif)' }}>
-                          {pp.title}
-                          {pp.expectedSceneCount !== null && (
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 14, marginLeft: 8 }}>
-                              {ppScenes.length}/{pp.expectedSceneCount}
-                            </span>
-                          )}
-                        </h2>
-                        {pp.description && (
-                          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4, lineHeight: 1.5, fontFamily: 'var(--font-body, Lora, Georgia, serif)' }}>
-                            {pp.description}
-                          </p>
-                        )}
-                      </div>
-                      {ppScenes.map(scene => (
-                        <SceneCard
-                          key={scene.id}
-                          scene={scene}
-                          tags={projectData.tags}
-                          showCharacter={false}
-                          characterName={selectedCharacter.name}
-                          displayNumber={scene.sceneNumber}
-                          plotPointTitle={pp.title}
-                          onSceneChange={handleSceneChange}
-                          onTagsChange={() => {}}
-                          onCreateTag={() => {}}
-                          onDeleteScene={() => {}}
-                          onDuplicateScene={() => {}}
-                          collapsedNotes={true}
-                          connectedScenes={getConnectedScenes(scene.id)}
-                          onStartConnection={() => {}}
-                          onRemoveConnection={() => {}}
-                          metadataFieldDefs={[]}
-                          sceneMetadata={{}}
-                          onMetadataChange={() => {}}
-                          onOpenInEditor={() => openEditor(scene.id)}
-                          onWordCountChange={() => {}}
-                        />
-                      ))}
-                    </div>
-                  );
-                })}
+                {characterPlotPoints.map((pp, index) => (
+                  <PlotPointSection
+                    key={pp.id}
+                    plotPoint={pp}
+                    scenes={characterScenes.filter(s => s.plotPointId === pp.id)}
+                    tags={projectData.tags}
+                    onSceneChange={handleSceneChange}
+                    onTagsChange={() => {}}
+                    onCreateTag={() => {}}
+                    onPlotPointChange={() => {}}
+                    onDeletePlotPoint={() => {}}
+                    onAddScene={handleAddScene}
+                    onDeleteScene={() => {}}
+                    onDuplicateScene={() => {}}
+                    onMoveUp={() => {}}
+                    onMoveDown={() => {}}
+                    isFirst={index === 0}
+                    isLast={index === characterPlotPoints.length - 1}
+                    connectedScenes={getConnectedScenes}
+                    onStartConnection={() => {}}
+                    onRemoveConnection={() => {}}
+                    isConnecting={false}
+                    onWordCountChange={() => {}}
+                    onOpenInEditor={openEditor}
+                    metadataFieldDefs={[]}
+                    sceneMetadata={{}}
+                    onMetadataChange={() => {}}
+                  />
+                ))}
                 {characterScenes
                   .filter(s => !s.plotPointId || !characterPlotPoints.some(pp => pp.id === s.plotPointId))
                   .map(scene => (

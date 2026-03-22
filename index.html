@@ -21,13 +21,18 @@
         height: 100vh;
         width: 100vw;
       }
-      /* Capacitor iOS: push content below status bar.
-         viewport-fit=cover (in meta tag) extends WebView behind status bar.
-         Removing contentInset:'always' from capacitor.config.ts makes
-         env(safe-area-inset-top) return the real value instead of 0. */
+      /* Capacitor iOS: push content below status bar */
       .mobile-safe-area-top {
-        padding-top: constant(safe-area-inset-top); /* iOS 11.0-11.1 */
-        padding-top: env(safe-area-inset-top);      /* iOS 11.2+ */
+        padding-top: 48px !important;
+        box-sizing: border-box !important;
+      }
+      .mobile-safe-area-top .app-sidebar {
+        padding-top: 8px !important;
+      }
+      /* Prevent editor view from overflowing on iPad due to safe area padding */
+      .mobile-safe-area-top .app-body {
+        height: calc(100vh - 48px) !important;
+        padding-top: 0 !important;
       }
 
       /* Full-width view layout — nuclear override to eliminate gaps.
