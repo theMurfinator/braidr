@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' braidr-img:; connect-src 'self' https://us.i.posthog.com">
     <title>Braidr</title>
     <style>
@@ -20,6 +20,12 @@
       #root {
         height: 100vh;
         width: 100vw;
+      }
+      /* Capacitor iOS: push content below status bar */
+      @supports (padding-top: env(safe-area-inset-top)) {
+        .mobile-safe-area-top {
+          padding-top: max(env(safe-area-inset-top), 24px);
+        }
       }
 
       /* Full-width view layout — nuclear override to eliminate gaps.
