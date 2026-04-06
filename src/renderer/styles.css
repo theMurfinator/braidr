@@ -8487,8 +8487,6 @@ textarea.editor-meta-field-input {
 }
 
 .option-editor-list {
-  max-height: 240px;
-  overflow-y: auto;
   margin-top: 6px;
 }
 
@@ -8548,11 +8546,6 @@ textarea.editor-meta-field-input {
   border-color: var(--text-secondary);
 }
 
-.option-editor-color-trigger-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-
 .option-editor-color-dot {
   width: 20px;
   height: 20px;
@@ -8561,6 +8554,7 @@ textarea.editor-meta-field-input {
   border: 2px solid transparent;
   transition: border-color 0.1s, transform 0.1s;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .option-editor-color-dot:hover {
@@ -8569,11 +8563,8 @@ textarea.editor-meta-field-input {
 }
 
 .option-editor-color-popover {
-  position: absolute;
-  top: 100%;
-  left: 50%;
+  position: fixed;
   transform: translateX(-50%);
-  margin-top: 6px;
   padding: 8px;
   background: var(--bg-secondary, var(--bg-primary));
   border: 1px solid var(--border);
@@ -8582,7 +8573,7 @@ textarea.editor-meta-field-input {
   display: grid;
   grid-template-columns: repeat(8, 22px);
   gap: 4px;
-  z-index: 100;
+  z-index: 10000;
 }
 
 .option-editor-swatch {

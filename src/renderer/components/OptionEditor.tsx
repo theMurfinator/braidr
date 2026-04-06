@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 export const OPTION_COLORS = [
   '#9e9e9e', '#64b5f6', '#4a90d9', '#3949ab',
@@ -16,10 +16,11 @@ interface OptionEditorProps {
 export function OptionEditor({ options, optionColors, onChange }: OptionEditorProps) {
   const [search, setSearch] = useState('');
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const editRef = useRef<HTMLInputElement>(null);
-  const colorPickerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   const getColor = (name: string) => optionColors[name] || '#9e9e9e';
 
@@ -72,16 +73,35 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
     setColorPickerFor(null);
   };
 
+  const toggleColorPicker = useCallback((name: string, dotEl: HTMLElement) => {
+    if (colorPickerFor === name) {
+      setColorPickerFor(null);
+      return;
+    }
+    const rect = dotEl.getBoundingClientRect();
+    setPopoverPos({ top: rect.bottom + 6, left: rect.left + rect.width / 2 });
+    setColorPickerFor(name);
+  }, [colorPickerFor]);
+
   // Close color picker when clicking outside
   useEffect(() => {
     if (!colorPickerFor) return;
     const handleClick = (e: MouseEvent) => {
-      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      // Don't close if clicking the dot itself (toggle handles that)
+      if (target.closest('.option-editor-color-dot')) return;
+      if (popoverRef.current && !popoverRef.current.contains(target)) {
         setColorPickerFor(null);
       }
     };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    // Use setTimeout so the current click event doesn't immediately close
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClick);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClick);
+    };
   }, [colorPickerFor]);
 
   const dragIdx = useRef<number | null>(null);
@@ -162,26 +182,12 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
                   {name}
                 </span>
               )}
-              <div className="option-editor-color-trigger-wrap">
-                <div
-                  className="option-editor-color-dot"
-                  style={{ background: getColor(name) }}
-                  onClick={() => setColorPickerFor(colorPickerFor === name ? null : name)}
-                  title="Change color"
-                />
-                {colorPickerFor === name && (
-                  <div className="option-editor-color-popover" ref={colorPickerRef}>
-                    {OPTION_COLORS.map(c => (
-                      <div
-                        key={c}
-                        className={`option-editor-swatch${getColor(name) === c ? ' active' : ''}`}
-                        style={{ background: c }}
-                        onClick={() => setColor(name, c)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+              <div
+                className="option-editor-color-dot"
+                style={{ background: getColor(name) }}
+                onClick={e => toggleColorPicker(name, e.currentTarget)}
+                title="Change color"
+              />
               <div className="option-editor-reorder">
                 <button
                   className="option-editor-move-btn"
@@ -201,6 +207,22 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
           );
         })}
       </div>
+      {colorPickerFor && popoverPos && (
+        <div
+          className="option-editor-color-popover"
+          ref={popoverRef}
+          style={{ top: popoverPos.top, left: popoverPos.left }}
+        >
+          {OPTION_COLORS.map(c => (
+            <div
+              key={c}
+              className={`option-editor-swatch${getColor(colorPickerFor) === c ? ' active' : ''}`}
+              style={{ background: c }}
+              onClick={() => setColor(colorPickerFor, c)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

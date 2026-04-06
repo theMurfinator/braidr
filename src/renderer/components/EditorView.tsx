@@ -2078,7 +2078,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               <h3>Edit Properties</h3>
               <button className="modal-close-btn" onClick={() => setShowMetaEditor(false)}>×</button>
             </div>
-            <div className="modal-body" style={{ padding: '16px', minWidth: '520px' }}>
+            <div className="modal-body" style={{ padding: '16px', minWidth: '520px', overflowY: 'auto' }}>
               {editingFieldDefs.map((field, i) => (
                 <div key={field.id} className="meta-field-editor-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
