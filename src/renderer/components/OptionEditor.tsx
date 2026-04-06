@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 export const OPTION_COLORS = [
   '#9e9e9e', '#64b5f6', '#4a90d9', '#3949ab',
@@ -37,6 +37,37 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
     onChange(options.filter(o => o !== name), newColors);
   };
 
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const editRef = useRef<HTMLInputElement>(null);
+
+  const startRename = (name: string) => {
+    setEditingName(name);
+    setEditValue(name);
+    setTimeout(() => editRef.current?.select(), 0);
+  };
+
+  const commitRename = () => {
+    if (!editingName) return;
+    const newName = editValue.trim();
+    if (!newName || (newName !== editingName && options.includes(newName))) {
+      setEditingName(null);
+      return;
+    }
+    if (newName === editingName) { setEditingName(null); return; }
+    const newOptions = options.map(o => o === editingName ? newName : o);
+    const newColors = { ...optionColors };
+    const color = newColors[editingName] || '#9e9e9e';
+    delete newColors[editingName];
+    newColors[newName] = color;
+    onChange(newOptions, newColors);
+    setEditingName(null);
+  };
+
+  const setColor = (name: string, color: string) => {
+    onChange(options, { ...optionColors, [name]: color });
+  };
+
   const filtered = search
     ? options.filter(o => o.toLowerCase().includes(search.toLowerCase()))
     : options;
@@ -54,9 +85,35 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
       <div className="option-editor-list">
         {filtered.map(name => (
           <div key={name} className="option-editor-row">
-            <span className="option-editor-pill" style={{ background: getColor(name) }}>
-              {name}
-            </span>
+            {editingName === name ? (
+              <input
+                ref={editRef}
+                className="option-editor-rename"
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingName(null); }}
+              />
+            ) : (
+              <span
+                className="option-editor-pill"
+                style={{ background: getColor(name) }}
+                onClick={() => startRename(name)}
+                title="Click to rename"
+              >
+                {name}
+              </span>
+            )}
+            <div className="option-editor-swatches">
+              {OPTION_COLORS.map(c => (
+                <div
+                  key={c}
+                  className={`option-editor-swatch${getColor(name) === c ? ' active' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => setColor(name, c)}
+                />
+              ))}
+            </div>
             <button className="option-editor-remove" onClick={() => removeOption(name)}>×</button>
           </div>
         ))}
