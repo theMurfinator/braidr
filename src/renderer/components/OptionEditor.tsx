@@ -14,6 +14,7 @@ interface OptionEditorProps {
 }
 
 export function OptionEditor({ options, optionColors, onChange }: OptionEditorProps) {
+  const [expanded, setExpanded] = useState(false);
   const [search, setSearch] = useState('');
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
@@ -21,6 +22,7 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
   const [editValue, setEditValue] = useState('');
   const editRef = useRef<HTMLInputElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   const getColor = (name: string) => optionColors[name] || '#9e9e9e';
 
@@ -83,6 +85,20 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
     setColorPickerFor(name);
   }, [colorPickerFor]);
 
+  // Close editor when clicking outside
+  useEffect(() => {
+    if (!expanded) return;
+    const handleClick = (e: MouseEvent) => {
+      if (editorRef.current && !editorRef.current.contains(e.target as Node)) {
+        setExpanded(false);
+        setColorPickerFor(null);
+        setSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [expanded]);
+
   // Close color picker when clicking outside
   useEffect(() => {
     if (!colorPickerFor) return;
@@ -141,7 +157,24 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
     : options;
 
   return (
-    <div className="option-editor">
+    <div className="option-editor" ref={editorRef}>
+      {!expanded ? (
+        <button
+          className="option-editor-toggle"
+          onClick={() => setExpanded(true)}
+        >
+          {options.length > 0 ? (
+            <span className="option-editor-pill-summary">
+              {options.map(name => (
+                <span key={name} className="option-editor-pill-mini" style={{ background: getColor(name) }}>{name}</span>
+              ))}
+            </span>
+          ) : (
+            <span className="option-editor-toggle-placeholder">Click to add options...</span>
+          )}
+        </button>
+      ) : (
+        <>
       <input
         className="option-editor-search"
         type="text"
@@ -149,6 +182,7 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
         value={search}
         onChange={e => setSearch(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(); } }}
+        autoFocus
       />
       <div className="option-editor-list">
         {filtered.map((name) => {
@@ -222,6 +256,8 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
             />
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );
