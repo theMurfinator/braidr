@@ -1,4 +1,4 @@
-import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
 import { Scene, Character, Tag, TagCategory, PlotPoint } from '../../shared/types';
 import RailsSceneCard from './RailsSceneCard';
 import FloatingEditor from './FloatingEditor';
@@ -29,8 +29,8 @@ interface RailsViewProps {
   plotPoints: PlotPoint[];
   onDragStart: (e: React.DragEvent, scene: Scene) => void;
   onDragEnd: () => void;
-  onDropOnTimeline: (e: React.DragEvent, targetIndex: number) => void;
-  onDropOnInbox: (e: React.DragEvent) => void;
+  onDropOnTimeline: (e: React.DragEvent | null, targetIndex: number) => void;
+  onDropOnInbox: (e: React.DragEvent | null) => void;
   onRailReorder: (fromIndex: number, toIndex: number) => void;
   draftContent: Record<string, string>;
   onDraftChange: (sceneKey: string, html: string) => void;
@@ -89,6 +89,116 @@ export default function RailsView({
   const savedScrollTop = useRef<number | null>(null);
   const railsViewRef = useRef<HTMLDivElement>(null);
   useAutoScrollOnDrag(scrollRef, !!draggedSceneId);
+
+  // Touch-device detection for pointer-event drag (iPad)
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+  // Pointer-event drag state (for touch devices that lack HTML5 DnD)
+  const [pointerDragScene, setPointerDragScene] = useState<Scene | null>(null);
+  const pointerStartRef = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout> | null; sceneId: string | null }>({ x: 0, y: 0, timer: null, sceneId: null });
+  const pointerDragGhostRef = useRef<HTMLDivElement | null>(null);
+  const pointerOverInboxRef = useRef(false);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent, scene: Scene) => {
+    if (!isTouchDevice) return; // Only activate on touch
+    e.preventDefault();
+    const start = { x: e.clientX, y: e.clientY };
+    pointerStartRef.current = {
+      x: start.x,
+      y: start.y,
+      sceneId: scene.id,
+      timer: setTimeout(() => {
+        setPointerDragScene(scene);
+        setDraggedSceneId(scene.id);
+        // Create a visual ghost element
+        const ghost = document.createElement('div');
+        ghost.textContent = scene.title.substring(0, 30);
+        ghost.style.cssText = 'position:fixed;padding:8px 12px;background:#3B82F6;color:white;border-radius:6px;font-size:13px;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);';
+        ghost.style.left = e.clientX + 'px';
+        ghost.style.top = e.clientY + 'px';
+        document.body.appendChild(ghost);
+        pointerDragGhostRef.current = ghost;
+      }, 300), // 300ms long-press
+    };
+  }, [isTouchDevice]);
+
+  const handlePointerMove = useCallback((e: PointerEvent | React.PointerEvent) => {
+    if (!pointerStartRef.current.timer && !pointerDragScene) return;
+
+    // Cancel long-press if moved too far before it fires
+    if (!pointerDragScene && pointerStartRef.current.timer) {
+      const dx = e.clientX - pointerStartRef.current.x;
+      const dy = e.clientY - pointerStartRef.current.y;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        clearTimeout(pointerStartRef.current.timer);
+        pointerStartRef.current.timer = null;
+        return;
+      }
+    }
+
+    if (!pointerDragScene) return;
+
+    // Move ghost
+    if (pointerDragGhostRef.current) {
+      pointerDragGhostRef.current.style.left = e.clientX + 'px';
+      pointerDragGhostRef.current.style.top = e.clientY + 'px';
+    }
+
+    // Hit-test for drop targets using data attributes
+    const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+    if (elemBelow) {
+      const dropZone = elemBelow.closest('[data-drop-index]') as HTMLElement | null;
+      if (dropZone) {
+        const idx = parseInt(dropZone.getAttribute('data-drop-index') || '-1', 10);
+        if (idx >= 0) setDropTargetIndex(idx);
+        pointerOverInboxRef.current = false;
+      } else {
+        const inboxZone = elemBelow.closest('[data-drop-inbox]');
+        pointerOverInboxRef.current = !!inboxZone;
+      }
+    }
+  }, [pointerDragScene]);
+
+  const handlePointerUp = useCallback(() => {
+    // Clean up timer
+    if (pointerStartRef.current.timer) {
+      clearTimeout(pointerStartRef.current.timer);
+      pointerStartRef.current.timer = null;
+    }
+
+    // Clean up ghost
+    if (pointerDragGhostRef.current) {
+      document.body.removeChild(pointerDragGhostRef.current);
+      pointerDragGhostRef.current = null;
+    }
+
+    // Complete the drop if we have a target
+    if (pointerDragScene) {
+      if (dropTargetIndex !== null) {
+        onDropOnTimeline(null, dropTargetIndex);
+      } else if (pointerOverInboxRef.current) {
+        onDropOnInbox(null);
+      }
+    }
+
+    pointerOverInboxRef.current = false;
+    setPointerDragScene(null);
+    setDraggedSceneId(null);
+    setDropTargetIndex(null);
+  }, [pointerDragScene, dropTargetIndex, onDropOnTimeline, onDropOnInbox]);
+
+  // Global pointer move/up listeners when a touch drag is active
+  useEffect(() => {
+    if (!pointerDragScene) return;
+    const onMove = (e: PointerEvent) => handlePointerMove(e);
+    const onUp = () => handlePointerUp();
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    return () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+  }, [pointerDragScene, handlePointerMove, handlePointerUp]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -502,6 +612,7 @@ export default function RailsView({
           {scenes.length === 0 && (
             <div
               className={`rails-empty-drop ${dropTargetIndex === 0 ? 'active' : ''}`}
+              data-drop-index={0}
               onDragOver={(e) => handleDragOver(e, 0)}
               onDrop={(e) => handleDrop(e, 0)}
             >
@@ -621,6 +732,7 @@ export default function RailsView({
                           isConnectionTarget={isConnecting && connectionSource !== row.scene.id}
                           onDragStart={(e) => wrappedDragStart(e, row.scene)}
                           onDragEnd={wrappedDragEnd}
+                          onPointerDown={(e) => handlePointerDown(e, row.scene)}
                           isDragging={draggedSceneId === row.scene.id}
                           isPovReordered={povReorderedScenes?.has(row.scene.id) || false}
                         />
@@ -709,6 +821,7 @@ export default function RailsView({
       {/* To Braid Inbox - Right sidebar */}
       {!inboxCollapsed && <div
         className="to-braid-inbox"
+        data-drop-inbox="true"
         onDragOver={handleInboxDragOver}
         onDrop={onDropOnInbox}
       >
@@ -768,6 +881,7 @@ export default function RailsView({
                                 draggable
                                 onDragStart={(e) => wrappedDragStart(e, scene)}
                                 onDragEnd={wrappedDragEnd}
+                                onPointerDown={(e) => handlePointerDown(e, scene)}
                               >
                                 <span className="inbox-scene-number">{scene.sceneNumber}.</span>
                                 <span className="inbox-scene-title">
@@ -787,6 +901,7 @@ export default function RailsView({
                           draggable
                           onDragStart={(e) => wrappedDragStart(e, scene)}
                           onDragEnd={wrappedDragEnd}
+                          onPointerDown={(e) => handlePointerDown(e, scene)}
                         >
                           <span className="inbox-scene-number">{scene.sceneNumber}.</span>
                           <span className="inbox-scene-title">

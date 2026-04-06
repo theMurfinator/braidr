@@ -1,6 +1,7 @@
 import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent } from '../../shared/types';
 import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
+import { CapacitorDataService } from './capacitorDataService';
 
 // Data service interface - this abstraction allows swapping to a web API later
 export interface DataService {
@@ -8,7 +9,7 @@ export interface DataService {
   loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }>;
   saveCharacterOutline(character: Character, plotPoints: PlotPoint[], scenes: Scene[]): Promise<void>;
   createCharacter(folderPath: string, name: string): Promise<Character>;
-  saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], draftContent?: Record<string, string>, metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, drafts?: Record<string, DraftVersion[]>, wordCountGoal?: number, allFontSettings?: AllFontSettings, scratchpad?: Record<string, string>, sceneComments?: Record<string, SceneComment[]>, tasks?: Task[], taskFieldDefs?: TaskFieldDef[], taskViews?: TaskViewConfig[], inlineMetadataFields?: string[], showInlineLabels?: boolean, taskColumnWidths?: Record<string, number>, taskVisibleColumns?: string[], timelineDates?: Record<string, string>, worldEvents?: WorldEvent[], timelineEndDates?: Record<string, string>, tags?: Tag[]): Promise<void>;
+  saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, wordCountGoal?: number, allFontSettings?: AllFontSettings, tasks?: Task[], taskFieldDefs?: TaskFieldDef[], taskViews?: TaskViewConfig[], inlineMetadataFields?: string[], showInlineLabels?: boolean, taskColumnWidths?: Record<string, number>, taskVisibleColumns?: string[], timelineDates?: Record<string, string>, worldEvents?: WorldEvent[], timelineEndDates?: Record<string, string>, tags?: Tag[]): Promise<void>;
   getRecentProjects(): Promise<RecentProject[]>;
   addRecentProject(project: RecentProject): Promise<void>;
   selectSaveLocation(): Promise<string | null>;
@@ -25,6 +26,17 @@ export interface DataService {
   // Note images
   saveNoteImage(projectPath: string, imageData: string, fileName: string): Promise<string>;
   selectNoteImage(projectPath: string): Promise<string | null>;
+  // Per-scene content (extracted from timeline.json)
+  readDraft(projectPath: string, sceneId: string): Promise<string>;
+  saveDraft(projectPath: string, sceneId: string, content: string): Promise<void>;
+  readScratchpad(projectPath: string, sceneId: string): Promise<string>;
+  saveScratchpad(projectPath: string, sceneId: string, content: string): Promise<void>;
+  readDraftVersions(projectPath: string, sceneId: string): Promise<DraftVersion[]>;
+  saveDraftVersions(projectPath: string, sceneId: string, versions: DraftVersion[]): Promise<void>;
+  readSceneComments(projectPath: string, sceneId: string): Promise<SceneComment[]>;
+  saveSceneComments(projectPath: string, sceneId: string, comments: SceneComment[]): Promise<void>;
+  // Conflict detection (iPad companion)
+  listProjectFiles?(projectPath: string): Promise<string[]>;
 }
 
 // Local file system implementation (Electron)
@@ -53,6 +65,12 @@ class ElectronDataService implements DataService {
     let timelineData: TimelineData = timelineResult.success && timelineResult.data
       ? timelineResult.data
       : { positions: {}, connections: {} };
+
+    // Load per-scene content from individual files
+    const perSceneResult = await window.electronAPI.readAllPerSceneContent(folderPath);
+    const perSceneContent = perSceneResult.success && perSceneResult.data
+      ? perSceneResult.data
+      : { draftContent: {}, scratchpad: {}, drafts: {}, sceneComments: {} };
 
     const characters: Character[] = [];
     const allScenes: Scene[] = [];
@@ -120,13 +138,21 @@ class ElectronDataService implements DataService {
       fontSettings: timelineData.fontSettings || {},
       allFontSettings: timelineData.allFontSettings,
       archivedScenes: timelineData.archivedScenes || [],
-      draftContent: timelineData.draftContent || {},
+      draftContent: Object.keys(perSceneContent.draftContent).length > 0
+        ? perSceneContent.draftContent
+        : (timelineData.draftContent || {}),
       metadataFieldDefs: timelineData.metadataFieldDefs || [],
       sceneMetadata: timelineData.sceneMetadata || {},
-      drafts: timelineData.drafts || {},
+      drafts: Object.keys(perSceneContent.drafts).length > 0
+        ? perSceneContent.drafts
+        : (timelineData.drafts || {}),
       wordCountGoal: timelineData.wordCountGoal || 0,
-      scratchpad: timelineData.scratchpad || {},
-      sceneComments: timelineData.sceneComments || {},
+      scratchpad: Object.keys(perSceneContent.scratchpad).length > 0
+        ? perSceneContent.scratchpad
+        : (timelineData.scratchpad || {}),
+      sceneComments: Object.keys(perSceneContent.sceneComments).length > 0
+        ? perSceneContent.sceneComments
+        : (timelineData.sceneComments || {}),
       tasks: timelineData.tasks || [],
       taskFieldDefs: timelineData.taskFieldDefs || [],
       taskViews: timelineData.taskViews || [],
@@ -205,12 +231,12 @@ class ElectronDataService implements DataService {
     return character;
   }
 
-  async saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], draftContent?: Record<string, string>, metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, drafts?: Record<string, DraftVersion[]>, wordCountGoal?: number, allFontSettings?: AllFontSettings, scratchpad?: Record<string, string>, sceneComments?: Record<string, SceneComment[]>, tasks?: Task[], taskFieldDefs?: TaskFieldDef[], taskViews?: TaskViewConfig[], inlineMetadataFields?: string[], showInlineLabels?: boolean, taskColumnWidths?: Record<string, number>, taskVisibleColumns?: string[], timelineDates?: Record<string, string>, worldEvents?: WorldEvent[], timelineEndDates?: Record<string, string>, tags?: Tag[]): Promise<void> {
+  async saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, wordCountGoal?: number, allFontSettings?: AllFontSettings, tasks?: Task[], taskFieldDefs?: TaskFieldDef[], taskViews?: TaskViewConfig[], inlineMetadataFields?: string[], showInlineLabels?: boolean, taskColumnWidths?: Record<string, number>, taskVisibleColumns?: string[], timelineDates?: Record<string, string>, worldEvents?: WorldEvent[], timelineEndDates?: Record<string, string>, tags?: Tag[]): Promise<void> {
     if (!this.projectPath) {
       throw new Error('No project loaded');
     }
 
-    const result = await window.electronAPI.saveTimeline(this.projectPath, { positions, connections, chapters, characterColors, wordCounts, fontSettings, archivedScenes, draftContent, metadataFieldDefs, sceneMetadata, drafts, wordCountGoal, allFontSettings, scratchpad, sceneComments, tasks, taskFieldDefs, taskViews, inlineMetadataFields, showInlineLabels, taskColumnWidths, taskVisibleColumns, timelineDates, worldEvents, timelineEndDates, tags });
+    const result = await window.electronAPI.saveTimeline(this.projectPath, { positions, connections, chapters, characterColors, wordCounts, fontSettings, archivedScenes, metadataFieldDefs, sceneMetadata, wordCountGoal, allFontSettings, tasks, taskFieldDefs, taskViews, inlineMetadataFields, showInlineLabels, taskColumnWidths, taskVisibleColumns, timelineDates, worldEvents, timelineEndDates, tags });
     if (!result.success) {
       throw new Error(result.error || 'Failed to save timeline');
     }
@@ -313,7 +339,64 @@ class ElectronDataService implements DataService {
     }
     return result.data!;
   }
+
+  // Per-scene content
+  async readDraft(projectPath: string, sceneId: string): Promise<string> {
+    const result = await window.electronAPI.readDraft(projectPath, sceneId);
+    if (!result.success) throw new Error(result.error || 'Failed to read draft');
+    return result.data;
+  }
+
+  async saveDraft(projectPath: string, sceneId: string, content: string): Promise<void> {
+    const result = await window.electronAPI.saveDraft(projectPath, sceneId, content);
+    if (!result.success) throw new Error(result.error || 'Failed to save draft');
+  }
+
+  async readScratchpad(projectPath: string, sceneId: string): Promise<string> {
+    const result = await window.electronAPI.readScratchpad(projectPath, sceneId);
+    if (!result.success) throw new Error(result.error || 'Failed to read scratchpad');
+    return result.data;
+  }
+
+  async saveScratchpad(projectPath: string, sceneId: string, content: string): Promise<void> {
+    const result = await window.electronAPI.saveScratchpad(projectPath, sceneId, content);
+    if (!result.success) throw new Error(result.error || 'Failed to save scratchpad');
+  }
+
+  async readDraftVersions(projectPath: string, sceneId: string): Promise<DraftVersion[]> {
+    const result = await window.electronAPI.readDraftVersions(projectPath, sceneId);
+    if (!result.success) throw new Error(result.error || 'Failed to read draft versions');
+    return result.data;
+  }
+
+  async saveDraftVersions(projectPath: string, sceneId: string, versions: DraftVersion[]): Promise<void> {
+    const result = await window.electronAPI.saveDraftVersions(
+      projectPath, sceneId, JSON.stringify(versions, null, 2)
+    );
+    if (!result.success) throw new Error(result.error || 'Failed to save draft versions');
+  }
+
+  async readSceneComments(projectPath: string, sceneId: string): Promise<SceneComment[]> {
+    const result = await window.electronAPI.readSceneComments(projectPath, sceneId);
+    if (!result.success) throw new Error(result.error || 'Failed to read scene comments');
+    return result.data;
+  }
+
+  async saveSceneComments(projectPath: string, sceneId: string, comments: SceneComment[]): Promise<void> {
+    const result = await window.electronAPI.saveSceneComments(
+      projectPath, sceneId, JSON.stringify(comments, null, 2)
+    );
+    if (!result.success) throw new Error(result.error || 'Failed to save scene comments');
+  }
+
+  async listProjectFiles(_projectPath: string): Promise<string[]> {
+    return []; // Conflict detection is iPad-only for now
+  }
 }
 
-// Export singleton instance
-export const dataService: DataService = new ElectronDataService();
+// Export singleton instance — use CapacitorDataService on iPad, ElectronDataService on desktop
+const isCapacitor = typeof (window as any).Capacitor !== 'undefined'
+  && (window as any).Capacitor.isNativePlatform?.();
+export const dataService: DataService = isCapacitor
+  ? new CapacitorDataService()
+  : new ElectronDataService();

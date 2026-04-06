@@ -368,4 +368,15 @@ export const IPC_CHANNELS = {
   REACTIVATE_SUBSCRIPTION: 'reactivate-subscription',
   // Analytics (PostHog)
   CAPTURE_ANALYTICS_EVENT: 'capture-analytics-event',
+  // Per-scene content (extracted from timeline.json)
+  READ_DRAFT: 'read-draft',
+  SAVE_DRAFT: 'save-draft',
+  READ_SCRATCHPAD: 'read-scratchpad',
+  SAVE_SCRATCHPAD: 'save-scratchpad',
+  READ_DRAFT_VERSIONS: 'read-draft-versions',
+  SAVE_DRAFT_VERSIONS: 'save-draft-versions',
+  READ_SCENE_COMMENTS: 'read-scene-comments',
+  SAVE_SCENE_COMMENTS: 'save-scene-comments',
+  // Bulk read for project loading
+  READ_ALL_PER_SCENE_CONTENT: 'read-all-per-scene-content',
 } as const;

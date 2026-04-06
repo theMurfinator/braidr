@@ -1072,7 +1072,7 @@ function App() {
         if (scene.wordCount !== undefined) wordCounts[scene.id] = scene.wordCount;
       }
       try {
-        await dataService.saveTimeline(positions, data.connections, data.chapters, data.characterColors, wordCounts, data.fontSettings, data.archivedScenes, data.draftContent, data.metadataFieldDefs, data.sceneMetadata, data.drafts, data.wordCountGoal, data.allFontSettings, data.scratchpad, data.sceneComments, data.tasks, data.taskFieldDefs, data.taskViews, data.inlineMetadataFields, data.showInlineLabels, data.taskColumnWidths, data.taskVisibleColumns, data.timelineDates, data.worldEvents);
+        await dataService.saveTimeline(positions, data.connections, data.chapters, data.characterColors, wordCounts, data.fontSettings, data.archivedScenes, data.metadataFieldDefs, data.sceneMetadata, data.wordCountGoal, data.allFontSettings, data.tasks, data.taskFieldDefs, data.taskViews, data.inlineMetadataFields, data.showInlineLabels, data.taskColumnWidths, data.taskVisibleColumns, data.timelineDates, data.worldEvents);
       } catch (err) {
         console.error('Failed to save migrated timeline data:', err);
       }
@@ -2344,7 +2344,7 @@ function App() {
         }
       }
       // Connections are already keyed by scene.id at runtime — save directly
-      await dataService.saveTimeline(positions, connections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, draftContentRef.current, metadataFieldDefsRef.current, metaForSave, draftsRef.current, wordCountGoalRef.current, allFontSettingsRef.current, scratchpadContentRef.current, sceneCommentsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current, timelineEndDatesRef.current, tagsRef.current);
+      await dataService.saveTimeline(positions, connections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, metadataFieldDefsRef.current, metaForSave, wordCountGoalRef.current, allFontSettingsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current, timelineEndDatesRef.current, tagsRef.current);
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -2435,9 +2435,11 @@ function App() {
     setDropTargetIndex(index);
   };
 
-  const handleDropOnTimeline = async (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDropOnTimeline = async (e: React.DragEvent | null, targetIndex: number) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!draggedScene || !projectData) return;
 
     // Get currently braided scenes in order
@@ -2479,8 +2481,10 @@ function App() {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDropOnInbox = async (e: React.DragEvent) => {
-    e.preventDefault();
+  const handleDropOnInbox = async (e: React.DragEvent | null) => {
+    if (e) {
+      e.preventDefault();
+    }
     if (!draggedScene || !projectData) return;
 
     // Remove from timeline (set timelinePosition to null)
@@ -2695,15 +2699,20 @@ function App() {
     setDraftContent(updated);
     draftContentRef.current = updated;
 
+    // Save directly to individual file
+    if (projectData?.projectPath) {
+      try {
+        await dataService.saveDraft(projectData.projectPath, sceneKey, html);
+      } catch (err) {
+        console.error('Failed to save draft:', err);
+      }
+    }
+
     // Notify session tracker of editing activity
     if (sessionTrackerRef.current) {
       const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
       const wordCount = text ? text.split(/\s+/).length : 0;
       sessionTrackerRef.current.recordActivity(sceneKey, wordCount);
-    }
-
-    if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
     }
   };
 
@@ -2712,6 +2721,11 @@ function App() {
     const updated = { ...scratchpadContentRef.current, [sceneKey]: html };
     setScratchpadContent(updated);
     scratchpadContentRef.current = updated;
+
+    if (projectData?.projectPath) {
+      dataService.saveScratchpad(projectData.projectPath, sceneKey, html)
+        .catch(err => console.error('Failed to save scratchpad:', err));
+    }
   };
 
   const handleAddComment = (sceneKey: string, text: string) => {
@@ -2725,6 +2739,11 @@ function App() {
     const updated = { ...sceneCommentsRef.current, [sceneKey]: [comment, ...existing] };
     setSceneComments(updated);
     sceneCommentsRef.current = updated;
+
+    if (projectData?.projectPath) {
+      dataService.saveSceneComments(projectData.projectPath, sceneKey, updated[sceneKey])
+        .catch(err => console.error('Failed to save comments:', err));
+    }
   };
 
   const handleDeleteComment = (sceneKey: string, commentId: string) => {
@@ -2733,6 +2752,11 @@ function App() {
     const updated = { ...sceneCommentsRef.current, [sceneKey]: existing.filter(c => c.id !== commentId) };
     setSceneComments(updated);
     sceneCommentsRef.current = updated;
+
+    if (projectData?.projectPath) {
+      dataService.saveSceneComments(projectData.projectPath, sceneKey, updated[sceneKey])
+        .catch(err => console.error('Failed to save comments:', err));
+    }
   };
 
   const handleSaveDraft = async (sceneKey: string, content: string) => {
@@ -2746,8 +2770,10 @@ function App() {
     const updated = { ...draftsRef.current, [sceneKey]: [...existing, newVersion] };
     setDrafts(updated);
     draftsRef.current = updated;
-    if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+
+    if (projectData?.projectPath) {
+      dataService.saveDraftVersions(projectData.projectPath, sceneKey, draftsRef.current[sceneKey])
+        .catch(err => console.error('Failed to save draft versions:', err));
     }
   };
 

@@ -13,6 +13,7 @@ import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
 import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
 import { htmlToNotes, notesToHtml } from '../utils/notesHtml';
+import { OptionEditor, OPTION_COLORS } from './OptionEditor';
 
 interface EditorViewProps {
   scenes: Scene[];
@@ -81,7 +82,6 @@ const DEFAULT_STATUSES = [
   { value: 'Final', color: '#4caf7a' },
 ];
 
-const STATUS_COLORS = ['#9e9e9e', '#4a90d9', '#e8973d', '#4caf7a', '#e74c3c', '#9b59b6', '#1abc9c', '#f39c12'];
 
 
 function cleanContent(text: string): string {
@@ -2078,31 +2078,31 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               <h3>Edit Properties</h3>
               <button className="modal-close-btn" onClick={() => setShowMetaEditor(false)}>×</button>
             </div>
-            <div className="modal-body" style={{ padding: '16px', minWidth: '360px' }}>
+            <div className="modal-body" style={{ padding: '16px', minWidth: '520px', overflowY: 'auto' }}>
               {editingFieldDefs.map((field, i) => (
-                <div key={field.id} className="meta-field-editor-row">
-                  <input
-                    type="text"
-                    className="meta-field-editor-label"
-                    value={field.label}
-                    onChange={e => updateField(field.id, { label: e.target.value })}
-                    placeholder="Field name"
-                  />
-                  <select value={field.type} onChange={e => updateField(field.id, { type: e.target.value as MetadataFieldDef['type'], options: [] })}>
-                    <option value="text">Text</option>
-                    <option value="dropdown">Dropdown</option>
-                    <option value="multiselect">Multiselect</option>
-                  </select>
-                  {(field.type === 'dropdown' || field.type === 'multiselect') && (
+                <div key={field.id} className="meta-field-editor-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <input
                       type="text"
-                      className="meta-field-editor-options"
-                      value={(field.options || []).join(', ')}
-                      onChange={e => updateField(field.id, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-                      placeholder="Option 1, Option 2..."
+                      className="meta-field-editor-label"
+                      value={field.label}
+                      onChange={e => updateField(field.id, { label: e.target.value })}
+                      placeholder="Field name"
+                    />
+                    <select value={field.type} onChange={e => updateField(field.id, { type: e.target.value as MetadataFieldDef['type'], options: [], optionColors: {} })}>
+                      <option value="text">Text</option>
+                      <option value="dropdown">Dropdown</option>
+                      <option value="multiselect">Multiselect</option>
+                    </select>
+                    <button className="meta-field-editor-remove" onClick={() => removeField(field.id)}>×</button>
+                  </div>
+                  {(field.type === 'dropdown' || field.type === 'multiselect') && (
+                    <OptionEditor
+                      options={field.options || []}
+                      optionColors={field.optionColors || {}}
+                      onChange={(options, optionColors) => updateField(field.id, { options, optionColors })}
                     />
                   )}
-                  <button className="meta-field-editor-remove" onClick={() => removeField(field.id)}>×</button>
                 </div>
               ))}
               <button className="meta-field-editor-add" onClick={addField}>+ Add Property</button>
@@ -2133,7 +2133,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     onChange={e => { const updated = [...editingStatuses]; updated[i] = { ...s, value: e.target.value }; setEditingStatuses(updated); }}
                   />
                   <div className="status-editor-colors">
-                    {STATUS_COLORS.map(color => (
+                    {OPTION_COLORS.map(color => (
                       <div
                         key={color}
                         className={`status-color-swatch ${s.color === color ? 'active' : ''}`}

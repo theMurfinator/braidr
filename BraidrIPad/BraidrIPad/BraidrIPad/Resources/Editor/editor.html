@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Editor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: -apple-system, system-ui, sans-serif; }
+  body { padding: 16px; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1c1c1e; color: #fff; }
+  }
+  @media (prefers-color-scheme: light) {
+    body { background: #fff; color: #000; }
+  }
+  .tiptap { outline: none; min-height: 100%; font-size: 16px; line-height: 1.6; }
+  .tiptap p { margin-bottom: 0.5em; }
+  .tiptap h1 { font-size: 1.5em; margin: 0.5em 0 0.25em; }
+  .tiptap h2 { font-size: 1.3em; margin: 0.5em 0 0.25em; }
+  .tiptap h3 { font-size: 1.1em; margin: 0.5em 0 0.25em; }
+  .tiptap ul, .tiptap ol { padding-left: 1.5em; margin-bottom: 0.5em; }
+  .tiptap blockquote { border-left: 3px solid #ccc; padding-left: 1em; margin: 0.5em 0; color: #666; }
+  .tiptap code { background: rgba(128,128,128,0.15); padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; }
+  .tiptap pre { background: rgba(128,128,128,0.1); padding: 0.75em 1em; border-radius: 6px; overflow-x: auto; margin: 0.5em 0; }
+  .tiptap pre code { background: none; padding: 0; }
+  .tiptap table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+  .tiptap td, .tiptap th { border: 1px solid #ccc; padding: 0.4em 0.6em; }
+  .tiptap th { background: rgba(128,128,128,0.1); font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="editor"></div>
+<script type="module">
+import { Editor } from 'https://esm.sh/@tiptap/core@2.6.6';
+import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2.6.6';
+import Table from 'https://esm.sh/@tiptap/extension-table@2.6.6';
+import TableRow from 'https://esm.sh/@tiptap/extension-table-row@2.6.6';
+import TableCell from 'https://esm.sh/@tiptap/extension-table-cell@2.6.6';
+import TableHeader from 'https://esm.sh/@tiptap/extension-table-header@2.6.6';
+import Underline from 'https://esm.sh/@tiptap/extension-underline@2.6.6';
+
+const editor = new Editor({
+  element: document.getElementById('editor'),
+  extensions: [
+    StarterKit,
+    Table.configure({ resizable: true }),
+    TableRow,
+    TableCell,
+    TableHeader,
+    Underline,
+  ],
+  content: '',
+  onUpdate({ editor }) {
+    const html = editor.getHTML();
+    try { window.webkit.messageHandlers.contentChanged.postMessage(html); } catch(e) {}
+  },
+});
+
+window.editorAPI = {
+  setContent(html) {
+    editor.commands.setContent(html, false);
+  },
+  getContent() {
+    return editor.getHTML();
+  },
+  focus() {
+    editor.commands.focus();
+  },
+  blur() {
+    editor.commands.blur();
+  },
+};
+
+try { window.webkit.messageHandlers.editorReady.postMessage(true); } catch(e) {}
+</script>
+</body>
+</html>
