@@ -68,6 +68,38 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
     onChange(options, { ...optionColors, [name]: color });
   };
 
+  const dragIdx = useRef<number | null>(null);
+  const dragOverIdx = useRef<number | null>(null);
+
+  const handleDragStart = (idx: number) => {
+    dragIdx.current = idx;
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    dragOverIdx.current = idx;
+  };
+
+  const handleDrop = () => {
+    const from = dragIdx.current;
+    const to = dragOverIdx.current;
+    if (from === null || to === null || from === to) return;
+    const reordered = [...options];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    onChange(reordered, optionColors);
+    dragIdx.current = null;
+    dragOverIdx.current = null;
+  };
+
+  const moveOption = (idx: number, direction: 'up' | 'down') => {
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= options.length) return;
+    const reordered = [...options];
+    [reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]];
+    onChange(reordered, optionColors);
+  };
+
   const filtered = search
     ? options.filter(o => o.toLowerCase().includes(search.toLowerCase()))
     : options;
@@ -83,40 +115,65 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(); } }}
       />
       <div className="option-editor-list">
-        {filtered.map(name => (
-          <div key={name} className="option-editor-row">
-            {editingName === name ? (
-              <input
-                ref={editRef}
-                className="option-editor-rename"
-                value={editValue}
-                onChange={e => setEditValue(e.target.value)}
-                onBlur={commitRename}
-                onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingName(null); }}
-              />
-            ) : (
-              <span
-                className="option-editor-pill"
-                style={{ background: getColor(name) }}
-                onClick={() => startRename(name)}
-                title="Click to rename"
-              >
-                {name}
-              </span>
-            )}
-            <div className="option-editor-swatches">
-              {OPTION_COLORS.map(c => (
-                <div
-                  key={c}
-                  className={`option-editor-swatch${getColor(name) === c ? ' active' : ''}`}
-                  style={{ background: c }}
-                  onClick={() => setColor(name, c)}
+        {filtered.map((name) => {
+          const realIdx = options.indexOf(name);
+          return (
+            <div
+              key={name}
+              className="option-editor-row"
+              draggable
+              onDragStart={() => handleDragStart(realIdx)}
+              onDragOver={e => handleDragOver(e, realIdx)}
+              onDrop={handleDrop}
+            >
+              <span className="option-editor-handle" title="Drag to reorder">⠿</span>
+              {editingName === name ? (
+                <input
+                  ref={editRef}
+                  className="option-editor-rename"
+                  value={editValue}
+                  onChange={e => setEditValue(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingName(null); }}
                 />
-              ))}
+              ) : (
+                <span
+                  className="option-editor-pill"
+                  style={{ background: getColor(name) }}
+                  onClick={() => startRename(name)}
+                  title="Click to rename"
+                >
+                  {name}
+                </span>
+              )}
+              <div className="option-editor-swatches">
+                {OPTION_COLORS.map(c => (
+                  <div
+                    key={c}
+                    className={`option-editor-swatch${getColor(name) === c ? ' active' : ''}`}
+                    style={{ background: c }}
+                    onClick={() => setColor(name, c)}
+                  />
+                ))}
+              </div>
+              <div className="option-editor-reorder">
+                <button
+                  className="option-editor-move-btn"
+                  onClick={() => moveOption(realIdx, 'up')}
+                  disabled={realIdx === 0}
+                  title="Move up"
+                >↑</button>
+                <button
+                  className="option-editor-move-btn"
+                  onClick={() => moveOption(realIdx, 'down')}
+                  disabled={realIdx === options.length - 1}
+                  title="Move down"
+                >↓</button>
+              </div>
+              <button className="option-editor-remove" onClick={() => removeOption(name)}>×</button>
             </div>
-            <button className="option-editor-remove" onClick={() => removeOption(name)}>×</button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
