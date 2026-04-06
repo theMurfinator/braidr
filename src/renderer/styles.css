@@ -8548,16 +8548,46 @@ textarea.editor-meta-field-input {
   border-color: var(--text-secondary);
 }
 
-.option-editor-swatches {
-  display: grid;
-  grid-template-columns: repeat(8, 18px);
-  gap: 3px;
+.option-editor-color-trigger-wrap {
+  position: relative;
   flex-shrink: 0;
 }
 
+.option-editor-color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.1s, transform 0.1s;
+  box-sizing: border-box;
+}
+
+.option-editor-color-dot:hover {
+  transform: scale(1.15);
+  border-color: var(--text-muted);
+}
+
+.option-editor-color-popover {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 6px;
+  padding: 8px;
+  background: var(--bg-secondary, var(--bg-primary));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: grid;
+  grid-template-columns: repeat(8, 22px);
+  gap: 4px;
+  z-index: 100;
+}
+
 .option-editor-swatch {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   cursor: pointer;
   border: 2px solid transparent;
@@ -8571,7 +8601,7 @@ textarea.editor-meta-field-input {
 
 .option-editor-swatch.active {
   border-color: #fff;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 3px #fff;
 }
 
 .option-editor-reorder {

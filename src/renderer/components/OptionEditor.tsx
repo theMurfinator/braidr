@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export const OPTION_COLORS = [
   '#9e9e9e', '#64b5f6', '#4a90d9', '#3949ab',
@@ -15,6 +15,11 @@ interface OptionEditorProps {
 
 export function OptionEditor({ options, optionColors, onChange }: OptionEditorProps) {
   const [search, setSearch] = useState('');
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const editRef = useRef<HTMLInputElement>(null);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
 
   const getColor = (name: string) => optionColors[name] || '#9e9e9e';
 
@@ -35,15 +40,13 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
     const newColors = { ...optionColors };
     delete newColors[name];
     onChange(options.filter(o => o !== name), newColors);
+    if (colorPickerFor === name) setColorPickerFor(null);
   };
-
-  const [editingName, setEditingName] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const editRef = useRef<HTMLInputElement>(null);
 
   const startRename = (name: string) => {
     setEditingName(name);
     setEditValue(name);
+    setColorPickerFor(null);
     setTimeout(() => editRef.current?.select(), 0);
   };
 
@@ -66,7 +69,20 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
 
   const setColor = (name: string, color: string) => {
     onChange(options, { ...optionColors, [name]: color });
+    setColorPickerFor(null);
   };
+
+  // Close color picker when clicking outside
+  useEffect(() => {
+    if (!colorPickerFor) return;
+    const handleClick = (e: MouseEvent) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        setColorPickerFor(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [colorPickerFor]);
 
   const dragIdx = useRef<number | null>(null);
   const dragOverIdx = useRef<number | null>(null);
@@ -146,15 +162,25 @@ export function OptionEditor({ options, optionColors, onChange }: OptionEditorPr
                   {name}
                 </span>
               )}
-              <div className="option-editor-swatches">
-                {OPTION_COLORS.map(c => (
-                  <div
-                    key={c}
-                    className={`option-editor-swatch${getColor(name) === c ? ' active' : ''}`}
-                    style={{ background: c }}
-                    onClick={() => setColor(name, c)}
-                  />
-                ))}
+              <div className="option-editor-color-trigger-wrap">
+                <div
+                  className="option-editor-color-dot"
+                  style={{ background: getColor(name) }}
+                  onClick={() => setColorPickerFor(colorPickerFor === name ? null : name)}
+                  title="Change color"
+                />
+                {colorPickerFor === name && (
+                  <div className="option-editor-color-popover" ref={colorPickerRef}>
+                    {OPTION_COLORS.map(c => (
+                      <div
+                        key={c}
+                        className={`option-editor-swatch${getColor(name) === c ? ' active' : ''}`}
+                        style={{ background: c }}
+                        onClick={() => setColor(name, c)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="option-editor-reorder">
                 <button
