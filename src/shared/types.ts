@@ -48,7 +48,9 @@ export interface ArchivedScene {
   characterId: string;
   originalSceneNumber: number;
   plotPointId: string | null;
+  title: string;
   content: string;
+  draftContent?: string;
   tags: string[];
   notes: string[];
   isHighlighted: boolean;

@@ -11779,6 +11779,131 @@ textarea.table-cell-input {
 }
 .analytics-summary-change.neutral { color: var(--text-muted); }
 
+/* Weekly Hours Tracker */
+.analytics-weekly-tracker {
+  margin-bottom: 24px;
+}
+.analytics-weekly-tracker .analytics-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.analytics-weekly-title-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 200px;
+}
+.analytics-weekly-body {
+  display: flex;
+  gap: 40px;
+  align-items: stretch;
+}
+.analytics-weekly-summary {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.analytics-weekly-hours-big {
+  font-family: var(--font-body, Georgia, serif);
+  letter-spacing: -0.02em;
+}
+.analytics-weekly-hours-current {
+  font-size: 42px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.analytics-weekly-hours-target {
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.analytics-goal-bar-fill.weekly {
+  background: linear-gradient(90deg, #8b5cf6, #6d28d9);
+}
+.analytics-weekly-pace {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.analytics-weekly-pace strong {
+  color: var(--text-primary);
+}
+.analytics-weekly-goal-edit {
+  margin-top: 4px;
+}
+
+/* Weekly bar chart */
+.analytics-weekly-chart {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: 140px;
+  position: relative;
+}
+.analytics-weekly-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+.analytics-weekly-bar-value {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-height: 14px;
+  text-align: center;
+}
+.analytics-weekly-bar-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.analytics-weekly-bar {
+  width: 100%;
+  max-width: 48px;
+  border-radius: 4px 4px 0 0;
+  background: #ede9fe;
+  transition: height 0.3s ease, opacity 0.15s;
+}
+.analytics-weekly-bar.has-hours {
+  background: #8b5cf6;
+  opacity: 0.8;
+}
+.analytics-weekly-bar.today {
+  background: #6d28d9;
+  opacity: 1;
+}
+.analytics-weekly-bar.future {
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-bottom: none;
+  opacity: 0.4;
+}
+.analytics-weekly-bar-group:hover .analytics-weekly-bar {
+  opacity: 1;
+}
+.analytics-weekly-bar-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.analytics-weekly-bar-label.today {
+  color: var(--text-primary);
+  font-weight: 700;
+}
 /* Card grid */
 .analytics-grid {
   display: grid;

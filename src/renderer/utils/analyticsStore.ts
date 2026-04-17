@@ -43,6 +43,11 @@ export interface DeadlineGoal {
   deadlineDate: string; // ISO date "2026-05-31"
 }
 
+export interface WeeklyGoal {
+  enabled: boolean;
+  targetHours: number; // hours per week
+}
+
 export interface Milestone {
   id: string;
   label: string;
@@ -55,6 +60,7 @@ export interface AnalyticsData {
   sessions: WritingSession[];
   sceneSessions: SceneSession[];
   dailyGoal: DailyGoal;
+  weeklyGoal: WeeklyGoal;
   deadlineGoal: DeadlineGoal;
   milestones: Milestone[];
   currentStreak: number;
@@ -67,6 +73,7 @@ const DEFAULT_ANALYTICS: AnalyticsData = {
   sessions: [],
   sceneSessions: [],
   dailyGoal: { enabled: false, target: 500 },
+  weeklyGoal: { enabled: false, targetHours: 15 },
   deadlineGoal: { enabled: false, targetWords: 0, deadlineDate: '' },
   milestones: [],
   currentStreak: 0,
@@ -364,4 +371,50 @@ export function getCheckinAverages(
     count,
     ...(Object.keys(custom).length > 0 ? { custom } : {}),
   };
+}
+
+/**
+ * Get the Saturday that starts the week containing a given date.
+ * Weeks run Saturday–Friday.
+ */
+export function getWeekSaturday(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay(); // 0=Sun, 6=Sat
+  // Saturday is day 6. If today is Sat (6), offset is 0.
+  // Sun (0) → went back 1, Mon (1) → back 2, ... Fri (5) → back 6
+  const offset = (day + 1) % 7; // Sat=0, Sun=1, Mon=2, ..., Fri=6
+  d.setDate(d.getDate() - offset);
+  return d;
+}
+
+/**
+ * Get ISO date strings (YYYY-MM-DD) for each day in a Sat–Fri week
+ * starting from the given Saturday.
+ */
+export function getWeekDays(saturday: Date): string[] {
+  const days: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(saturday);
+    d.setDate(saturday.getDate() + i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  return days;
+}
+
+/**
+ * Format a week range label, e.g. "Apr 12 – Apr 18, 2026"
+ */
+export function formatWeekLabel(saturday: Date): string {
+  const friday = new Date(saturday);
+  friday.setDate(saturday.getDate() + 6);
+  const satMonth = saturday.toLocaleDateString('en-US', { month: 'short' });
+  const friMonth = friday.toLocaleDateString('en-US', { month: 'short' });
+  const satDay = saturday.getDate();
+  const friDay = friday.getDate();
+  const year = friday.getFullYear();
+  if (satMonth === friMonth) {
+    return `${satMonth} ${satDay} – ${friDay}, ${year}`;
+  }
+  return `${satMonth} ${satDay} – ${friMonth} ${friDay}, ${year}`;
 }

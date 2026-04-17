@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Scene, Character, PlotPoint, MetadataFieldDef } from '../../shared/types';
-import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages } from '../utils/analyticsStore';
+import { Scene, Character, PlotPoint, MetadataFieldDef, Task } from '../../shared/types';
+import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages, getWeekSaturday, getWeekDays, formatWeekLabel } from '../utils/analyticsStore';
 import { track } from '../utils/posthogTracker';
 
 interface WordCountDashboardProps {
@@ -17,6 +17,7 @@ interface WordCountDashboardProps {
   onClose?: () => void; // optional — unused when inline
   sceneSessions?: SceneSession[];
   customCheckinCategories?: CustomCheckinCategory[];
+  tasks?: Task[];
 }
 
 function countWords(html: string): number {
@@ -27,7 +28,7 @@ function countWords(html: string): number {
 }
 
 
-export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [], customCheckinCategories = [] }: WordCountDashboardProps) {
+export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [], customCheckinCategories = [], tasks = [] }: WordCountDashboardProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(wordCountGoal || ''));
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -40,6 +41,9 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
   const [editingDeadline, setEditingDeadline] = useState(false);
   const [deadlineTargetInput, setDeadlineTargetInput] = useState('');
   const [deadlineDateInput, setDeadlineDateInput] = useState('');
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week, etc.
+  const [editingWeeklyGoal, setEditingWeeklyGoal] = useState(false);
+  const [weeklyGoalInput, setWeeklyGoalInput] = useState('');
 
   // Load analytics on mount
   useEffect(() => {
@@ -255,6 +259,86 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     setEditingDeadline(false);
   };
 
+  // Weekly hours tracker
+  const weeklyData = useMemo(() => {
+    const now = new Date();
+    const currentSat = getWeekSaturday(now);
+    const viewedSat = new Date(currentSat);
+    viewedSat.setDate(currentSat.getDate() + weekOffset * 7);
+    const days = getWeekDays(viewedSat);
+    const todayStr = getTodayStr();
+    const isCurrentWeek = weekOffset === 0;
+    const dayLabels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+    // Build per-day hours from scene sessions
+    const perDay: number[] = new Array(7).fill(0);
+    for (const ss of sceneSessions) {
+      if (ss.sceneKey === 'manual:checkin') continue;
+      const idx = days.indexOf(ss.date);
+      if (idx >= 0) perDay[idx] += ss.durationMs;
+    }
+
+    // Add task time entries
+    for (const task of tasks) {
+      for (const te of task.timeEntries) {
+        const teDate = new Date(te.startedAt).toISOString().split('T')[0];
+        const idx = days.indexOf(teDate);
+        if (idx >= 0) perDay[idx] += te.duration;
+      }
+    }
+
+    // Convert ms to hours
+    const perDayHours = perDay.map(ms => ms / 3600000);
+    const totalHours = perDayHours.reduce((a, b) => a + b, 0);
+
+    // Figure out today's index within the week (or -1 if viewing past/future week)
+    const todayIdx = days.indexOf(todayStr);
+
+    // Days remaining (including today) — only meaningful for current week
+    let daysRemaining = 0;
+    if (isCurrentWeek && todayIdx >= 0) {
+      daysRemaining = 7 - todayIdx;
+    }
+
+    return {
+      saturday: viewedSat,
+      days,
+      dayLabels,
+      perDayHours,
+      totalHours,
+      todayIdx,
+      isCurrentWeek,
+      daysRemaining,
+      label: formatWeekLabel(viewedSat),
+    };
+  }, [weekOffset, sceneSessions, tasks]);
+
+  const weeklyGoal = analytics?.weeklyGoal;
+  const weeklyTargetHours = weeklyGoal?.enabled ? weeklyGoal.targetHours : 0;
+  const weeklyProgress = weeklyTargetHours > 0 ? Math.min(weeklyData.totalHours / weeklyTargetHours, 1) : 0;
+  const weeklyHoursRemaining = Math.max(0, weeklyTargetHours - weeklyData.totalHours);
+  const weeklyRequiredPerDay = weeklyData.isCurrentWeek && weeklyData.daysRemaining > 0
+    ? weeklyHoursRemaining / weeklyData.daysRemaining
+    : 0;
+  const weeklyOnTrack = weeklyData.isCurrentWeek
+    ? weeklyData.totalHours >= weeklyTargetHours || (weeklyData.daysRemaining > 0 && weeklyRequiredPerDay <= (weeklyTargetHours / 7) * 1.3)
+    : weeklyData.totalHours >= weeklyTargetHours;
+
+  const handleWeeklyGoalSave = () => {
+    if (!analytics || !projectPath) return;
+    const parsed = parseFloat(weeklyGoalInput);
+    if (!isNaN(parsed) && parsed > 0) {
+      track('goal_set', { type: 'weekly' });
+      const updated = {
+        ...analytics,
+        weeklyGoal: { enabled: true, targetHours: parsed },
+      };
+      setAnalytics(updated);
+      saveAnalytics(projectPath, updated);
+    }
+    setEditingWeeklyGoal(false);
+  };
+
   // Check-in averages
   const checkinAvgs = useMemo(() => getCheckinAverages(sceneSessions), [sceneSessions]);
 
@@ -323,6 +407,111 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
             })()}
           </span>
           <span className="analytics-summary-change neutral">{monthlySessionCount} {monthlySessionCount === 1 ? 'session' : 'sessions'} this month</span>
+        </div>
+      </div>
+
+      {/* Weekly Hours Tracker */}
+      <div className="analytics-weekly-tracker">
+        <div className="analytics-card full">
+          <div className="analytics-card-header">
+            <div className="analytics-calendar-nav">
+              <button onClick={() => setWeekOffset(prev => prev - 1)}>&#8249;</button>
+            </div>
+            <div className="analytics-weekly-title-group">
+              <span className="analytics-card-title">Weekly Hours</span>
+              <span className="analytics-card-subtitle">{weeklyData.label}</span>
+            </div>
+            <div className="analytics-calendar-nav">
+              <button onClick={() => setWeekOffset(prev => Math.min(prev + 1, 0))}>&#8250;</button>
+            </div>
+          </div>
+
+          <div className="analytics-weekly-body">
+            {/* Left: big number + progress + pacing */}
+            <div className="analytics-weekly-summary">
+              <div className="analytics-weekly-hours-big">
+                <span className="analytics-weekly-hours-current">{weeklyData.totalHours.toFixed(1)}</span>
+                {weeklyGoal?.enabled && (
+                  <span className="analytics-weekly-hours-target"> / {weeklyTargetHours}h</span>
+                )}
+              </div>
+
+              {weeklyGoal?.enabled && (
+                <>
+                  <div className="analytics-goal-bar-track">
+                    <div className="analytics-goal-bar-fill weekly" style={{ width: `${weeklyProgress * 100}%` }} />
+                  </div>
+                  {weeklyData.isCurrentWeek && weeklyData.totalHours < weeklyTargetHours && weeklyData.daysRemaining > 0 && (
+                    <div className="analytics-weekly-pace">
+                      Need <strong>{weeklyRequiredPerDay.toFixed(1)}h/day</strong> for remaining {weeklyData.daysRemaining} day{weeklyData.daysRemaining !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                  <span className={`analytics-deadline-pill ${weeklyOnTrack ? 'on-track' : 'behind'}`}>
+                    {weeklyData.totalHours >= weeklyTargetHours
+                      ? '\u2713 Target hit'
+                      : weeklyData.isCurrentWeek
+                        ? (weeklyOnTrack ? '\u2713 On track' : '\u26A0 Behind pace')
+                        : '\u2717 Missed'
+                    }
+                  </span>
+                </>
+              )}
+
+              <div className="analytics-weekly-goal-edit">
+                {editingWeeklyGoal ? (
+                  <div className="analytics-goal-edit inline">
+                    <input
+                      type="number"
+                      value={weeklyGoalInput}
+                      onChange={e => setWeeklyGoalInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleWeeklyGoalSave();
+                        if (e.key === 'Escape') setEditingWeeklyGoal(false);
+                      }}
+                      onBlur={handleWeeklyGoalSave}
+                      autoFocus
+                      min={0}
+                      step={0.5}
+                      placeholder="Hours/week"
+                    />
+                  </div>
+                ) : (
+                  <button className="analytics-goal-edit-btn" onClick={() => {
+                    setWeeklyGoalInput(String(weeklyGoal?.targetHours || 15));
+                    setEditingWeeklyGoal(true);
+                  }}>
+                    {weeklyGoal?.enabled ? `${weeklyTargetHours}h target` : 'Set weekly target'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Right: 7-day bar chart */}
+            <div className="analytics-weekly-chart">
+              {weeklyData.perDayHours.map((hours, i) => {
+                const maxHours = Math.max(...weeklyData.perDayHours, weeklyTargetHours / 7, 0.1);
+                const barHeight = (hours / maxHours) * 100;
+                const isToday = i === weeklyData.todayIdx;
+                const isFuture = weeklyData.isCurrentWeek && weeklyData.todayIdx >= 0 && i > weeklyData.todayIdx;
+                return (
+                  <div key={weeklyData.days[i]} className="analytics-weekly-bar-group">
+                    <div className="analytics-weekly-bar-value">
+                      {hours > 0 ? (hours >= 10 ? hours.toFixed(0) : hours.toFixed(1)) : ''}
+                    </div>
+                    <div className="analytics-weekly-bar-track">
+                      <div
+                        className={`analytics-weekly-bar ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''} ${hours > 0 ? 'has-hours' : ''}`}
+                        style={{ height: `${Math.max(barHeight, hours > 0 ? 4 : 0)}%` }}
+                      />
+                    </div>
+                    <div className={`analytics-weekly-bar-label ${isToday ? 'today' : ''}`}>
+                      {weeklyData.dayLabels[i]}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 

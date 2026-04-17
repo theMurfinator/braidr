@@ -347,11 +347,16 @@ function App() {
       startedAt: taskTimerStartRef.current,
       duration,
     };
-    setTasks(prev => prev.map(t =>
-      t.id === currentTaskId
-        ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
-        : t
-    ));
+    setTasks(prev => {
+      const updated = prev.map(t =>
+        t.id === currentTaskId
+          ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
+          : t
+      );
+      tasksRef.current = updated;
+      isDirtyRef.current = true;
+      return updated;
+    });
     setTaskTimerTaskId(null);
     taskTimerStartRef.current = null;
     setTaskTimerElapsed(0);
@@ -2819,13 +2824,15 @@ function App() {
     const scene = projectData.scenes.find(s => s.id === sceneId);
     if (!scene) return;
 
-    // Create archived copy
+    // Create archived copy — preserve title and draft content so unarchive restores everything
     const archived: ArchivedScene = {
       id: scene.id,
       characterId: scene.characterId,
       originalSceneNumber: scene.sceneNumber,
       plotPointId: scene.plotPointId,
+      title: scene.title,
       content: scene.content,
+      draftContent: draftContentRef.current[scene.id] || undefined,
       tags: scene.tags,
       notes: scene.notes,
       isHighlighted: scene.isHighlighted,
@@ -2913,7 +2920,7 @@ function App() {
       id: archived.id,
       characterId: archived.characterId,
       sceneNumber: maxSceneNumber + 1,
-      title: archived.content,
+      title: archived.title ?? archived.content,
       content: archived.content,
       tags: archived.tags,
       timelinePosition: null,
@@ -2922,6 +2929,13 @@ function App() {
       plotPointId: targetPlotPointId,
       wordCount: archived.wordCount,
     };
+
+    // Restore draft content if it was preserved
+    if (archived.draftContent) {
+      const updatedDC = { ...draftContentRef.current, [archived.id]: archived.draftContent };
+      draftContentRef.current = updatedDC;
+      setDraftContent(updatedDC);
+    }
 
     const updatedScenes = [...projectData.scenes, restoredScene];
     const updatedData = { ...projectData, scenes: updatedScenes };
@@ -3379,6 +3393,7 @@ function App() {
                 onGoalChange={handleWordCountGoalChange}
                 sceneSessions={sceneSessions}
                 customCheckinCategories={analyticsRef.current?.customCheckinCategories}
+                tasks={tasks}
               />
             ) : mode === 'notes' ? (
               <NotesView
