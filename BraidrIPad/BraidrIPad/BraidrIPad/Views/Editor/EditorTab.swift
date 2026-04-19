@@ -6,21 +6,15 @@ struct EditorTab: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $viewModel.selectedSceneId) {
-                ForEach(viewModel.characters) { character in
-                    Section(character.name) {
-                        ForEach(viewModel.scenes(for: character.id)) { scene in
-                            NavigationLink(value: scene.id) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("\(scene.sceneNumber). \(scene.title)")
-                                        .lineLimit(2)
-                                        .font(scene.isHighlighted ? .body.bold() : .body)
-                                    if !scene.tags.isEmpty {
-                                        Text(scene.tags.map { "#\($0)" }.joined(separator: " "))
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
+                Section("Braided") {
+                    ForEach(editorOrderedPlaced) { scene in
+                        sceneRow(for: scene)
+                    }
+                }
+                if !editorOrderedUnplaced.isEmpty {
+                    Section("Unplaced") {
+                        ForEach(editorOrderedUnplaced) { scene in
+                            sceneRow(for: scene)
                         }
                     }
                 }
@@ -54,5 +48,46 @@ struct EditorTab: View {
             return "\(name) — Scene \(scene.sceneNumber)"
         }
         return "Editor"
+    }
+
+    // Scenes with a timeline position, sorted by it — matches the desktop EditorView sidebar.
+    private var editorOrderedPlaced: [Scene] {
+        viewModel.scenes
+            .filter { $0.timelinePosition != nil }
+            .sorted { ($0.timelinePosition ?? 0) < ($1.timelinePosition ?? 0) }
+    }
+
+    // Scenes not yet braided — grouped below in a separate section.
+    private var editorOrderedUnplaced: [Scene] {
+        viewModel.scenes
+            .filter { $0.timelinePosition == nil }
+            .sorted {
+                if $0.characterId != $1.characterId { return $0.characterId < $1.characterId }
+                return $0.sceneNumber < $1.sceneNumber
+            }
+    }
+
+    @ViewBuilder
+    private func sceneRow(for scene: Scene) -> some View {
+        NavigationLink(value: scene.id) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: viewModel.characterColor(for: scene.characterId)))
+                        .frame(width: 8, height: 8)
+                    Text("\(viewModel.characterName(for: scene.characterId)) · \(scene.sceneNumber)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text(scene.title)
+                    .lineLimit(2)
+                    .font(scene.isHighlighted ? .body.bold() : .body)
+                if !scene.tags.isEmpty {
+                    Text(scene.tags.map { "#\($0)" }.joined(separator: " "))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 }
