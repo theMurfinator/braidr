@@ -15,7 +15,7 @@ struct RailsSceneCard: View {
                     .foregroundStyle(Color(hex: characterColorHex))
                 Spacer()
             }
-            Text(scene.title)
+            Text(Self.strippingTags(scene.title))
                 .font(scene.isHighlighted ? .body.bold() : .body)
                 .lineLimit(3)
             if !scene.tags.isEmpty {
@@ -27,7 +27,7 @@ struct RailsSceneCard: View {
             if !scene.notes.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(scene.notes.prefix(2), id: \.self) { note in
-                        Text("• \(note)")
+                        Text("• \(Self.strippingTags(note))")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -52,5 +52,15 @@ struct RailsSceneCard: View {
                 .stroke(Color(hex: characterColorHex).opacity(0.35), lineWidth: 1)
         )
         .padding(4)
+    }
+
+    /// Remove inline `#tag` substrings from display text; the persisted .md
+    /// still holds them, and the dedicated tag strip below the title renders
+    /// the extracted tag list separately.
+    private static func strippingTags(_ text: String) -> String {
+        text
+            .replacingOccurrences(of: "#[A-Za-z0-9_]+", with: "", options: .regularExpression)
+            .replacingOccurrences(of: " +", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
     }
 }
