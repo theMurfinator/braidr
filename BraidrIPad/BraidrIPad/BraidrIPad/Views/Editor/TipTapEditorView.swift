@@ -28,7 +28,9 @@ struct TipTapEditorView: UIViewRepresentable {
 
         context.coordinator.webView = webView
 
-        if let htmlURL = Bundle.main.url(forResource: "editor", withExtension: "html", subdirectory: "Editor") {
+        // Xcode flattens the Resources/Editor/ directory into the .app root,
+        // so the subdirectory hint returns nil. Look up by name only.
+        if let htmlURL = Bundle.main.url(forResource: "editor", withExtension: "html") {
             webView.loadFileURL(htmlURL, allowingReadAccessTo: htmlURL.deletingLastPathComponent())
         }
 
