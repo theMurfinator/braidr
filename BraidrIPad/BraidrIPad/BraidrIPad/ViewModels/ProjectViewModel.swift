@@ -40,8 +40,15 @@ final class ProjectViewModel {
             try BookmarkManager.saveBookmark(for: url)
             let loaded = try await fileService.loadProject(from: url)
             project = loaded
-            // Pre-load draft content from timeline draftContent
-            draftContents = loaded.timelineData.draftContent ?? [:]
+
+            // Populate draft contents from per-scene drafts/*.md files (Phase 1 format),
+            // then fill gaps from legacy inline timeline.draftContent for older projects.
+            var merged = loaded.timelineData.draftContent ?? [:]
+            let perScene = (try? await fileService.loadAllDrafts(projectURL: url)) ?? [:]
+            for (sceneId, content) in perScene {
+                merged[sceneId] = content
+            }
+            draftContents = merged
         } catch {
             errorMessage = error.localizedDescription
         }

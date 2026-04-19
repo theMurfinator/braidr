@@ -98,9 +98,9 @@ actor FileProjectService {
     // MARK: - Drafts
 
     func readDraft(projectURL: URL, sceneId: String) throws -> String {
-        let url = projectURL.appendingPathComponent("drafts/\(sceneId).html")
+        let url = projectURL.appendingPathComponent("drafts/\(sceneId).md")
         guard FileManager.default.fileExists(atPath: url.path) else {
-            // Fall back to timeline.json draftContent
+            // Fall back to legacy timeline.json draftContent (pre-Phase-1 projects)
             let timelineURL = projectURL.appendingPathComponent("timeline.json")
             if FileManager.default.fileExists(atPath: timelineURL.path),
                let data = try? Data(contentsOf: timelineURL),
@@ -116,8 +116,22 @@ actor FileProjectService {
     func saveDraft(projectURL: URL, sceneId: String, content: String) throws {
         let draftsDir = projectURL.appendingPathComponent("drafts")
         try FileManager.default.createDirectory(at: draftsDir, withIntermediateDirectories: true)
-        let url = draftsDir.appendingPathComponent("\(sceneId).html")
+        let url = draftsDir.appendingPathComponent("\(sceneId).md")
         try content.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    /// Eagerly read every `drafts/*.md` file, returning sceneId → content.
+    /// Mirrors the desktop Electron behavior of preloading all drafts at project-load time.
+    func loadAllDrafts(projectURL: URL) throws -> [String: String] {
+        let draftsDir = projectURL.appendingPathComponent("drafts")
+        guard FileManager.default.fileExists(atPath: draftsDir.path) else { return [:] }
+        let contents = try FileManager.default.contentsOfDirectory(at: draftsDir, includingPropertiesForKeys: nil)
+        var out: [String: String] = [:]
+        for fileURL in contents where fileURL.pathExtension == "md" {
+            let sceneId = fileURL.deletingPathExtension().lastPathComponent
+            out[sceneId] = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
+        }
+        return out
     }
 
     // MARK: - Notes
