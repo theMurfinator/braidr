@@ -29,6 +29,13 @@ final class ProjectViewModel {
     func loadProject(from url: URL) async {
         isLoading = true
         errorMessage = nil
+
+        // iOS fileImporter URLs need explicit security-scoped access before
+        // any use outside the picker callback — including bookmark creation
+        // and actor-boundary hops. Hold scope for the whole load.
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+
         do {
             try BookmarkManager.saveBookmark(for: url)
             let loaded = try await fileService.loadProject(from: url)
