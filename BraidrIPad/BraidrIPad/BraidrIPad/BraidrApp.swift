@@ -23,8 +23,8 @@ struct MainTabView: View {
             Tab("Outline", systemImage: "list.bullet.indent") {
                 OutlineTab(viewModel: viewModel)
             }
-            Tab("Timeline", systemImage: "timeline.selection") {
-                TimelineTab(viewModel: viewModel)
+            Tab("Rails", systemImage: "square.grid.3x3") {
+                RailsTab(viewModel: viewModel)
             }
             Tab("Editor", systemImage: "doc.text") {
                 EditorTab(viewModel: viewModel)
