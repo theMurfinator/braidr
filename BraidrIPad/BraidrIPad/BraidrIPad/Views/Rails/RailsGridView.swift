@@ -65,11 +65,23 @@ struct RailsGridView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: Self.rowNumberWidth, height: Self.rowHeight)
                 .background(.bar)
-            ForEach(viewModel.characters) { _ in
-                Color.clear
-                    .frame(width: columnWidth, height: Self.rowHeight)
-                    .border(Color.gray.opacity(0.15))
+            ForEach(viewModel.characters) { ch in
+                ZStack {
+                    Color.clear
+                    if let scn = scene(at: rowIndex, characterId: ch.id) {
+                        RailsSceneCard(
+                            scene: scn,
+                            characterColorHex: viewModel.characterColor(for: ch.id)
+                        )
+                    }
+                }
+                .frame(width: columnWidth, height: Self.rowHeight)
+                .border(Color.gray.opacity(0.12))
             }
         }
+    }
+
+    private func scene(at rowIndex: Int, characterId: String) -> Scene? {
+        viewModel.scenes.first { $0.characterId == characterId && $0.timelinePosition == rowIndex }
     }
 }
