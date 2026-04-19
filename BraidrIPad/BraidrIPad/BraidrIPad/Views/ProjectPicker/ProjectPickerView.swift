@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ProjectPickerView: View {
     @Bindable var viewModel: ProjectViewModel
