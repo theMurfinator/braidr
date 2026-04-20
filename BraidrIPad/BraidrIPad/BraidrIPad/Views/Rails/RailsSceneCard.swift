@@ -75,10 +75,21 @@ struct RailsSceneCard: View {
         .padding(4)
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
-        .onAppear {
+        .task(id: scene.id) {
             title = scene.title
             tagsText = scene.tags.map { "#\($0)" }.joined(separator: " ")
             notesText = scene.notes.joined(separator: "\n")
+        }
+        .onChange(of: scene.title) { _, new in
+            if new != title { title = new }
+        }
+        .onChange(of: scene.tags) { _, new in
+            let rendered = new.map { "#\($0)" }.joined(separator: " ")
+            if rendered != tagsText { tagsText = rendered }
+        }
+        .onChange(of: scene.notes) { _, new in
+            let rendered = new.joined(separator: "\n")
+            if rendered != notesText { notesText = rendered }
         }
     }
 
