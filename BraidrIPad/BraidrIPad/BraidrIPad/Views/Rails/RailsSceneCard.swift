@@ -23,8 +23,6 @@ struct RailsSceneCard: View {
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .padding(4)
-                    .contentShape(Rectangle())
-                    .gesture(dragGesture)
                     .accessibilityLabel("Drag handle for scene \(scene.title.strippingInlineTags())")
                     .accessibilityHint("Long press and drag to move this scene")
                 Text("\(scene.sceneNumber)")
@@ -74,6 +72,7 @@ struct RailsSceneCard: View {
         )
         .padding(4)
         .contentShape(Rectangle())
+        .gesture(longPressDragGesture)
         .onTapGesture(perform: onTap)
         .task(id: scene.id) {
             title = scene.title
@@ -93,19 +92,30 @@ struct RailsSceneCard: View {
         }
     }
 
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+    private var longPressDragGesture: some Gesture {
+        LongPressGesture(minimumDuration: 0.35, maximumDistance: 10)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
             .onChanged { value in
-                if dragState.sceneId == nil {
-                    dragState.begin(scene: scene, at: value.location)
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                } else {
-                    dragState.update(to: value.location)
+                switch value {
+                case .second(true, let drag?):
+                    if dragState.sceneId == nil {
+                        dragState.begin(scene: scene, at: drag.location, characterColorHex: characterColorHex)
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    } else {
+                        dragState.update(to: drag.location)
+                    }
+                default:
+                    break
                 }
             }
-            .onEnded { _ in
-                let target = dragState.end()
-                handleDrop(target: target)
+            .onEnded { value in
+                switch value {
+                case .second(true, _):
+                    let target = dragState.end()
+                    handleDrop(target: target)
+                default:
+                    break
+                }
             }
     }
 

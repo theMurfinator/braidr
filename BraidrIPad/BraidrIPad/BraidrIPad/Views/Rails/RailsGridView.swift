@@ -100,6 +100,7 @@ struct RailsGridView: View {
 
     @ViewBuilder
     private func row(rowIndex: Int, columnWidth: CGFloat) -> some View {
+        let isDropTarget = dragState.sceneId != nil && dragState.dropTarget == .row(rowIndex)
         HStack(spacing: 0) {
             Button {
                 insertAtRow = rowIndex
@@ -144,6 +145,18 @@ struct RailsGridView: View {
                 }
                 .frame(width: columnWidth, height: Self.rowHeight)
                 .border(Color.secondary.opacity(0.15))
+            }
+        }
+        .background(
+            isDropTarget
+                ? Color.accentColor.opacity(0.15)
+                : Color.clear
+        )
+        .overlay(alignment: .top) {
+            if isDropTarget {
+                Rectangle()
+                    .fill(Color.accentColor)
+                    .frame(height: 2)
             }
         }
         .background(

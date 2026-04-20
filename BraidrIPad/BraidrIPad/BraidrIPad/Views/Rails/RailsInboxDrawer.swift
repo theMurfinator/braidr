@@ -34,6 +34,15 @@ struct RailsInboxDrawer: View {
         }
         .frame(width: 260)
         .background(.regularMaterial)
+        .overlay(
+            RoundedRectangle(cornerRadius: 0)
+                .stroke(
+                    dragState.sceneId != nil && dragState.dropTarget == .inbox
+                        ? Color.accentColor
+                        : Color.clear,
+                    lineWidth: 3
+                )
+        )
         .background(
             GeometryReader { geo in
                 Color.clear

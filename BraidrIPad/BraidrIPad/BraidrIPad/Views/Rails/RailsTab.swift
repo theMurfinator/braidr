@@ -45,15 +45,38 @@ struct RailsTab: View {
         }
     }
 
+    @ViewBuilder
     private var ghost: some View {
-        Text(dragState.sceneTitle.prefix(30))
-            .font(.footnote.bold())
-            .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+        if let scn = dragState.ghostScene {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color(hex: dragState.ghostCharacterColorHex))
+                        .frame(width: 8, height: 8)
+                    Text("\(scn.sceneNumber)")
+                        .font(.caption2.monospacedDigit().bold())
+                        .foregroundStyle(Color(hex: dragState.ghostCharacterColorHex))
+                    Spacer(minLength: 0)
+                }
+                Text(scn.title.strippingInlineTags())
+                    .font(.footnote)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+            }
+            .padding(10)
+            .frame(width: 220)
             .background(
-                Capsule().fill(Color.accentColor)
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(hex: dragState.ghostCharacterColorHex).opacity(0.9))
             )
-            .shadow(radius: 6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+            )
+            .foregroundStyle(.white)
+            .shadow(radius: 10, y: 4)
+            .scaleEffect(1.05)
+            .rotationEffect(.degrees(-1.5))
+        }
     }
 }

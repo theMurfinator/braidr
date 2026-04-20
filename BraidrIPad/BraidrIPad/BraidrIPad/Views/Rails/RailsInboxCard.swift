@@ -26,8 +26,6 @@ struct RailsInboxCard: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .padding(4)
-                .contentShape(Rectangle())
-                .gesture(dragGesture)
                 .accessibilityLabel("Drag handle for \(characterName) scene \(scene.sceneNumber)")
                 .accessibilityHint("Drag into the grid to place this scene")
         }
@@ -36,21 +34,34 @@ struct RailsInboxCard: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color(hex: characterColorHex).opacity(0.05))
         )
+        .contentShape(Rectangle())
+        .gesture(longPressDragGesture)
     }
 
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+    private var longPressDragGesture: some Gesture {
+        LongPressGesture(minimumDuration: 0.35, maximumDistance: 10)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
             .onChanged { value in
-                if dragState.sceneId == nil {
-                    dragState.begin(scene: scene, at: value.location)
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                } else {
-                    dragState.update(to: value.location)
+                switch value {
+                case .second(true, let drag?):
+                    if dragState.sceneId == nil {
+                        dragState.begin(scene: scene, at: drag.location, characterColorHex: characterColorHex)
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    } else {
+                        dragState.update(to: drag.location)
+                    }
+                default:
+                    break
                 }
             }
-            .onEnded { _ in
-                let target = dragState.end()
-                handleDrop(target: target)
+            .onEnded { value in
+                switch value {
+                case .second(true, _):
+                    let target = dragState.end()
+                    handleDrop(target: target)
+                default:
+                    break
+                }
             }
     }
 
