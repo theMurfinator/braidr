@@ -14,7 +14,9 @@
     "package": "npm run build && electron-builder",
     "cap:build": "npm run build:vite && npx cap sync",
     "cap:open": "npx cap open ios",
-    "cap:run": "npx cap run ios"
+    "cap:run": "npx cap run ios",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "novel",
