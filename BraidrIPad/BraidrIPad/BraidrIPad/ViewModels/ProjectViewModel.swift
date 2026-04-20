@@ -15,6 +15,9 @@ final class ProjectViewModel {
     var selectedSceneId: String?
     var selectedNoteId: String?
 
+    /// Which tab is currently active. "outline" | "rails" | "editor" | "notes"
+    var selectedTab: String = "outline"
+
     /// ID of the scene whose detail sheet is open on the Rails tab.
     var selectedSceneForSheet: String?
 

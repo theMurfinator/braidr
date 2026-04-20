@@ -37,6 +37,7 @@ struct SceneDetailSheet: View {
                 Section {
                     Button("Open in Editor") {
                         viewModel.selectedSceneId = sceneId
+                        viewModel.selectedTab = "editor"
                         viewModel.selectedSceneForSheet = nil
                         dismiss()
                     }

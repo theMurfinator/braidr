@@ -19,17 +19,17 @@ struct MainTabView: View {
     @Bindable var viewModel: ProjectViewModel
 
     var body: some View {
-        TabView {
-            Tab("Outline", systemImage: "list.bullet.indent") {
+        TabView(selection: $viewModel.selectedTab) {
+            Tab("Outline", systemImage: "list.bullet.indent", value: "outline") {
                 OutlineTab(viewModel: viewModel)
             }
-            Tab("Rails", systemImage: "square.grid.3x3") {
+            Tab("Rails", systemImage: "square.grid.3x3", value: "rails") {
                 RailsTab(viewModel: viewModel)
             }
-            Tab("Editor", systemImage: "doc.text") {
+            Tab("Editor", systemImage: "doc.text", value: "editor") {
                 EditorTab(viewModel: viewModel)
             }
-            Tab("Notes", systemImage: "note.text") {
+            Tab("Notes", systemImage: "note.text", value: "notes") {
                 NotesTab(viewModel: viewModel)
             }
         }
