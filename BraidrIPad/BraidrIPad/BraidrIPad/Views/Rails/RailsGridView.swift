@@ -147,16 +147,11 @@ struct RailsGridView: View {
                 .border(Color.secondary.opacity(0.15))
             }
         }
-        .background(
-            isDropTarget
-                ? Color.accentColor.opacity(0.15)
-                : Color.clear
-        )
         .overlay(alignment: .top) {
             if isDropTarget {
                 Rectangle()
                     .fill(Color.accentColor)
-                    .frame(height: 2)
+                    .frame(height: 3)
             }
         }
         .background(
