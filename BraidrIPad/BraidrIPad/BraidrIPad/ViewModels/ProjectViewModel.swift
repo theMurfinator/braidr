@@ -79,6 +79,21 @@ final class ProjectViewModel {
         project?.sortedBraidedScenes ?? []
     }
 
+    /// Scenes with no timelinePosition, optionally filtered to one character.
+    func inboxScenes(filter: String = "all") -> [Scene] {
+        let unplaced = scenes.filter { $0.timelinePosition == nil }
+        let filtered: [Scene]
+        if filter == "all" {
+            filtered = unplaced
+        } else {
+            filtered = unplaced.filter { $0.characterId == filter }
+        }
+        return filtered.sorted {
+            if $0.characterId != $1.characterId { return $0.characterId < $1.characterId }
+            return $0.sceneNumber < $1.sceneNumber
+        }
+    }
+
     func characterName(for id: String) -> String {
         project?.character(for: id)?.name ?? "Unknown"
     }
