@@ -33,30 +33,32 @@ struct RailsSceneCard: View {
                 Spacer()
                 ConnectionBadge(viewModel: viewModel, sceneId: scene.id)
             }
-            TextField("Title", text: $title, onCommit: { onTitleChange(title) })
+            TextField("Title", text: $title)
                 .textFieldStyle(.plain)
                 .font(scene.isHighlighted ? .body.bold() : .body)
+                .onChange(of: title) { _, new in onTitleChange(new) }
 
-            TextField("#tags space-separated", text: $tagsText, onCommit: {
-                let parts = tagsText
-                    .split(separator: " ")
-                    .map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: "#")) }
-                    .filter { !$0.isEmpty }
-                onTagsChange(parts)
-            })
-            .textFieldStyle(.plain)
-            .font(.caption2)
-            .foregroundStyle(.secondary)
+            TextField("#tags space-separated", text: $tagsText)
+                .textFieldStyle(.plain)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .onChange(of: tagsText) { _, new in
+                    let parts = new
+                        .split(separator: " ")
+                        .map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: "#")) }
+                        .filter { !$0.isEmpty }
+                    onTagsChange(parts)
+                }
 
             TextField("notes (one per line)", text: $notesText, axis: .vertical)
-                .onSubmit {
-                    let lines = notesText.split(separator: "\n").map(String.init)
-                    onNotesChange(lines)
-                }
                 .textFieldStyle(.plain)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(3...)
+                .onChange(of: notesText) { _, new in
+                    let lines = new.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+                    onNotesChange(lines)
+                }
 
             Spacer(minLength: 0)
         }
