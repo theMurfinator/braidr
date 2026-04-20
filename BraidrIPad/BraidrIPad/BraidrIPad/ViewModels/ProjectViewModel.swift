@@ -310,6 +310,53 @@ final class ProjectViewModel {
         saveTimelineInBackground()
     }
 
+    // MARK: - Insert
+
+    /// Insert a new empty scene at timeline row `target` for `characterId`.
+    /// Returns the new scene's ID.
+    @discardableResult
+    func insertNewScene(at target: Int, characterId: String) -> String {
+        guard var proj = project else { return "" }
+        let newId = Self.generateSceneId()
+        // Find max sceneNumber for this character to append the next one.
+        let maxSceneNum = proj.scenes
+            .filter { $0.characterId == characterId }
+            .map { $0.sceneNumber }
+            .max() ?? 0
+        let newScene = Scene(
+            id: newId,
+            characterId: characterId,
+            sceneNumber: maxSceneNum + 1,
+            title: "Untitled",
+            content: "Untitled",
+            tags: [],
+            timelinePosition: target,
+            isHighlighted: false,
+            notes: [],
+            plotPointId: nil,
+            wordCount: nil
+        )
+        // Shift other scenes at or after target.
+        for i in proj.scenes.indices {
+            if let pos = proj.scenes[i].timelinePosition, pos >= target {
+                proj.scenes[i].timelinePosition = pos + 1
+                proj.timelineData.positions[proj.scenes[i].id] = pos + 1
+            }
+        }
+        proj.scenes.append(newScene)
+        proj.timelineData.positions[newId] = target
+        renumberBraid(&proj)
+        project = proj
+        saveTimelineInBackground()
+        schedulePersistCharacterOutline(for: characterId)
+        return newId
+    }
+
+    private static func generateSceneId() -> String {
+        let chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+        return String((0..<9).map { _ in chars.randomElement()! })
+    }
+
     // MARK: - Drag helpers
 
     private func braidCount(in proj: Project) -> Int {

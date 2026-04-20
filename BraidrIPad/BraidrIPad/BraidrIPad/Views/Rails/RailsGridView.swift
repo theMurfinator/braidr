@@ -20,6 +20,7 @@ struct RailsGridView: View {
 
     @State private var scrollTarget: Int = 1
     @State private var autoScrollTimer: Timer?
+    @State private var insertAtRow: Int?
 
     var body: some View {
         GeometryReader { geo in
@@ -57,6 +58,12 @@ struct RailsGridView: View {
                 .onChange(of: dragState.sceneId) { _, newValue in
                     if newValue == nil { stopAutoScroll() }
                 }
+                .popover(item: Binding(
+                    get: { insertAtRow.map { RowIdWrapper(id: $0) } },
+                    set: { insertAtRow = $0?.id }
+                )) { wrapper in
+                    characterPicker(for: wrapper.id)
+                }
             }
         }
     }
@@ -87,11 +94,16 @@ struct RailsGridView: View {
     @ViewBuilder
     private func row(rowIndex: Int, columnWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
-            Text("\(rowIndex)")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .frame(width: Self.rowNumberWidth, height: Self.rowHeight)
-                .background(.bar)
+            Button {
+                insertAtRow = rowIndex
+            } label: {
+                Text("\(rowIndex)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: Self.rowNumberWidth, height: Self.rowHeight)
+                    .background(.bar)
+            }
+            .buttonStyle(.plain)
             ForEach(viewModel.characters) { ch in
                 ZStack {
                     Color.clear
@@ -137,6 +149,34 @@ struct RailsGridView: View {
         viewModel.scenes.first { $0.characterId == characterId && $0.timelinePosition == rowIndex }
     }
 
+    // MARK: - Character picker
+
+    @ViewBuilder
+    private func characterPicker(for row: Int) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Insert new scene at row \(row) for:")
+                .font(.headline)
+            ForEach(viewModel.characters) { ch in
+                Button {
+                    viewModel.insertNewScene(at: row, characterId: ch.id)
+                    insertAtRow = nil
+                } label: {
+                    HStack {
+                        Circle()
+                            .fill(Color(hex: viewModel.characterColor(for: ch.id)))
+                            .frame(width: 10, height: 10)
+                        Text(ch.name)
+                        Spacer()
+                    }
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .frame(minWidth: 220)
+    }
+
     // MARK: - Auto-scroll
 
     private func startAutoScroll(direction: Int, proxy: ScrollViewProxy) {
@@ -163,3 +203,5 @@ struct RailsRowFrameKey: PreferenceKey {
         value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
+
+private struct RowIdWrapper: Identifiable { let id: Int }
