@@ -155,8 +155,61 @@ actor FileProjectService {
         let url = projectURL.appendingPathComponent("timeline.json")
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(timelineData)
-        try data.write(to: url, options: .atomic)
+        let encoded = try encoder.encode(timelineData)
+
+        // Preserve task-family keys the iPad app's TimelineData doesn't model.
+        // Without this, our save strips tasks/taskFieldDefs/taskViews/etc and
+        // iCloud propagates the wipe to the Mac. Mirrors the desktop-side
+        // saveTimelineToDisk guard (src/main/saveTimeline.ts).
+        let merged = Self.mergeUnknownKeys(newData: encoded, existingFileURL: url)
+        try merged.write(to: url, options: .atomic)
+    }
+
+    // Only keys that TimelineData.swift does NOT model. If the iPad's
+    // TimelineData struct gains a field (e.g. tasks), remove it from this list.
+    private static let preservedKeys: [String] = [
+        "tasks",
+        "taskFieldDefs",
+        "taskViews",
+        "taskColumnWidths",
+        "taskVisibleColumns",
+        "inlineMetadataFields",
+        "showInlineLabels",
+    ]
+
+    private static func mergeUnknownKeys(newData: Data, existingFileURL: URL) -> Data {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: existingFileURL.path),
+              let existingRaw = try? Data(contentsOf: existingFileURL),
+              let existingAny = try? JSONSerialization.jsonObject(with: existingRaw),
+              let existing = existingAny as? [String: Any],
+              let newAny = try? JSONSerialization.jsonObject(with: newData),
+              var merged = newAny as? [String: Any]
+        else {
+            return newData
+        }
+
+        for key in preservedKeys where merged[key] == nil {
+            if let preserved = existing[key], !isEmptyJSONValue(preserved) {
+                merged[key] = preserved
+            }
+        }
+
+        guard let out = try? JSONSerialization.data(
+            withJSONObject: merged,
+            options: [.prettyPrinted, .sortedKeys]
+        ) else {
+            return newData
+        }
+        return out
+    }
+
+    private static func isEmptyJSONValue(_ value: Any?) -> Bool {
+        guard let value = value else { return true }
+        if value is NSNull { return true }
+        if let arr = value as? [Any] { return arr.isEmpty }
+        if let dict = value as? [String: Any] { return dict.isEmpty }
+        return false
     }
 
     // MARK: - Character outline
