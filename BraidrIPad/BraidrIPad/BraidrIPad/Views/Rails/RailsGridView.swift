@@ -27,18 +27,25 @@ struct RailsGridView: View {
             let available = geo.size.width - Self.rowNumberWidth
             let fitColumn = available / CGFloat(columnCount)
             let columnWidth = max(Self.minColumn, fitColumn)
+            let totalWidth = CGFloat(columnCount) * columnWidth + Self.rowNumberWidth
 
             ScrollViewReader { proxy in
-                ScrollView([.horizontal, .vertical]) {
-                    VStack(spacing: 0) {
-                        header(columnWidth: columnWidth)
-                        ForEach(1...rowCount, id: \.self) { rowIdx in
-                            row(rowIndex: rowIdx, columnWidth: columnWidth)
-                                .id(rowIdx)
+                ScrollView(.vertical) {
+                    ScrollView(.horizontal) {
+                        LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                            Section {
+                                ForEach(1...rowCount, id: \.self) { rowIdx in
+                                    row(rowIndex: rowIdx, columnWidth: columnWidth)
+                                        .id(rowIdx)
+                                }
+                            } header: {
+                                header(columnWidth: columnWidth)
+                            }
                         }
-                    }
-                    .onPreferenceChange(RailsRowFrameKey.self) { frames in
-                        dragState.rowFrames = frames
+                        .frame(width: totalWidth, alignment: .leading)
+                        .onPreferenceChange(RailsRowFrameKey.self) { frames in
+                            dragState.rowFrames = frames
+                        }
                     }
                 }
                 .onChange(of: dragState.ghostPosition) { _, pos in
