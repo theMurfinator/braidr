@@ -15,6 +15,9 @@ final class ProjectViewModel {
     var selectedSceneId: String?
     var selectedNoteId: String?
 
+    /// ID of the scene whose detail sheet is open on the Rails tab.
+    var selectedSceneForSheet: String?
+
     /// Current draft content keyed by scene ID
     var draftContents: [String: String] = [:]
 
@@ -185,5 +188,61 @@ final class ProjectViewModel {
             plotPoints: pps,
             scenes: ss
         )
+    }
+
+    // MARK: - Scene field mutations (Rails inline editing)
+
+    /// Update a scene's title in-place and persist the owning character .md file.
+    func updateSceneTitle(sceneId: String, title: String) {
+        guard var proj = project else { return }
+        guard let idx = proj.scenes.firstIndex(where: { $0.id == sceneId }) else { return }
+        proj.scenes[idx].title = title
+        proj.scenes[idx].content = title
+        project = proj
+        schedulePersistCharacterOutline(for: proj.scenes[idx].characterId)
+    }
+
+    /// Update a scene's tags.
+    func updateSceneTags(sceneId: String, tags: [String]) {
+        guard var proj = project else { return }
+        guard let idx = proj.scenes.firstIndex(where: { $0.id == sceneId }) else { return }
+        proj.scenes[idx].tags = tags
+        project = proj
+        schedulePersistCharacterOutline(for: proj.scenes[idx].characterId)
+    }
+
+    /// Update a scene's sub-note list.
+    func updateSceneNotes(sceneId: String, notes: [String]) {
+        guard var proj = project else { return }
+        guard let idx = proj.scenes.firstIndex(where: { $0.id == sceneId }) else { return }
+        proj.scenes[idx].notes = notes
+        project = proj
+        schedulePersistCharacterOutline(for: proj.scenes[idx].characterId)
+    }
+
+    // MARK: - Private: character-outline debounced save
+
+    private var outlineAutoSaveTimer: Timer?
+    private var pendingOutlineSaves: Set<String> = []
+
+    private func schedulePersistCharacterOutline(for characterId: String) {
+        pendingOutlineSaves.insert(characterId)
+        outlineAutoSaveTimer?.invalidate()
+        outlineAutoSaveTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.flushOutlineSaves() }
+        }
+    }
+
+    private func flushOutlineSaves() async {
+        guard let proj = project else { return }
+        let toSave = pendingOutlineSaves
+        pendingOutlineSaves.removeAll()
+        for charId in toSave {
+            guard let character = proj.characters.first(where: { $0.id == charId }) else { continue }
+            let pps = proj.plotPoints(for: charId)
+            let ss = proj.scenes(for: charId)
+            try? await fileService.saveCharacterOutline(projectURL: proj.projectURL, character: character, plotPoints: pps, scenes: ss)
+        }
     }
 }

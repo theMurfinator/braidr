@@ -71,7 +71,11 @@ struct RailsGridView: View {
                     if let scn = scene(at: rowIndex, characterId: ch.id) {
                         RailsSceneCard(
                             scene: scn,
-                            characterColorHex: viewModel.characterColor(for: ch.id)
+                            characterColorHex: viewModel.characterColor(for: ch.id),
+                            onTitleChange: { viewModel.updateSceneTitle(sceneId: scn.id, title: $0) },
+                            onTagsChange: { viewModel.updateSceneTags(sceneId: scn.id, tags: $0) },
+                            onNotesChange: { viewModel.updateSceneNotes(sceneId: scn.id, notes: $0) },
+                            onTap: { viewModel.selectedSceneForSheet = scn.id }
                         )
                     }
                 }

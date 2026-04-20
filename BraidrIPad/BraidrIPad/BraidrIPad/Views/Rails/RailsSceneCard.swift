@@ -3,6 +3,14 @@ import SwiftUI
 struct RailsSceneCard: View {
     let scene: Scene
     let characterColorHex: String
+    var onTitleChange: (String) -> Void = { _ in }
+    var onTagsChange: ([String]) -> Void = { _ in }
+    var onNotesChange: ([String]) -> Void = { _ in }
+    var onTap: () -> Void = {}
+
+    @State private var title: String = ""
+    @State private var tagsText: String = ""
+    @State private var notesText: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -15,30 +23,31 @@ struct RailsSceneCard: View {
                     .foregroundStyle(Color(hex: characterColorHex))
                 Spacer()
             }
-            Text(scene.title.strippingInlineTags())
+            TextField("Title", text: $title, onCommit: { onTitleChange(title) })
+                .textFieldStyle(.plain)
                 .font(scene.isHighlighted ? .body.bold() : .body)
-                .lineLimit(3)
-            if !scene.tags.isEmpty {
-                Text(scene.tags.prefix(3).map { "#\($0)" }.joined(separator: " "))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            if !scene.notes.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(scene.notes.prefix(2), id: \.self) { note in
-                        Text("• \(note.strippingInlineTags())")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    if scene.notes.count > 2 {
-                        Text("+ \(scene.notes.count - 2) more")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
+
+            TextField("#tags space-separated", text: $tagsText, onCommit: {
+                let parts = tagsText
+                    .split(separator: " ")
+                    .map { String($0).trimmingCharacters(in: CharacterSet(charactersIn: "#")) }
+                    .filter { !$0.isEmpty }
+                onTagsChange(parts)
+            })
+            .textFieldStyle(.plain)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+
+            TextField("notes (one per line)", text: $notesText, axis: .vertical)
+                .onSubmit {
+                    let lines = notesText.split(separator: "\n").map(String.init)
+                    onNotesChange(lines)
                 }
-            }
+                .textFieldStyle(.plain)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(3...)
+
             Spacer(minLength: 0)
         }
         .padding(8)
@@ -52,5 +61,12 @@ struct RailsSceneCard: View {
                 .stroke(Color(hex: characterColorHex).opacity(0.35), lineWidth: 1)
         )
         .padding(4)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
+        .onAppear {
+            title = scene.title
+            tagsText = scene.tags.map { "#\($0)" }.joined(separator: " ")
+            notesText = scene.notes.joined(separator: "\n")
+        }
     }
 }
