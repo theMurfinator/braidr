@@ -127,17 +127,15 @@ struct RailsGridView: View {
                             onNotesChange: { viewModel.updateSceneNotes(sceneId: scn.id, notes: $0) },
                             onTap: { viewModel.selectedSceneForSheet = scn.id },
                             onDropRequested: { target in
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                    switch target {
-                                    case .row(let idx):
-                                        if scn.timelinePosition == nil {
-                                            viewModel.placeSceneInBraid(sceneId: scn.id, at: idx)
-                                        } else {
-                                            viewModel.moveBraidedScene(sceneId: scn.id, to: idx)
-                                        }
-                                    case .inbox:
-                                        viewModel.unbraidScene(sceneId: scn.id)
+                                switch target {
+                                case .row(let idx):
+                                    if scn.timelinePosition == nil {
+                                        viewModel.placeSceneInBraid(sceneId: scn.id, at: idx)
+                                    } else {
+                                        viewModel.moveBraidedScene(sceneId: scn.id, to: idx)
                                     }
+                                case .inbox:
+                                    viewModel.unbraidScene(sceneId: scn.id)
                                 }
                             }
                         )
@@ -177,9 +175,7 @@ struct RailsGridView: View {
                 .font(.headline)
             ForEach(viewModel.characters) { ch in
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        viewModel.insertNewScene(at: row, characterId: ch.id)
-                    }
+                    viewModel.insertNewScene(at: row, characterId: ch.id)
                     insertAtRow = nil
                 } label: {
                     HStack {
