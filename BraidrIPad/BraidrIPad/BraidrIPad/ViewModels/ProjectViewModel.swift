@@ -82,6 +82,19 @@ final class ProjectViewModel {
         project?.sortedBraidedScenes ?? []
     }
 
+    /// Scenes connected (causally linked) to `sceneId` per timelineData.connections.
+    func connections(for sceneId: String) -> [Scene] {
+        guard let map = project?.timelineData.connections else { return [] }
+        let linkedIds = map[sceneId] ?? []
+        return linkedIds.compactMap { id in
+            project?.scenes.first { $0.id == id }
+        }
+    }
+
+    func connectionCount(for sceneId: String) -> Int {
+        project?.timelineData.connections?[sceneId]?.count ?? 0
+    }
+
     /// Scenes with no timelinePosition, optionally filtered to one character.
     func inboxScenes(filter: String = "all") -> [Scene] {
         let unplaced = scenes.filter { $0.timelinePosition == nil }

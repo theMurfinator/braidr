@@ -5,6 +5,7 @@ struct RailsSceneCard: View {
     let scene: Scene
     let characterColorHex: String
     let dragState: DragState
+    let viewModel: ProjectViewModel
     var onTitleChange: (String) -> Void = { _ in }
     var onTagsChange: ([String]) -> Void = { _ in }
     var onNotesChange: ([String]) -> Void = { _ in }
@@ -28,6 +29,7 @@ struct RailsSceneCard: View {
                     .font(.caption2.monospacedDigit().bold())
                     .foregroundStyle(Color(hex: characterColorHex))
                 Spacer()
+                ConnectionBadge(viewModel: viewModel, sceneId: scene.id)
             }
             TextField("Title", text: $title, onCommit: { onTitleChange(title) })
                 .textFieldStyle(.plain)
