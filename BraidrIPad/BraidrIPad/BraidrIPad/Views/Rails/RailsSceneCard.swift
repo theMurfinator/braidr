@@ -1,12 +1,15 @@
 import SwiftUI
+import UIKit
 
 struct RailsSceneCard: View {
     let scene: Scene
     let characterColorHex: String
+    let dragState: DragState
     var onTitleChange: (String) -> Void = { _ in }
     var onTagsChange: ([String]) -> Void = { _ in }
     var onNotesChange: ([String]) -> Void = { _ in }
     var onTap: () -> Void = {}
+    var onDropRequested: (RailsDropTarget) -> Void = { _ in }
 
     @State private var title: String = ""
     @State private var tagsText: String = ""
@@ -18,6 +21,9 @@ struct RailsSceneCard: View {
                 Image(systemName: "line.3.horizontal")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+                    .padding(4)
+                    .contentShape(Rectangle())
+                    .gesture(dragGesture)
                 Text("\(scene.sceneNumber)")
                     .font(.caption2.monospacedDigit().bold())
                     .foregroundStyle(Color(hex: characterColorHex))
@@ -68,5 +74,26 @@ struct RailsSceneCard: View {
             tagsText = scene.tags.map { "#\($0)" }.joined(separator: " ")
             notesText = scene.notes.joined(separator: "\n")
         }
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .onChanged { value in
+                if dragState.sceneId == nil {
+                    dragState.begin(scene: scene, at: value.location)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                } else {
+                    dragState.update(to: value.location)
+                }
+            }
+            .onEnded { _ in
+                let target = dragState.end()
+                handleDrop(target: target)
+            }
+    }
+
+    private func handleDrop(target: RailsDropTarget?) {
+        guard let target else { return }
+        onDropRequested(target)
     }
 }

@@ -245,4 +245,86 @@ final class ProjectViewModel {
             try? await fileService.saveCharacterOutline(projectURL: proj.projectURL, character: character, plotPoints: pps, scenes: ss)
         }
     }
+
+    // MARK: - Drag mutators
+
+    /// Place an unbraided scene at timeline position `target`, shifting others down.
+    func placeSceneInBraid(sceneId: String, at target: Int) {
+        guard var proj = project else { return }
+        // Shift any placed scene at or above target up by 1.
+        for i in proj.scenes.indices {
+            if let pos = proj.scenes[i].timelinePosition, pos >= target {
+                proj.scenes[i].timelinePosition = pos + 1
+                proj.timelineData.positions[proj.scenes[i].id] = pos + 1
+            }
+        }
+        if let idx = proj.scenes.firstIndex(where: { $0.id == sceneId }) {
+            proj.scenes[idx].timelinePosition = target
+            proj.timelineData.positions[sceneId] = target
+        }
+        renumberBraid(&proj)
+        project = proj
+        saveTimelineInBackground()
+    }
+
+    /// Remove a scene from the braid, leaving it in the inbox.
+    func unbraidScene(sceneId: String) {
+        guard var proj = project else { return }
+        if let idx = proj.scenes.firstIndex(where: { $0.id == sceneId }) {
+            proj.scenes[idx].timelinePosition = nil
+        }
+        proj.timelineData.positions.removeValue(forKey: sceneId)
+        renumberBraid(&proj)
+        project = proj
+        saveTimelineInBackground()
+    }
+
+    /// Move a placed scene from current position to target position.
+    func moveBraidedScene(sceneId: String, to target: Int) {
+        guard var proj = project else { return }
+        guard let idx = proj.scenes.firstIndex(where: { $0.id == sceneId }),
+              let currentPos = proj.scenes[idx].timelinePosition else { return }
+        // Remove from its current slot first.
+        proj.scenes[idx].timelinePosition = nil
+        proj.timelineData.positions.removeValue(forKey: sceneId)
+        // Shift others up/down to open a slot at target.
+        for i in proj.scenes.indices where i != idx {
+            guard let pos = proj.scenes[i].timelinePosition else { continue }
+            if currentPos < target {
+                if pos > currentPos && pos <= target - 1 {
+                    proj.scenes[i].timelinePosition = pos - 1
+                    proj.timelineData.positions[proj.scenes[i].id] = pos - 1
+                }
+            } else if currentPos > target {
+                if pos >= target && pos < currentPos {
+                    proj.scenes[i].timelinePosition = pos + 1
+                    proj.timelineData.positions[proj.scenes[i].id] = pos + 1
+                }
+            }
+        }
+        let finalPos = min(target, braidCount(in: proj) + 1)
+        proj.scenes[idx].timelinePosition = finalPos
+        proj.timelineData.positions[sceneId] = finalPos
+        renumberBraid(&proj)
+        project = proj
+        saveTimelineInBackground()
+    }
+
+    // MARK: - Drag helpers
+
+    private func braidCount(in proj: Project) -> Int {
+        proj.scenes.filter { $0.timelinePosition != nil }.count
+    }
+
+    /// Collapse any gaps so timeline positions are 1...N contiguous.
+    private func renumberBraid(_ proj: inout Project) {
+        let sorted = proj.scenes.enumerated()
+            .compactMap { ($0.offset, $0.element.timelinePosition) }
+            .filter { $0.1 != nil }
+            .sorted { ($0.1 ?? 0) < ($1.1 ?? 0) }
+        for (newPos, (origIdx, _)) in sorted.enumerated() {
+            proj.scenes[origIdx].timelinePosition = newPos + 1
+            proj.timelineData.positions[proj.scenes[origIdx].id] = newPos + 1
+        }
+    }
 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RailsGridView: View {
     @Bindable var viewModel: ProjectViewModel
+    @Bindable var dragState: DragState
 
     // Number of rows = highest timeline position among placed scenes, min 1.
     private var rowCount: Int {
@@ -17,18 +18,44 @@ struct RailsGridView: View {
     private static let headerHeight: CGFloat = 44
     private static let rowHeight: CGFloat = 140
 
+    @State private var scrollTarget: Int = 1
+    @State private var autoScrollTimer: Timer?
+
     var body: some View {
         GeometryReader { geo in
             let available = geo.size.width - Self.rowNumberWidth
             let fitColumn = available / CGFloat(columnCount)
             let columnWidth = max(Self.minColumn, fitColumn)
 
-            ScrollView([.horizontal, .vertical]) {
-                VStack(spacing: 0) {
-                    header(columnWidth: columnWidth)
-                    ForEach(1...rowCount, id: \.self) { rowIdx in
-                        row(rowIndex: rowIdx, columnWidth: columnWidth)
+            ScrollViewReader { proxy in
+                ScrollView([.horizontal, .vertical]) {
+                    VStack(spacing: 0) {
+                        header(columnWidth: columnWidth)
+                        ForEach(1...rowCount, id: \.self) { rowIdx in
+                            row(rowIndex: rowIdx, columnWidth: columnWidth)
+                                .id(rowIdx)
+                        }
                     }
+                    .onPreferenceChange(RailsRowFrameKey.self) { frames in
+                        dragState.rowFrames = frames
+                    }
+                }
+                .onChange(of: dragState.ghostPosition) { _, pos in
+                    guard dragState.sceneId != nil else {
+                        stopAutoScroll()
+                        return
+                    }
+                    let screenH = UIScreen.main.bounds.height
+                    if pos.y < 120 {
+                        startAutoScroll(direction: -1, proxy: proxy)
+                    } else if pos.y > screenH - 120 {
+                        startAutoScroll(direction: 1, proxy: proxy)
+                    } else {
+                        stopAutoScroll()
+                    }
+                }
+                .onChange(of: dragState.sceneId) { _, newValue in
+                    if newValue == nil { stopAutoScroll() }
                 }
             }
         }
@@ -72,10 +99,23 @@ struct RailsGridView: View {
                         RailsSceneCard(
                             scene: scn,
                             characterColorHex: viewModel.characterColor(for: ch.id),
+                            dragState: dragState,
                             onTitleChange: { viewModel.updateSceneTitle(sceneId: scn.id, title: $0) },
                             onTagsChange: { viewModel.updateSceneTags(sceneId: scn.id, tags: $0) },
                             onNotesChange: { viewModel.updateSceneNotes(sceneId: scn.id, notes: $0) },
-                            onTap: { viewModel.selectedSceneForSheet = scn.id }
+                            onTap: { viewModel.selectedSceneForSheet = scn.id },
+                            onDropRequested: { target in
+                                switch target {
+                                case .row(let idx):
+                                    if scn.timelinePosition == nil {
+                                        viewModel.placeSceneInBraid(sceneId: scn.id, at: idx)
+                                    } else {
+                                        viewModel.moveBraidedScene(sceneId: scn.id, to: idx)
+                                    }
+                                case .inbox:
+                                    viewModel.unbraidScene(sceneId: scn.id)
+                                }
+                            }
                         )
                     }
                 }
@@ -83,9 +123,43 @@ struct RailsGridView: View {
                 .border(Color.gray.opacity(0.12))
             }
         }
+        .background(
+            GeometryReader { rowGeo in
+                Color.clear.preference(
+                    key: RailsRowFrameKey.self,
+                    value: [rowIndex: rowGeo.frame(in: .global)]
+                )
+            }
+        )
     }
 
     private func scene(at rowIndex: Int, characterId: String) -> Scene? {
         viewModel.scenes.first { $0.characterId == characterId && $0.timelinePosition == rowIndex }
+    }
+
+    // MARK: - Auto-scroll
+
+    private func startAutoScroll(direction: Int, proxy: ScrollViewProxy) {
+        guard autoScrollTimer == nil else { return }
+        autoScrollTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            let next = max(1, min(rowCount, scrollTarget + direction))
+            guard next != scrollTarget else { return }
+            scrollTarget = next
+            withAnimation(.linear(duration: 0.1)) {
+                proxy.scrollTo(scrollTarget, anchor: .top)
+            }
+        }
+    }
+
+    private func stopAutoScroll() {
+        autoScrollTimer?.invalidate()
+        autoScrollTimer = nil
+    }
+}
+
+struct RailsRowFrameKey: PreferenceKey {
+    static var defaultValue: [Int: CGRect] = [:]
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }

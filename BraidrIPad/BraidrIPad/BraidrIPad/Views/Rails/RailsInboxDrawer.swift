@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RailsInboxDrawer: View {
     @Bindable var viewModel: ProjectViewModel
+    @Bindable var dragState: DragState
     @State private var filter: String = "all"
 
     var body: some View {
@@ -17,7 +18,14 @@ struct RailsInboxDrawer: View {
                         RailsInboxCard(
                             scene: scene,
                             characterName: viewModel.characterName(for: scene.characterId),
-                            characterColorHex: viewModel.characterColor(for: scene.characterId)
+                            characterColorHex: viewModel.characterColor(for: scene.characterId),
+                            dragState: dragState,
+                            onDropRequested: { target in
+                                if case .row(let idx) = target {
+                                    viewModel.placeSceneInBraid(sceneId: scene.id, at: idx)
+                                }
+                                // Inbox -> inbox is a no-op.
+                            }
                         )
                     }
                 }
@@ -26,6 +34,15 @@ struct RailsInboxDrawer: View {
         }
         .frame(width: 260)
         .background(.regularMaterial)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { dragState.inboxFrame = geo.frame(in: .global) }
+                    .onChange(of: geo.frame(in: .global)) { _, new in
+                        dragState.inboxFrame = new
+                    }
+            }
+        )
     }
 
     @ViewBuilder

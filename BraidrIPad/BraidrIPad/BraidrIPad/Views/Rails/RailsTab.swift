@@ -5,17 +5,26 @@ private struct SceneSheetId: Identifiable { let id: String }
 struct RailsTab: View {
     @Bindable var viewModel: ProjectViewModel
     @AppStorage("rails.inboxOpen") private var inboxOpen: Bool = false
+    @State private var dragState = DragState()
 
     var body: some View {
         NavigationStack {
-            HStack(spacing: 0) {
-                if inboxOpen {
-                    RailsInboxDrawer(viewModel: viewModel)
-                        .transition(.move(edge: .leading))
+            ZStack {
+                HStack(spacing: 0) {
+                    if inboxOpen {
+                        RailsInboxDrawer(viewModel: viewModel, dragState: dragState)
+                            .transition(.move(edge: .leading))
+                    }
+                    RailsGridView(viewModel: viewModel, dragState: dragState)
                 }
-                RailsGridView(viewModel: viewModel)
+                .animation(.default, value: inboxOpen)
+
+                if dragState.sceneId != nil {
+                    ghost
+                        .position(dragState.ghostPosition)
+                        .allowsHitTesting(false)
+                }
             }
-            .animation(.default, value: inboxOpen)
             .navigationTitle("Rails")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -33,5 +42,17 @@ struct RailsTab: View {
                 SceneDetailSheet(viewModel: viewModel, sceneId: wrapper.id)
             }
         }
+    }
+
+    private var ghost: some View {
+        Text(dragState.sceneTitle.prefix(30))
+            .font(.footnote.bold())
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule().fill(Color.accentColor)
+            )
+            .shadow(radius: 6)
     }
 }
