@@ -185,6 +185,7 @@ function App() {
   useAutoScrollOnDrag(timelineRef, !!draggedScene);
   const editorViewRef = useRef<EditorViewHandle>(null);
   const isDirtyRef = useRef(false);
+  const loadInProgressRef = useRef(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1054,6 +1055,8 @@ function App() {
 
   // Helper to load a project from a path
   const loadProjectFromPath = async (folderPath: string, projectName?: string) => {
+    loadInProgressRef.current = true;
+    try {
     const data = await dataService.loadProject(folderPath);
 
     // If legacy keys were migrated to stable IDs, persist the changes immediately
@@ -1301,6 +1304,9 @@ function App() {
     // Refresh recent projects list
     const projects = await dataService.getRecentProjects();
     setRecentProjects(projects);
+    } finally {
+      loadInProgressRef.current = false;
+    }
   };
 
   const handleSelectFolder = async () => {
@@ -2363,7 +2369,7 @@ function App() {
   // Auto-save every 10 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      if (projectData && isDirtyRef.current) {
+      if (projectData && isDirtyRef.current && !loadInProgressRef.current) {
         // Flush any pending editor content first
         editorViewRef.current?.flush();
         saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
@@ -2377,7 +2383,7 @@ function App() {
     const handleBeforeUnload = () => {
       editorViewRef.current?.flush();
       // Trigger a save (best-effort since beforeunload doesn't wait for async)
-      if (projectData) {
+      if (projectData && !loadInProgressRef.current) {
         saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
       }
     };

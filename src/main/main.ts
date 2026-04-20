@@ -7,6 +7,7 @@ import windowStateKeeper from 'electron-window-state';
 import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
 import { getLicenseStatus, activateLicense, deactivateLicense, startTrial, openPurchaseUrl, openBillingPortal, refreshLicenseStatus, getStoredEmail, getApiBase } from './license';
 import { initPostHog, captureEvent, identifyUser, aliasUser, getSessionDurationMs, shutdownPostHog } from './posthog';
+import { saveTimelineToDisk } from './saveTimeline';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -736,10 +737,7 @@ ipcMain.handle(IPC_CHANNELS.SAVE_TIMELINE, async (_event, folderPath: string, da
       }
     }
 
-    // Atomic write: write to temp file, then rename
-    const tmpPath = timelinePath + '.tmp';
-    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(tmpPath, timelinePath);
+    saveTimelineToDisk(folderPath, data as Record<string, unknown>);
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
