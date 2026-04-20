@@ -33,6 +33,7 @@ struct RailsTab: View {
                     } label: {
                         Image(systemName: inboxOpen ? "tray.full.fill" : "tray.full")
                     }
+                    .accessibilityLabel(inboxOpen ? "Close inbox" : "Open inbox")
                 }
             }
             .sheet(item: Binding(

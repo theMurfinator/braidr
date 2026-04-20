@@ -24,6 +24,8 @@ struct ConnectionBadge: View {
                 .foregroundStyle(.tint)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("\(count) connection\(count == 1 ? "" : "s")")
+            .accessibilityHint("Tap to view linked scenes")
             .popover(isPresented: $showPopover) {
                 connectionList
                     .frame(minWidth: 240)

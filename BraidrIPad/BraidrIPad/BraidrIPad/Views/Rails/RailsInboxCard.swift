@@ -28,6 +28,8 @@ struct RailsInboxCard: View {
                 .padding(4)
                 .contentShape(Rectangle())
                 .gesture(dragGesture)
+                .accessibilityLabel("Drag handle for \(characterName) scene \(scene.sceneNumber)")
+                .accessibilityHint("Drag into the grid to place this scene")
         }
         .padding(8)
         .background(
@@ -54,6 +56,7 @@ struct RailsInboxCard: View {
 
     private func handleDrop(target: RailsDropTarget?) {
         guard let target else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
         onDropRequested(target)
     }
 }

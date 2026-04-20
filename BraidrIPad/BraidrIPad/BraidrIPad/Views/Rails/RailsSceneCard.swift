@@ -25,6 +25,8 @@ struct RailsSceneCard: View {
                     .padding(4)
                     .contentShape(Rectangle())
                     .gesture(dragGesture)
+                    .accessibilityLabel("Drag handle for scene \(scene.title.strippingInlineTags())")
+                    .accessibilityHint("Long press and drag to move this scene")
                 Text("\(scene.sceneNumber)")
                     .font(.caption2.monospacedDigit().bold())
                     .foregroundStyle(Color(hex: characterColorHex))
@@ -96,6 +98,7 @@ struct RailsSceneCard: View {
 
     private func handleDrop(target: RailsDropTarget?) {
         guard let target else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
         onDropRequested(target)
     }
 }
