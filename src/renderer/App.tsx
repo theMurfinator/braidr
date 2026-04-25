@@ -5091,6 +5091,7 @@ function App() {
         <CompareView
           projectPath={projectData.projectPath}
           branchIndex={branchIndex}
+          characterColors={characterColors}
           onClose={() => setShowCompareView(false)}
           onMerge={(name) => { setShowCompareView(false); setShowMergeDialog(name); }}
         />
