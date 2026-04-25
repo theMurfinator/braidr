@@ -22,6 +22,8 @@ import {
   TaskFieldDef,
   TaskViewConfig,
   WorldEvent,
+  BranchIndex,
+  BranchCompareData,
 } from '../../shared/types';
 import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
@@ -662,5 +664,31 @@ export class CapacitorDataService implements DataService {
   async listProjectFiles(projectPath: string): Promise<string[]> {
     const entries = await listDir(projectPath);
     return entries.filter(e => e.type === 'file').map(e => e.name);
+  }
+
+  // ── Branches (not supported on iPad) ────────────────────────────────────
+
+  async listBranches(_projectPath: string): Promise<BranchIndex> {
+    return { branches: [], activeBranch: null };
+  }
+
+  async createBranch(_projectPath: string, _name: string, _description?: string): Promise<BranchIndex> {
+    throw new Error('Branches not supported on this platform');
+  }
+
+  async switchBranch(_projectPath: string, _name: string | null): Promise<BranchIndex> {
+    throw new Error('Branches not supported on this platform');
+  }
+
+  async deleteBranch(_projectPath: string, _name: string): Promise<BranchIndex> {
+    throw new Error('Branches not supported on this platform');
+  }
+
+  async mergeBranch(_projectPath: string, _branchName: string, _sceneIds: string[]): Promise<void> {
+    throw new Error('Branches not supported on this platform');
+  }
+
+  async compareBranches(_projectPath: string, _leftBranch: string | null, _rightBranch: string | null): Promise<BranchCompareData> {
+    throw new Error('Branches not supported on this platform');
   }
 }
