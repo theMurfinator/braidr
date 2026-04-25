@@ -1,4 +1,4 @@
-import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent } from '../../shared/types';
+import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, BranchIndex, BranchCompareData } from '../../shared/types';
 import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
 import { CapacitorDataService } from './capacitorDataService';
@@ -37,6 +37,13 @@ export interface DataService {
   saveSceneComments(projectPath: string, sceneId: string, comments: SceneComment[]): Promise<void>;
   // Conflict detection (iPad companion)
   listProjectFiles?(projectPath: string): Promise<string[]>;
+  // Branches
+  listBranches(projectPath: string): Promise<BranchIndex>;
+  createBranch(projectPath: string, name: string, description?: string): Promise<BranchIndex>;
+  switchBranch(projectPath: string, name: string | null): Promise<BranchIndex>;
+  deleteBranch(projectPath: string, name: string): Promise<BranchIndex>;
+  mergeBranch(projectPath: string, branchName: string, sceneIds: string[]): Promise<void>;
+  compareBranches(projectPath: string, leftBranch: string | null, rightBranch: string | null): Promise<BranchCompareData>;
 }
 
 // Local file system implementation (Electron)
@@ -391,6 +398,41 @@ class ElectronDataService implements DataService {
 
   async listProjectFiles(_projectPath: string): Promise<string[]> {
     return []; // Conflict detection is iPad-only for now
+  }
+
+  async listBranches(projectPath: string): Promise<BranchIndex> {
+    const result = await window.electronAPI.branchesList(projectPath);
+    if (!result.success) throw new Error(result.error || 'Failed to list branches');
+    return result.data;
+  }
+
+  async createBranch(projectPath: string, name: string, description?: string): Promise<BranchIndex> {
+    const result = await window.electronAPI.branchesCreate(projectPath, name, description);
+    if (!result.success) throw new Error(result.error || 'Failed to create branch');
+    return result.data;
+  }
+
+  async switchBranch(projectPath: string, name: string | null): Promise<BranchIndex> {
+    const result = await window.electronAPI.branchesSwitch(projectPath, name);
+    if (!result.success) throw new Error(result.error || 'Failed to switch branch');
+    return result.data;
+  }
+
+  async deleteBranch(projectPath: string, name: string): Promise<BranchIndex> {
+    const result = await window.electronAPI.branchesDelete(projectPath, name);
+    if (!result.success) throw new Error(result.error || 'Failed to delete branch');
+    return result.data;
+  }
+
+  async mergeBranch(projectPath: string, branchName: string, sceneIds: string[]): Promise<void> {
+    const result = await window.electronAPI.branchesMerge(projectPath, branchName, sceneIds);
+    if (!result.success) throw new Error(result.error || 'Failed to merge branch');
+  }
+
+  async compareBranches(projectPath: string, leftBranch: string | null, rightBranch: string | null): Promise<BranchCompareData> {
+    const result = await window.electronAPI.branchesCompare(projectPath, leftBranch, rightBranch);
+    if (!result.success) throw new Error(result.error || 'Failed to compare branches');
+    return result.data;
   }
 }
 
