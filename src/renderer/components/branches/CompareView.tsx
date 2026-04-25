@@ -102,20 +102,31 @@ export function CompareView({ projectPath, branchIndex, onClose, onMerge }: Comp
                 <span className="compare-col-pos">Position</span>
               </div>
               <div className="compare-table-body">
-                {compareData.scenes.map(scene => (
-                  <div
-                    key={scene.sceneId}
-                    className={`compare-table-row${scene.changed ? ' changed' : ''}`}
-                  >
-                    <span className="compare-col-char">{scene.characterName}</span>
-                    <span className="compare-col-num">{scene.sceneNumber}</span>
-                    <span className="compare-col-title">{scene.leftTitle}</span>
-                    <span className="compare-col-title">{scene.rightTitle}</span>
-                    <span className="compare-col-pos">
-                      {scene.leftPosition ?? '–'} / {scene.rightPosition ?? '–'}
-                    </span>
-                  </div>
-                ))}
+                {compareData.scenes.map(scene => {
+                  const titleChanged = scene.leftTitle !== scene.rightTitle;
+                  const posChanged = scene.leftPosition !== scene.rightPosition;
+                  return (
+                    <div
+                      key={scene.sceneId}
+                      className={`compare-table-row${scene.changed ? ' changed' : ' unchanged'}`}
+                    >
+                      <span className="compare-col-status">
+                        {scene.changed && <span className="compare-change-dot" />}
+                      </span>
+                      <span className="compare-col-char">{scene.characterName}</span>
+                      <span className="compare-col-num">{scene.sceneNumber}</span>
+                      <span className={`compare-col-title${titleChanged ? ' compare-col-removed' : ''}`}>
+                        {scene.leftTitle}
+                      </span>
+                      <span className={`compare-col-title${titleChanged ? ' compare-col-added' : ''}`}>
+                        {scene.rightTitle}
+                      </span>
+                      <span className={`compare-col-pos${posChanged ? ' compare-pos-changed' : ''}`}>
+                        {scene.leftPosition ?? '–'} / {scene.rightPosition ?? '–'}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </>
