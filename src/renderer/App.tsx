@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, TimeEntry } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, TimeEntry, BranchIndex } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -40,6 +40,7 @@ import { usePaneLayout, createTab } from './components/panes/usePaneLayout';
 import { findLeafPane, findTabByType } from './components/panes/paneUtils';
 import PaneManager from './components/panes/PaneManager';
 import { useAutoScrollOnDrag } from './hooks/useAutoScrollOnDrag';
+import { BranchSelector } from './components/branches/BranchSelector';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
@@ -188,6 +189,11 @@ function App() {
   const loadInProgressRef = useRef(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Branch state
+  const [branchIndex, setBranchIndex] = useState<BranchIndex>({ branches: [], activeBranch: null });
+  const [showCompareView, setShowCompareView] = useState(false);
+  const [showMergeDialog, setShowMergeDialog] = useState<string | null>(null);
 
   // Session tracker for time tracking
   const sessionTrackerRef = useRef<SessionTracker | null>(null);
@@ -1179,6 +1185,10 @@ function App() {
       total_words: data.scenes.reduce((sum: number, s: Scene) => sum + (s.wordCount || 0), 0),
     });
 
+    // Load branch index
+    const brIndex = await dataService.listBranches(folderPath);
+    setBranchIndex(brIndex);
+
     // Load editor data
     const loadedDraft = data.draftContent || {};
     const loadedDrafts = data.drafts || {};
@@ -1306,6 +1316,31 @@ function App() {
     setRecentProjects(projects);
     } finally {
       loadInProgressRef.current = false;
+    }
+  };
+
+  // Branch handlers
+  const handleCreateBranch = async (name: string, description?: string) => {
+    if (!projectData?.projectPath) return;
+    const updated = await dataService.createBranch(projectData.projectPath, name, description);
+    setBranchIndex(updated);
+    await loadProjectFromPath(projectData.projectPath);
+  };
+
+  const handleSwitchBranch = async (name: string | null) => {
+    if (!projectData?.projectPath) return;
+    const updated = await dataService.switchBranch(projectData.projectPath, name);
+    setBranchIndex(updated);
+    await loadProjectFromPath(projectData.projectPath);
+  };
+
+  const handleDeleteBranch = async (name: string) => {
+    if (!projectData?.projectPath) return;
+    const currentActive = branchIndex.activeBranch;
+    const updated = await dataService.deleteBranch(projectData.projectPath, name);
+    setBranchIndex(updated);
+    if (currentActive === name) {
+      await loadProjectFromPath(projectData.projectPath);
     }
   };
 
@@ -4546,6 +4581,19 @@ function App() {
                   </div>
                 )}
               </div>
+            </>
+          )}
+          {projectData && (
+            <>
+              <div className="toolbar-divider" />
+              <BranchSelector
+                branchIndex={branchIndex}
+                onCreateBranch={handleCreateBranch}
+                onSwitchBranch={handleSwitchBranch}
+                onDeleteBranch={handleDeleteBranch}
+                onCompare={() => setShowCompareView(true)}
+                onMerge={(name) => setShowMergeDialog(name)}
+              />
             </>
           )}
         </div>
