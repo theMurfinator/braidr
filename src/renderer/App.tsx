@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, TimeEntry, BranchIndex } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, TimeEntry, BranchIndex, BranchCompareData } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -41,6 +41,7 @@ import { findLeafPane, findTabByType } from './components/panes/paneUtils';
 import PaneManager from './components/panes/PaneManager';
 import { useAutoScrollOnDrag } from './hooks/useAutoScrollOnDrag';
 import { BranchSelector } from './components/branches/BranchSelector';
+import { MergeDialog } from './components/branches/MergeDialog';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
@@ -194,6 +195,8 @@ function App() {
   const [branchIndex, setBranchIndex] = useState<BranchIndex>({ branches: [], activeBranch: null });
   const [showCompareView, setShowCompareView] = useState(false);
   const [showMergeDialog, setShowMergeDialog] = useState<string | null>(null);
+  const [mergeCompareData, setMergeCompareData] = useState<BranchCompareData | null>(null);
+  const [mergeLoading, setMergeLoading] = useState(false);
 
   // Session tracker for time tracking
   const sessionTrackerRef = useRef<SessionTracker | null>(null);
@@ -1343,6 +1346,24 @@ function App() {
       await loadProjectFromPath(projectData.projectPath);
     }
   };
+
+  // Load compare data when merge dialog opens
+  useEffect(() => {
+    if (showMergeDialog && projectData?.projectPath) {
+      setMergeLoading(true);
+      setMergeCompareData(null);
+      dataService.compareBranches(projectData.projectPath, null, showMergeDialog)
+        .then(data => { setMergeCompareData(data); setMergeLoading(false); })
+        .catch(() => setMergeLoading(false));
+    }
+  }, [showMergeDialog]);
+
+  async function handleMerge(sceneIds: string[]) {
+    if (!showMergeDialog || !projectData?.projectPath) return;
+    await dataService.mergeBranch(projectData.projectPath, showMergeDialog, sceneIds);
+    setShowMergeDialog(null);
+    await handleSwitchBranch(null);
+  }
 
   const handleSelectFolder = async () => {
     try {
@@ -5061,6 +5082,17 @@ function App() {
               return false;
             }
           }}
+        />
+      )}
+
+      {/* Merge Dialog */}
+      {showMergeDialog && (
+        <MergeDialog
+          branchName={showMergeDialog}
+          compareData={mergeCompareData}
+          loading={mergeLoading}
+          onMerge={handleMerge}
+          onClose={() => setShowMergeDialog(null)}
         />
       )}
 
