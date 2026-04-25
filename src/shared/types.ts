@@ -420,4 +420,6 @@ export const IPC_CHANNELS = {
   BRANCHES_DELETE: 'branches:delete',
   BRANCHES_MERGE: 'branches:merge',
   BRANCHES_COMPARE: 'branches:compare',
+  BRANCHES_READ_POSITIONS: 'branches:read-positions',
+  BRANCHES_SAVE_POSITIONS: 'branches:save-positions',
 } as const;

@@ -981,6 +981,28 @@ ipcMain.handle(IPC_CHANNELS.BRANCHES_COMPARE, async (_event, projectPath: string
   }
 });
 
+ipcMain.handle(IPC_CHANNELS.BRANCHES_READ_POSITIONS, async (_event, projectPath: string, branchName: string) => {
+  try {
+    const posPath = path.join(projectPath, 'branches', branchName, 'positions.json');
+    if (fs.existsSync(posPath)) {
+      return { success: true, data: JSON.parse(fs.readFileSync(posPath, 'utf-8')) };
+    }
+    return { success: true, data: {} };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRANCHES_SAVE_POSITIONS, async (_event, projectPath: string, branchName: string, positions: Record<string, number>) => {
+  try {
+    const posPath = path.join(projectPath, 'branches', branchName, 'positions.json');
+    fs.writeFileSync(posPath, JSON.stringify(positions, null, 2), 'utf-8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
 // Stable character ID from name (must match renderer's parser.ts stableId)
 function stableCharId(str: string): string {
   const s = str.toLowerCase();
