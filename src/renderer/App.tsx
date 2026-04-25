@@ -199,6 +199,10 @@ function App() {
   const [mergeCompareData, setMergeCompareData] = useState<BranchCompareData | null>(null);
   const [mergeLoading, setMergeLoading] = useState(false);
 
+  // Lock state
+  const [lockConflict, setLockConflict] = useState<{ projectPath: string; projectName?: string; heldBy: string } | null>(null);
+  const [takenOverBy, setTakenOverBy] = useState<string | null>(null);
+
   // Session tracker for time tracking
   const sessionTrackerRef = useRef<SessionTracker | null>(null);
   const analyticsRef = useRef<AnalyticsData | null>(null);
@@ -1066,6 +1070,17 @@ function App() {
   // Helper to load a project from a path
   const loadProjectFromPath = async (folderPath: string, projectName?: string) => {
     loadInProgressRef.current = true;
+    // Acquire project lock
+    try {
+      const lockResult = await dataService.acquireProjectLock(folderPath);
+      if (!lockResult.acquired) {
+        loadInProgressRef.current = false;
+        setLockConflict({ projectPath: folderPath, projectName: projectName, heldBy: lockResult.heldBy || 'another device' });
+        return;
+      }
+    } catch (err) {
+      console.warn('Lock acquisition failed, proceeding anyway:', err);
+    }
     try {
     const data = await dataService.loadProject(folderPath);
 
@@ -1318,6 +1333,16 @@ function App() {
     // Refresh recent projects list
     const projects = await dataService.getRecentProjects();
     setRecentProjects(projects);
+
+    // Start lock heartbeat
+    dataService.startLockHeartbeat(folderPath, (byDeviceName) => {
+      if (isDirtyRef.current) {
+        editorViewRef.current?.flush();
+      }
+      dataService.stopLockHeartbeat();
+      setTakenOverBy(byDeviceName);
+      setProjectData(null);
+    });
     } finally {
       loadInProgressRef.current = false;
     }
@@ -2468,11 +2493,23 @@ function App() {
         if (projectData) {
           await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
         }
+        if (projectData) {
+          try {
+            await dataService.releaseProjectLock(projectData.projectPath);
+          } catch { /* best-effort */ }
+        }
         api.safeToClose();
       });
       return cleanup;
     }
   }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+
+  // Auto-dismiss the "taken over" toast after 5 seconds
+  useEffect(() => {
+    if (!takenOverBy) return;
+    const timer = setTimeout(() => setTakenOverBy(null), 5000);
+    return () => clearTimeout(timer);
+  }, [takenOverBy]);
 
   // Listen for "Check for Updates" menu click
   useEffect(() => {
@@ -4833,6 +4870,9 @@ function App() {
                       await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
                     }
                   }
+                  if (projectData) {
+                    await dataService.releaseProjectLock(projectData.projectPath);
+                  }
                   setProjectData(null);
                   setShowSettingsMenu(false);
                 }}>
@@ -5106,6 +5146,40 @@ function App() {
           onMerge={handleMerge}
           onClose={() => setShowMergeDialog(null)}
         />
+      )}
+
+      {/* Lock Takeover Dialog */}
+      {lockConflict && (
+        <div className="lock-takeover-overlay" onClick={() => setLockConflict(null)}>
+          <div className="lock-takeover-dialog" onClick={e => e.stopPropagation()}>
+            <h3>Project already open</h3>
+            <p>
+              This project is currently being edited on <strong>{lockConflict.heldBy}</strong>.
+            </p>
+            <p>Taking over will close the project on that device.</p>
+            <div className="lock-takeover-actions">
+              <button onClick={() => setLockConflict(null)}>Cancel</button>
+              <button
+                className="lock-takeover-confirm"
+                onClick={async () => {
+                  const { projectPath, projectName } = lockConflict;
+                  setLockConflict(null);
+                  await dataService.acquireProjectLock(projectPath, true);
+                  await loadProjectFromPath(projectPath, projectName);
+                }}
+              >
+                Take Over
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Taken Over Toast */}
+      {takenOverBy && (
+        <div className="lock-taken-over-toast" onClick={() => setTakenOverBy(null)}>
+          Editing moved to {takenOverBy}. Project closed.
+        </div>
       )}
 
       {/* Update Modal (triggered from menu → Check for Updates) */}
