@@ -62,5 +62,6 @@ interface Window {
     lockRead: (projectPath: string) => Promise<any>;
     lockWrite: (projectPath: string, data: { deviceId: string; deviceName: string; timestamp: number }) => Promise<any>;
     lockDelete: (projectPath: string) => Promise<any>;
+    getDeviceInfo: () => Promise<any>;
   };
 }

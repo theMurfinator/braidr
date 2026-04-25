@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, net } from 'electr
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
+import * as os from 'os';
 import { autoUpdater } from 'electron-updater';
 import windowStateKeeper from 'electron-window-state';
 import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
@@ -56,6 +57,25 @@ protocol.registerSchemesAsPrivileged([
 
 // Path to store recent projects
 const getConfigPath = () => path.join(app.getPath('userData'), 'recent-projects.json');
+
+const getDeviceConfigPath = () => path.join(app.getPath('userData'), 'device.json');
+
+function getDeviceInfo(): { deviceId: string; deviceName: string } {
+  const configPath = getDeviceConfigPath();
+  if (fs.existsSync(configPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    } catch {
+      // Corrupted — regenerate below
+    }
+  }
+  const info = {
+    deviceId: Math.random().toString(16).substring(2, 10),
+    deviceName: os.hostname(),
+  };
+  fs.writeFileSync(configPath, JSON.stringify(info, null, 2), 'utf-8');
+  return info;
+}
 
 // Template definitions
 const TEMPLATES: Record<ProjectTemplate, { characterName: string; sections: { title: string; description: string }[] }> = {
@@ -1043,6 +1063,10 @@ ipcMain.handle(IPC_CHANNELS.LOCK_DELETE, async (_event, projectPath: string) => 
   } catch (err: any) {
     return { success: true };
   }
+});
+
+ipcMain.handle(IPC_CHANNELS.GET_DEVICE_INFO, async () => {
+  return { success: true, data: getDeviceInfo() };
 });
 
 // Stable character ID from name (must match renderer's parser.ts stableId)

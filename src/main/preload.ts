@@ -54,6 +54,7 @@ const IPC_CHANNELS = {
   LOCK_READ: 'lock:read',
   LOCK_WRITE: 'lock:write',
   LOCK_DELETE: 'lock:delete',
+  GET_DEVICE_INFO: 'get-device-info',
   // Per-scene content (extracted from timeline.json)
   READ_DRAFT: 'read-draft',
   SAVE_DRAFT: 'save-draft',
@@ -164,6 +165,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.LOCK_WRITE, projectPath, data),
   lockDelete: (projectPath: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.LOCK_DELETE, projectPath),
+  getDeviceInfo: () => ipcRenderer.invoke(IPC_CHANNELS.GET_DEVICE_INFO),
   // License dialog (triggered from menu)
   onShowLicenseDialog: (callback: () => void) => {
     const listener = () => callback();

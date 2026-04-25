@@ -426,4 +426,5 @@ export const IPC_CHANNELS = {
   LOCK_READ: 'lock:read',
   LOCK_WRITE: 'lock:write',
   LOCK_DELETE: 'lock:delete',
+  GET_DEVICE_INFO: 'get-device-info',
 } as const;
