@@ -2,6 +2,7 @@ import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineDat
 import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
 import { CapacitorDataService } from './capacitorDataService';
+import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } from './projectLock';
 
 // Data service interface - this abstraction allows swapping to a web API later
 export interface DataService {
@@ -44,6 +45,11 @@ export interface DataService {
   deleteBranch(projectPath: string, name: string): Promise<BranchIndex>;
   mergeBranch(projectPath: string, branchName: string, sceneIds: string[]): Promise<void>;
   compareBranches(projectPath: string, leftBranch: string | null, rightBranch: string | null): Promise<BranchCompareData>;
+  // Lock
+  acquireProjectLock(projectPath: string, force?: boolean): Promise<{ acquired: boolean; heldBy?: string }>;
+  releaseProjectLock(projectPath: string): Promise<void>;
+  startLockHeartbeat(projectPath: string, onTakenOver: (byDeviceName: string) => void): void;
+  stopLockHeartbeat(): void;
 }
 
 // Local file system implementation (Electron)
@@ -51,6 +57,7 @@ class ElectronDataService implements DataService {
   private projectPath: string | null = null;
   private activeBranch: string | null = null;
   private outlineFiles: Map<string, OutlineFile> = new Map();
+  private deviceInfo: { deviceId: string; deviceName: string } | null = null;
 
   async selectProjectFolder(): Promise<string | null> {
     const path = await window.electronAPI.selectFolder();
@@ -466,6 +473,54 @@ class ElectronDataService implements DataService {
     const result = await window.electronAPI.branchesCompare(projectPath, leftBranch, rightBranch);
     if (!result.success) throw new Error(result.error || 'Failed to compare branches');
     return result.data;
+  }
+
+  private async getDeviceInfo(): Promise<{ deviceId: string; deviceName: string }> {
+    if (this.deviceInfo) return this.deviceInfo;
+    const result = await window.electronAPI.getDeviceInfo();
+    if (!result.success) throw new Error('Failed to get device info');
+    this.deviceInfo = result.data;
+    return result.data;
+  }
+
+  private readLock(projectPath: string): () => Promise<LockData | null> {
+    return async () => {
+      const result = await window.electronAPI.lockRead(projectPath);
+      return result.success ? result.data : null;
+    };
+  }
+
+  private writeLock(projectPath: string): (data: LockData) => Promise<void> {
+    return async (data: LockData) => {
+      const result = await window.electronAPI.lockWrite(projectPath, data);
+      if (!result.success) throw new Error(result.error || 'Failed to write lock');
+    };
+  }
+
+  private deleteLock(projectPath: string): () => Promise<void> {
+    return async () => {
+      await window.electronAPI.lockDelete(projectPath);
+    };
+  }
+
+  async acquireProjectLock(projectPath: string, force?: boolean): Promise<{ acquired: boolean; heldBy?: string }> {
+    const { deviceId, deviceName } = await this.getDeviceInfo();
+    return acquireLock(deviceId, deviceName, this.readLock(projectPath), this.writeLock(projectPath), force);
+  }
+
+  async releaseProjectLock(projectPath: string): Promise<void> {
+    stopHeartbeat();
+    await releaseLock(this.deleteLock(projectPath));
+  }
+
+  startLockHeartbeat(projectPath: string, onTakenOver: (byDeviceName: string) => void): void {
+    this.getDeviceInfo().then(({ deviceId, deviceName }) => {
+      startHeartbeat(deviceId, deviceName, this.readLock(projectPath), this.writeLock(projectPath), onTakenOver);
+    });
+  }
+
+  stopLockHeartbeat(): void {
+    stopHeartbeat();
   }
 }
 
