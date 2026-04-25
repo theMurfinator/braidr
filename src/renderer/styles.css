@@ -17456,3 +17456,659 @@ textarea.table-cell-input {
   background: var(--hover-bg, rgba(0,0,0,0.05));
   opacity: 1;
 }
+
+/* Branch Selector */
+.branch-selector {
+  position: relative;
+}
+
+.branch-selector-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.branch-selector-toggle:hover {
+  background: var(--bg-secondary);
+}
+
+.branch-selector-icon {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.branch-selector-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-selector-chevron {
+  flex-shrink: 0;
+  opacity: 0.4;
+}
+
+.branch-selector-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  max-width: 300px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  padding: 4px 0;
+}
+
+.branch-item-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.branch-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.3;
+  transition: background 0.1s;
+}
+
+.branch-item:hover {
+  background: var(--bg-secondary);
+}
+
+.branch-item.active {
+  background: var(--accent-light);
+  font-weight: 600;
+}
+
+.branch-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s, color 0.1s;
+}
+
+.branch-item-row:hover .branch-delete-btn {
+  opacity: 1;
+}
+
+.branch-delete-btn:hover {
+  color: #c44d5e;
+}
+
+.branch-dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.branch-action {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.1s, color 0.1s;
+}
+
+.branch-action:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.branch-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+}
+
+.branch-create-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.branch-create-input:focus {
+  border-color: var(--accent);
+}
+
+.branch-create-input::placeholder {
+  color: var(--text-muted);
+}
+
+.branch-create-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.branch-create-actions button {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.1s;
+}
+
+.branch-create-actions button:hover {
+  background: var(--bg-secondary);
+}
+
+.branch-create-actions button:first-child {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.branch-create-actions button:first-child:hover {
+  background: var(--accent-hover);
+}
+
+.branch-create-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Merge Dialog ─────────────────────────────────────────────── */
+
+.merge-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.merge-dialog {
+  width: 600px;
+  max-height: 80vh;
+  background: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.merge-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.merge-dialog-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.merge-dialog-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.merge-dialog-close:hover {
+  color: var(--text-primary);
+}
+
+.merge-dialog-loading {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.merge-dialog-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.merge-toggle-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.merge-toggle-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.merge-selected-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.merge-dialog-scenes {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px;
+}
+
+.merge-dialog-character h3 {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 12px 0 6px;
+}
+
+.merge-dialog-character:first-child h3 {
+  margin-top: 0;
+}
+
+.merge-scene-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.merge-scene-row.unchanged {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.merge-scene-row input[type="checkbox"] {
+  flex-shrink: 0;
+}
+
+.merge-scene-number {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 28px;
+}
+
+.merge-scene-titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merge-scene-old {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.merge-scene-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.merge-scene-new {
+  color: #4ade80;
+}
+
+.merge-scene-pos {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+.merge-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.merge-dialog-cancel {
+  font-size: 13px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.merge-dialog-cancel:hover {
+  background: var(--bg-secondary);
+}
+
+.merge-dialog-confirm {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.merge-dialog-confirm:hover {
+  background: var(--accent-hover);
+}
+
+.merge-dialog-confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Compare View ────────────────────────────────────────────── */
+
+.compare-view-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.compare-view {
+  width: 800px;
+  max-height: 80vh;
+  background: var(--bg-primary);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.compare-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-view-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.compare-view-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.compare-view-close:hover {
+  color: var(--text-primary);
+}
+
+.compare-view-selectors {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-branch-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.compare-branch-pick label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.compare-branch-pick select {
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.compare-vs {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.compare-view-summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-view-table {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.compare-table-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary);
+  z-index: 1;
+}
+
+.compare-table-body {
+  padding: 0;
+}
+
+.compare-table-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-light, var(--border));
+  border-left: 4px solid transparent;
+  transition: background 0.15s;
+}
+
+.compare-table-row.unchanged {
+  opacity: 0.35;
+}
+
+.compare-table-row.changed {
+  background: rgba(74, 222, 128, 0.1);
+  border-left-color: #4ade80;
+  opacity: 1;
+}
+
+.compare-col-status {
+  width: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compare-change-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #4ade80;
+}
+
+.compare-col-removed {
+  color: #f87171;
+  text-decoration: line-through;
+  text-decoration-color: rgba(248, 113, 113, 0.5);
+}
+
+.compare-col-added {
+  color: #4ade80;
+  font-weight: 500;
+}
+
+.compare-pos-changed {
+  color: #facc15 !important;
+  font-weight: 500;
+}
+
+.compare-col-char {
+  width: 100px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compare-col-num {
+  width: 40px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.compare-col-title {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.compare-col-pos {
+  width: 80px;
+  flex-shrink: 0;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.compare-view-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.compare-merge-btn {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.compare-merge-btn:hover {
+  background: var(--accent-hover);
+}
+
+.compare-view-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}

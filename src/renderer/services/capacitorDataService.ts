@@ -22,6 +22,8 @@ import {
   TaskFieldDef,
   TaskViewConfig,
   WorldEvent,
+  BranchIndex,
+  BranchCompareData,
 } from '../../shared/types';
 import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
@@ -426,10 +428,41 @@ export class CapacitorDataService implements DataService {
       tags,
     };
 
-    await writeTextFile(
-      `${this.projectPath}/timeline.json`,
-      JSON.stringify(data, null, 2),
-    );
+    // Preserve task-family data when caller omits it — mirrors the
+    // main-process saveTimelineToDisk guard (see src/main/saveTimeline.ts).
+    // MobileApp.saveTimelineData passes only 5 args; without this, an iOS
+    // save would wipe tasks from the iCloud-synced timeline.json.
+    const timelinePath = `${this.projectPath}/timeline.json`;
+    const merged: Record<string, unknown> = { ...data };
+    const existingRaw = await readTextFile(timelinePath);
+    if (existingRaw) {
+      try {
+        const existing = JSON.parse(existingRaw) as Record<string, unknown>;
+        const PRESERVED_KEYS = [
+          'tasks',
+          'taskFieldDefs',
+          'taskViews',
+          'taskColumnWidths',
+          'archivedScenes',
+          'worldEvents',
+        ] as const;
+        const isEmpty = (v: unknown): boolean => {
+          if (v === undefined || v === null) return true;
+          if (Array.isArray(v)) return v.length === 0;
+          if (typeof v === 'object') return Object.keys(v as object).length === 0;
+          return false;
+        };
+        for (const key of PRESERVED_KEYS) {
+          if (merged[key] === undefined && !isEmpty(existing[key])) {
+            merged[key] = existing[key];
+          }
+        }
+      } catch {
+        // Corrupt existing file — fall through and write incoming as-is.
+      }
+    }
+
+    await writeTextFile(timelinePath, JSON.stringify(merged, null, 2));
   }
 
   // ── Recent projects ─────────────────────────────────────────────────────
@@ -631,5 +664,31 @@ export class CapacitorDataService implements DataService {
   async listProjectFiles(projectPath: string): Promise<string[]> {
     const entries = await listDir(projectPath);
     return entries.filter(e => e.type === 'file').map(e => e.name);
+  }
+
+  // ── Branches (not supported on iPad) ────────────────────────────────────
+
+  async listBranches(_projectPath: string): Promise<BranchIndex> {
+    return { branches: [], activeBranch: null };
+  }
+
+  async createBranch(_projectPath: string, _name: string, _description?: string): Promise<BranchIndex> {
+    throw new Error('Branches not supported on this platform');
+  }
+
+  async switchBranch(_projectPath: string, _name: string | null): Promise<BranchIndex> {
+    throw new Error('Branches not supported on this platform');
+  }
+
+  async deleteBranch(_projectPath: string, _name: string): Promise<BranchIndex> {
+    throw new Error('Branches not supported on this platform');
+  }
+
+  async mergeBranch(_projectPath: string, _branchName: string, _sceneIds: string[]): Promise<void> {
+    throw new Error('Branches not supported on this platform');
+  }
+
+  async compareBranches(_projectPath: string, _leftBranch: string | null, _rightBranch: string | null): Promise<BranchCompareData> {
+    throw new Error('Branches not supported on this platform');
   }
 }

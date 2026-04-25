@@ -1,4 +1,4 @@
-import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent } from '../../shared/types';
+import { Character, Scene, PlotPoint, Tag, OutlineFile, ProjectData, TimelineData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, BranchIndex, BranchCompareData } from '../../shared/types';
 import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
 import { CapacitorDataService } from './capacitorDataService';
@@ -37,11 +37,19 @@ export interface DataService {
   saveSceneComments(projectPath: string, sceneId: string, comments: SceneComment[]): Promise<void>;
   // Conflict detection (iPad companion)
   listProjectFiles?(projectPath: string): Promise<string[]>;
+  // Branches
+  listBranches(projectPath: string): Promise<BranchIndex>;
+  createBranch(projectPath: string, name: string, description?: string): Promise<BranchIndex>;
+  switchBranch(projectPath: string, name: string | null): Promise<BranchIndex>;
+  deleteBranch(projectPath: string, name: string): Promise<BranchIndex>;
+  mergeBranch(projectPath: string, branchName: string, sceneIds: string[]): Promise<void>;
+  compareBranches(projectPath: string, leftBranch: string | null, rightBranch: string | null): Promise<BranchCompareData>;
 }
 
 // Local file system implementation (Electron)
 class ElectronDataService implements DataService {
   private projectPath: string | null = null;
+  private activeBranch: string | null = null;
   private outlineFiles: Map<string, OutlineFile> = new Map();
 
   async selectProjectFolder(): Promise<string | null> {
@@ -54,10 +62,23 @@ class ElectronDataService implements DataService {
 
   async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }> {
     this.projectPath = folderPath;
+    const branchIndex = await this.listBranches(folderPath);
+    this.activeBranch = branchIndex.activeBranch;
+
     const result = await window.electronAPI.readProject(folderPath);
 
     if (!result.success || !result.outlines) {
       throw new Error(result.error || 'Failed to load project');
+    }
+
+    // If a branch is active, re-read outlines from the branch folder
+    if (this.activeBranch) {
+      const branchOutlines = await window.electronAPI.readProject(
+        folderPath + '/branches/' + this.activeBranch
+      );
+      if (branchOutlines.success && branchOutlines.outlines) {
+        result.outlines = branchOutlines.outlines;
+      }
     }
 
     // Load timeline data
@@ -65,6 +86,14 @@ class ElectronDataService implements DataService {
     let timelineData: TimelineData = timelineResult.success && timelineResult.data
       ? timelineResult.data
       : { positions: {}, connections: {} };
+
+    // Override positions if on a branch
+    if (this.activeBranch) {
+      const branchPosResult = await window.electronAPI.branchesReadPositions(folderPath, this.activeBranch);
+      if (branchPosResult.success && branchPosResult.data) {
+        timelineData = { ...timelineData, positions: branchPosResult.data };
+      }
+    }
 
     // Load per-scene content from individual files
     const perSceneResult = await window.electronAPI.readAllPerSceneContent(folderPath);
@@ -178,7 +207,12 @@ class ElectronDataService implements DataService {
     outline.scenes = scenes.filter(s => s.characterId === character.id);
 
     const content = serializeOutline(outline);
-    const result = await window.electronAPI.saveFile(character.filePath, content);
+    let savePath = character.filePath;
+    if (this.activeBranch && this.projectPath) {
+      const fileName = character.filePath.split('/').pop() || character.filePath.split('\\').pop() || '';
+      savePath = this.projectPath + '/branches/' + this.activeBranch + '/' + fileName;
+    }
+    const result = await window.electronAPI.saveFile(savePath, content);
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to save file');
@@ -234,6 +268,11 @@ class ElectronDataService implements DataService {
   async saveTimeline(positions: Record<string, number>, connections: Record<string, string[]>, chapters: BraidedChapter[], characterColors?: Record<string, string>, wordCounts?: Record<string, number>, fontSettings?: FontSettings, archivedScenes?: ArchivedScene[], metadataFieldDefs?: MetadataFieldDef[], sceneMetadata?: Record<string, Record<string, string | string[]>>, wordCountGoal?: number, allFontSettings?: AllFontSettings, tasks?: Task[], taskFieldDefs?: TaskFieldDef[], taskViews?: TaskViewConfig[], inlineMetadataFields?: string[], showInlineLabels?: boolean, taskColumnWidths?: Record<string, number>, taskVisibleColumns?: string[], timelineDates?: Record<string, string>, worldEvents?: WorldEvent[], timelineEndDates?: Record<string, string>, tags?: Tag[]): Promise<void> {
     if (!this.projectPath) {
       throw new Error('No project loaded');
+    }
+
+    // Save positions to branch positions.json when a branch is active
+    if (this.activeBranch) {
+      await window.electronAPI.branchesSavePositions(this.projectPath, this.activeBranch, positions);
     }
 
     const result = await window.electronAPI.saveTimeline(this.projectPath, { positions, connections, chapters, characterColors, wordCounts, fontSettings, archivedScenes, metadataFieldDefs, sceneMetadata, wordCountGoal, allFontSettings, tasks, taskFieldDefs, taskViews, inlineMetadataFields, showInlineLabels, taskColumnWidths, taskVisibleColumns, timelineDates, worldEvents, timelineEndDates, tags });
@@ -391,6 +430,42 @@ class ElectronDataService implements DataService {
 
   async listProjectFiles(_projectPath: string): Promise<string[]> {
     return []; // Conflict detection is iPad-only for now
+  }
+
+  async listBranches(projectPath: string): Promise<BranchIndex> {
+    const result = await window.electronAPI.branchesList(projectPath);
+    if (!result.success) throw new Error(result.error || 'Failed to list branches');
+    return result.data;
+  }
+
+  async createBranch(projectPath: string, name: string, description?: string): Promise<BranchIndex> {
+    const result = await window.electronAPI.branchesCreate(projectPath, name, description);
+    if (!result.success) throw new Error(result.error || 'Failed to create branch');
+    return result.data;
+  }
+
+  async switchBranch(projectPath: string, name: string | null): Promise<BranchIndex> {
+    const result = await window.electronAPI.branchesSwitch(projectPath, name);
+    if (!result.success) throw new Error(result.error || 'Failed to switch branch');
+    this.activeBranch = name;
+    return result.data;
+  }
+
+  async deleteBranch(projectPath: string, name: string): Promise<BranchIndex> {
+    const result = await window.electronAPI.branchesDelete(projectPath, name);
+    if (!result.success) throw new Error(result.error || 'Failed to delete branch');
+    return result.data;
+  }
+
+  async mergeBranch(projectPath: string, branchName: string, sceneIds: string[]): Promise<void> {
+    const result = await window.electronAPI.branchesMerge(projectPath, branchName, sceneIds);
+    if (!result.success) throw new Error(result.error || 'Failed to merge branch');
+  }
+
+  async compareBranches(projectPath: string, leftBranch: string | null, rightBranch: string | null): Promise<BranchCompareData> {
+    const result = await window.electronAPI.branchesCompare(projectPath, leftBranch, rightBranch);
+    if (!result.success) throw new Error(result.error || 'Failed to compare branches');
+    return result.data;
   }
 }
 

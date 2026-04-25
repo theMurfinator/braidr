@@ -49,5 +49,14 @@ interface Window {
     onUpdateStatus: (callback: (data: any) => void) => () => void;
     updateDownload: () => void;
     updateInstall: () => void;
+    // Branches
+    branchesList: (projectPath: string) => Promise<any>;
+    branchesCreate: (projectPath: string, name: string, description?: string) => Promise<any>;
+    branchesSwitch: (projectPath: string, name: string | null) => Promise<any>;
+    branchesDelete: (projectPath: string, name: string) => Promise<any>;
+    branchesMerge: (projectPath: string, branchName: string, sceneIds: string[]) => Promise<any>;
+    branchesCompare: (projectPath: string, leftBranch: string | null, rightBranch: string | null) => Promise<any>;
+    branchesReadPositions: (projectPath: string, branchName: string) => Promise<any>;
+    branchesSavePositions: (projectPath: string, branchName: string, positions: Record<string, number>) => Promise<any>;
   };
 }

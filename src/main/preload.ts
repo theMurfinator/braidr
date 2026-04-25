@@ -42,6 +42,15 @@ const IPC_CHANNELS = {
   CAPTURE_ANALYTICS_EVENT: 'capture-analytics-event',
   APP_CLOSING: 'app-closing',
   SAFE_TO_CLOSE: 'safe-to-close',
+  // Branches
+  BRANCHES_LIST: 'branches:list',
+  BRANCHES_CREATE: 'branches:create',
+  BRANCHES_SWITCH: 'branches:switch',
+  BRANCHES_DELETE: 'branches:delete',
+  BRANCHES_MERGE: 'branches:merge',
+  BRANCHES_COMPARE: 'branches:compare',
+  BRANCHES_READ_POSITIONS: 'branches:read-positions',
+  BRANCHES_SAVE_POSITIONS: 'branches:save-positions',
   // Per-scene content (extracted from timeline.json)
   READ_DRAFT: 'read-draft',
   SAVE_DRAFT: 'save-draft',
@@ -128,6 +137,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('save-scene-comments', folderPath, sceneId, comments),
   readAllPerSceneContent: (folderPath: string) =>
     ipcRenderer.invoke('read-all-per-scene-content', folderPath),
+  // Branches
+  branchesList: (projectPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_LIST, projectPath),
+  branchesCreate: (projectPath: string, name: string, description?: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_CREATE, projectPath, name, description),
+  branchesSwitch: (projectPath: string, name: string | null) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_SWITCH, projectPath, name),
+  branchesDelete: (projectPath: string, name: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_DELETE, projectPath, name),
+  branchesMerge: (projectPath: string, branchName: string, sceneIds: string[]) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_MERGE, projectPath, branchName, sceneIds),
+  branchesCompare: (projectPath: string, leftBranch: string | null, rightBranch: string | null) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_COMPARE, projectPath, leftBranch, rightBranch),
+  branchesReadPositions: (projectPath: string, branchName: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_READ_POSITIONS, projectPath, branchName),
+  branchesSavePositions: (projectPath: string, branchName: string, positions: Record<string, number>) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_SAVE_POSITIONS, projectPath, branchName, positions),
   // License dialog (triggered from menu)
   onShowLicenseDialog: (callback: () => void) => {
     const listener = () => callback();

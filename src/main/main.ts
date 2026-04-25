@@ -8,6 +8,7 @@ import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata 
 import { getLicenseStatus, activateLicense, deactivateLicense, startTrial, openPurchaseUrl, openBillingPortal, refreshLicenseStatus, getStoredEmail, getApiBase } from './license';
 import { initPostHog, captureEvent, identifyUser, aliasUser, getSessionDurationMs, shutdownPostHog } from './posthog';
 import { saveTimelineToDisk } from './saveTimeline';
+import { listBranches, createBranch, switchBranch, deleteBranch, mergeBranch, compareBranches } from './branches';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -924,6 +925,79 @@ ipcMain.handle(IPC_CHANNELS.READ_ALL_PER_SCENE_CONTENT, async (_event, folderPat
     }
 
     return { success: true, data: { draftContent, scratchpad, drafts, sceneComments } };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// ── Draft Branch handlers ───────────────────────────────────────────
+
+ipcMain.handle(IPC_CHANNELS.BRANCHES_LIST, async (_event, projectPath: string) => {
+  try {
+    return { success: true, data: listBranches(projectPath) };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRANCHES_CREATE, async (_event, projectPath: string, name: string, description?: string) => {
+  try {
+    return { success: true, data: createBranch(projectPath, name, description) };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRANCHES_SWITCH, async (_event, projectPath: string, name: string | null) => {
+  try {
+    return { success: true, data: switchBranch(projectPath, name) };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRANCHES_DELETE, async (_event, projectPath: string, name: string) => {
+  try {
+    return { success: true, data: deleteBranch(projectPath, name) };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRANCHES_MERGE, async (_event, projectPath: string, branchName: string, sceneIds: string[]) => {
+  try {
+    mergeBranch(projectPath, branchName, sceneIds);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRANCHES_COMPARE, async (_event, projectPath: string, leftBranch: string | null, rightBranch: string | null) => {
+  try {
+    return { success: true, data: compareBranches(projectPath, leftBranch, rightBranch) };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRANCHES_READ_POSITIONS, async (_event, projectPath: string, branchName: string) => {
+  try {
+    const posPath = path.join(projectPath, 'branches', branchName, 'positions.json');
+    if (fs.existsSync(posPath)) {
+      return { success: true, data: JSON.parse(fs.readFileSync(posPath, 'utf-8')) };
+    }
+    return { success: true, data: {} };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRANCHES_SAVE_POSITIONS, async (_event, projectPath: string, branchName: string, positions: Record<string, number>) => {
+  try {
+    const posPath = path.join(projectPath, 'branches', branchName, 'positions.json');
+    fs.writeFileSync(posPath, JSON.stringify(positions, null, 2), 'utf-8');
+    return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
   }

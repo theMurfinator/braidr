@@ -98,9 +98,9 @@ actor FileProjectService {
     // MARK: - Drafts
 
     func readDraft(projectURL: URL, sceneId: String) throws -> String {
-        let url = projectURL.appendingPathComponent("drafts/\(sceneId).html")
+        let url = projectURL.appendingPathComponent("drafts/\(sceneId).md")
         guard FileManager.default.fileExists(atPath: url.path) else {
-            // Fall back to timeline.json draftContent
+            // Fall back to legacy timeline.json draftContent (pre-Phase-1 projects)
             let timelineURL = projectURL.appendingPathComponent("timeline.json")
             if FileManager.default.fileExists(atPath: timelineURL.path),
                let data = try? Data(contentsOf: timelineURL),
@@ -116,8 +116,22 @@ actor FileProjectService {
     func saveDraft(projectURL: URL, sceneId: String, content: String) throws {
         let draftsDir = projectURL.appendingPathComponent("drafts")
         try FileManager.default.createDirectory(at: draftsDir, withIntermediateDirectories: true)
-        let url = draftsDir.appendingPathComponent("\(sceneId).html")
+        let url = draftsDir.appendingPathComponent("\(sceneId).md")
         try content.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    /// Eagerly read every `drafts/*.md` file, returning sceneId → content.
+    /// Mirrors the desktop Electron behavior of preloading all drafts at project-load time.
+    func loadAllDrafts(projectURL: URL) throws -> [String: String] {
+        let draftsDir = projectURL.appendingPathComponent("drafts")
+        guard FileManager.default.fileExists(atPath: draftsDir.path) else { return [:] }
+        let contents = try FileManager.default.contentsOfDirectory(at: draftsDir, includingPropertiesForKeys: nil)
+        var out: [String: String] = [:]
+        for fileURL in contents where fileURL.pathExtension == "md" {
+            let sceneId = fileURL.deletingPathExtension().lastPathComponent
+            out[sceneId] = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
+        }
+        return out
     }
 
     // MARK: - Notes
@@ -141,8 +155,61 @@ actor FileProjectService {
         let url = projectURL.appendingPathComponent("timeline.json")
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(timelineData)
-        try data.write(to: url, options: .atomic)
+        let encoded = try encoder.encode(timelineData)
+
+        // Preserve task-family keys the iPad app's TimelineData doesn't model.
+        // Without this, our save strips tasks/taskFieldDefs/taskViews/etc and
+        // iCloud propagates the wipe to the Mac. Mirrors the desktop-side
+        // saveTimelineToDisk guard (src/main/saveTimeline.ts).
+        let merged = Self.mergeUnknownKeys(newData: encoded, existingFileURL: url)
+        try merged.write(to: url, options: .atomic)
+    }
+
+    // Only keys that TimelineData.swift does NOT model. If the iPad's
+    // TimelineData struct gains a field (e.g. tasks), remove it from this list.
+    private static let preservedKeys: [String] = [
+        "tasks",
+        "taskFieldDefs",
+        "taskViews",
+        "taskColumnWidths",
+        "taskVisibleColumns",
+        "inlineMetadataFields",
+        "showInlineLabels",
+    ]
+
+    private static func mergeUnknownKeys(newData: Data, existingFileURL: URL) -> Data {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: existingFileURL.path),
+              let existingRaw = try? Data(contentsOf: existingFileURL),
+              let existingAny = try? JSONSerialization.jsonObject(with: existingRaw),
+              let existing = existingAny as? [String: Any],
+              let newAny = try? JSONSerialization.jsonObject(with: newData),
+              var merged = newAny as? [String: Any]
+        else {
+            return newData
+        }
+
+        for key in preservedKeys where merged[key] == nil {
+            if let preserved = existing[key], !isEmptyJSONValue(preserved) {
+                merged[key] = preserved
+            }
+        }
+
+        guard let out = try? JSONSerialization.data(
+            withJSONObject: merged,
+            options: [.prettyPrinted, .sortedKeys]
+        ) else {
+            return newData
+        }
+        return out
+    }
+
+    private static func isEmptyJSONValue(_ value: Any?) -> Bool {
+        guard let value = value else { return true }
+        if value is NSNull { return true }
+        if let arr = value as? [Any] { return arr.isEmpty }
+        if let dict = value as? [String: Any] { return dict.isEmpty }
+        return false
     }
 
     // MARK: - Character outline

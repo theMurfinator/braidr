@@ -307,6 +307,38 @@ export interface NotesIndex {
   version?: number;        // 2 = nested notes; absent/1 = legacy folder-based
 }
 
+// ── Draft Branches ──────────────────────────────────────────────────────────
+
+export interface BranchInfo {
+  name: string;
+  description?: string;
+  createdAt: string;
+  createdFrom: string;
+}
+
+export interface BranchIndex {
+  branches: BranchInfo[];
+  activeBranch: string | null;
+}
+
+export interface BranchCompareData {
+  leftName: string;
+  rightName: string;
+  scenes: BranchSceneDiff[];
+}
+
+export interface BranchSceneDiff {
+  sceneId: string;
+  characterId: string;
+  characterName: string;
+  sceneNumber: number;
+  leftTitle: string;
+  rightTitle: string;
+  leftPosition: number | null;
+  rightPosition: number | null;
+  changed: boolean;
+}
+
 // License types
 export interface LicenseStatus {
   state: 'unlicensed' | 'licensed' | 'expired' | 'invalid' | 'trial' | 'trial_expired';
@@ -381,4 +413,13 @@ export const IPC_CHANNELS = {
   SAVE_SCENE_COMMENTS: 'save-scene-comments',
   // Bulk read for project loading
   READ_ALL_PER_SCENE_CONTENT: 'read-all-per-scene-content',
+  // Branches
+  BRANCHES_LIST: 'branches:list',
+  BRANCHES_CREATE: 'branches:create',
+  BRANCHES_SWITCH: 'branches:switch',
+  BRANCHES_DELETE: 'branches:delete',
+  BRANCHES_MERGE: 'branches:merge',
+  BRANCHES_COMPARE: 'branches:compare',
+  BRANCHES_READ_POSITIONS: 'branches:read-positions',
+  BRANCHES_SAVE_POSITIONS: 'branches:save-positions',
 } as const;
