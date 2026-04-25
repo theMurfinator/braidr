@@ -42,6 +42,7 @@ import PaneManager from './components/panes/PaneManager';
 import { useAutoScrollOnDrag } from './hooks/useAutoScrollOnDrag';
 import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
+import { CompareView } from './components/branches/CompareView';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
 type BraidedSubMode = 'list' | 'table' | 'rails';
@@ -5082,6 +5083,16 @@ function App() {
               return false;
             }
           }}
+        />
+      )}
+
+      {/* Compare View */}
+      {showCompareView && projectData?.projectPath && (
+        <CompareView
+          projectPath={projectData.projectPath}
+          branchIndex={branchIndex}
+          onClose={() => setShowCompareView(false)}
+          onMerge={(name) => { setShowCompareView(false); setShowMergeDialog(name); }}
         />
       )}
 
