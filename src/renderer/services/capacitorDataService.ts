@@ -28,6 +28,7 @@ import {
 import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
 import type { DataService } from './dataService';
+import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } from './projectLock';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,6 +78,25 @@ async function listDir(path: string): Promise<{ name: string; type: 'file' | 'di
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
+}
+
+async function getCapacitorDeviceInfo(): Promise<{ deviceId: string; deviceName: string }> {
+  const { value } = await Preferences.get({ key: 'deviceInfo' });
+  if (value) {
+    try { return JSON.parse(value); } catch { /* regenerate */ }
+  }
+  let deviceName = 'iPad';
+  try {
+    const { Device } = await import('@capacitor/device');
+    const info = await Device.getInfo();
+    deviceName = info.name || info.model || 'iPad';
+  } catch { /* fallback to 'iPad' */ }
+  const info = {
+    deviceId: Math.random().toString(16).substring(2, 10),
+    deviceName,
+  };
+  await Preferences.set({ key: 'deviceInfo', value: JSON.stringify(info) });
+  return info;
 }
 
 // ---------------------------------------------------------------------------
@@ -690,5 +710,45 @@ export class CapacitorDataService implements DataService {
 
   async compareBranches(_projectPath: string, _leftBranch: string | null, _rightBranch: string | null): Promise<BranchCompareData> {
     throw new Error('Branches not supported on this platform');
+  }
+
+  async acquireProjectLock(projectPath: string, force?: boolean): Promise<{ acquired: boolean; heldBy?: string }> {
+    const { deviceId, deviceName } = await getCapacitorDeviceInfo();
+    const read = async (): Promise<LockData | null> => {
+      const content = await readTextFile(`${projectPath}/.braidr/lock.json`);
+      if (!content) return null;
+      try { return JSON.parse(content); } catch { return null; }
+    };
+    const write = async (data: LockData): Promise<void> => {
+      await writeTextFile(`${projectPath}/.braidr/lock.json`, JSON.stringify(data, null, 2));
+    };
+    return acquireLock(deviceId, deviceName, read, write, force);
+  }
+
+  async releaseProjectLock(projectPath: string): Promise<void> {
+    stopHeartbeat();
+    await releaseLock(async () => {
+      try {
+        await Filesystem.deleteFile(fsOptions(`${projectPath}/.braidr/lock.json`));
+      } catch { /* already gone */ }
+    });
+  }
+
+  startLockHeartbeat(projectPath: string, onTakenOver: (byDeviceName: string) => void): void {
+    getCapacitorDeviceInfo().then(({ deviceId, deviceName }) => {
+      const read = async (): Promise<LockData | null> => {
+        const content = await readTextFile(`${projectPath}/.braidr/lock.json`);
+        if (!content) return null;
+        try { return JSON.parse(content); } catch { return null; }
+      };
+      const write = async (data: LockData): Promise<void> => {
+        await writeTextFile(`${projectPath}/.braidr/lock.json`, JSON.stringify(data, null, 2));
+      };
+      startHeartbeat(deviceId, deviceName, read, write, onTakenOver);
+    });
+  }
+
+  stopLockHeartbeat(): void {
+    stopHeartbeat();
   }
 }
