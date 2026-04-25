@@ -58,5 +58,9 @@ interface Window {
     branchesCompare: (projectPath: string, leftBranch: string | null, rightBranch: string | null) => Promise<any>;
     branchesReadPositions: (projectPath: string, branchName: string) => Promise<any>;
     branchesSavePositions: (projectPath: string, branchName: string, positions: Record<string, number>) => Promise<any>;
+    // Lock
+    lockRead: (projectPath: string) => Promise<any>;
+    lockWrite: (projectPath: string, data: { deviceId: string; deviceName: string; timestamp: number }) => Promise<any>;
+    lockDelete: (projectPath: string) => Promise<any>;
   };
 }

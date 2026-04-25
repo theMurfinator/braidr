@@ -422,4 +422,8 @@ export const IPC_CHANNELS = {
   BRANCHES_COMPARE: 'branches:compare',
   BRANCHES_READ_POSITIONS: 'branches:read-positions',
   BRANCHES_SAVE_POSITIONS: 'branches:save-positions',
+  // Lock
+  LOCK_READ: 'lock:read',
+  LOCK_WRITE: 'lock:write',
+  LOCK_DELETE: 'lock:delete',
 } as const;

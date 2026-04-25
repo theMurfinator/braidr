@@ -1003,6 +1003,48 @@ ipcMain.handle(IPC_CHANNELS.BRANCHES_SAVE_POSITIONS, async (_event, projectPath:
   }
 });
 
+// ── Lock ──────────────────────────────────────────────────────────────────
+ipcMain.handle(IPC_CHANNELS.LOCK_READ, async (_event, projectPath: string) => {
+  try {
+    const lockPath = path.join(projectPath, '.braidr', 'lock.json');
+    if (!fs.existsSync(lockPath)) {
+      return { success: true, data: null };
+    }
+    const content = fs.readFileSync(lockPath, 'utf-8');
+    return { success: true, data: JSON.parse(content) };
+  } catch (err: any) {
+    return { success: true, data: null };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.LOCK_WRITE, async (_event, projectPath: string, data: { deviceId: string; deviceName: string; timestamp: number }) => {
+  try {
+    const braidrDir = path.join(projectPath, '.braidr');
+    if (!fs.existsSync(braidrDir)) {
+      fs.mkdirSync(braidrDir, { recursive: true });
+    }
+    const lockPath = path.join(braidrDir, 'lock.json');
+    const tmpPath = lockPath + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmpPath, lockPath);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.LOCK_DELETE, async (_event, projectPath: string) => {
+  try {
+    const lockPath = path.join(projectPath, '.braidr', 'lock.json');
+    if (fs.existsSync(lockPath)) {
+      fs.unlinkSync(lockPath);
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: true };
+  }
+});
+
 // Stable character ID from name (must match renderer's parser.ts stableId)
 function stableCharId(str: string): string {
   const s = str.toLowerCase();

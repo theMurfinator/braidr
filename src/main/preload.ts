@@ -51,6 +51,9 @@ const IPC_CHANNELS = {
   BRANCHES_COMPARE: 'branches:compare',
   BRANCHES_READ_POSITIONS: 'branches:read-positions',
   BRANCHES_SAVE_POSITIONS: 'branches:save-positions',
+  LOCK_READ: 'lock:read',
+  LOCK_WRITE: 'lock:write',
+  LOCK_DELETE: 'lock:delete',
   // Per-scene content (extracted from timeline.json)
   READ_DRAFT: 'read-draft',
   SAVE_DRAFT: 'save-draft',
@@ -154,6 +157,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_READ_POSITIONS, projectPath, branchName),
   branchesSavePositions: (projectPath: string, branchName: string, positions: Record<string, number>) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_SAVE_POSITIONS, projectPath, branchName, positions),
+  // Lock
+  lockRead: (projectPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.LOCK_READ, projectPath),
+  lockWrite: (projectPath: string, data: { deviceId: string; deviceName: string; timestamp: number }) =>
+    ipcRenderer.invoke(IPC_CHANNELS.LOCK_WRITE, projectPath, data),
+  lockDelete: (projectPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.LOCK_DELETE, projectPath),
   // License dialog (triggered from menu)
   onShowLicenseDialog: (callback: () => void) => {
     const listener = () => callback();
