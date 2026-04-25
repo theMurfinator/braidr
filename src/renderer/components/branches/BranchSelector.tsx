@@ -31,6 +31,7 @@ export function BranchSelector({
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -151,7 +152,7 @@ export function BranchSelector({
                   className="branch-delete-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDeleteBranch(branch.name);
+                    setConfirmDelete(branch.name);
                   }}
                   title={`Delete branch "${branch.name}"`}
                 >
@@ -221,6 +222,26 @@ export function BranchSelector({
               )}
             </>
           )}
+        </div>
+      )}
+      {confirmDelete && (
+        <div className="branch-confirm-overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="branch-confirm-dialog" onClick={e => e.stopPropagation()}>
+            <h3>Delete branch</h3>
+            <p>Are you sure you want to delete <strong>{confirmDelete}</strong>? This cannot be undone.</p>
+            <div className="branch-confirm-actions">
+              <button onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button
+                className="branch-confirm-delete"
+                onClick={() => {
+                  onDeleteBranch(confirmDelete);
+                  setConfirmDelete(null);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

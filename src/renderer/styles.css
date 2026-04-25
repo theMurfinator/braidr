@@ -18112,3 +18112,59 @@ textarea.table-cell-input {
   color: var(--text-secondary);
   font-size: 13px;
 }
+
+/* Branch Delete Confirmation */
+.branch-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.branch-confirm-dialog {
+  background: var(--bg-primary, #1e1e1e);
+  border: 1px solid var(--border, #333);
+  border-radius: 12px;
+  padding: 24px;
+  width: 360px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.branch-confirm-dialog h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.branch-confirm-dialog p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--text-secondary, #aaa);
+  line-height: 1.5;
+}
+
+.branch-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.branch-confirm-actions button {
+  padding: 6px 16px;
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.branch-confirm-delete {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: white !important;
+  font-weight: 600;
+}
