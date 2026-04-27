@@ -114,7 +114,7 @@ struct BranchMergeSheet: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isChanged ? .tint : Color.secondary.opacity(0.3))
+                    .foregroundColor(isChanged ? .accentColor : Color.secondary.opacity(0.3))
 
                 Text("#\(scene.sceneNumber)")
                     .font(.caption.monospacedDigit())
