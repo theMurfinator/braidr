@@ -1,42 +1,35 @@
 import SwiftUI
 
-struct FontOption: Identifiable {
-    let id: String
-    let label: String
-    let swiftUIName: String
-
-    static let all: [FontOption] = [
-        FontOption(id: "newyork",       label: "New York",          swiftUIName: ".AppleSystemUISerifSemibold"),
-        FontOption(id: "georgia",       label: "Georgia",           swiftUIName: "Georgia"),
-        FontOption(id: "palatino",      label: "Palatino",          swiftUIName: "Palatino"),
-        FontOption(id: "timesnewroman", label: "Times New Roman",   swiftUIName: "Times New Roman"),
-        FontOption(id: "lora",          label: "Lora",              swiftUIName: "Lora"),
-        FontOption(id: "merriweather",  label: "Merriweather",      swiftUIName: "Merriweather-Regular"),
-        FontOption(id: "ebgaramond",    label: "EB Garamond",       swiftUIName: "EBGaramond"),
-        FontOption(id: "sfpro",         label: "SF Pro",            swiftUIName: ".AppleSystemUIFont"),
-        FontOption(id: "avenirnext",    label: "Avenir Next",       swiftUIName: "Avenir Next"),
-    ]
-}
-
 struct FontSettingsPopover: View {
     @Binding var fontFamily: String
     @Binding var fontSize: Double
     var showTagToggle: Bool = false
     @Binding var showTags: Bool
 
+    private static let fontOptions: [(label: String, value: String)] = [
+        ("New York",          ".AppleSystemUISerifSemibold"),
+        ("Georgia",           "Georgia"),
+        ("Palatino",          "Palatino"),
+        ("Times New Roman",   "Times New Roman"),
+        ("Lora",              "Lora"),
+        ("Merriweather",      "Merriweather-Regular"),
+        ("EB Garamond",       "EBGaramond"),
+        ("SF Pro",            ".AppleSystemUIFont"),
+        ("Avenir Next",       "Avenir Next"),
+    ]
+
     var body: some View {
         Form {
             Section("Font") {
-                ForEach(FontOption.all) { option in
+                ForEach(Self.fontOptions, id: \.label) { option in
                     Button {
-                        fontFamily = option.swiftUIName
+                        fontFamily = option.value
                     } label: {
                         HStack {
                             Text(option.label)
-                                .font(.custom(option.swiftUIName, size: 16))
                                 .foregroundStyle(.primary)
                             Spacer()
-                            if fontFamily == option.swiftUIName {
+                            if fontFamily == option.value {
                                 Image(systemName: "checkmark")
                                     .foregroundStyle(.tint)
                             }
