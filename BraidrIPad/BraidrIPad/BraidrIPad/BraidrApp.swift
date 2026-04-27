@@ -1,8 +1,13 @@
 import SwiftUI
+import CoreText
 
 @main
 struct BraidrApp: App {
     @State private var viewModel = ProjectViewModel()
+
+    init() {
+        Self.registerBundledFonts()
+    }
 
     var body: some SwiftUI.Scene {
         WindowGroup {
@@ -11,6 +16,16 @@ struct BraidrApp: App {
             } else {
                 ProjectPickerView(viewModel: viewModel)
             }
+        }
+    }
+
+    private static func registerBundledFonts() {
+        let fontFiles = ["Lora.ttf", "Merriweather.ttf", "EBGaramond.ttf"]
+        for file in fontFiles {
+            guard let url = Bundle.main.url(forResource: file, withExtension: nil, subdirectory: "Resources/Editor") else {
+                continue
+            }
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
         }
     }
 }

@@ -12,6 +12,8 @@ struct RailsSceneCard: View {
     var onTap: () -> Void = {}
     var onDropRequested: (RailsDropTarget) -> Void = { _ in }
 
+    @AppStorage("rails.fontFamily") private var fontFamily: String = ".AppleSystemUISerifSemibold"
+    @AppStorage("rails.fontSize") private var fontSize: Double = 16
     @State private var title: String = ""
     @State private var tagsText: String = ""
     @State private var notesText: String = ""
@@ -33,7 +35,7 @@ struct RailsSceneCard: View {
             }
             TextField("Title", text: $title)
                 .textFieldStyle(.plain)
-                .font(scene.isHighlighted ? .body.bold() : .body)
+                .font(resolveFont(name: fontFamily, size: fontSize, bold: scene.isHighlighted))
                 .onChange(of: title) { _, new in onTitleChange(new) }
 
             TextField("#tags space-separated", text: $tagsText)
