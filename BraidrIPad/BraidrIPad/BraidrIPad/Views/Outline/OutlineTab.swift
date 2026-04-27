@@ -14,6 +14,11 @@ struct OutlineTab: View {
             }
             .navigationTitle("Characters")
             .listStyle(.sidebar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    BranchMenu(viewModel: viewModel)
+                }
+            }
         } detail: {
             if let charId = viewModel.selectedCharacterId {
                 CharacterOutlineDetail(viewModel: viewModel, characterId: charId)
@@ -59,7 +64,7 @@ private struct CharacterOutlineDetail: View {
                 Section {
                     if !pp.description.isEmpty {
                         Text(pp.description)
-                            .font(.caption)
+                            .font(resolveFont(name: fontFamily, size: max(fontSize - 3, 12)))
                             .foregroundStyle(.secondary)
                     }
                     let ppScenes = allScenes.filter { $0.plotPointId == pp.id }
@@ -80,6 +85,14 @@ private struct CharacterOutlineDetail: View {
         .navigationTitle(characterName)
         .listStyle(.insetGrouped)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    viewModel.addScene(characterId: characterId)
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Add scene")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showFontMenu = true
@@ -141,7 +154,7 @@ struct SceneRowView: View {
 
                 ForEach(scene.notes, id: \.self) { note in
                     Text("• \(note)")
-                        .font(.caption)
+                        .font(resolveFont(name: fontFamily, size: max(fontSize - 3, 12)))
                         .foregroundStyle(.secondary)
                         .padding(.leading, 16)
                 }

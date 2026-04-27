@@ -37,6 +37,11 @@ struct EditorTab: View {
             }
             .navigationTitle("Scenes")
             .listStyle(.sidebar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    BranchMenu(viewModel: viewModel)
+                }
+            }
         } detail: {
             if let sceneId = viewModel.selectedSceneId {
                 TipTapEditorView(

@@ -40,6 +40,9 @@ struct RailsTab: View {
                     .accessibilityLabel(inboxOpen ? "Close inbox" : "Open inbox")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    BranchMenu(viewModel: viewModel)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showFontMenu = true
                     } label: {

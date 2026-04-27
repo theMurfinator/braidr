@@ -17,6 +17,11 @@ struct NotesTab: View {
             }
             .navigationTitle("Notes")
             .listStyle(.sidebar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    BranchMenu(viewModel: viewModel)
+                }
+            }
         } detail: {
             if let noteId = viewModel.selectedNoteId,
                let note = viewModel.notes.first(where: { $0.id == noteId }) {

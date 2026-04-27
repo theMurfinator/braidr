@@ -400,6 +400,35 @@ final class ProjectViewModel {
         }
     }
 
+    // MARK: - Add scene (Outline)
+
+    @discardableResult
+    func addScene(characterId: String, plotPointId: String? = nil) -> String {
+        guard var proj = project else { return "" }
+        let newId = Self.generateSceneId()
+        let maxNum = proj.scenes
+            .filter { $0.characterId == characterId }
+            .map(\.sceneNumber)
+            .max() ?? 0
+        let scene = Scene(
+            id: newId,
+            characterId: characterId,
+            sceneNumber: maxNum + 1,
+            title: "Untitled",
+            content: "Untitled",
+            tags: [],
+            timelinePosition: nil,
+            isHighlighted: false,
+            notes: [],
+            plotPointId: plotPointId,
+            wordCount: nil
+        )
+        proj.scenes.append(scene)
+        project = proj
+        schedulePersistCharacterOutline(for: characterId)
+        return newId
+    }
+
     // MARK: - Branches
 
     func createBranch(name: String, description: String? = nil) async {
