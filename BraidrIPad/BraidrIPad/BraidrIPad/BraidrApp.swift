@@ -4,6 +4,7 @@ import CoreText
 @main
 struct BraidrApp: App {
     @State private var viewModel = ProjectViewModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         Self.registerBundledFonts()
@@ -15,6 +16,11 @@ struct BraidrApp: App {
                 MainTabView(viewModel: viewModel)
             } else {
                 ProjectPickerView(viewModel: viewModel)
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background || newPhase == .inactive {
+                Task { await viewModel.flushAll() }
             }
         }
     }

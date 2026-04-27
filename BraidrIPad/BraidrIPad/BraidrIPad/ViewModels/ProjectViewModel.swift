@@ -196,6 +196,13 @@ final class ProjectViewModel {
         }
     }
 
+    func flushAll() async {
+        autoSaveTimer?.invalidate()
+        outlineAutoSaveTimer?.invalidate()
+        await flushDrafts()
+        await flushOutlineSaves()
+    }
+
     private func saveTimelineInBackground() {
         guard let proj = project else { return }
         Task {
