@@ -18,6 +18,10 @@ final class ProjectViewModel {
     /// Which tab is currently active. "outline" | "rails" | "editor" | "notes"
     var selectedTab: String = "outline"
 
+    /// Active branch name (nil = main)
+    var activeBranch: String?
+    var branchIndex: BranchIndex = .empty
+
     /// ID of the scene whose detail sheet is open on the Rails tab.
     var selectedSceneForSheet: String?
 
@@ -46,6 +50,11 @@ final class ProjectViewModel {
             try BookmarkManager.saveBookmark(for: url)
             let loaded = try await fileService.loadProject(from: url)
             project = loaded
+
+            // Track branch state
+            let bi = await fileService.listBranches(projectURL: url)
+            branchIndex = bi
+            activeBranch = bi.activeBranch
 
             // Populate draft contents from per-scene drafts/*.md files (Phase 1 format),
             // then fill gaps from legacy inline timeline.draftContent for older projects.
@@ -190,7 +199,7 @@ final class ProjectViewModel {
     private func saveTimelineInBackground() {
         guard let proj = project else { return }
         Task {
-            try? await fileService.saveTimeline(projectURL: proj.projectURL, timelineData: proj.timelineData)
+            try? await fileService.saveTimeline(projectURL: proj.projectURL, timelineData: proj.timelineData, activeBranch: self.activeBranch)
         }
     }
 
@@ -388,6 +397,57 @@ final class ProjectViewModel {
         for (newPos, (origIdx, _)) in sorted.enumerated() {
             proj.scenes[origIdx].timelinePosition = newPos + 1
             proj.timelineData.positions[proj.scenes[origIdx].id] = newPos + 1
+        }
+    }
+
+    // MARK: - Branches
+
+    func createBranch(name: String, description: String? = nil) async {
+        guard let url = project?.projectURL else { return }
+        do {
+            let index = try await fileService.createBranch(projectURL: url, name: name, description: description)
+            branchIndex = index
+            activeBranch = index.activeBranch
+            await loadProject(from: url)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func switchBranch(name: String?) async {
+        guard let url = project?.projectURL else { return }
+        let index = await fileService.switchBranch(projectURL: url, name: name)
+        branchIndex = index
+        activeBranch = index.activeBranch
+        await loadProject(from: url)
+    }
+
+    func deleteBranch(name: String) async {
+        guard let url = project?.projectURL else { return }
+        do {
+            let index = try await fileService.deleteBranch(projectURL: url, name: name)
+            branchIndex = index
+            activeBranch = index.activeBranch
+            if activeBranch == nil {
+                await loadProject(from: url)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func compareBranches(left: String?, right: String?) async -> BranchCompareData? {
+        guard let url = project?.projectURL else { return nil }
+        return await fileService.compareBranches(projectURL: url, leftBranch: left, rightBranch: right)
+    }
+
+    func mergeBranch(name: String, sceneIds: [String]) async {
+        guard let url = project?.projectURL else { return }
+        do {
+            try await fileService.mergeBranch(projectURL: url, branchName: name, sceneIds: sceneIds)
+            await loadProject(from: url)
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }

@@ -203,7 +203,7 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
         id: parsedStableId || generateId(),
         characterId: character.id,
         sceneNumber,
-        title: sceneContent,
+        title: sceneContent.replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim(),
         content: sceneContent,
         tags,
         timelinePosition: null, // null = not yet braided, positions loaded from timeline.json

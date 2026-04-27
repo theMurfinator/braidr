@@ -96,11 +96,16 @@ enum OutlineParser {
                     tags.append(properCharacterTag)
                 }
 
+                let displayTitle = parsed.content
+                    .replacingOccurrences(of: "#[a-zA-Z0-9_]+", with: "", options: .regularExpression)
+                    .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespaces)
+
                 currentScene = Scene(
                     id: parsed.stableId ?? generateId(),
                     characterId: character.id,
                     sceneNumber: parsed.sceneNumber,
-                    title: parsed.content,
+                    title: displayTitle,
                     content: parsed.content,
                     tags: tags,
                     timelinePosition: nil,
