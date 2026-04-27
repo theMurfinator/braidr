@@ -87,7 +87,9 @@ async function getCapacitorDeviceInfo(): Promise<{ deviceId: string; deviceName:
   }
   let deviceName = 'iPad';
   try {
-    const { Device } = await import('@capacitor/device');
+    // Variable path to prevent Vite static analysis from resolving this optional dependency
+    const modPath = '@capacitor/' + 'device';
+    const { Device } = await import(/* @vite-ignore */ modPath);
     const info = await Device.getInfo();
     deviceName = info.name || info.model || 'iPad';
   } catch { /* fallback to 'iPad' */ }
