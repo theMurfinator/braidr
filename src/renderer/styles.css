@@ -17888,7 +17888,8 @@ textarea.table-cell-input {
 }
 
 .compare-view {
-  width: 800px;
+  width: 1000px;
+  max-width: 95vw;
   max-height: 80vh;
   background: var(--bg-primary);
   border-radius: 12px;

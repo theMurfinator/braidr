@@ -13,6 +13,10 @@ interface CompareViewProps {
 const MAIN_VALUE = '__main__';
 const DEFAULT_COLOR = '#6b7280';
 
+function stripTags(title: string): string {
+  return title.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim();
+}
+
 interface RailsScene {
   sceneId: string;
   position: number;
@@ -34,7 +38,7 @@ function buildRailsColumn(
     .map(s => ({
       sceneId: s.sceneId,
       position: (side === 'left' ? s.leftPosition : s.rightPosition)!,
-      title: side === 'left' ? s.leftTitle : s.rightTitle,
+      title: stripTags(side === 'left' ? s.leftTitle : s.rightTitle),
       characterName: s.characterName,
       characterId: s.characterId,
       color: colors[s.characterId] || DEFAULT_COLOR,
