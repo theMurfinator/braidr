@@ -23,7 +23,9 @@ import {
   TaskViewConfig,
   WorldEvent,
   BranchIndex,
+  BranchInfo,
   BranchCompareData,
+  BranchSceneDiff,
 } from '../../shared/types';
 import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
@@ -80,6 +82,90 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
 
+function parseCharacterName(content: string): string {
+  const match = content.match(/^---\s*\n[\s\S]*?character:\s*(.+)\n[\s\S]*?---/m);
+  return match ? match[1].trim() : 'Unknown';
+}
+
+interface ParsedScene {
+  sceneId: string;
+  sceneNumber: number;
+  title: string;
+  fullLine: string;
+  characterName: string;
+  characterId: string;
+  fileName: string;
+}
+
+async function listMdFiles(dir: string): Promise<string[]> {
+  const entries = await listDir(dir);
+  return entries
+    .filter(e => e.type === 'file' && e.name.endsWith('.md') && !e.name.startsWith('CLAUDE') && !e.name.startsWith('README'))
+    .map(e => e.name);
+}
+
+async function parseScenesFromDir(dir: string): Promise<ParsedScene[]> {
+  const scenes: ParsedScene[] = [];
+  const mdFiles = await listMdFiles(dir);
+
+  for (const fileName of mdFiles) {
+    const content = await readTextFile(`${dir}/${fileName}`);
+    if (!content) continue;
+
+    const characterName = parseCharacterName(content);
+    const characterId = fileName.replace('.md', '').toLowerCase();
+
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      const lineMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+      if (!lineMatch) continue;
+
+      const sceneNumber = parseInt(lineMatch[1], 10);
+      const sceneLine = lineMatch[2];
+
+      const sidMatch = sceneLine.match(/<!--\s*sid:(\S+)\s*-->/);
+      if (!sidMatch) continue;
+
+      const sceneId = sidMatch[1];
+      const title = sceneLine.replace(/\s*<!--\s*sid:\S+\s*-->/, '').trim();
+
+      scenes.push({ sceneId, sceneNumber, title, fullLine: trimmed, characterName, characterId, fileName });
+    }
+  }
+
+  return scenes;
+}
+
+async function readBranchIndex(projectPath: string): Promise<BranchIndex> {
+  const content = await readTextFile(`${projectPath}/branches/index.json`);
+  if (!content) return { branches: [], activeBranch: null };
+  try { return JSON.parse(content); } catch { return { branches: [], activeBranch: null }; }
+}
+
+async function writeBranchIndex(projectPath: string, index: BranchIndex): Promise<void> {
+  await writeTextFile(`${projectPath}/branches/index.json`, JSON.stringify(index, null, 2));
+}
+
+async function readBranchPositions(projectPath: string, branchName: string | null): Promise<Record<string, number>> {
+  if (branchName === null) {
+    const raw = await readTextFile(`${projectPath}/timeline.json`);
+    if (!raw) return {};
+    try { return (JSON.parse(raw) as any).positions ?? {}; } catch { return {}; }
+  }
+  const raw = await readTextFile(`${projectPath}/branches/${branchName}/positions.json`);
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+
+function branchMdDir(projectPath: string, branchName: string | null): string {
+  if (branchName === null) return projectPath;
+  return `${projectPath}/branches/${branchName}`;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function getCapacitorDeviceInfo(): Promise<{ deviceId: string; deviceName: string }> {
   const { value } = await Preferences.get({ key: 'deviceInfo' });
   if (value) {
@@ -107,6 +193,7 @@ async function getCapacitorDeviceInfo(): Promise<{ deviceId: string; deviceName:
 
 export class CapacitorDataService implements DataService {
   private projectPath: string | null = null;
+  private activeBranch: string | null = null;
   private outlineFiles: Map<string, OutlineFile> = new Map();
 
   // ── Folder selection ────────────────────────────────────────────────────
@@ -170,27 +257,25 @@ export class CapacitorDataService implements DataService {
   > {
     this.projectPath = folderPath;
 
-    // 1. List .md files in project folder (exclude CLAUDE* and README*)
-    const entries = await listDir(folderPath);
-    const mdFiles = entries.filter(
-      e =>
-        e.type === 'file' &&
-        e.name.endsWith('.md') &&
-        !e.name.startsWith('CLAUDE') &&
-        !e.name.startsWith('README'),
-    );
+    // Check for active branch
+    const branchIndex = await readBranchIndex(folderPath);
+    this.activeBranch = branchIndex.activeBranch;
+
+    // 1. List .md files — from branch folder if active, otherwise project root
+    const mdSourceDir = branchMdDir(folderPath, this.activeBranch);
+    const mdFileNames = await listMdFiles(mdSourceDir);
 
     // 2. Read each outline and parse
     const characters: Character[] = [];
     const allScenes: Scene[] = [];
     const allPlotPoints: PlotPoint[] = [];
 
-    for (const file of mdFiles) {
-      const filePath = `${folderPath}/${file.name}`;
+    for (const fileName of mdFileNames) {
+      const filePath = `${mdSourceDir}/${fileName}`;
       const content = await readTextFile(filePath);
       if (content === null) continue;
 
-      const outline = parseOutlineFile(content, file.name, filePath);
+      const outline = parseOutlineFile(content, fileName, filePath);
       this.outlineFiles.set(outline.character.id, outline);
 
       if (!characters.some(c => c.id === outline.character.id)) {
@@ -205,6 +290,12 @@ export class CapacitorDataService implements DataService {
     let timelineData: TimelineData = timelineRaw
       ? (JSON.parse(timelineRaw) as TimelineData)
       : { positions: {}, connections: {} };
+
+    // Override positions if on a branch
+    if (this.activeBranch) {
+      const branchPositions = await readBranchPositions(folderPath, this.activeBranch);
+      timelineData = { ...timelineData, positions: branchPositions };
+    }
 
     // 4. Read per-scene content from individual files
     const draftContent: Record<string, string> = {};
@@ -346,7 +437,12 @@ export class CapacitorDataService implements DataService {
     outline.scenes = scenes.filter(s => s.characterId === character.id);
 
     const content = serializeOutline(outline);
-    await writeTextFile(character.filePath, content);
+    let savePath = character.filePath;
+    if (this.activeBranch && this.projectPath) {
+      const fileName = character.filePath.split('/').pop() || '';
+      savePath = `${this.projectPath}/branches/${this.activeBranch}/${fileName}`;
+    }
+    await writeTextFile(savePath, content);
     outline.rawContent = content;
   }
 
@@ -423,6 +519,13 @@ export class CapacitorDataService implements DataService {
   ): Promise<void> {
     if (!this.projectPath) {
       throw new Error('No project loaded');
+    }
+
+    if (this.activeBranch) {
+      await writeTextFile(
+        `${this.projectPath}/branches/${this.activeBranch}/positions.json`,
+        JSON.stringify(positions, null, 2),
+      );
     }
 
     const data: TimelineData = {
@@ -688,30 +791,167 @@ export class CapacitorDataService implements DataService {
     return entries.filter(e => e.type === 'file').map(e => e.name);
   }
 
-  // ── Branches (not supported on iPad) ────────────────────────────────────
+  // ── Branches ────────────────────────────────────────────────────────────
 
-  async listBranches(_projectPath: string): Promise<BranchIndex> {
-    return { branches: [], activeBranch: null };
+  async listBranches(projectPath: string): Promise<BranchIndex> {
+    return readBranchIndex(projectPath);
   }
 
-  async createBranch(_projectPath: string, _name: string, _description?: string): Promise<BranchIndex> {
-    throw new Error('Branches not supported on this platform');
+  async createBranch(projectPath: string, name: string, description?: string): Promise<BranchIndex> {
+    const index = await readBranchIndex(projectPath);
+
+    const sourceLabel = index.activeBranch ?? 'main';
+    const sourceDir = branchMdDir(projectPath, index.activeBranch);
+    const sourcePositions = await readBranchPositions(projectPath, index.activeBranch);
+
+    const mdFiles = await listMdFiles(sourceDir);
+    const destDir = `${projectPath}/branches/${name}`;
+    for (const fileName of mdFiles) {
+      const content = await readTextFile(`${sourceDir}/${fileName}`);
+      if (content !== null) {
+        await writeTextFile(`${destDir}/${fileName}`, content);
+      }
+    }
+
+    await writeTextFile(`${destDir}/positions.json`, JSON.stringify(sourcePositions, null, 2));
+
+    const info: BranchInfo = {
+      name,
+      description,
+      createdAt: new Date().toISOString(),
+      createdFrom: sourceLabel,
+    };
+    index.branches.push(info);
+    index.activeBranch = name;
+    await writeBranchIndex(projectPath, index);
+
+    return index;
   }
 
-  async switchBranch(_projectPath: string, _name: string | null): Promise<BranchIndex> {
-    throw new Error('Branches not supported on this platform');
+  async switchBranch(projectPath: string, name: string | null): Promise<BranchIndex> {
+    const index = await readBranchIndex(projectPath);
+    index.activeBranch = name;
+    this.activeBranch = name;
+    await writeBranchIndex(projectPath, index);
+    return index;
   }
 
-  async deleteBranch(_projectPath: string, _name: string): Promise<BranchIndex> {
-    throw new Error('Branches not supported on this platform');
+  async deleteBranch(projectPath: string, name: string): Promise<BranchIndex> {
+    const index = await readBranchIndex(projectPath);
+
+    const branchDir = `${projectPath}/branches/${name}`;
+    const entries = await listDir(branchDir);
+    for (const entry of entries) {
+      try {
+        await Filesystem.deleteFile(fsOptions(`${branchDir}/${entry.name}`));
+      } catch { /* file may already be gone */ }
+    }
+    try {
+      await Filesystem.rmdir(fsOptions(branchDir));
+    } catch { /* directory may already be gone */ }
+
+    index.branches = index.branches.filter(b => b.name !== name);
+    if (index.activeBranch === name) {
+      index.activeBranch = null;
+      this.activeBranch = null;
+    }
+    await writeBranchIndex(projectPath, index);
+
+    return index;
   }
 
-  async mergeBranch(_projectPath: string, _branchName: string, _sceneIds: string[]): Promise<void> {
-    throw new Error('Branches not supported on this platform');
+  async mergeBranch(projectPath: string, branchName: string, sceneIds: string[]): Promise<void> {
+    if (sceneIds.length === 0) return;
+
+    const branchDir = branchMdDir(projectPath, branchName);
+    const branchPositions = await readBranchPositions(projectPath, branchName);
+    const branchScenes = await parseScenesFromDir(branchDir);
+
+    const branchMap = new Map(branchScenes.map(s => [s.sceneId, s]));
+
+    const fileUpdates = new Map<string, { sceneId: string; fullLine: string }[]>();
+    for (const sid of sceneIds) {
+      const branchScene = branchMap.get(sid);
+      if (!branchScene) continue;
+      const existing = fileUpdates.get(branchScene.fileName) ?? [];
+      existing.push({ sceneId: sid, fullLine: branchScene.fullLine });
+      fileUpdates.set(branchScene.fileName, existing);
+    }
+
+    for (const [fileName, updates] of fileUpdates) {
+      const mainFilePath = `${projectPath}/${fileName}`;
+      let content = await readTextFile(mainFilePath);
+      if (!content) continue;
+
+      for (const { sceneId, fullLine } of updates) {
+        const sidPattern = new RegExp(`^(\\d+\\.\\s+.*)<!--\\s*sid:${escapeRegex(sceneId)}\\s*-->.*$`, 'm');
+        content = content.replace(sidPattern, fullLine);
+      }
+
+      await writeTextFile(mainFilePath, content);
+    }
+
+    const timelineRaw = await readTextFile(`${projectPath}/timeline.json`);
+    let timeline: Record<string, unknown> = { positions: {}, connections: {}, chapters: [] };
+    if (timelineRaw) {
+      try { timeline = JSON.parse(timelineRaw); } catch { /* use default */ }
+    }
+
+    const positions = (timeline.positions ?? {}) as Record<string, number>;
+    for (const sid of sceneIds) {
+      if (sid in branchPositions) {
+        positions[sid] = branchPositions[sid];
+      }
+    }
+    timeline.positions = positions;
+
+    await writeTextFile(`${projectPath}/timeline.json`, JSON.stringify(timeline, null, 2));
   }
 
-  async compareBranches(_projectPath: string, _leftBranch: string | null, _rightBranch: string | null): Promise<BranchCompareData> {
-    throw new Error('Branches not supported on this platform');
+  async compareBranches(projectPath: string, leftBranch: string | null, rightBranch: string | null): Promise<BranchCompareData> {
+    const leftDir = branchMdDir(projectPath, leftBranch);
+    const rightDir = branchMdDir(projectPath, rightBranch);
+    const leftPositions = await readBranchPositions(projectPath, leftBranch);
+    const rightPositions = await readBranchPositions(projectPath, rightBranch);
+
+    const leftScenes = await parseScenesFromDir(leftDir);
+    const rightScenes = await parseScenesFromDir(rightDir);
+
+    const leftMap = new Map(leftScenes.map(s => [s.sceneId, s]));
+    const rightMap = new Map(rightScenes.map(s => [s.sceneId, s]));
+
+    const allIds = new Set([...leftMap.keys(), ...rightMap.keys()]);
+    const diffs: BranchSceneDiff[] = [];
+
+    for (const sceneId of allIds) {
+      const l = leftMap.get(sceneId);
+      const r = rightMap.get(sceneId);
+
+      const leftTitle = l?.title ?? '';
+      const rightTitle = r?.title ?? '';
+      const leftPos = leftPositions[sceneId] ?? null;
+      const rightPos = rightPositions[sceneId] ?? null;
+
+      const changed = leftTitle !== rightTitle || leftPos !== rightPos;
+
+      diffs.push({
+        sceneId,
+        characterId: (l ?? r)!.characterId,
+        characterName: (l ?? r)!.characterName,
+        sceneNumber: (l ?? r)!.sceneNumber,
+        leftTitle,
+        rightTitle,
+        leftPosition: leftPos,
+        rightPosition: rightPos,
+        changed,
+      });
+    }
+
+    return {
+      leftName: leftBranch ?? 'main',
+      rightName: rightBranch ?? 'main',
+      scenes: diffs,
+    };
   }
 
   async acquireProjectLock(projectPath: string, force?: boolean): Promise<{ acquired: boolean; heldBy?: string }> {
