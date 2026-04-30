@@ -1,0 +1,187 @@
+import { useState, useRef, useEffect } from 'react';
+import { Scene } from '../../shared/types';
+
+interface OutlineSceneRowProps {
+  scene: Scene;
+  displayNumber?: number;
+  characterName?: string;
+  synopsisVisible: boolean;
+  onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
+  onSetAside?: (sceneId: string) => void;
+  onDragStart: (scene: Scene) => void;
+  onDragEnd: () => void;
+  onOpenInEditor?: (sceneKey: string) => void;
+  expandMode: boolean;
+  isDragging?: boolean;
+  dropPosition?: 'above' | 'below' | null;
+}
+
+function OutlineSceneRow({
+  scene,
+  displayNumber,
+  characterName,
+  synopsisVisible,
+  onSceneChange,
+  onSetAside,
+  onDragStart,
+  onDragEnd,
+  onOpenInEditor,
+  expandMode,
+  isDragging,
+  dropPosition,
+}: OutlineSceneRowProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleValue, setTitleValue] = useState(scene.title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const canDragRef = useRef(false);
+
+  useEffect(() => {
+    setTitleValue(scene.title);
+  }, [scene.title]);
+
+  useEffect(() => {
+    if (editingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [editingTitle]);
+
+  useEffect(() => {
+    const resetDrag = () => { canDragRef.current = false; };
+    document.addEventListener('mouseup', resetDrag);
+    return () => document.removeEventListener('mouseup', resetDrag);
+  }, []);
+
+  const cleanContent = (text: string) =>
+    text.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '').replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
+
+  const handleTitleBlur = () => {
+    setEditingTitle(false);
+    if (titleValue !== scene.title) {
+      const newContent = scene.content.replace(cleanContent(scene.content), titleValue);
+      onSceneChange(scene.id, newContent || titleValue, scene.notes);
+    }
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleTitleBlur();
+    } else if (e.key === 'Escape') {
+      setTitleValue(scene.title);
+      setEditingTitle(false);
+    }
+  };
+
+  const synopsisText = scene.notes.join('\n');
+  const showSynopsis = expandMode ? expanded : synopsisVisible;
+
+  const handleRowClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('.outline-scene-title-input, .outline-scene-synopsis-input, .outline-scene-action-btn, .outline-scene-drag-handle')) return;
+    if (expandMode) {
+      setExpanded(!expanded);
+    }
+  };
+
+  const handleSynopsisBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    const newNotes = e.target.value.split('\n').filter(line => line.trim());
+    if (e.target.value !== synopsisText) {
+      onSceneChange(scene.id, scene.content, newNotes.length > 0 ? newNotes : []);
+    }
+  };
+
+  const rowClasses = [
+    'outline-scene-row',
+    isDragging ? 'dragging' : '',
+    dropPosition === 'above' ? 'drop-above' : '',
+    dropPosition === 'below' ? 'drop-below' : '',
+    showSynopsis ? 'synopsis-visible' : '',
+  ].filter(Boolean).join(' ');
+
+  return (
+    <div
+      className={rowClasses}
+      draggable="true"
+      onDragStart={(e) => {
+        if (canDragRef.current) {
+          onDragStart(scene);
+        } else {
+          e.preventDefault();
+        }
+      }}
+      onDragEnd={() => {
+        onDragEnd();
+        canDragRef.current = false;
+      }}
+      onClick={handleRowClick}
+      data-scene-id={scene.id}
+    >
+      <div className="outline-scene-main">
+        <span
+          className="outline-scene-drag-handle"
+          onMouseDown={() => { canDragRef.current = true; }}
+        >
+          ⋮⋮
+        </span>
+        {displayNumber !== undefined && (
+          <span className="outline-scene-number">{displayNumber}.</span>
+        )}
+        {editingTitle ? (
+          <input
+            ref={titleInputRef}
+            className="outline-scene-title-input"
+            value={titleValue}
+            onChange={(e) => setTitleValue(e.target.value)}
+            onBlur={handleTitleBlur}
+            onKeyDown={handleTitleKeyDown}
+          />
+        ) : (
+          <span
+            className="outline-scene-title"
+            onClick={() => setEditingTitle(true)}
+          >
+            {scene.title || cleanContent(scene.content) || 'Untitled scene'}
+          </span>
+        )}
+        {characterName && (
+          <span className="outline-scene-tag">{characterName}</span>
+        )}
+        <span className="outline-scene-hover-actions">
+          {onOpenInEditor && (
+            <button
+              className="outline-scene-action-btn"
+              onClick={(e) => { e.stopPropagation(); onOpenInEditor(scene.id); }}
+            >
+              Open
+            </button>
+          )}
+          {onSetAside && (
+            <button
+              className="outline-scene-action-btn"
+              onClick={(e) => { e.stopPropagation(); onSetAside(scene.id); }}
+            >
+              Set aside
+            </button>
+          )}
+        </span>
+      </div>
+      <div className={`outline-scene-synopsis ${showSynopsis ? 'open' : ''}`}>
+        <textarea
+          className="outline-scene-synopsis-input"
+          defaultValue={synopsisText}
+          onBlur={handleSynopsisBlur}
+          placeholder="Write a synopsis..."
+          rows={1}
+          onInput={(e) => {
+            const target = e.target as HTMLTextAreaElement;
+            target.style.height = 'auto';
+            target.style.height = target.scrollHeight + 'px';
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export default OutlineSceneRow;
