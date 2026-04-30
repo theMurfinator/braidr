@@ -6,6 +6,7 @@ import { dataService } from './services/dataService';
 import { migrateNotesSceneLinks } from './services/migration';
 import SceneCard from './components/SceneCard';
 import PlotPointSection from './components/PlotPointSection';
+import BullpenPanel from './components/BullpenPanel';
 import FilterBar from './components/FilterBar';
 import TagManager from './components/TagManager';
 import SceneDetailPanel from './components/SceneDetailPanel';
@@ -3721,6 +3722,11 @@ function App() {
                     plotPoint={plotPoint}
                     scenes={displayedScenes.filter(s => s.plotPointId === plotPoint.id)}
                     tags={projectData.tags}
+                    outlineMode={true}
+                    synopsisMode={sectionSynopsisModes[plotPoint.id] || 'inline'}
+                    onToggleSynopsisMode={handleToggleSynopsisMode}
+                    onSetAside={handleSetAside}
+                    getCharacterName={getCharacterName}
                     onSceneChange={handleSceneChange}
                     onTagsChange={handleTagsChange}
                     onCreateTag={handleCreateTag}
@@ -3782,72 +3788,22 @@ function App() {
                     }}
                   />
                 ))}
-                {displayedScenes.filter(s => !s.plotPointId).map(scene => (
-                  <SceneCard
-                    key={scene.id}
-                    scene={scene}
-                    tags={projectData.tags}
-                    showCharacter={false}
-                    onSceneChange={handleSceneChange}
-                    onTagsChange={handleTagsChange}
-                    onCreateTag={handleCreateTag}
-                    onDeleteScene={handleArchiveScene}
-                    onDuplicateScene={handleDuplicateScene}
-                    forceNotesExpanded={allNotesExpanded}
-                    connectedScenes={getConnectedScenes(scene.id)}
-                    onStartConnection={() => {
-                      setConnectionSource(scene.id);
-                      setIsConnecting(true);
-                    }}
-                    onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
-                    metadataFieldDefs={metadataFieldDefs}
-                    sceneMetadata={sceneMetadata[scene.id]}
-                    onMetadataChange={(sceneId, fieldId, value) => {
-                      handleMetadataChange(sceneId, fieldId, value);
-                    }}
-                    onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
-                    inlineMetadataFields={inlineMetadataFields}
-                    showInlineLabels={showInlineLabels}
-                    onWordCountChange={handleWordCountChange}
-                    onOpenInEditor={handleOpenInEditor}
-                    sceneDate={timelineDates[scene.id]}
-                    onDateChange={handleSceneDateChange}
-                  />
-                ))}
                 <button className="add-section-btn" onClick={handleCreatePlotPoint}>
                   + Add Section
                 </button>
                 </div>
 
-                {!(hideSectionHeaders[tabId] ?? false) && displayedPlotPoints.length > 0 && (
-                  <div className="pov-toc">
-                    <h3 className="toc-title">Sections</h3>
-                    <div className="toc-items">
-                      {displayedPlotPoints.map((plotPoint) => {
-                        const sectionScenes = displayedScenes.filter(s => s.plotPointId === plotPoint.id);
-                        return (
-                          <button
-                            key={plotPoint.id}
-                            className="toc-item"
-                            onClick={() => {
-                              const element = document.querySelector(`[data-plotpoint-id="${plotPoint.id}"]`);
-                              if (element) {
-                                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                              }
-                            }}
-                          >
-                            <span className="toc-item-title">{plotPoint.title}</span>
-                            {plotPoint.expectedSceneCount && (
-                              <span className="toc-item-count">
-                                {sectionScenes.length}/{plotPoint.expectedSceneCount}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                <BullpenPanel
+                  scenes={displayedScenes.filter(s => !s.plotPointId)}
+                  plotPoints={displayedPlotPoints}
+                  getCharacterName={getCharacterName}
+                  onReturnScene={handleReturnFromBullpen}
+                  onSceneChange={handleSceneChange}
+                  onSceneDrop={handleSetAside}
+                  draggedScene={draggedPovScene}
+                  onDragStart={(scene) => setDraggedPovScene(scene)}
+                  onDragEnd={() => setDraggedPovScene(null)}
+                />
               </div>
             ) : braidedSubMode === 'table' ? (
               // Table View
@@ -4614,11 +4570,18 @@ function App() {
             <>
               <div className="toolbar-divider" />
               <button
-                className={`toolbar-btn ${allNotesExpanded !== false ? 'active' : ''}`}
-                onClick={() => setAllNotesExpanded(prev => prev === null ? false : !prev)}
-                title={allNotesExpanded === false ? 'Expand Notes' : 'Collapse Notes'}
+                className="toolbar-btn"
+                onClick={() => handleSetAllSynopsisModes('inline')}
+                title="Show all synopses"
               >
-                Notes
+                Show synopses
+              </button>
+              <button
+                className="toolbar-btn"
+                onClick={() => handleSetAllSynopsisModes('expand')}
+                title="Hide all synopses"
+              >
+                Hide synopses
               </button>
               <button
                 className={`toolbar-btn ${!(hideSectionHeaders[activeTab.id] ?? false) ? 'active' : ''}`}
