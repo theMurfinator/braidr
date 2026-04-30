@@ -113,6 +113,7 @@ function App() {
   const [showPovColors, setShowPovColors] = useState(true);
   const [allNotesExpanded, setAllNotesExpanded] = useState<boolean | null>(null);
   const [hideSectionHeaders, setHideSectionHeaders] = useState<Record<string, boolean>>({});
+  const [sectionSynopsisModes, setSectionSynopsisModes] = useState<Record<string, 'inline' | 'expand'>>({});
   const [inlineMetadataFields, setInlineMetadataFields] = useState<string[]>([]);
   const inlineMetadataFieldsRef = useRef<string[]>([]);
   const [showInlineLabels, setShowInlineLabels] = useState(true);
@@ -1918,6 +1919,80 @@ function App() {
     }
   };
 
+  const handleSetAside = async (sceneId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+
+    const scene = projectData.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+
+    scene.plotPointId = null;
+
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === selectedCharacterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    charScenes.forEach((s, idx) => { s.sceneNumber = idx + 1; });
+
+    const updatedData = { ...projectData, scenes: [...projectData.scenes] };
+    setProjectData(updatedData);
+
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+      await saveTimelineData(updatedData.scenes, sceneConnections, braidedChapters);
+    } catch (err) {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
+    }
+  };
+
+  const handleReturnFromBullpen = async (sceneId: string, targetPlotPointId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+
+    const scene = projectData.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+
+    scene.plotPointId = targetPlotPointId;
+
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === selectedCharacterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    charScenes.forEach((s, idx) => { s.sceneNumber = idx + 1; });
+
+    const updatedData = { ...projectData, scenes: [...projectData.scenes] };
+    setProjectData(updatedData);
+
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+      await saveTimelineData(updatedData.scenes, sceneConnections, braidedChapters);
+    } catch (err) {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
+    }
+  };
+
+  const handleToggleSynopsisMode = (plotPointId: string) => {
+    setSectionSynopsisModes(prev => ({
+      ...prev,
+      [plotPointId]: prev[plotPointId] === 'expand' ? 'inline' : 'expand',
+    }));
+  };
+
+  const handleSetAllSynopsisModes = (mode: 'inline' | 'expand') => {
+    if (!projectData) return;
+    const modes: Record<string, 'inline' | 'expand'> = {};
+    projectData.plotPoints
+      .filter(p => p.characterId === selectedCharacterId)
+      .forEach(p => { modes[p.id] = mode; });
+    setSectionSynopsisModes(modes);
+  };
+
   const handleMoveSectionUp = async (sectionId: string) => {
     if (!projectData || !selectedCharacterId) return;
 
@@ -3436,6 +3511,31 @@ function App() {
         </div>
         {showUpdateModal && (
           <UpdateModal onClose={() => setShowUpdateModal(false)} />
+        )}
+        {lockConflict && (
+          <div className="lock-takeover-overlay" onClick={() => setLockConflict(null)}>
+            <div className="lock-takeover-dialog" onClick={e => e.stopPropagation()}>
+              <h3>Project already open</h3>
+              <p>
+                This project is currently being edited on <strong>{lockConflict.heldBy}</strong>.
+              </p>
+              <p>Taking over will close the project on that device.</p>
+              <div className="lock-takeover-actions">
+                <button onClick={() => setLockConflict(null)}>Cancel</button>
+                <button
+                  className="lock-takeover-confirm"
+                  onClick={async () => {
+                    const { projectPath, projectName } = lockConflict;
+                    setLockConflict(null);
+                    await dataService.acquireProjectLock(projectPath, true);
+                    await loadProjectFromPath(projectPath, projectName);
+                  }}
+                >
+                  Take Over
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     );
