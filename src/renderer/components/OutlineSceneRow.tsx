@@ -10,7 +10,7 @@ interface OutlineSceneRowProps {
   onSetAside?: (sceneId: string) => void;
   onDragStart: (scene: Scene) => void;
   onDragEnd: () => void;
-  onOpenInEditor?: (sceneKey: string) => void;
+  onOpenInEditor?: (sceneId: string) => void;
   expandMode: boolean;
   isDragging?: boolean;
   dropPosition?: 'above' | 'below' | null;
@@ -53,14 +53,10 @@ function OutlineSceneRow({
     return () => document.removeEventListener('mouseup', resetDrag);
   }, []);
 
-  const cleanContent = (text: string) =>
-    text.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '').replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
-
   const handleTitleBlur = () => {
     setEditingTitle(false);
     if (titleValue !== scene.title) {
-      const newContent = scene.content.replace(cleanContent(scene.content), titleValue);
-      onSceneChange(scene.id, newContent || titleValue, scene.notes);
+      onSceneChange(scene.id, titleValue, scene.notes);
     }
   };
 
@@ -74,7 +70,10 @@ function OutlineSceneRow({
     }
   };
 
-  const synopsisText = scene.notes.join('\n');
+  const [synopsisValue, setSynopsisValue] = useState(scene.notes.join('\n'));
+  const notesKey = JSON.stringify(scene.notes);
+  useEffect(() => { setSynopsisValue(scene.notes.join('\n')); }, [notesKey]);
+
   const showSynopsis = expandMode ? expanded : synopsisVisible;
 
   const handleRowClick = (e: React.MouseEvent) => {
@@ -84,9 +83,9 @@ function OutlineSceneRow({
     }
   };
 
-  const handleSynopsisBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-    const newNotes = e.target.value.split('\n').filter(line => line.trim());
-    if (e.target.value !== synopsisText) {
+  const handleSynopsisBlur = () => {
+    const newNotes = synopsisValue.split('\n').filter(line => line.trim());
+    if (synopsisValue !== scene.notes.join('\n')) {
       onSceneChange(scene.id, scene.content, newNotes.length > 0 ? newNotes : []);
     }
   };
@@ -141,7 +140,7 @@ function OutlineSceneRow({
             className="outline-scene-title"
             onClick={() => setEditingTitle(true)}
           >
-            {scene.title || cleanContent(scene.content) || 'Untitled scene'}
+            {scene.title || scene.content || 'Untitled scene'}
           </span>
         )}
         {characterName && (
@@ -169,7 +168,8 @@ function OutlineSceneRow({
       <div className={`outline-scene-synopsis ${showSynopsis ? 'open' : ''}`}>
         <textarea
           className="outline-scene-synopsis-input"
-          defaultValue={synopsisText}
+          value={synopsisValue}
+          onChange={(e) => setSynopsisValue(e.target.value)}
           onBlur={handleSynopsisBlur}
           placeholder="Write a synopsis..."
           rows={1}
