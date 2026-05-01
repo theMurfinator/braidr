@@ -501,7 +501,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
         </div>
       )}
 
-      {onAddScene && (
+      {onAddScene && !outlineMode && (
         <button className="add-scene-btn" onClick={() => {
           const lastScene = sortedScenes[sortedScenes.length - 1];
           onAddScene(plotPoint.id, lastScene?.sceneNumber);

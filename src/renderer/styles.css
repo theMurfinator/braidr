@@ -18307,10 +18307,10 @@ textarea.table-cell-input {
 
 .outline-scene-title {
   flex: 1;
-  font-family: var(--font-body);
-  font-size: 17px;
-  font-weight: 500;
-  color: var(--text-primary);
+  font-family: var(--font-scene-title);
+  font-size: var(--font-scene-title-size);
+  font-weight: var(--font-scene-title-weight);
+  color: var(--font-scene-title-color);
   cursor: text;
   line-height: 1.5;
   min-width: 0;
@@ -18321,10 +18321,10 @@ textarea.table-cell-input {
 
 .outline-scene-title-input {
   flex: 1;
-  font-family: var(--font-body);
-  font-size: 17px;
-  font-weight: 500;
-  color: var(--text-primary);
+  font-family: var(--font-scene-title);
+  font-size: var(--font-scene-title-size);
+  font-weight: var(--font-scene-title-weight);
+  color: var(--font-scene-title-color);
   line-height: 1.5;
   min-width: 0;
   border: none;
@@ -18397,8 +18397,8 @@ textarea.table-cell-input {
 
 .outline-scene-synopsis-input {
   font-family: var(--font-body);
-  font-size: 15px;
-  font-weight: 400;
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
   color: var(--text-secondary);
   line-height: 1.6;
   border: none;
