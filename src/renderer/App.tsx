@@ -3777,7 +3777,7 @@ function App() {
                     scenes={displayedScenes.filter(s => s.plotPointId === plotPoint.id)}
                     tags={projectData.tags}
                     outlineMode={true}
-                    synopsisMode={sectionSynopsisModes[plotPoint.id] || 'inline'}
+                    synopsisMode={sectionSynopsisModes[plotPoint.id] || 'expand'}
                     onToggleSynopsisMode={handleToggleSynopsisMode}
                     onSetAside={handleSetAside}
                     getCharacterName={getCharacterName}

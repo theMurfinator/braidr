@@ -18241,7 +18241,7 @@ textarea.table-cell-input {
 /* Outline scene row */
 .outline-scene-row {
   position: relative;
-  padding: 7px 4px 7px 12px;
+  padding: 7px 4px 7px 24px;
   border-radius: 4px;
   transition: background 0.12s;
 }
@@ -18254,13 +18254,6 @@ textarea.table-cell-input {
   opacity: 0.25;
 }
 
-.outline-scene-row.drop-above {
-  box-shadow: 0 -2px 0 0 var(--accent);
-}
-
-.outline-scene-row.drop-below {
-  box-shadow: 0 2px 0 0 var(--accent);
-}
 
 /* Main row: handle + number + title + tag + actions */
 .outline-scene-main {
@@ -18309,7 +18302,7 @@ textarea.table-cell-input {
   flex: 1;
   font-family: var(--font-scene-title);
   font-size: var(--font-scene-title-size);
-  font-weight: var(--font-scene-title-weight);
+  font-weight: 500;
   color: var(--font-scene-title-color);
   cursor: text;
   line-height: 1.5;
@@ -18323,7 +18316,7 @@ textarea.table-cell-input {
   flex: 1;
   font-family: var(--font-scene-title);
   font-size: var(--font-scene-title-size);
-  font-weight: var(--font-scene-title-weight);
+  font-weight: 500;
   color: var(--font-scene-title-color);
   line-height: 1.5;
   min-width: 0;
@@ -18459,6 +18452,15 @@ textarea.table-cell-input {
 
 .plot-point.outline-mode:first-child {
   margin-top: 0;
+}
+
+.plot-point.outline-mode.headers-hidden {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.plot-point.outline-mode .plot-point-description {
+  display: none;
 }
 
 /* Bullpen panel */

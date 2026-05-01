@@ -104,6 +104,7 @@ function OutlineSceneRow({
       draggable="true"
       onDragStart={(e) => {
         if (canDragRef.current) {
+          e.stopPropagation();
           onDragStart(scene);
         } else {
           e.preventDefault();
