@@ -13,6 +13,7 @@ interface BullpenPanelProps {
   draggedScene: Scene | null;
   onDragStart: (scene: Scene) => void;
   onDragEnd: () => void;
+  previousPlotPointIds?: Record<string, string>;
 }
 
 function BullpenPanel({
@@ -25,6 +26,7 @@ function BullpenPanel({
   draggedScene,
   onDragStart,
   onDragEnd,
+  previousPlotPointIds,
 }: BullpenPanelProps) {
   const [pickerSceneId, setPickerSceneId] = useState<string | null>(null);
   const [dropHover, setDropHover] = useState(false);
@@ -87,6 +89,7 @@ function BullpenPanel({
               {pickerSceneId === scene.id && (
                 <SectionPickerDropdown
                   plotPoints={plotPoints}
+                  previousPlotPointId={previousPlotPointIds?.[scene.id]}
                   onSelect={(plotPointId) => {
                     onReturnScene(scene.id, plotPointId);
                     setPickerSceneId(null);

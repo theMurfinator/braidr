@@ -115,6 +115,7 @@ function App() {
   const [allNotesExpanded, setAllNotesExpanded] = useState<boolean | null>(null);
   const [hideSectionHeaders, setHideSectionHeaders] = useState<Record<string, boolean>>({});
   const [sectionSynopsisModes, setSectionSynopsisModes] = useState<Record<string, 'inline' | 'expand'>>({});
+  const [previousPlotPointIds, setPreviousPlotPointIds] = useState<Record<string, string>>({});
   const [inlineMetadataFields, setInlineMetadataFields] = useState<string[]>([]);
   const inlineMetadataFieldsRef = useRef<string[]>([]);
   const [showInlineLabels, setShowInlineLabels] = useState(true);
@@ -1929,6 +1930,9 @@ function App() {
     const scene = projectData.scenes.find(s => s.id === sceneId);
     if (!scene) return;
 
+    if (scene.plotPointId) {
+      setPreviousPlotPointIds(prev => ({ ...prev, [sceneId]: scene.plotPointId! }));
+    }
     scene.plotPointId = null;
 
     const charScenes = projectData.scenes
@@ -3803,6 +3807,7 @@ function App() {
                   draggedScene={draggedPovScene}
                   onDragStart={(scene) => setDraggedPovScene(scene)}
                   onDragEnd={() => setDraggedPovScene(null)}
+                  previousPlotPointIds={previousPlotPointIds}
                 />
               </div>
             ) : braidedSubMode === 'table' ? (

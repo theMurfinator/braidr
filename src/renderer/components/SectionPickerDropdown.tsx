@@ -3,11 +3,12 @@ import { PlotPoint } from '../../shared/types';
 
 interface SectionPickerDropdownProps {
   plotPoints: PlotPoint[];
+  previousPlotPointId?: string;
   onSelect: (plotPointId: string) => void;
   onClose: () => void;
 }
 
-function SectionPickerDropdown({ plotPoints, onSelect, onClose }: SectionPickerDropdownProps) {
+function SectionPickerDropdown({ plotPoints, previousPlotPointId, onSelect, onClose }: SectionPickerDropdownProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -21,10 +22,20 @@ function SectionPickerDropdown({ plotPoints, onSelect, onClose }: SectionPickerD
   }, [onClose]);
 
   const sorted = [...plotPoints].sort((a, b) => a.order - b.order);
+  const previousPlotPoint = previousPlotPointId ? plotPoints.find(pp => pp.id === previousPlotPointId) : null;
 
   return (
     <div className="section-picker-dropdown" ref={ref}>
       <div className="section-picker-header">Move to section</div>
+      {previousPlotPoint && (
+        <button
+          className="section-picker-item section-picker-previous"
+          onClick={() => onSelect(previousPlotPoint.id)}
+        >
+          Previous position ({previousPlotPoint.title})
+        </button>
+      )}
+      {previousPlotPoint && <div className="section-picker-divider" />}
       {sorted.map((pp) => (
         <button
           key={pp.id}

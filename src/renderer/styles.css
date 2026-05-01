@@ -18462,6 +18462,7 @@ textarea.table-cell-input {
   width: 280px;
   min-width: 280px;
   flex-shrink: 0;
+  margin-left: auto;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border);
   padding: 20px 16px;
@@ -18610,6 +18611,17 @@ textarea.table-cell-input {
 
 .section-picker-item:hover {
   background: var(--bg-secondary);
+}
+
+.section-picker-previous {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.section-picker-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
 }
 
 .section-picker-empty {
