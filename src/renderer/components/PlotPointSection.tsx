@@ -189,7 +189,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
   return (
     <>
       {/* Drop zone at top of section - for scenes dragged from other sections */}
-      {!outlineMode && draggedScene && !sortedScenes.some(s => s.id === draggedScene.id) && (
+      {draggedScene && !sortedScenes.some(s => s.id === draggedScene.id) && (
         <div
           className={`scene-drop-zone scene-drop-zone-top ${dropTargetIndex === -1 ? 'active' : ''}`}
           onDragOver={(e) => {
@@ -303,71 +303,22 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
 
       {outlineMode ? (
         <>
-          {sortedScenes.map((scene, index) => (
-            <div key={scene.id} className="outline-scene-wrapper" data-scene-id={scene.id}>
-              {draggedScene && draggedScene.id !== scene.id && (
-                <div
-                  className={`scene-drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.dataTransfer.dropEffect = 'move';
-                    setDropTargetIndex(index);
-                  }}
-                  onDragLeave={(e) => {
-                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                      setDropTargetIndex(null);
-                    }
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setDropTargetIndex(null);
-                    onSceneDrop?.(scene.sceneNumber, plotPoint.id);
-                  }}
-                >
-                  {dropTargetIndex === index && <span className="drop-indicator">Drop here</span>}
-                </div>
-              )}
-              <OutlineSceneRow
-                scene={scene}
-                displayNumber={scene.sceneNumber}
-                characterName={getCharacterName?.(scene.characterId)}
-                synopsisVisible={synopsisMode !== 'expand'}
-                onSceneChange={onSceneChange || (() => {})}
-                onSetAside={onSetAside}
-                onDragStart={(s) => onSceneDragStart?.(s)}
-                onDragEnd={() => { onSceneDragEnd?.(); setDropTargetIndex(null); }}
-                onOpenInEditor={onOpenInEditor}
-                expandMode={synopsisMode === 'expand'}
-                isDragging={draggedScene?.id === scene.id}
-              />
-            </div>
+          {sortedScenes.map((scene) => (
+            <OutlineSceneRow
+              key={scene.id}
+              scene={scene}
+              displayNumber={scene.sceneNumber}
+              characterName={getCharacterName?.(scene.characterId)}
+              synopsisVisible={synopsisMode !== 'expand'}
+              onSceneChange={onSceneChange || (() => {})}
+              onSetAside={onSetAside}
+              onDragStart={(s) => onSceneDragStart?.(s)}
+              onDragEnd={() => onSceneDragEnd?.()}
+              onOpenInEditor={onOpenInEditor}
+              expandMode={synopsisMode === 'expand'}
+              isDragging={draggedScene?.id === scene.id}
+            />
           ))}
-          {draggedScene && sortedScenes.length === 0 && (
-            <div
-              className={`scene-drop-zone scene-drop-zone-empty ${dropTargetIndex === 0 ? 'active' : ''}`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.dataTransfer.dropEffect = 'move';
-                setDropTargetIndex(0);
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                  setDropTargetIndex(null);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDropTargetIndex(null);
-                onSceneDrop?.(1, plotPoint.id);
-              }}
-            >
-              <span className="drop-indicator">Drop scene here</span>
-            </div>
-          )}
         </>
       ) : (
       sortedScenes.map((scene, index) => (
@@ -498,7 +449,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
       ))
       )}
       {/* Drop zone at the end */}
-      {!outlineMode && draggedScene && sortedScenes.length > 0 && !sortedScenes.some(s => s.id === draggedScene.id) && (
+      {draggedScene && sortedScenes.length > 0 && !sortedScenes.some(s => s.id === draggedScene.id) && (
         <div
           className={`scene-drop-zone scene-drop-zone-end ${dropTargetIndex === sortedScenes.length ? 'active' : ''}`}
           onDragOver={(e) => {
@@ -524,7 +475,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
         </div>
       )}
       {/* Drop zone for empty sections (when dragging from another section) */}
-      {!outlineMode && draggedScene && sortedScenes.length === 0 && (
+      {draggedScene && sortedScenes.length === 0 && (
         <div
           className={`scene-drop-zone scene-drop-zone-empty ${dropTargetIndex === 0 ? 'active' : ''}`}
           onDragOver={(e) => {
