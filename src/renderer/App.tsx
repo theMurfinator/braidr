@@ -147,7 +147,17 @@ function App() {
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [allFontSettings, setAllFontSettings] = useState<AllFontSettings>({ global: {} });
   const sceneListRef = useRef<HTMLDivElement>(null);
-  const [braidedSubMode, setBraidedSubMode] = useState<BraidedSubMode>('list');
+  const [braidedSubMode, setBraidedSubMode] = useState<BraidedSubMode>(() => {
+    if (activeTab?.params.type === 'braided' && 'subMode' in activeTab.params && activeTab.params.subMode) {
+      return activeTab.params.subMode;
+    }
+    return 'list';
+  });
+  useEffect(() => {
+    if (activeTab?.params.type === 'braided' && 'subMode' in activeTab.params && activeTab.params.subMode) {
+      setBraidedSubMode(activeTab.params.subMode);
+    }
+  }, [activeTab]);
   const [showRailsConnections, setShowRailsConnections] = useState(true);
   const [listFloatingEditor, setListFloatingEditor] = useState<Scene | null>(null);
   const [listInboxCharFilter, setListInboxCharFilter] = useState<Record<string, string>>({});
@@ -4463,7 +4473,7 @@ function App() {
         </button>
         <button
           className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'list' ? 'active' : ''}`}
-          onClick={() => { setBraidedSubMode('list'); setViewMode('braided'); track('braided_subview_changed', { subview: 'list' }); }}
+          onClick={() => { setBraidedSubMode('list'); setViewMode('braided'); const p = findLeafPane(paneLayout.root, paneLayout.activePaneId); if (p) { const tid = findTabByType(p, 'braided') || p.activeTabId; paneDispatch({ type: 'UPDATE_TAB_PARAMS', paneId: p.id, tabId: tid, params: { type: 'braided', subMode: 'list' } as TabParams }); } track('braided_subview_changed', { subview: 'list' }); }}
           title="Braider"
           aria-label="Braider list view"
         >
@@ -4474,7 +4484,7 @@ function App() {
         </button>
         <button
           className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'table' ? 'active' : ''}`}
-          onClick={() => { setBraidedSubMode('table'); setViewMode('braided'); track('braided_subview_changed', { subview: 'table' }); }}
+          onClick={() => { setBraidedSubMode('table'); setViewMode('braided'); const p = findLeafPane(paneLayout.root, paneLayout.activePaneId); if (p) { const tid = findTabByType(p, 'braided') || p.activeTabId; paneDispatch({ type: 'UPDATE_TAB_PARAMS', paneId: p.id, tabId: tid, params: { type: 'braided', subMode: 'table' } as TabParams }); } track('braided_subview_changed', { subview: 'table' }); }}
           title="Table"
           aria-label="Table view"
         >
@@ -4488,7 +4498,7 @@ function App() {
         </button>
         <button
           className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'rails' ? 'active' : ''}`}
-          onClick={() => { setBraidedSubMode('rails'); setViewMode('braided'); track('braided_subview_changed', { subview: 'rails' }); }}
+          onClick={() => { setBraidedSubMode('rails'); setViewMode('braided'); const p = findLeafPane(paneLayout.root, paneLayout.activePaneId); if (p) { const tid = findTabByType(p, 'braided') || p.activeTabId; paneDispatch({ type: 'UPDATE_TAB_PARAMS', paneId: p.id, tabId: tid, params: { type: 'braided', subMode: 'rails' } as TabParams }); } track('braided_subview_changed', { subview: 'rails' }); }}
           title="Rails"
           aria-label="Rails view"
         >
