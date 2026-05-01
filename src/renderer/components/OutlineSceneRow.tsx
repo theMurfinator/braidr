@@ -143,9 +143,6 @@ function OutlineSceneRow({
             {scene.title || scene.content || 'Untitled scene'}
           </span>
         )}
-        {characterName && (
-          <span className="outline-scene-tag">{characterName}</span>
-        )}
         <span className="outline-scene-hover-actions">
           {onOpenInEditor && (
             <button

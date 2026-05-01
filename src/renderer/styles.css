@@ -4450,6 +4450,10 @@ textarea.scene-metadata-field-input {
 }
 
 /* POV View Layout with Table of Contents */
+.main-content:has(.pov-layout) {
+  padding-right: 0;
+}
+
 .pov-layout {
   display: flex;
   gap: 0;
@@ -18567,6 +18571,27 @@ textarea.table-cell-input {
   color: var(--text-secondary);
   border-color: var(--border);
   background: var(--bg-secondary);
+}
+
+.bullpen-add-scene-btn {
+  display: block;
+  width: 100%;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  margin-top: 12px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.bullpen-add-scene-btn:hover {
+  color: var(--text-secondary);
+  border-color: var(--text-muted);
 }
 
 /* Section picker dropdown */

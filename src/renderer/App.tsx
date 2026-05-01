@@ -1998,6 +1998,46 @@ function App() {
     setSectionSynopsisModes(modes);
   };
 
+  const handleAddBullpenScene = async () => {
+    if (!projectData || !selectedCharacterId) return;
+
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === selectedCharacterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    const characterTag = character.name.toLowerCase().replace(/\s+/g, '_');
+
+    const newScene: Scene = {
+      id: Math.random().toString(36).substring(2, 11),
+      characterId: selectedCharacterId,
+      sceneNumber: charScenes.length + 1,
+      title: 'New scene',
+      content: 'New scene',
+      tags: [characterTag],
+      timelinePosition: null,
+      isHighlighted: false,
+      notes: [],
+      plotPointId: null,
+    };
+
+    const newCharScenes = [...charScenes, newScene];
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
+    const updatedScenes = [...otherScenes, ...newCharScenes];
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+    } catch (err) {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
+    }
+  };
+
   const handleMoveSectionUp = async (sectionId: string) => {
     if (!projectData || !selectedCharacterId) return;
 
@@ -3808,6 +3848,7 @@ function App() {
                   onDragStart={(scene) => setDraggedPovScene(scene)}
                   onDragEnd={() => setDraggedPovScene(null)}
                   previousPlotPointIds={previousPlotPointIds}
+                  onAddScene={handleAddBullpenScene}
                 />
               </div>
             ) : braidedSubMode === 'table' ? (

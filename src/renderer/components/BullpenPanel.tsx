@@ -14,6 +14,7 @@ interface BullpenPanelProps {
   onDragStart: (scene: Scene) => void;
   onDragEnd: () => void;
   previousPlotPointIds?: Record<string, string>;
+  onAddScene?: () => void;
 }
 
 function BullpenPanel({
@@ -27,6 +28,7 @@ function BullpenPanel({
   onDragStart,
   onDragEnd,
   previousPlotPointIds,
+  onAddScene,
 }: BullpenPanelProps) {
   const [pickerSceneId, setPickerSceneId] = useState<string | null>(null);
   const [dropHover, setDropHover] = useState(false);
@@ -63,43 +65,47 @@ function BullpenPanel({
         <span className="bullpen-count">{scenes.length}</span>
       </div>
 
-      {scenes.length === 0 ? (
+      {scenes.length === 0 && (
         <div className="bullpen-empty">
-          Drag scenes here to set them aside for later.
+          Scenes you set aside or create here will appear in this list.
         </div>
-      ) : (
-        scenes.map((scene) => (
-          <div key={scene.id} className="bullpen-scene-wrapper">
-            <OutlineSceneRow
-              scene={scene}
-              characterName={getCharacterName(scene.characterId)}
-              synopsisVisible={true}
-              onSceneChange={onSceneChange}
-              onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
-              expandMode={false}
-            />
-            <span className="bullpen-scene-actions">
-              <button
-                className="outline-scene-action-btn bullpen-return-btn"
-                onClick={() => setPickerSceneId(pickerSceneId === scene.id ? null : scene.id)}
-              >
-                Return
-              </button>
-              {pickerSceneId === scene.id && (
-                <SectionPickerDropdown
-                  plotPoints={plotPoints}
-                  previousPlotPointId={previousPlotPointIds?.[scene.id]}
-                  onSelect={(plotPointId) => {
-                    onReturnScene(scene.id, plotPointId);
-                    setPickerSceneId(null);
-                  }}
-                  onClose={() => setPickerSceneId(null)}
-                />
-              )}
-            </span>
-          </div>
-        ))
+      )}
+      {scenes.map((scene) => (
+        <div key={scene.id} className="bullpen-scene-wrapper">
+          <OutlineSceneRow
+            scene={scene}
+            characterName={getCharacterName(scene.characterId)}
+            synopsisVisible={false}
+            onSceneChange={onSceneChange}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            expandMode={false}
+          />
+          <span className="bullpen-scene-actions">
+            <button
+              className="outline-scene-action-btn bullpen-return-btn"
+              onClick={() => setPickerSceneId(pickerSceneId === scene.id ? null : scene.id)}
+            >
+              Return
+            </button>
+            {pickerSceneId === scene.id && (
+              <SectionPickerDropdown
+                plotPoints={plotPoints}
+                previousPlotPointId={previousPlotPointIds?.[scene.id]}
+                onSelect={(plotPointId) => {
+                  onReturnScene(scene.id, plotPointId);
+                  setPickerSceneId(null);
+                }}
+                onClose={() => setPickerSceneId(null)}
+              />
+            )}
+          </span>
+        </div>
+      ))}
+      {onAddScene && (
+        <button className="bullpen-add-scene-btn" onClick={onAddScene}>
+          + Add Scene
+        </button>
       )}
     </div>
   );
