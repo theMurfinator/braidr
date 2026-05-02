@@ -303,22 +303,71 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
 
       {outlineMode ? (
         <>
-          {sortedScenes.map((scene) => (
-            <OutlineSceneRow
-              key={scene.id}
-              scene={scene}
-              displayNumber={scene.sceneNumber}
-              characterName={getCharacterName?.(scene.characterId)}
-              synopsisVisible={synopsisMode !== 'expand'}
-              onSceneChange={onSceneChange || (() => {})}
-              onSetAside={onSetAside}
-              onDragStart={(s) => onSceneDragStart?.(s)}
-              onDragEnd={() => onSceneDragEnd?.()}
-              onOpenInEditor={onOpenInEditor}
-              expandMode={synopsisMode === 'expand'}
-              isDragging={draggedScene?.id === scene.id}
-            />
+          {sortedScenes.map((scene, index) => (
+            <div key={scene.id} data-scene-id={scene.id}>
+              {draggedScene && draggedScene.id !== scene.id && (
+                <div
+                  className={`scene-drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.dataTransfer.dropEffect = 'move';
+                    setDropTargetIndex(index);
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setDropTargetIndex(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDropTargetIndex(null);
+                    onSceneDrop?.(scene.sceneNumber, plotPoint.id);
+                  }}
+                >
+                  {dropTargetIndex === index && <span className="drop-indicator">Drop here</span>}
+                </div>
+              )}
+              <OutlineSceneRow
+                scene={scene}
+                displayNumber={scene.sceneNumber}
+                characterName={getCharacterName?.(scene.characterId)}
+                synopsisVisible={synopsisMode !== 'expand'}
+                onSceneChange={onSceneChange || (() => {})}
+                onSetAside={onSetAside}
+                onDragStart={(s) => onSceneDragStart?.(s)}
+                onDragEnd={() => { onSceneDragEnd?.(); setDropTargetIndex(null); }}
+                onOpenInEditor={onOpenInEditor}
+                expandMode={synopsisMode === 'expand'}
+                isDragging={draggedScene?.id === scene.id}
+              />
+            </div>
           ))}
+          {draggedScene && sortedScenes.length === 0 && (
+            <div
+              className={`scene-drop-zone scene-drop-zone-empty ${dropTargetIndex === 0 ? 'active' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+                setDropTargetIndex(0);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDropTargetIndex(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDropTargetIndex(null);
+                onSceneDrop?.(1, plotPoint.id);
+              }}
+            >
+              <span className="drop-indicator">Drop scene here</span>
+            </div>
+          )}
         </>
       ) : (
       sortedScenes.map((scene, index) => (
@@ -353,10 +402,11 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
             className={`pov-scene-item ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting ? 'connect-target' : ''}`}
             draggable="true"
             onDragStart={(e) => {
-              console.log('[DRAG] onDragStart, canDragPovRef:', canDragPovRef.current);
               if (canDragPovRef.current && onSceneDragStart) {
                 e.stopPropagation();
-                onSceneDragStart(scene);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', scene.id);
+                setTimeout(() => onSceneDragStart(scene), 0);
               } else {
                 e.preventDefault();
               }

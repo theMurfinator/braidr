@@ -105,7 +105,9 @@ function OutlineSceneRow({
       onDragStart={(e) => {
         if (canDragRef.current) {
           e.stopPropagation();
-          onDragStart(scene);
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', scene.id);
+          setTimeout(() => onDragStart(scene), 0);
         } else {
           e.preventDefault();
         }

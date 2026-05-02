@@ -142,6 +142,7 @@ function App() {
   const [addingChapterAtPosition, setAddingChapterAtPosition] = useState<number | null>(null);
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
+  const draggedPovSceneRef = useRef<Scene | null>(null);
   const [draggedPovScene, setDraggedPovScene] = useState<Scene | null>(null);
   const [showCharacterManager, setShowCharacterManager] = useState(false);
   const [showFontPicker, setShowFontPicker] = useState(false);
@@ -1868,7 +1869,8 @@ function App() {
   };
 
   const handlePovSceneDrop = async (targetSceneNumber: number, targetPlotPointId: string) => {
-    if (!projectData || !draggedPovScene || !selectedCharacterId) return;
+    const scene = draggedPovSceneRef.current;
+    if (!projectData || !scene || !selectedCharacterId) return;
 
     const character = projectData.characters.find(c => c.id === selectedCharacterId);
     if (!character) return;
@@ -1879,7 +1881,7 @@ function App() {
       .sort((a, b) => a.sceneNumber - b.sceneNumber);
 
     // Find the dragged scene index
-    const draggedIndex = charScenes.findIndex(s => s.id === draggedPovScene.id);
+    const draggedIndex = charScenes.findIndex(s => s.id === scene.id);
     if (draggedIndex === -1) return;
 
     // Find target index BEFORE removing the dragged scene
@@ -3797,8 +3799,14 @@ function App() {
                     onSceneMoveUp={handlePovSceneMoveUp}
                     onSceneMoveDown={handlePovSceneMoveDown}
                     allCharacterScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
-                    onSceneDragStart={(scene) => setDraggedPovScene(scene)}
-                    onSceneDragEnd={() => setDraggedPovScene(null)}
+                    onSceneDragStart={(scene) => {
+                      draggedPovSceneRef.current = scene;
+                      setDraggedPovScene(scene);
+                    }}
+                    onSceneDragEnd={() => {
+                      draggedPovSceneRef.current = null;
+                      setDraggedPovScene(null);
+                    }}
                     onSceneDrop={handlePovSceneDrop}
                     draggedScene={draggedPovScene}
                     hideHeader={hideSectionHeaders[tabId] ?? false}
