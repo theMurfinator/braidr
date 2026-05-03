@@ -119,11 +119,21 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
       onSceneReorder(activeId, targetSectionId, 1);
       return;
     }
-    // POV scene → POV section
+    // POV scene → POV scene
     const targetSectionId = sceneToSection.get(overId);
     const overScene = sceneById.get(overId);
     if (!targetSectionId || !overScene) return;
-    onSceneReorder(activeId, targetSectionId, overScene.sceneNumber);
+    // When dragging downward (active is above over in the flat list), the scene
+    // should land AFTER over → use overScene.sceneNumber + 1. Dragging upward
+    // → land BEFORE over → use overScene.sceneNumber. This matches what the
+    // drop indicator visually shows (above/below the over item).
+    const activeIndex = flatSectionScenes.findIndex(s => s.id === activeId);
+    const overIndex = flatSectionScenes.findIndex(s => s.id === overId);
+    const dropsAfterOver = activeIndex >= 0 && overIndex >= 0 && activeIndex < overIndex;
+    const targetSceneNumber = dropsAfterOver
+      ? overScene.sceneNumber + 1
+      : overScene.sceneNumber;
+    onSceneReorder(activeId, targetSectionId, targetSceneNumber);
   };
 
   const renderActive = (activeId: string) => {
