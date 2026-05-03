@@ -8,8 +8,10 @@ interface OutlineSceneRowProps {
   synopsisVisible: boolean;
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
   onSetAside?: (sceneId: string) => void;
-  onDragStart: (scene: Scene) => void;
-  onDragEnd: () => void;
+  /** When omitted, the row does not bind HTML5 drag — drag is managed externally (e.g., by dnd-kit). */
+  onDragStart?: (scene: Scene) => void;
+  /** Required when `onDragStart` is provided. */
+  onDragEnd?: () => void;
   onOpenInEditor?: (sceneId: string) => void;
   expandMode: boolean;
   isDragging?: boolean;
@@ -98,34 +100,42 @@ function OutlineSceneRow({
     showSynopsis ? 'synopsis-visible' : '',
   ].filter(Boolean).join(' ');
 
+  const html5DragEnabled = !!onDragStart && !!onDragEnd;
+
   return (
     <div
       className={rowClasses}
-      draggable="true"
-      onDragStart={(e) => {
-        if (canDragRef.current) {
-          e.stopPropagation();
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', scene.id);
-          setTimeout(() => onDragStart(scene), 0);
-        } else {
-          e.preventDefault();
-        }
-      }}
-      onDragEnd={() => {
-        onDragEnd();
-        canDragRef.current = false;
-      }}
+      {...(html5DragEnabled
+        ? {
+            draggable: true,
+            onDragStart: (e: React.DragEvent) => {
+              if (canDragRef.current) {
+                e.stopPropagation();
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', scene.id);
+                setTimeout(() => onDragStart!(scene), 0);
+              } else {
+                e.preventDefault();
+              }
+            },
+            onDragEnd: () => {
+              onDragEnd!();
+              canDragRef.current = false;
+            },
+          }
+        : {})}
       onClick={handleRowClick}
       data-scene-id={scene.id}
     >
       <div className="outline-scene-main">
-        <span
-          className="outline-scene-drag-handle"
-          onMouseDown={() => { canDragRef.current = true; }}
-        >
-          ⋮⋮
-        </span>
+        {html5DragEnabled && (
+          <span
+            className="outline-scene-drag-handle"
+            onMouseDown={() => { canDragRef.current = true; }}
+          >
+            ⋮⋮
+          </span>
+        )}
         {displayNumber !== undefined && (
           <span className="outline-scene-number">{displayNumber}.</span>
         )}
