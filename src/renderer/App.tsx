@@ -6,6 +6,7 @@ import { dataService } from './services/dataService';
 import { migrateNotesSceneLinks } from './services/migration';
 import SceneCard from './components/SceneCard';
 import PlotPointSection from './components/PlotPointSection';
+import PovOutlineView from './components/PovOutlineView';
 import BullpenPanel from './components/BullpenPanel';
 import FilterBar from './components/FilterBar';
 import TagManager from './components/TagManager';
@@ -1933,6 +1934,24 @@ function App() {
     }
   };
 
+  const handleSceneToBullpen = async (sceneId: string) => {
+    // Drag from POV outline → bullpen panel = same effect as the existing "Set aside" button
+    await handleSetAside(sceneId);
+  };
+
+  const handleBullpenToSection = async (sceneId: string, targetSectionId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+    const scene = projectData.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    const targetSectionScenes = projectData.scenes
+      .filter(s => s.characterId === selectedCharacterId && s.plotPointId === targetSectionId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    const insertAtNumber = (targetSectionScenes[targetSectionScenes.length - 1]?.sceneNumber ?? 0) + 1;
+    draggedPovSceneRef.current = scene;
+    await handlePovSceneDrop(insertAtNumber, targetSectionId);
+    draggedPovSceneRef.current = null;
+  };
+
   const handleSetAside = async (sceneId: string) => {
     if (!projectData || !selectedCharacterId) return;
 
@@ -3772,84 +3791,32 @@ function App() {
                     Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
                   </div>
                 )}
-                {displayedPlotPoints.map((plotPoint, index) => (
-                  <PlotPointSection
-                    key={plotPoint.id}
-                    plotPoint={plotPoint}
-                    scenes={displayedScenes.filter(s => s.plotPointId === plotPoint.id)}
-                    tags={projectData.tags}
-                    outlineMode={true}
-                    synopsisMode={sectionSynopsisModes[plotPoint.id] || 'expand'}
-                    onToggleSynopsisMode={handleToggleSynopsisMode}
-                    onSetAside={handleSetAside}
-                    getCharacterName={getCharacterName}
-                    onSceneChange={handleSceneChange}
-                    onTagsChange={handleTagsChange}
-                    onCreateTag={handleCreateTag}
-                    onPlotPointChange={handlePlotPointChange}
-                    onDeletePlotPoint={handleDeletePlotPoint}
-                    onAddScene={handleAddScene}
-                    onDeleteScene={handleArchiveScene}
-                    onDuplicateScene={handleDuplicateScene}
-                    onMoveUp={() => handleMoveSectionUp(plotPoint.id)}
-                    onMoveDown={() => handleMoveSectionDown(plotPoint.id)}
-                    isFirst={index === 0}
-                    isLast={index === displayedPlotPoints.length - 1}
-                    forceNotesExpanded={allNotesExpanded}
-                    onSceneMoveUp={handlePovSceneMoveUp}
-                    onSceneMoveDown={handlePovSceneMoveDown}
-                    allCharacterScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
-                    onSceneDragStart={(scene) => {
-                      draggedPovSceneRef.current = scene;
-                      setDraggedPovScene(scene);
-                    }}
-                    onSceneDragEnd={() => {
-                      draggedPovSceneRef.current = null;
-                      setDraggedPovScene(null);
-                    }}
-                    onSceneDrop={handlePovSceneDrop}
-                    draggedScene={draggedPovScene}
-                    hideHeader={hideSectionHeaders[tabId] ?? false}
-                    getConnectedScenes={getConnectedScenes}
-                    onStartConnection={(sceneId) => {
-                      setConnectionSource(sceneId);
-                      setIsConnecting(true);
-                    }}
-                    onRemoveConnection={handleRemoveConnection}
-                    isConnecting={isConnecting}
-                    onWordCountChange={handleWordCountChange}
-                    getConnectableScenes={getConnectableScenes}
-                    onCompleteConnection={handleCompleteConnection}
-                    onOpenInEditor={handleOpenInEditor}
-                    metadataFieldDefs={metadataFieldDefs}
-                    sceneMetadata={sceneMetadata}
-                    onMetadataChange={(sceneId, fieldId, value) => {
-                      handleMetadataChange(sceneId, fieldId, value);
-                    }}
-                    onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
-                    inlineMetadataFields={inlineMetadataFields}
-                    showInlineLabels={showInlineLabels}
-                    timelineDates={timelineDates}
-                    onDateChange={handleSceneDateChange}
-                    onSceneClick={(sceneId) => {
-                      if (isConnecting && connectionSource && connectionSource !== sceneId && projectData) {
-                        const sourceConnections = sceneConnections[connectionSource] || [];
-                        const targetConnections = sceneConnections[sceneId] || [];
-                        if (!sourceConnections.includes(sceneId)) {
-                          const newConnections = {
-                            ...sceneConnections,
-                            [connectionSource]: [...sourceConnections, sceneId],
-                            [sceneId]: [...targetConnections, connectionSource],
-                          };
-                          setSceneConnections(newConnections);
-                          saveTimelineData(projectData.scenes, newConnections, braidedChapters);
-                        }
-                        setIsConnecting(false);
-                        setConnectionSource(null);
-                      }
-                    }}
-                  />
-                ))}
+                <PovOutlineView
+                  sections={displayedPlotPoints}
+                  scenes={displayedScenes.filter(s => s.plotPointId !== null)}
+                  bullpenScenes={displayedScenes.filter(s => s.plotPointId === null)}
+                  characterColor={getCharacterHexColor(selectedCharacterId ?? '')}
+                  synopsisModes={sectionSynopsisModes}
+                  hideHeaders={hideSectionHeaders[tabId] ?? false}
+                  onSceneReorder={(sceneId, targetSectionId, targetSceneNumber) => {
+                    const scene = projectData.scenes.find(s => s.id === sceneId);
+                    if (!scene) return;
+                    draggedPovSceneRef.current = scene;
+                    handlePovSceneDrop(targetSceneNumber, targetSectionId);
+                    draggedPovSceneRef.current = null;
+                  }}
+                  onSceneToBullpen={handleSceneToBullpen}
+                  onBullpenToSection={handleBullpenToSection}
+                  onSetAside={handleSetAside}
+                  onSectionMoveUp={handleMoveSectionUp}
+                  onSectionMoveDown={handleMoveSectionDown}
+                  onToggleSynopsisMode={handleToggleSynopsisMode}
+                  onSceneChange={handleSceneChange}
+                  onOpenInEditor={handleOpenInEditor}
+                  onSectionChange={handlePlotPointChange}
+                  onDeleteSection={handleDeletePlotPoint}
+                  getCharacterName={getCharacterName}
+                />
                 <button className="add-section-btn" onClick={handleCreatePlotPoint}>
                   + Add Section
                 </button>
