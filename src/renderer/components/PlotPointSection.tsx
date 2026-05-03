@@ -4,8 +4,6 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { PlotPoint, Scene, Tag, MetadataFieldDef } from '../../shared/types';
 import SceneCard from './SceneCard';
-import OutlineSceneRow from './OutlineSceneRow';
-
 interface PlotPointSectionProps {
   plotPoint: PlotPoint;
   scenes: Scene[];
@@ -54,15 +52,9 @@ interface PlotPointSectionProps {
   // Timeline date
   timelineDates?: Record<string, string>;
   onDateChange?: (sceneId: string, date: string | undefined) => void;
-  // Outline mode props
-  outlineMode?: boolean;
-  synopsisMode?: 'inline' | 'expand';
-  onToggleSynopsisMode?: (plotPointId: string) => void;
-  onSetAside?: (sceneId: string) => void;
-  getCharacterName?: (characterId: string) => string;
 }
 
-function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onDeletePlotPoint, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange, inlineMetadataFields, showInlineLabels, timelineDates, onDateChange, outlineMode, synopsisMode, onToggleSynopsisMode, onSetAside, getCharacterName }: PlotPointSectionProps) {
+function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange, onCreateTag, onPlotPointChange, onDeletePlotPoint, onAddScene, onDeleteScene, onDuplicateScene, onMoveUp, onMoveDown, isFirst, isLast, forceNotesExpanded, onSceneMoveUp, onSceneMoveDown, allCharacterScenes, onSceneDragStart, onSceneDragEnd, onSceneDrop, draggedScene, hideHeader, getConnectedScenes, onStartConnection, onRemoveConnection, isConnecting, onSceneClick, onWordCountChange, getConnectableScenes, onCompleteConnection, onOpenInEditor, metadataFieldDefs, sceneMetadata, onMetadataChange, onMetadataFieldDefsChange, inlineMetadataFields, showInlineLabels, timelineDates, onDateChange }: PlotPointSectionProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingCount, setIsEditingCount] = useState(false);
   // Ensure title always has a fallback value
@@ -216,20 +208,11 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
         </div>
       )}
       <div
-        className={`plot-point ${draggedScene ? 'scene-dragging' : ''} ${outlineMode ? 'outline-mode' : ''} ${hideHeader ? 'headers-hidden' : ''}`}
+        className={`plot-point ${draggedScene ? 'scene-dragging' : ''} ${hideHeader ? 'headers-hidden' : ''}`}
         data-plotpoint-id={plotPoint.id}
       >
         {!hideHeader && (
-          <div className={`plot-point-header ${outlineMode ? 'outline-mode' : ''}`}>
-            {outlineMode && onToggleSynopsisMode && (
-              <button
-                className={`section-synopsis-chevron ${synopsisMode === 'expand' ? 'collapsed' : ''}`}
-                onClick={() => onToggleSynopsisMode(plotPoint.id)}
-                title={synopsisMode === 'expand' ? 'Show synopses' : 'Hide synopses'}
-              >
-                ▾
-              </button>
-            )}
+          <div className="plot-point-header">
             {(onMoveUp || onMoveDown) && (
               <div className="section-reorder-buttons">
                 <button
@@ -301,76 +284,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
         </div>
       )}
 
-      {outlineMode ? (
-        <>
-          {sortedScenes.map((scene, index) => (
-            <div key={scene.id} data-scene-id={scene.id}>
-              {draggedScene && draggedScene.id !== scene.id && (
-                <div
-                  className={`scene-drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.dataTransfer.dropEffect = 'move';
-                    setDropTargetIndex(index);
-                  }}
-                  onDragLeave={(e) => {
-                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                      setDropTargetIndex(null);
-                    }
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setDropTargetIndex(null);
-                    onSceneDrop?.(scene.sceneNumber, plotPoint.id);
-                  }}
-                >
-                  {dropTargetIndex === index && <span className="drop-indicator">Drop here</span>}
-                </div>
-              )}
-              <OutlineSceneRow
-                scene={scene}
-                displayNumber={scene.sceneNumber}
-                characterName={getCharacterName?.(scene.characterId)}
-                synopsisVisible={synopsisMode !== 'expand'}
-                onSceneChange={onSceneChange || (() => {})}
-                onSetAside={onSetAside}
-                onDragStart={(s) => onSceneDragStart?.(s)}
-                onDragEnd={() => { onSceneDragEnd?.(); setDropTargetIndex(null); }}
-                onOpenInEditor={onOpenInEditor}
-                expandMode={synopsisMode === 'expand'}
-                isDragging={draggedScene?.id === scene.id}
-              />
-            </div>
-          ))}
-          {draggedScene && sortedScenes.length === 0 && (
-            <div
-              className={`scene-drop-zone scene-drop-zone-empty ${dropTargetIndex === 0 ? 'active' : ''}`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.dataTransfer.dropEffect = 'move';
-                setDropTargetIndex(0);
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                  setDropTargetIndex(null);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDropTargetIndex(null);
-                onSceneDrop?.(1, plotPoint.id);
-              }}
-            >
-              <span className="drop-indicator">Drop scene here</span>
-            </div>
-          )}
-        </>
-      ) : (
-      sortedScenes.map((scene, index) => (
+      {sortedScenes.map((scene, index) => (
         <div key={scene.id} className="pov-scene-wrapper" data-scene-id={scene.id}>
           {/* Drop zone before this scene */}
           {draggedScene && draggedScene.id !== scene.id && (
@@ -448,7 +362,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
             {!!onSceneDragStart && (
               <div
                 className="scene-drag-gutter"
-                onMouseDown={() => { console.log('[DRAG] gutter mousedown'); canDragPovRef.current = true; }}
+                onMouseDown={() => { canDragPovRef.current = true; }}
               >
                 <span className="scene-drag-gutter-icon">⋮⋮</span>
               </div>
@@ -496,8 +410,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
             />
           </div>
         </div>
-      ))
-      )}
+      ))}
       {/* Drop zone at the end */}
       {draggedScene && sortedScenes.length > 0 && !sortedScenes.some(s => s.id === draggedScene.id) && (
         <div
@@ -551,7 +464,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
         </div>
       )}
 
-      {onAddScene && !outlineMode && (
+      {onAddScene && (
         <button className="add-scene-btn" onClick={() => {
           const lastScene = sortedScenes[sortedScenes.length - 1];
           onAddScene(plotPoint.id, lastScene?.sceneNumber);

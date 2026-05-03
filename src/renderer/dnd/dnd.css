@@ -1,0 +1,101 @@
+/* dnd-kit primitives — drop indicator, drag preview, item states */
+
+/* Drop indicator: slim absolutely-positioned green line + circle marker */
+.dnd-drop-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--dnd-indicator-color, #22c55e);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.dnd-drop-indicator-above {
+  top: -2px;
+}
+
+.dnd-drop-indicator-below {
+  bottom: -2px;
+}
+
+.dnd-drop-indicator::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  background: var(--dnd-indicator-color, #22c55e);
+  border-radius: 50%;
+}
+
+/* Drag preview card (rendered inside DragOverlay) */
+.dnd-drag-preview-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 280px;
+  max-height: 44px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border-left: 3px solid var(--dnd-preview-accent, #3b82f6);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-primary, #1a1a2e);
+  color: var(--text-primary, #e0e0e0);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  cursor: grabbing;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dnd-drag-preview-number {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.dnd-drag-preview-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+/* Section drop placeholder (for empty sections) */
+.dnd-section-drop-placeholder {
+  position: relative;
+  height: 12px;
+  margin: 4px 0;
+}
+
+.dnd-section-drop-placeholder.is-over {
+  background: rgba(34, 197, 94, 0.08);
+  border-radius: 4px;
+}
+
+.dnd-section-drop-placeholder.is-over::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 3px;
+  background: var(--dnd-indicator-color, #22c55e);
+  border-radius: 2px;
+}
+
+/* Reduced motion: disable slide animation, keep indicator visible */
+@media (prefers-reduced-motion: reduce) {
+  [data-dnd-sortable-item] {
+    transition: none !important;
+  }
+}

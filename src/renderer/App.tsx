@@ -6,6 +6,7 @@ import { dataService } from './services/dataService';
 import { migrateNotesSceneLinks } from './services/migration';
 import SceneCard from './components/SceneCard';
 import PlotPointSection from './components/PlotPointSection';
+import PovOutlineView from './components/PovOutlineView';
 import BullpenPanel from './components/BullpenPanel';
 import FilterBar from './components/FilterBar';
 import TagManager from './components/TagManager';
@@ -2050,188 +2051,6 @@ function App() {
     }
   };
 
-  const handleMoveSectionUp = async (sectionId: string) => {
-    if (!projectData || !selectedCharacterId) return;
-
-    const charPlotPoints = projectData.plotPoints
-      .filter(p => p.characterId === selectedCharacterId)
-      .sort((a, b) => a.order - b.order);
-
-    const currentIndex = charPlotPoints.findIndex(p => p.id === sectionId);
-    if (currentIndex <= 0) return; // Already at top
-
-    // Swap with previous
-    [charPlotPoints[currentIndex - 1], charPlotPoints[currentIndex]] =
-      [charPlotPoints[currentIndex], charPlotPoints[currentIndex - 1]];
-
-    // Reassign orders
-    const updatedPlotPoints = projectData.plotPoints.map(pp => {
-      const newIndex = charPlotPoints.findIndex(p => p.id === pp.id);
-      if (newIndex !== -1) {
-        return { ...pp, order: newIndex };
-      }
-      return pp;
-    });
-
-    const updatedData = { ...projectData, plotPoints: updatedPlotPoints };
-    setProjectData(updatedData);
-
-    // Save to file
-    const character = projectData.characters.find(c => c.id === selectedCharacterId);
-    if (character) {
-      const charScenes = projectData.scenes.filter(s => s.characterId === character.id);
-      const charPPs = updatedPlotPoints.filter(p => p.characterId === character.id);
-      try {
-        await dataService.saveCharacterOutline(character, charPPs, charScenes);
-      } catch (err) {
-        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-      }
-    }
-  };
-
-  const handleMoveSectionDown = async (sectionId: string) => {
-    if (!projectData || !selectedCharacterId) return;
-
-    const charPlotPoints = projectData.plotPoints
-      .filter(p => p.characterId === selectedCharacterId)
-      .sort((a, b) => a.order - b.order);
-
-    const currentIndex = charPlotPoints.findIndex(p => p.id === sectionId);
-    if (currentIndex === -1 || currentIndex >= charPlotPoints.length - 1) return; // Already at bottom
-
-    // Swap with next
-    [charPlotPoints[currentIndex], charPlotPoints[currentIndex + 1]] =
-      [charPlotPoints[currentIndex + 1], charPlotPoints[currentIndex]];
-
-    // Reassign orders
-    const updatedPlotPoints = projectData.plotPoints.map(pp => {
-      const newIndex = charPlotPoints.findIndex(p => p.id === pp.id);
-      if (newIndex !== -1) {
-        return { ...pp, order: newIndex };
-      }
-      return pp;
-    });
-
-    const updatedData = { ...projectData, plotPoints: updatedPlotPoints };
-    setProjectData(updatedData);
-
-    // Save to file
-    const character = projectData.characters.find(c => c.id === selectedCharacterId);
-    if (character) {
-      const charScenes = projectData.scenes.filter(s => s.characterId === character.id);
-      const charPPs = updatedPlotPoints.filter(p => p.characterId === character.id);
-      try {
-        await dataService.saveCharacterOutline(character, charPPs, charScenes);
-      } catch (err) {
-        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-      }
-    }
-  };
-
-  const handlePovSceneMoveUp = async (sceneId: string) => {
-    if (!projectData || !selectedCharacterId) return;
-
-    const character = projectData.characters.find(c => c.id === selectedCharacterId);
-    if (!character) return;
-
-    // Get all scenes for this character, sorted by scene number
-    const charScenes = projectData.scenes
-      .filter(s => s.characterId === selectedCharacterId)
-      .sort((a, b) => a.sceneNumber - b.sceneNumber);
-
-    const currentIndex = charScenes.findIndex(s => s.id === sceneId);
-    if (currentIndex <= 0) return; // Already at top or not found
-
-    const currentScene = charScenes[currentIndex];
-    const prevScene = charScenes[currentIndex - 1];
-
-    // Check if we're moving to a different plot point
-    const movingToNewPlotPoint = currentScene.plotPointId !== prevScene.plotPointId;
-
-    const updatedScenes = projectData.scenes.map(s => {
-      if (s.id === currentScene.id) {
-        return {
-          ...s,
-          sceneNumber: prevScene.sceneNumber,
-          plotPointId: movingToNewPlotPoint ? prevScene.plotPointId : s.plotPointId
-        };
-      } else if (s.id === prevScene.id) {
-        return {
-          ...s,
-          sceneNumber: currentScene.sceneNumber,
-          plotPointId: movingToNewPlotPoint ? currentScene.plotPointId : s.plotPointId
-        };
-      }
-      return s;
-    });
-
-    const updatedData = { ...projectData, scenes: updatedScenes };
-    setProjectData(updatedData);
-
-    // Save to file
-    const updatedCharScenes = updatedScenes.filter(s => s.characterId === selectedCharacterId);
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === selectedCharacterId);
-    try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, updatedCharScenes);
-      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
-      track('scene_reordered', { view: 'pov' });
-    } catch (err) {
-      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-    }
-  };
-
-  const handlePovSceneMoveDown = async (sceneId: string) => {
-    if (!projectData || !selectedCharacterId) return;
-
-    const character = projectData.characters.find(c => c.id === selectedCharacterId);
-    if (!character) return;
-
-    // Get all scenes for this character, sorted by scene number
-    const charScenes = projectData.scenes
-      .filter(s => s.characterId === selectedCharacterId)
-      .sort((a, b) => a.sceneNumber - b.sceneNumber);
-
-    const currentIndex = charScenes.findIndex(s => s.id === sceneId);
-    if (currentIndex === -1 || currentIndex >= charScenes.length - 1) return; // Already at bottom or not found
-
-    const currentScene = charScenes[currentIndex];
-    const nextScene = charScenes[currentIndex + 1];
-
-    // Check if we're moving to a different plot point
-    const movingToNewPlotPoint = currentScene.plotPointId !== nextScene.plotPointId;
-
-    const updatedScenes = projectData.scenes.map(s => {
-      if (s.id === currentScene.id) {
-        return {
-          ...s,
-          sceneNumber: nextScene.sceneNumber,
-          plotPointId: movingToNewPlotPoint ? nextScene.plotPointId : s.plotPointId
-        };
-      } else if (s.id === nextScene.id) {
-        return {
-          ...s,
-          sceneNumber: currentScene.sceneNumber,
-          plotPointId: movingToNewPlotPoint ? currentScene.plotPointId : s.plotPointId
-        };
-      }
-      return s;
-    });
-
-    const updatedData = { ...projectData, scenes: updatedScenes };
-    setProjectData(updatedData);
-
-    // Save to file
-    const updatedCharScenes = updatedScenes.filter(s => s.characterId === selectedCharacterId);
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === selectedCharacterId);
-    try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, updatedCharScenes);
-      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
-      track('scene_reordered', { view: 'pov' });
-    } catch (err) {
-      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-    }
-  };
-
   const handleUpdateChapter = async (chapterId: string, newTitle: string) => {
     if (!projectData) return;
     const updatedChapters = braidedChapters.map(ch =>
@@ -3772,84 +3591,27 @@ function App() {
                     Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
                   </div>
                 )}
-                {displayedPlotPoints.map((plotPoint, index) => (
-                  <PlotPointSection
-                    key={plotPoint.id}
-                    plotPoint={plotPoint}
-                    scenes={displayedScenes.filter(s => s.plotPointId === plotPoint.id)}
-                    tags={projectData.tags}
-                    outlineMode={true}
-                    synopsisMode={sectionSynopsisModes[plotPoint.id] || 'expand'}
-                    onToggleSynopsisMode={handleToggleSynopsisMode}
-                    onSetAside={handleSetAside}
-                    getCharacterName={getCharacterName}
-                    onSceneChange={handleSceneChange}
-                    onTagsChange={handleTagsChange}
-                    onCreateTag={handleCreateTag}
-                    onPlotPointChange={handlePlotPointChange}
-                    onDeletePlotPoint={handleDeletePlotPoint}
-                    onAddScene={handleAddScene}
-                    onDeleteScene={handleArchiveScene}
-                    onDuplicateScene={handleDuplicateScene}
-                    onMoveUp={() => handleMoveSectionUp(plotPoint.id)}
-                    onMoveDown={() => handleMoveSectionDown(plotPoint.id)}
-                    isFirst={index === 0}
-                    isLast={index === displayedPlotPoints.length - 1}
-                    forceNotesExpanded={allNotesExpanded}
-                    onSceneMoveUp={handlePovSceneMoveUp}
-                    onSceneMoveDown={handlePovSceneMoveDown}
-                    allCharacterScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
-                    onSceneDragStart={(scene) => {
-                      draggedPovSceneRef.current = scene;
-                      setDraggedPovScene(scene);
-                    }}
-                    onSceneDragEnd={() => {
-                      draggedPovSceneRef.current = null;
-                      setDraggedPovScene(null);
-                    }}
-                    onSceneDrop={handlePovSceneDrop}
-                    draggedScene={draggedPovScene}
-                    hideHeader={hideSectionHeaders[tabId] ?? false}
-                    getConnectedScenes={getConnectedScenes}
-                    onStartConnection={(sceneId) => {
-                      setConnectionSource(sceneId);
-                      setIsConnecting(true);
-                    }}
-                    onRemoveConnection={handleRemoveConnection}
-                    isConnecting={isConnecting}
-                    onWordCountChange={handleWordCountChange}
-                    getConnectableScenes={getConnectableScenes}
-                    onCompleteConnection={handleCompleteConnection}
-                    onOpenInEditor={handleOpenInEditor}
-                    metadataFieldDefs={metadataFieldDefs}
-                    sceneMetadata={sceneMetadata}
-                    onMetadataChange={(sceneId, fieldId, value) => {
-                      handleMetadataChange(sceneId, fieldId, value);
-                    }}
-                    onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
-                    inlineMetadataFields={inlineMetadataFields}
-                    showInlineLabels={showInlineLabels}
-                    timelineDates={timelineDates}
-                    onDateChange={handleSceneDateChange}
-                    onSceneClick={(sceneId) => {
-                      if (isConnecting && connectionSource && connectionSource !== sceneId && projectData) {
-                        const sourceConnections = sceneConnections[connectionSource] || [];
-                        const targetConnections = sceneConnections[sceneId] || [];
-                        if (!sourceConnections.includes(sceneId)) {
-                          const newConnections = {
-                            ...sceneConnections,
-                            [connectionSource]: [...sourceConnections, sceneId],
-                            [sceneId]: [...targetConnections, connectionSource],
-                          };
-                          setSceneConnections(newConnections);
-                          saveTimelineData(projectData.scenes, newConnections, braidedChapters);
-                        }
-                        setIsConnecting(false);
-                        setConnectionSource(null);
-                      }
-                    }}
-                  />
-                ))}
+                <PovOutlineView
+                  sections={displayedPlotPoints}
+                  scenes={displayedScenes.filter(s => s.plotPointId !== null)}
+                  characterColor={getCharacterHexColor(selectedCharacterId ?? '')}
+                  synopsisModes={sectionSynopsisModes}
+                  hideHeaders={hideSectionHeaders[tabId] ?? false}
+                  onSceneReorder={(sceneId, targetSectionId, targetSceneNumber) => {
+                    const scene = projectData.scenes.find(s => s.id === sceneId);
+                    if (!scene) return;
+                    draggedPovSceneRef.current = scene;
+                    handlePovSceneDrop(targetSceneNumber, targetSectionId);
+                    draggedPovSceneRef.current = null;
+                  }}
+                  onSetAside={handleSetAside}
+                  onToggleSynopsisMode={handleToggleSynopsisMode}
+                  onSceneChange={handleSceneChange}
+                  onOpenInEditor={handleOpenInEditor}
+                  onSectionChange={handlePlotPointChange}
+                  onDeleteSection={handleDeletePlotPoint}
+                  getCharacterName={getCharacterName}
+                />
                 <button className="add-section-btn" onClick={handleCreatePlotPoint}>
                   + Add Section
                 </button>
