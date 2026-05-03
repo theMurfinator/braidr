@@ -9,18 +9,12 @@ import { SortableItem, SortableItemRenderProps } from './SortableItem';
 interface SortableListProps<T extends { id: string }> {
   items: T[];
   strategy?: 'vertical' | 'horizontal';
-  renderItem: (item: T, sortable: SortableItemRenderProps) => ReactNode;
-  /**
-   * Optional content rendered inside the SortableContext after the items
-   * (e.g., section drop placeholders, "add at end" zone).
-   */
-  children?: ReactNode;
+  children: (item: T, sortable: SortableItemRenderProps) => ReactNode;
 }
 
 export function SortableList<T extends { id: string }>({
   items,
   strategy = 'vertical',
-  renderItem,
   children,
 }: SortableListProps<T>) {
   const strategyFn =
@@ -30,10 +24,9 @@ export function SortableList<T extends { id: string }>({
     <SortableContext items={items.map(i => i.id)} strategy={strategyFn}>
       {items.map(item => (
         <SortableItem key={item.id} id={item.id}>
-          {sortable => renderItem(item, sortable)}
+          {sortable => children(item, sortable)}
         </SortableItem>
       ))}
-      {children}
     </SortableContext>
   );
 }
