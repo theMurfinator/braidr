@@ -1,4 +1,5 @@
 import { useRef, useMemo } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import { PlotPoint, Scene } from '../../shared/types';
 import OutlineSceneRow from './OutlineSceneRow';
 import {
@@ -32,6 +33,20 @@ interface PovOutlineViewProps {
 function ScrollAutoBinder({ scrollRef }: { scrollRef: React.RefObject<HTMLDivElement | null> }) {
   useAutoScrollContainer(scrollRef);
   return null;
+}
+
+function EmptySectionDropZone({ sectionId }: { sectionId: string }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `section-empty:${sectionId}`,
+    data: { sectionId },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`dnd-section-drop-placeholder ${isOver ? 'is-over' : ''}`}
+      aria-label="Drop scene into this empty section"
+    />
+  );
 }
 
 export default function PovOutlineView(props: PovOutlineViewProps) {
@@ -123,6 +138,12 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
       return;
     }
     if (!activeIsBullpen && !overIsBullpen) {
+      // Empty-section drop placeholder
+      if (overId.startsWith('section-empty:')) {
+        const targetSectionId = overId.slice('section-empty:'.length);
+        onSceneReorder(activeId, targetSectionId, 1);
+        return;
+      }
       // POV scene → POV section
       const targetSectionId = sceneToSection.get(overId);
       const overScene = sceneById.get(overId);
@@ -160,8 +181,45 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
               const isFirstSection = sectionIdx === 0;
               const isLastSection = sectionIdx === sortedSections.length - 1;
 
+              // For each section that has zero scenes AND comes BEFORE this scene's section,
+              // render its header + empty drop zone here.
+              const emptySectionsBefore: PlotPoint[] = [];
+              if (isFirstInSection) {
+                for (let i = 0; i < sectionIdx; i++) {
+                  const earlierSection = sortedSections[i];
+                  const earlierScenes = scenesBySection.get(earlierSection.id) ?? [];
+                  if (earlierScenes.length === 0) emptySectionsBefore.push(earlierSection);
+                }
+              }
+
               return (
                 <>
+                  {emptySectionsBefore.map((empty) => {
+                    const emptyIdx = sortedSections.findIndex(s => s.id === empty.id);
+                    return (
+                      <div key={`empty-${empty.id}`} className="pov-outline-section">
+                        {!hideHeaders && (
+                          <div className="pov-outline-section-header" data-section-id={empty.id}>
+                            <button
+                              className={`section-synopsis-chevron ${synopsisModes[empty.id] === 'expand' ? 'collapsed' : ''}`}
+                              onClick={() => onToggleSynopsisMode(empty.id)}
+                              title={synopsisModes[empty.id] === 'expand' ? 'Show synopses' : 'Hide synopses'}
+                            >{'▾'}</button>
+                            <div className="section-reorder-buttons">
+                              <button className="section-move-btn" onClick={() => onSectionMoveUp(empty.id)} disabled={emptyIdx === 0} title="Move section up">{'▲'}</button>
+                              <button className="section-move-btn" onClick={() => onSectionMoveDown(empty.id)} disabled={emptyIdx === sortedSections.length - 1} title="Move section down">{'▼'}</button>
+                            </div>
+                            <span className="plot-point-title">{empty.title || 'New Section'}</span>
+                            <span className="plot-point-count">(0/{empty.expectedSceneCount ?? '?'})</span>
+                            {onDeleteSection && (
+                              <button className="section-delete-btn" onClick={() => onDeleteSection(empty.id)} title="Delete section">{'×'}</button>
+                            )}
+                          </div>
+                        )}
+                        <EmptySectionDropZone sectionId={empty.id} />
+                      </div>
+                    );
+                  })}
                   {isFirstInSection && section && !hideHeaders && (
                     <div className="pov-outline-section-header" data-section-id={section.id}>
                       <button
@@ -184,6 +242,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                     ref={sortable.setNodeRef}
                     style={sortable.style}
                     className={`pov-outline-row-wrapper ${sortable.isOver ? 'is-over' : ''}`}
+                    data-section-id={sectionId}
                     data-dnd-sortable-item
                     {...sortable.attributes}
                     {...sortable.listeners}
@@ -203,6 +262,41 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
               );
             }}
           </SortableList>
+          {/* Render trailing empty sections (those that come after the last non-empty section) */}
+          {(() => {
+            const lastNonEmptyIdx = (() => {
+              for (let i = sortedSections.length - 1; i >= 0; i--) {
+                if ((scenesBySection.get(sortedSections[i].id) ?? []).length > 0) return i;
+              }
+              return -1;
+            })();
+            return sortedSections.slice(lastNonEmptyIdx + 1).map((empty) => {
+              const emptyIdx = sortedSections.findIndex(s => s.id === empty.id);
+              return (
+                <div key={`trailing-empty-${empty.id}`} className="pov-outline-section">
+                  {!hideHeaders && (
+                    <div className="pov-outline-section-header" data-section-id={empty.id}>
+                      <button
+                        className={`section-synopsis-chevron ${synopsisModes[empty.id] === 'expand' ? 'collapsed' : ''}`}
+                        onClick={() => onToggleSynopsisMode(empty.id)}
+                        title={synopsisModes[empty.id] === 'expand' ? 'Show synopses' : 'Hide synopses'}
+                      >{'▾'}</button>
+                      <div className="section-reorder-buttons">
+                        <button className="section-move-btn" onClick={() => onSectionMoveUp(empty.id)} disabled={emptyIdx === 0} title="Move section up">{'▲'}</button>
+                        <button className="section-move-btn" onClick={() => onSectionMoveDown(empty.id)} disabled={emptyIdx === sortedSections.length - 1} title="Move section down">{'▼'}</button>
+                      </div>
+                      <span className="plot-point-title">{empty.title || 'New Section'}</span>
+                      <span className="plot-point-count">(0/{empty.expectedSceneCount ?? '?'})</span>
+                      {onDeleteSection && (
+                        <button className="section-delete-btn" onClick={() => onDeleteSection(empty.id)} title="Delete section">{'×'}</button>
+                      )}
+                    </div>
+                  )}
+                  <EmptySectionDropZone sectionId={empty.id} />
+                </div>
+              );
+            });
+          })()}
         </div>
 
         <div className="pov-outline-bullpen" data-bullpen="true">
