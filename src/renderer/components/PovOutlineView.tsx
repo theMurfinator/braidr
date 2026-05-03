@@ -6,6 +6,7 @@ import {
   SortableArea,
   SortableList,
   DragPreviewCard,
+  DropIndicator,
   useAutoScrollContainer,
 } from '../dnd';
 
@@ -219,6 +220,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                     {...sortable.attributes}
                     {...sortable.listeners}
                   >
+                    <DropIndicator visible={sortable.isOver} position="above" />
                     <OutlineSceneRow
                       scene={scene}
                       displayNumber={scene.sceneNumber}
