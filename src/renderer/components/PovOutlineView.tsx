@@ -100,11 +100,36 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     return map;
   }, [scenes, bullpenScenes]);
 
+  const isBullpenScene = useMemo(
+    () => new Set(bullpenScenes.map(s => s.id)),
+    [bullpenScenes]
+  );
+
   const handleDragEnd = ({ activeId, overId }: { activeId: string; overId: string }) => {
-    const targetSectionId = sceneToSection.get(overId);
-    const overScene = sceneById.get(overId);
-    if (!targetSectionId || !overScene) return;
-    onSceneReorder(activeId, targetSectionId, overScene.sceneNumber);
+    const activeIsBullpen = isBullpenScene.has(activeId);
+    const overIsBullpen = isBullpenScene.has(overId) || overId === 'bullpen-zone';
+
+    if (overIsBullpen && !activeIsBullpen) {
+      // POV scene → bullpen
+      props.onSceneToBullpen(activeId);
+      return;
+    }
+    if (!overIsBullpen && activeIsBullpen) {
+      // Bullpen scene → POV section
+      const targetSectionId = sceneToSection.get(overId);
+      if (targetSectionId) {
+        props.onBullpenToSection(activeId, targetSectionId);
+      }
+      return;
+    }
+    if (!activeIsBullpen && !overIsBullpen) {
+      // POV scene → POV section
+      const targetSectionId = sceneToSection.get(overId);
+      const overScene = sceneById.get(overId);
+      if (!targetSectionId || !overScene) return;
+      onSceneReorder(activeId, targetSectionId, overScene.sceneNumber);
+    }
+    // bullpen → bullpen reorder is a no-op for now
   };
 
   const renderActive = (activeId: string) => {
@@ -127,8 +152,6 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
         <div className="pov-outline-main">
           <SortableList items={flatSectionScenes}>
             {(scene, sortable) => {
-              // Locate which section this scene starts; if it's the first scene
-              // of its section, render the section header above it.
               const sectionId = scene.plotPointId!;
               const sectionScenes = scenesBySection.get(sectionId) ?? [];
               const isFirstInSection = sectionScenes[0]?.id === scene.id;
@@ -179,6 +202,29 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                 </>
               );
             }}
+          </SortableList>
+        </div>
+
+        <div className="pov-outline-bullpen" data-bullpen="true">
+          <div className="bullpen-header">
+            <h3>Bullpen</h3>
+            <span className="bullpen-count">{bullpenScenes.length}</span>
+          </div>
+          <SortableList items={bullpenScenes}>
+            {(scene, sortable) => (
+              <div
+                ref={sortable.setNodeRef}
+                style={sortable.style}
+                className={`bullpen-scene ${sortable.isOver ? 'is-over' : ''}`}
+                data-scene-id={scene.id}
+                data-dnd-sortable-item
+                {...sortable.attributes}
+                {...sortable.listeners}
+              >
+                <span className="bullpen-scene-number">{scene.sceneNumber}.</span>
+                <span className="bullpen-scene-title">{scene.title || scene.content || 'Untitled scene'}</span>
+              </div>
+            )}
           </SortableList>
         </div>
       </SortableArea>
