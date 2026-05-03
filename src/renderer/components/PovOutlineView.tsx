@@ -1,6 +1,12 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { PlotPoint, Scene } from '../../shared/types';
 import OutlineSceneRow from './OutlineSceneRow';
+import {
+  SortableArea,
+  SortableList,
+  DragPreviewCard,
+  useAutoScrollContainer,
+} from '../dnd';
 
 interface PovOutlineViewProps {
   sections: PlotPoint[];
@@ -23,98 +29,159 @@ interface PovOutlineViewProps {
   getCharacterName?: (characterId: string) => string;
 }
 
-export default function PovOutlineView({
-  sections,
-  scenes,
-  bullpenScenes,
-  synopsisModes,
-  hideHeaders,
-  onSetAside,
-  onSectionMoveUp,
-  onSectionMoveDown,
-  onToggleSynopsisMode,
-  onSceneChange,
-  onOpenInEditor,
-  onDeleteSection,
-  getCharacterName,
-}: PovOutlineViewProps) {
+function ScrollAutoBinder({ scrollRef }: { scrollRef: React.RefObject<HTMLDivElement | null> }) {
+  useAutoScrollContainer(scrollRef);
+  return null;
+}
+
+export default function PovOutlineView(props: PovOutlineViewProps) {
+  const {
+    sections,
+    scenes,
+    bullpenScenes,
+    characterColor,
+    synopsisModes,
+    hideHeaders,
+    onSceneReorder,
+    onSetAside,
+    onSectionMoveUp,
+    onSectionMoveDown,
+    onToggleSynopsisMode,
+    onSceneChange,
+    onOpenInEditor,
+    onDeleteSection,
+    getCharacterName,
+  } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const sortedSections = [...sections].sort((a, b) => a.order - b.order);
-  const scenesBySection = new Map<string, Scene[]>();
-  for (const scene of scenes) {
-    if (!scene.plotPointId) continue;
-    const list = scenesBySection.get(scene.plotPointId) ?? [];
-    list.push(scene);
-    scenesBySection.set(scene.plotPointId, list);
-  }
-  for (const list of scenesBySection.values()) {
-    list.sort((a, b) => a.sceneNumber - b.sceneNumber);
-  }
+  const sortedSections = useMemo(
+    () => [...sections].sort((a, b) => a.order - b.order),
+    [sections]
+  );
+
+  const scenesBySection = useMemo(() => {
+    const map = new Map<string, Scene[]>();
+    for (const scene of scenes) {
+      if (!scene.plotPointId) continue;
+      const list = map.get(scene.plotPointId) ?? [];
+      list.push(scene);
+      map.set(scene.plotPointId, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => a.sceneNumber - b.sceneNumber);
+    }
+    return map;
+  }, [scenes]);
+
+  // Flat list of all in-section scenes in display order — used for the SortableList
+  const flatSectionScenes = useMemo(() => {
+    const flat: Scene[] = [];
+    for (const section of sortedSections) {
+      const sectionScenes = scenesBySection.get(section.id) ?? [];
+      flat.push(...sectionScenes);
+    }
+    return flat;
+  }, [sortedSections, scenesBySection]);
+
+  // Map sceneId -> sectionId for fast lookup on drop
+  const sceneToSection = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const scene of scenes) {
+      if (scene.plotPointId) map.set(scene.id, scene.plotPointId);
+    }
+    return map;
+  }, [scenes]);
+
+  const sceneById = useMemo(() => {
+    const map = new Map<string, Scene>();
+    for (const scene of [...scenes, ...bullpenScenes]) {
+      map.set(scene.id, scene);
+    }
+    return map;
+  }, [scenes, bullpenScenes]);
+
+  const handleDragEnd = ({ activeId, overId }: { activeId: string; overId: string }) => {
+    const targetSectionId = sceneToSection.get(overId);
+    const overScene = sceneById.get(overId);
+    if (!targetSectionId || !overScene) return;
+    onSceneReorder(activeId, targetSectionId, overScene.sceneNumber);
+  };
+
+  const renderActive = (activeId: string) => {
+    const scene = sceneById.get(activeId);
+    if (!scene) return null;
+    return (
+      <DragPreviewCard
+        title={scene.title || scene.content || 'Untitled scene'}
+        number={scene.sceneNumber}
+        accentColor={characterColor}
+      />
+    );
+  };
 
   return (
     <div className="pov-outline-view" ref={scrollRef}>
-      <div className="pov-outline-main">
-        {sortedSections.map((section, idx) => {
-          const sectionScenes = scenesBySection.get(section.id) ?? [];
-          const isFirst = idx === 0;
-          const isLast = idx === sortedSections.length - 1;
-          return (
-            <div key={section.id} className="pov-outline-section" data-section-id={section.id}>
-              {!hideHeaders && (
-                <div className="pov-outline-section-header">
-                  <button
-                    className={`section-synopsis-chevron ${synopsisModes[section.id] === 'expand' ? 'collapsed' : ''}`}
-                    onClick={() => onToggleSynopsisMode(section.id)}
-                    title={synopsisModes[section.id] === 'expand' ? 'Show synopses' : 'Hide synopses'}
-                  >
-                    {'▾'}
-                  </button>
-                  <div className="section-reorder-buttons">
-                    <button className="section-move-btn" onClick={() => onSectionMoveUp(section.id)} disabled={isFirst} title="Move section up">{'▲'}</button>
-                    <button className="section-move-btn" onClick={() => onSectionMoveDown(section.id)} disabled={isLast} title="Move section down">{'▼'}</button>
-                  </div>
-                  <span className="plot-point-title">{section.title || 'New Section'}</span>
-                  <span className="plot-point-count">({sectionScenes.length}/{section.expectedSceneCount ?? '?'})</span>
-                  {onDeleteSection && (
-                    <button className="section-delete-btn" onClick={() => onDeleteSection(section.id)} title="Delete section">{'×'}</button>
-                  )}
-                </div>
-              )}
-              {sectionScenes.map(scene => (
-                <OutlineSceneRow
-                  key={scene.id}
-                  scene={scene}
-                  displayNumber={scene.sceneNumber}
-                  characterName={getCharacterName?.(scene.characterId)}
-                  synopsisVisible={synopsisModes[section.id] !== 'expand'}
-                  onSceneChange={onSceneChange}
-                  onSetAside={onSetAside}
-                  onOpenInEditor={onOpenInEditor}
-                  expandMode={synopsisModes[section.id] === 'expand'}
-                />
-              ))}
-            </div>
-          );
-        })}
-      </div>
+      <SortableArea onDragEnd={handleDragEnd} renderDragOverlay={renderActive}>
+        <ScrollAutoBinder scrollRef={scrollRef} />
 
-      {bullpenScenes.length > 0 && (
-        <div className="pov-outline-bullpen" data-bullpen="true">
-          <div className="bullpen-header">
-            <h3>Bullpen</h3>
-            <span className="bullpen-count">{bullpenScenes.length}</span>
-          </div>
-          <div className="bullpen-scenes">
-            {bullpenScenes.map(scene => (
-              <div key={scene.id} className="bullpen-scene" data-scene-id={scene.id}>
-                <span className="bullpen-scene-number">{scene.sceneNumber}.</span>
-                <span className="bullpen-scene-title">{scene.title || scene.content}</span>
-              </div>
-            ))}
-          </div>
+        <div className="pov-outline-main">
+          <SortableList items={flatSectionScenes}>
+            {(scene, sortable) => {
+              // Locate which section this scene starts; if it's the first scene
+              // of its section, render the section header above it.
+              const sectionId = scene.plotPointId!;
+              const sectionScenes = scenesBySection.get(sectionId) ?? [];
+              const isFirstInSection = sectionScenes[0]?.id === scene.id;
+              const section = sortedSections.find(s => s.id === sectionId);
+              const sectionIdx = sortedSections.findIndex(s => s.id === sectionId);
+              const isFirstSection = sectionIdx === 0;
+              const isLastSection = sectionIdx === sortedSections.length - 1;
+
+              return (
+                <>
+                  {isFirstInSection && section && !hideHeaders && (
+                    <div className="pov-outline-section-header" data-section-id={section.id}>
+                      <button
+                        className={`section-synopsis-chevron ${synopsisModes[section.id] === 'expand' ? 'collapsed' : ''}`}
+                        onClick={() => onToggleSynopsisMode(section.id)}
+                        title={synopsisModes[section.id] === 'expand' ? 'Show synopses' : 'Hide synopses'}
+                      >{'▾'}</button>
+                      <div className="section-reorder-buttons">
+                        <button className="section-move-btn" onClick={() => onSectionMoveUp(section.id)} disabled={isFirstSection} title="Move section up">{'▲'}</button>
+                        <button className="section-move-btn" onClick={() => onSectionMoveDown(section.id)} disabled={isLastSection} title="Move section down">{'▼'}</button>
+                      </div>
+                      <span className="plot-point-title">{section.title || 'New Section'}</span>
+                      <span className="plot-point-count">({sectionScenes.length}/{section.expectedSceneCount ?? '?'})</span>
+                      {onDeleteSection && (
+                        <button className="section-delete-btn" onClick={() => onDeleteSection(section.id)} title="Delete section">{'×'}</button>
+                      )}
+                    </div>
+                  )}
+                  <div
+                    ref={sortable.setNodeRef}
+                    style={sortable.style}
+                    className={`pov-outline-row-wrapper ${sortable.isOver ? 'is-over' : ''}`}
+                    data-dnd-sortable-item
+                    {...sortable.attributes}
+                    {...sortable.listeners}
+                  >
+                    <OutlineSceneRow
+                      scene={scene}
+                      displayNumber={scene.sceneNumber}
+                      characterName={getCharacterName?.(scene.characterId)}
+                      synopsisVisible={synopsisModes[sectionId] !== 'expand'}
+                      onSceneChange={onSceneChange}
+                      onSetAside={onSetAside}
+                      onOpenInEditor={onOpenInEditor}
+                      expandMode={synopsisModes[sectionId] === 'expand'}
+                    />
+                  </div>
+                </>
+              );
+            }}
+          </SortableList>
         </div>
-      )}
+      </SortableArea>
     </div>
   );
 }
