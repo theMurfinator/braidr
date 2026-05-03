@@ -17,8 +17,6 @@ interface PovOutlineViewProps {
   hideHeaders: boolean;
   onSceneReorder: (sceneId: string, targetSectionId: string, targetSceneNumber: number) => void;
   onSetAside: (sceneId: string) => void;
-  onSectionMoveUp: (sectionId: string) => void;
-  onSectionMoveDown: (sectionId: string) => void;
   onToggleSynopsisMode: (sectionId: string) => void;
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
   onOpenInEditor?: (sceneId: string) => void;
@@ -55,8 +53,6 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     hideHeaders,
     onSceneReorder,
     onSetAside,
-    onSectionMoveUp,
-    onSectionMoveDown,
     onToggleSynopsisMode,
     onSceneChange,
     onOpenInEditor,
@@ -187,10 +183,6 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                               onClick={() => onToggleSynopsisMode(empty.id)}
                               title={synopsisModes[empty.id] === 'expand' ? 'Show synopses' : 'Hide synopses'}
                             >{'▾'}</button>
-                            <div className="section-reorder-buttons">
-                              <button className="section-move-btn" onClick={() => onSectionMoveUp(empty.id)} disabled={emptyIdx === 0} title="Move section up">{'▲'}</button>
-                              <button className="section-move-btn" onClick={() => onSectionMoveDown(empty.id)} disabled={emptyIdx === sortedSections.length - 1} title="Move section down">{'▼'}</button>
-                            </div>
                             <span className="plot-point-title">{empty.title || 'New Section'}</span>
                             <span className="plot-point-count">(0/{empty.expectedSceneCount ?? '?'})</span>
                             {onDeleteSection && (
@@ -209,10 +201,6 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                         onClick={() => onToggleSynopsisMode(section.id)}
                         title={synopsisModes[section.id] === 'expand' ? 'Show synopses' : 'Hide synopses'}
                       >{'▾'}</button>
-                      <div className="section-reorder-buttons">
-                        <button className="section-move-btn" onClick={() => onSectionMoveUp(section.id)} disabled={isFirstSection} title="Move section up">{'▲'}</button>
-                        <button className="section-move-btn" onClick={() => onSectionMoveDown(section.id)} disabled={isLastSection} title="Move section down">{'▼'}</button>
-                      </div>
                       <span className="plot-point-title">{section.title || 'New Section'}</span>
                       <span className="plot-point-count">({sectionScenes.length}/{section.expectedSceneCount ?? '?'})</span>
                       {onDeleteSection && (
@@ -263,10 +251,6 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                         onClick={() => onToggleSynopsisMode(empty.id)}
                         title={synopsisModes[empty.id] === 'expand' ? 'Show synopses' : 'Hide synopses'}
                       >{'▾'}</button>
-                      <div className="section-reorder-buttons">
-                        <button className="section-move-btn" onClick={() => onSectionMoveUp(empty.id)} disabled={emptyIdx === 0} title="Move section up">{'▲'}</button>
-                        <button className="section-move-btn" onClick={() => onSectionMoveDown(empty.id)} disabled={emptyIdx === sortedSections.length - 1} title="Move section down">{'▼'}</button>
-                      </div>
                       <span className="plot-point-title">{empty.title || 'New Section'}</span>
                       <span className="plot-point-count">(0/{empty.expectedSceneCount ?? '?'})</span>
                       {onDeleteSection && (

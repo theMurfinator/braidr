@@ -3787,8 +3787,6 @@ function App() {
                     draggedPovSceneRef.current = null;
                   }}
                   onSetAside={handleSetAside}
-                  onSectionMoveUp={handleMoveSectionUp}
-                  onSectionMoveDown={handleMoveSectionDown}
                   onToggleSynopsisMode={handleToggleSynopsisMode}
                   onSceneChange={handleSceneChange}
                   onOpenInEditor={handleOpenInEditor}
