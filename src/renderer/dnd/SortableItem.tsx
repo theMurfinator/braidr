@@ -1,12 +1,14 @@
 import { ReactNode, CSSProperties } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { DraggableAttributes } from '@dnd-kit/core';
+import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 
 export interface SortableItemRenderProps {
   setNodeRef: (node: HTMLElement | null) => void;
   style: CSSProperties;
-  attributes: Record<string, unknown>;
-  listeners: Record<string, unknown> | undefined;
+  attributes: DraggableAttributes;
+  listeners: SyntheticListenerMap | undefined;
   isDragging: boolean;
   isOver: boolean;
   /**

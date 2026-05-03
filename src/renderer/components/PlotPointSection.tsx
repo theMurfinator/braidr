@@ -362,7 +362,7 @@ function PlotPointSection({ plotPoint, scenes, tags, onSceneChange, onTagsChange
             {!!onSceneDragStart && (
               <div
                 className="scene-drag-gutter"
-                onMouseDown={() => { console.log('[DRAG] gutter mousedown'); canDragPovRef.current = true; }}
+                onMouseDown={() => { canDragPovRef.current = true; }}
               >
                 <span className="scene-drag-gutter-icon">⋮⋮</span>
               </div>
