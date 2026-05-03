@@ -9,6 +9,13 @@ export interface SortableItemRenderProps {
   listeners: Record<string, unknown> | undefined;
   isDragging: boolean;
   isOver: boolean;
+  /**
+   * When this item is the drop target, the side of the item where the
+   * dragged item will land. `null` when this item is not the drop target.
+   * Dragging downward → 'below' (other items shifted up to fill the gap);
+   * dragging upward → 'above'.
+   */
+  dropPosition: 'above' | 'below' | null;
 }
 
 interface SortableItemProps {
@@ -25,6 +32,8 @@ export function SortableItem({ id, children }: SortableItemProps) {
     transition,
     isDragging,
     isOver,
+    activeIndex,
+    index,
   } = useSortable({ id });
 
   const style: CSSProperties = {
@@ -34,5 +43,10 @@ export function SortableItem({ id, children }: SortableItemProps) {
     position: 'relative',
   };
 
-  return <>{children({ setNodeRef, style, attributes, listeners, isDragging, isOver })}</>;
+  let dropPosition: 'above' | 'below' | null = null;
+  if (isOver && !isDragging && activeIndex >= 0) {
+    dropPosition = activeIndex < index ? 'below' : 'above';
+  }
+
+  return <>{children({ setNodeRef, style, attributes, listeners, isDragging, isOver, dropPosition })}</>;
 }
