@@ -41,3 +41,6 @@ Design Inspiration */
 
 # Capacitor iOS
 ios/App/Pods/
+
+# Git worktrees
+.worktrees/
