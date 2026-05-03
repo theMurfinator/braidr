@@ -1934,24 +1934,6 @@ function App() {
     }
   };
 
-  const handleSceneToBullpen = async (sceneId: string) => {
-    // Drag from POV outline → bullpen panel = same effect as the existing "Set aside" button
-    await handleSetAside(sceneId);
-  };
-
-  const handleBullpenToSection = async (sceneId: string, targetSectionId: string) => {
-    if (!projectData || !selectedCharacterId) return;
-    const scene = projectData.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-    const targetSectionScenes = projectData.scenes
-      .filter(s => s.characterId === selectedCharacterId && s.plotPointId === targetSectionId)
-      .sort((a, b) => a.sceneNumber - b.sceneNumber);
-    const insertAtNumber = (targetSectionScenes[targetSectionScenes.length - 1]?.sceneNumber ?? 0) + 1;
-    draggedPovSceneRef.current = scene;
-    await handlePovSceneDrop(insertAtNumber, targetSectionId);
-    draggedPovSceneRef.current = null;
-  };
-
   const handleSetAside = async (sceneId: string) => {
     if (!projectData || !selectedCharacterId) return;
 
@@ -3794,7 +3776,6 @@ function App() {
                 <PovOutlineView
                   sections={displayedPlotPoints}
                   scenes={displayedScenes.filter(s => s.plotPointId !== null)}
-                  bullpenScenes={displayedScenes.filter(s => s.plotPointId === null)}
                   characterColor={getCharacterHexColor(selectedCharacterId ?? '')}
                   synopsisModes={sectionSynopsisModes}
                   hideHeaders={hideSectionHeaders[tabId] ?? false}
@@ -3805,8 +3786,6 @@ function App() {
                     handlePovSceneDrop(targetSceneNumber, targetSectionId);
                     draggedPovSceneRef.current = null;
                   }}
-                  onSceneToBullpen={handleSceneToBullpen}
-                  onBullpenToSection={handleBullpenToSection}
                   onSetAside={handleSetAside}
                   onSectionMoveUp={handleMoveSectionUp}
                   onSectionMoveDown={handleMoveSectionDown}
