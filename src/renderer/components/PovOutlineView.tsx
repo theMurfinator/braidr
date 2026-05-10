@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { PlotPoint, Scene } from '../../shared/types';
 import OutlineSceneRow from './OutlineSceneRow';
@@ -30,6 +30,122 @@ function ScrollAutoBinder({ scrollRef }: { scrollRef: React.RefObject<HTMLDivEle
   return null;
 }
 
+interface SectionHeaderProps {
+  section: PlotPoint;
+  sceneCount: number;
+  synopsisMode: 'inline' | 'expand' | undefined;
+  onToggleSynopsisMode: (sectionId: string) => void;
+  onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
+  onDeleteSection?: (sectionId: string) => void;
+}
+
+function SectionHeader({
+  section,
+  sceneCount,
+  synopsisMode,
+  onToggleSynopsisMode,
+  onSectionChange,
+  onDeleteSection,
+}: SectionHeaderProps) {
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isEditingCount, setIsEditingCount] = useState(false);
+  const [editTitle, setEditTitle] = useState(section.title || 'New Section');
+  const [editCount, setEditCount] = useState<string>(section.expectedSceneCount?.toString() || '');
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const countInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setEditTitle(section.title || 'New Section');
+  }, [section.title]);
+
+  useEffect(() => {
+    setEditCount(section.expectedSceneCount?.toString() || '');
+  }, [section.expectedSceneCount]);
+
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  useEffect(() => {
+    if (isEditingCount && countInputRef.current) {
+      countInputRef.current.focus();
+      countInputRef.current.select();
+    }
+  }, [isEditingCount]);
+
+  const commitTitle = () => {
+    setIsEditingTitle(false);
+    if (editTitle !== section.title && onSectionChange) {
+      onSectionChange(section.id, editTitle, section.description || '', section.expectedSceneCount);
+    }
+  };
+
+  const commitCount = () => {
+    setIsEditingCount(false);
+    const trimmed = editCount.trim();
+    const parsed = trimmed === '' ? null : parseInt(trimmed, 10);
+    const newCount = parsed !== null && isNaN(parsed) ? null : parsed;
+    if (newCount !== section.expectedSceneCount && onSectionChange) {
+      onSectionChange(section.id, section.title, section.description || '', newCount);
+    }
+  };
+
+  return (
+    <div className="pov-outline-section-header" data-section-id={section.id}>
+      <button
+        className={`section-synopsis-chevron ${synopsisMode === 'expand' ? 'collapsed' : ''}`}
+        onClick={() => onToggleSynopsisMode(section.id)}
+        title={synopsisMode === 'expand' ? 'Show synopses' : 'Hide synopses'}
+      >{'▾'}</button>
+      {isEditingTitle ? (
+        <input
+          ref={titleInputRef}
+          type="text"
+          className="plot-point-title-input"
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          onBlur={commitTitle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commitTitle(); }
+            else if (e.key === 'Escape') { setEditTitle(section.title || 'New Section'); setIsEditingTitle(false); }
+          }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span className="plot-point-title" onClick={() => setIsEditingTitle(true)}>
+          {editTitle}
+        </span>
+      )}
+      <span className="plot-point-count" onClick={() => setIsEditingCount(true)} title="Click to edit expected scene count">
+        {isEditingCount ? (
+          <input
+            ref={countInputRef}
+            type="number"
+            min="0"
+            className="plot-point-count-input"
+            value={editCount}
+            onChange={(e) => setEditCount(e.target.value)}
+            onBlur={commitCount}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commitCount(); }
+              else if (e.key === 'Escape') { setEditCount(section.expectedSceneCount?.toString() || ''); setIsEditingCount(false); }
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <>({sceneCount}/{section.expectedSceneCount ?? '?'})</>
+        )}
+      </span>
+      {onDeleteSection && (
+        <button className="section-delete-btn" onClick={() => onDeleteSection(section.id)} title="Delete section">{'×'}</button>
+      )}
+    </div>
+  );
+}
+
 function EmptySectionDropZone({ sectionId }: { sectionId: string }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `section-empty:${sectionId}`,
@@ -56,6 +172,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     onToggleSynopsisMode,
     onSceneChange,
     onOpenInEditor,
+    onSectionChange,
     onDeleteSection,
     getCharacterName,
   } = props;
@@ -159,54 +276,51 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
               const isFirstSection = sectionIdx === 0;
               const isLastSection = sectionIdx === sortedSections.length - 1;
 
-              // For each section that has zero scenes AND comes BEFORE this scene's section,
-              // render its header + empty drop zone here.
+              // Render empty sections that sit immediately before this section
+              // (i.e. between the previous non-empty section and this one). Walk
+              // backwards and stop at the first non-empty section so a single
+              // empty section doesn't get re-emitted before every later section.
               const emptySectionsBefore: PlotPoint[] = [];
               if (isFirstInSection) {
-                for (let i = 0; i < sectionIdx; i++) {
+                for (let i = sectionIdx - 1; i >= 0; i--) {
                   const earlierSection = sortedSections[i];
                   const earlierScenes = scenesBySection.get(earlierSection.id) ?? [];
-                  if (earlierScenes.length === 0) emptySectionsBefore.push(earlierSection);
+                  if (earlierScenes.length === 0) {
+                    emptySectionsBefore.unshift(earlierSection);
+                  } else {
+                    break;
+                  }
                 }
               }
 
               return (
                 <>
                   {emptySectionsBefore.map((empty) => {
-                    const emptyIdx = sortedSections.findIndex(s => s.id === empty.id);
                     return (
                       <div key={`empty-${empty.id}`} className="pov-outline-section">
                         {!hideHeaders && (
-                          <div className="pov-outline-section-header" data-section-id={empty.id}>
-                            <button
-                              className={`section-synopsis-chevron ${synopsisModes[empty.id] === 'expand' ? 'collapsed' : ''}`}
-                              onClick={() => onToggleSynopsisMode(empty.id)}
-                              title={synopsisModes[empty.id] === 'expand' ? 'Show synopses' : 'Hide synopses'}
-                            >{'▾'}</button>
-                            <span className="plot-point-title">{empty.title || 'New Section'}</span>
-                            <span className="plot-point-count">(0/{empty.expectedSceneCount ?? '?'})</span>
-                            {onDeleteSection && (
-                              <button className="section-delete-btn" onClick={() => onDeleteSection(empty.id)} title="Delete section">{'×'}</button>
-                            )}
-                          </div>
+                          <SectionHeader
+                            section={empty}
+                            sceneCount={0}
+                            synopsisMode={synopsisModes[empty.id]}
+                            onToggleSynopsisMode={onToggleSynopsisMode}
+                            onSectionChange={onSectionChange}
+                            onDeleteSection={onDeleteSection}
+                          />
                         )}
                         <EmptySectionDropZone sectionId={empty.id} />
                       </div>
                     );
                   })}
                   {isFirstInSection && section && !hideHeaders && (
-                    <div className="pov-outline-section-header" data-section-id={section.id}>
-                      <button
-                        className={`section-synopsis-chevron ${synopsisModes[section.id] === 'expand' ? 'collapsed' : ''}`}
-                        onClick={() => onToggleSynopsisMode(section.id)}
-                        title={synopsisModes[section.id] === 'expand' ? 'Show synopses' : 'Hide synopses'}
-                      >{'▾'}</button>
-                      <span className="plot-point-title">{section.title || 'New Section'}</span>
-                      <span className="plot-point-count">({sectionScenes.length}/{section.expectedSceneCount ?? '?'})</span>
-                      {onDeleteSection && (
-                        <button className="section-delete-btn" onClick={() => onDeleteSection(section.id)} title="Delete section">{'×'}</button>
-                      )}
-                    </div>
+                    <SectionHeader
+                      section={section}
+                      sceneCount={sectionScenes.length}
+                      synopsisMode={synopsisModes[section.id]}
+                      onToggleSynopsisMode={onToggleSynopsisMode}
+                      onSectionChange={onSectionChange}
+                      onDeleteSection={onDeleteSection}
+                    />
                   )}
                   <div
                     ref={sortable.setNodeRef}
@@ -241,22 +355,17 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
               return -1;
             })();
             return sortedSections.slice(lastNonEmptyIdx + 1).map((empty) => {
-              const emptyIdx = sortedSections.findIndex(s => s.id === empty.id);
               return (
                 <div key={`trailing-empty-${empty.id}`} className="pov-outline-section">
                   {!hideHeaders && (
-                    <div className="pov-outline-section-header" data-section-id={empty.id}>
-                      <button
-                        className={`section-synopsis-chevron ${synopsisModes[empty.id] === 'expand' ? 'collapsed' : ''}`}
-                        onClick={() => onToggleSynopsisMode(empty.id)}
-                        title={synopsisModes[empty.id] === 'expand' ? 'Show synopses' : 'Hide synopses'}
-                      >{'▾'}</button>
-                      <span className="plot-point-title">{empty.title || 'New Section'}</span>
-                      <span className="plot-point-count">(0/{empty.expectedSceneCount ?? '?'})</span>
-                      {onDeleteSection && (
-                        <button className="section-delete-btn" onClick={() => onDeleteSection(empty.id)} title="Delete section">{'×'}</button>
-                      )}
-                    </div>
+                    <SectionHeader
+                      section={empty}
+                      sceneCount={0}
+                      synopsisMode={synopsisModes[empty.id]}
+                      onToggleSynopsisMode={onToggleSynopsisMode}
+                      onSectionChange={onSectionChange}
+                      onDeleteSection={onDeleteSection}
+                    />
                   )}
                   <EmptySectionDropZone sectionId={empty.id} />
                 </div>
