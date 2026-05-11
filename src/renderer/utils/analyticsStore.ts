@@ -114,10 +114,20 @@ export async function saveAnalytics(projectPath: string, data: AnalyticsData): P
 }
 
 /**
- * Get today's date string in ISO format.
+ * Format a Date as YYYY-MM-DD in local time.
+ */
+export function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Get today's date string in YYYY-MM-DD (local time).
  */
 export function getTodayStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return toLocalDateStr(new Date());
 }
 
 /**
@@ -159,7 +169,7 @@ export function recordSession(
   if (analytics.lastWritingDate !== today) {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = toLocalDateStr(yesterday);
 
     if (analytics.lastWritingDate === yesterdayStr) {
       currentStreak = currentStreak + 1;
@@ -197,7 +207,7 @@ export function getRecentDays(sessions: WritingSession[], days: number): { date:
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = toLocalDateStr(d);
     const session = sessions.find(s => s.date === dateStr);
     result.push({
       date: dateStr,
@@ -216,7 +226,7 @@ export function getThisWeekWords(sessions: WritingSession[]): number {
   const dayOfWeek = today.getDay(); // 0=Sunday
   const monday = new Date(today);
   monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
-  const mondayStr = monday.toISOString().split('T')[0];
+  const mondayStr = toLocalDateStr(monday);
 
   return sessions
     .filter(s => s.date >= mondayStr)
@@ -397,7 +407,7 @@ export function getWeekDays(saturday: Date): string[] {
   for (let i = 0; i < 7; i++) {
     const d = new Date(saturday);
     d.setDate(saturday.getDate() + i);
-    days.push(d.toISOString().split('T')[0]);
+    days.push(toLocalDateStr(d));
   }
   return days;
 }
