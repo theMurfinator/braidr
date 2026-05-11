@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Scene, Character, PlotPoint, MetadataFieldDef, Task } from '../../shared/types';
-import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, getCheckinAverages, getWeekSaturday, getWeekDays, formatWeekLabel } from '../utils/analyticsStore';
+import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, toLocalDateStr, getCheckinAverages, getWeekSaturday, getWeekDays, formatWeekLabel } from '../utils/analyticsStore';
 import { track } from '../utils/posthogTracker';
 
 interface WordCountDashboardProps {
@@ -222,7 +222,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     const sessions = analytics?.sessions || [];
     const fourteenDaysAgo = new Date(today);
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13); // 14-day window including today
-    const cutoff = fourteenDaysAgo.toISOString().split('T')[0];
+    const cutoff = toLocalDateStr(fourteenDaysAgo);
     const recentTotal = sessions
       .filter(s => s.date >= cutoff)
       .reduce((s, x) => s + x.wordsWritten, 0);
@@ -281,7 +281,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
     // Add task time entries
     for (const task of tasks) {
       for (const te of task.timeEntries) {
-        const teDate = new Date(te.startedAt).toISOString().split('T')[0];
+        const teDate = toLocalDateStr(new Date(te.startedAt));
         const idx = days.indexOf(teDate);
         if (idx >= 0) perDay[idx] += te.duration;
       }
@@ -316,13 +316,15 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
   const weeklyGoal = analytics?.weeklyGoal;
   const weeklyTargetHours = weeklyGoal?.enabled ? weeklyGoal.targetHours : 0;
   const weeklyProgress = weeklyTargetHours > 0 ? Math.min(weeklyData.totalHours / weeklyTargetHours, 1) : 0;
-  const weeklyHoursRemaining = Math.max(0, weeklyTargetHours - weeklyData.totalHours);
-  const weeklyRequiredPerDay = weeklyData.isCurrentWeek && weeklyData.daysRemaining > 0
-    ? weeklyHoursRemaining / weeklyData.daysRemaining
-    : 0;
-  const weeklyOnTrack = weeklyData.isCurrentWeek
-    ? weeklyData.totalHours >= weeklyTargetHours || (weeklyData.daysRemaining > 0 && weeklyRequiredPerDay <= (weeklyTargetHours / 7) * 1.3)
-    : weeklyData.totalHours >= weeklyTargetHours;
+  // Pace model: a flat daily target (weekly / 7), and a running "target through
+  // today" = daily target * day-of-week (Sat=1, Sun=2, ..., Fri=7).
+  // Pace = hours logged − running target; negative means behind, positive ahead.
+  const weeklyTargetPerDay = weeklyTargetHours / 7;
+  const weeklyTargetThroughToday = weeklyData.isCurrentWeek && weeklyData.todayIdx >= 0
+    ? weeklyTargetPerDay * (weeklyData.todayIdx + 1)
+    : weeklyTargetHours;
+  const weeklyPace = weeklyData.totalHours - weeklyTargetThroughToday;
+  const weeklyOnTrack = weeklyPace >= 0;
 
   const handleWeeklyGoalSave = () => {
     if (!analytics || !projectPath) return;
@@ -441,9 +443,13 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
                   <div className="analytics-goal-bar-track">
                     <div className="analytics-goal-bar-fill weekly" style={{ width: `${weeklyProgress * 100}%` }} />
                   </div>
-                  {weeklyData.isCurrentWeek && weeklyData.totalHours < weeklyTargetHours && weeklyData.daysRemaining > 0 && (
+                  {weeklyData.isCurrentWeek && weeklyData.todayIdx >= 0 && (
                     <div className="analytics-weekly-pace">
-                      Need <strong>{weeklyRequiredPerDay.toFixed(1)}h/day</strong> for remaining {weeklyData.daysRemaining} day{weeklyData.daysRemaining !== 1 ? 's' : ''}
+                      Target through today: <strong>{weeklyTargetThroughToday.toFixed(1)}h</strong>
+                      {' \u00B7 '}
+                      {weeklyPace >= 0
+                        ? <>Ahead by <strong>{weeklyPace.toFixed(1)}h</strong></>
+                        : <>Behind by <strong>{(-weeklyPace).toFixed(1)}h</strong></>}
                     </div>
                   )}
                   <span className={`analytics-deadline-pill ${weeklyOnTrack ? 'on-track' : 'behind'}`}>
