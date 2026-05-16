@@ -359,7 +359,7 @@ function App() {
           id: `timer-${now}-${Math.random().toString(36).slice(2, 8)}`,
           sceneKey: timerSceneKey,
           date: getTodayStr(),
-          startTime: now - durationMs,
+          startTime: timerStartedAtRef.current ?? now - durationMs,
           endTime: now,
           durationMs,
           wordsNet: 0,
@@ -372,6 +372,7 @@ function App() {
       }
       return 0; // reset elapsed
     });
+    timerStartedAtRef.current = null;
     setTimerSceneKey(null);
   }, [timerSceneKey, projectData]);
 
@@ -379,6 +380,7 @@ function App() {
     localStorage.removeItem('braidr-active-scene-timer');
     setTimerRunning(false);
     setTimerElapsed(0);
+    timerStartedAtRef.current = null;
     setTimerSceneKey(null);
   }, []);
 
