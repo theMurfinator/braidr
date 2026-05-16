@@ -317,7 +317,7 @@ function App() {
   // Re-sync scene timer immediately when window regains focus after sleep
   useEffect(() => {
     const onVisible = () => {
-      if (timerRunningRef.current && timerStartedAtRef.current !== null) {
+      if (document.visibilityState === 'visible' && timerRunningRef.current && timerStartedAtRef.current !== null) {
         setTimerElapsed(Math.floor((Date.now() - timerStartedAtRef.current) / 1000));
       }
     };
