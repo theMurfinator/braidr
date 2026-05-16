@@ -315,6 +315,56 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
 
   const weeklyGoal = analytics?.weeklyGoal;
   const weeklyTargetHours = weeklyGoal?.enabled ? weeklyGoal.targetHours : 0;
+
+  const trendData = useMemo(() => {
+    const now = new Date();
+    const currentSat = getWeekSaturday(now);
+    const result: {
+      weekStart: string;
+      weekLabel: string;
+      totalHours: number;
+      hitGoal: boolean;
+      isCurrent: boolean;
+    }[] = [];
+
+    for (let i = 11; i >= 0; i--) {
+      const weekSat = new Date(currentSat);
+      weekSat.setDate(currentSat.getDate() - i * 7);
+      const days = getWeekDays(weekSat);
+
+      let totalMs = 0;
+      for (const ss of sceneSessions) {
+        if (ss.sceneKey === 'manual:checkin') continue;
+        if (days.indexOf(ss.date) >= 0) totalMs += ss.durationMs;
+      }
+      for (const task of tasks) {
+        for (const te of task.timeEntries) {
+          if (days.indexOf(toLocalDateStr(new Date(te.startedAt))) >= 0) totalMs += te.duration;
+        }
+      }
+
+      const totalHours = totalMs / 3600000;
+      result.push({
+        weekStart: toLocalDateStr(weekSat),
+        weekLabel: weekSat.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        totalHours,
+        hitGoal: !!(weeklyGoal?.enabled && weeklyTargetHours > 0 && totalHours >= weeklyTargetHours),
+        isCurrent: i === 0,
+      });
+    }
+    return result;
+  }, [sceneSessions, tasks, weeklyGoal, weeklyTargetHours]);
+
+  const maxTrendHours = Math.max(...trendData.map(w => w.totalHours), weeklyTargetHours, 0.1);
+  // Chart geometry constants (must match CSS for goal line positioning)
+  const TREND_CHART_H = 130;
+  const TREND_LABEL_H = 16;
+  const TREND_VALUE_H = 14;
+  const TREND_TRACK_H = TREND_CHART_H - TREND_LABEL_H - TREND_VALUE_H - 8;
+  const goalLinePx = weeklyGoal?.enabled && weeklyTargetHours > 0
+    ? TREND_LABEL_H + (Math.min(weeklyTargetHours, maxTrendHours) / maxTrendHours) * TREND_TRACK_H
+    : null;
+
   const weeklyProgress = weeklyTargetHours > 0 ? Math.min(weeklyData.totalHours / weeklyTargetHours, 1) : 0;
   // Pace model: a flat daily target (weekly / 7), and a running "target through
   // today" = daily target * day-of-week (Sat=1, Sun=2, ..., Fri=7).
