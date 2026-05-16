@@ -595,7 +595,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
                 return (
                   <div key={week.weekStart} className="analytics-trend-bar-group">
                     <div className="analytics-trend-bar-value">
-                      {week.totalHours > 0 ? (week.totalHours >= 10 ? week.totalHours.toFixed(0) : week.totalHours.toFixed(1)) : ''}
+                      {week.totalHours > 0 ? week.totalHours.toFixed(1) : ''}
                     </div>
                     <div className="analytics-trend-bar-track">
                       <div
