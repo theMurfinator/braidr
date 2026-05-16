@@ -315,6 +315,56 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
 
   const weeklyGoal = analytics?.weeklyGoal;
   const weeklyTargetHours = weeklyGoal?.enabled ? weeklyGoal.targetHours : 0;
+
+  const trendData = useMemo(() => {
+    const now = new Date();
+    const currentSat = getWeekSaturday(now);
+    const result: {
+      weekStart: string;
+      weekLabel: string;
+      totalHours: number;
+      hitGoal: boolean;
+      isCurrent: boolean;
+    }[] = [];
+
+    for (let i = 11; i >= 0; i--) {
+      const weekSat = new Date(currentSat);
+      weekSat.setDate(currentSat.getDate() - i * 7);
+      const days = getWeekDays(weekSat);
+
+      let totalMs = 0;
+      for (const ss of sceneSessions) {
+        if (ss.sceneKey === 'manual:checkin') continue;
+        if (days.indexOf(ss.date) >= 0) totalMs += ss.durationMs;
+      }
+      for (const task of tasks) {
+        for (const te of task.timeEntries) {
+          if (days.indexOf(toLocalDateStr(new Date(te.startedAt))) >= 0) totalMs += te.duration;
+        }
+      }
+
+      const totalHours = totalMs / 3600000;
+      result.push({
+        weekStart: toLocalDateStr(weekSat),
+        weekLabel: weekSat.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        totalHours,
+        hitGoal: !!(weeklyGoal?.enabled && weeklyTargetHours > 0 && totalHours >= weeklyTargetHours),
+        isCurrent: i === 0,
+      });
+    }
+    return result;
+  }, [sceneSessions, tasks, weeklyGoal, weeklyTargetHours]);
+
+  const maxTrendHours = Math.max(...trendData.map(w => w.totalHours), weeklyTargetHours, 0.1);
+  // Chart geometry constants (must match CSS for goal line positioning)
+  const TREND_CHART_H = 130;
+  const TREND_LABEL_H = 16;
+  const TREND_VALUE_H = 14;
+  const TREND_TRACK_H = TREND_CHART_H - TREND_LABEL_H - TREND_VALUE_H - 8;
+  const goalLinePx = weeklyGoal?.enabled && weeklyTargetHours > 0
+    ? TREND_LABEL_H + (Math.min(weeklyTargetHours, maxTrendHours) / maxTrendHours) * TREND_TRACK_H
+    : null;
+
   const weeklyProgress = weeklyTargetHours > 0 ? Math.min(weeklyData.totalHours / weeklyTargetHours, 1) : 0;
   // Pace model: a flat daily target (weekly / 7), and a running "target through
   // today" = daily target * day-of-week (Sat=1, Sun=2, ..., Fri=7).
@@ -520,6 +570,49 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
           </div>
         </div>
       </div>
+
+      {/* 12-Week Trend */}
+      {trendData.some(w => w.totalHours > 0) && (
+        <div className="analytics-trend-wrapper">
+          <div className="analytics-card full">
+            <div className="analytics-card-header">
+              <span className="analytics-card-title">12-Week Trend</span>
+            </div>
+            <div
+              className="analytics-trend-chart"
+              style={{ height: `${TREND_CHART_H}px` }}
+            >
+              {goalLinePx !== null && (
+                <div
+                  className="analytics-trend-goal-line"
+                  style={{ bottom: goalLinePx }}
+                >
+                  <span className="analytics-trend-goal-label">{weeklyTargetHours}h</span>
+                </div>
+              )}
+              {trendData.map(week => {
+                const barHeight = Math.max((week.totalHours / maxTrendHours) * 100, week.totalHours > 0 ? 3 : 0);
+                return (
+                  <div key={week.weekStart} className="analytics-trend-bar-group">
+                    <div className="analytics-trend-bar-value">
+                      {week.totalHours > 0 ? (week.totalHours >= 10 ? week.totalHours.toFixed(0) : week.totalHours.toFixed(1)) : ''}
+                    </div>
+                    <div className="analytics-trend-bar-track">
+                      <div
+                        className={`analytics-trend-bar${week.hitGoal ? ' hit-goal' : ''}${week.isCurrent ? ' current' : ''}${week.totalHours > 0 ? ' has-hours' : ''}`}
+                        style={{ height: `${barHeight}%` }}
+                      />
+                    </div>
+                    <div className={`analytics-trend-bar-label${week.isCurrent ? ' current' : ''}`}>
+                      {week.weekLabel}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Grid */}
       <div className="analytics-grid">
