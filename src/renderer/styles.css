@@ -11908,6 +11908,97 @@ textarea.table-cell-input {
   color: var(--text-primary);
   font-weight: 700;
 }
+/* 12-Week Trend chart */
+.analytics-trend-wrapper {
+  margin-top: 16px;
+}
+.analytics-trend-chart {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+.analytics-trend-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+.analytics-trend-bar-value {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  min-width: 0;
+}
+.analytics-trend-bar-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.analytics-trend-bar {
+  width: 80%;
+  max-width: 18px;
+  border-radius: 3px 3px 0 0;
+  background: #ede9fe;
+  transition: height 0.3s ease, opacity 0.15s;
+}
+.analytics-trend-bar.has-hours {
+  background: #8b5cf6;
+  opacity: 0.8;
+}
+.analytics-trend-bar.hit-goal {
+  background: #059669;
+  opacity: 0.85;
+}
+.analytics-trend-bar.current {
+  background: #6d28d9;
+  opacity: 1;
+}
+.analytics-trend-bar-group:hover .analytics-trend-bar {
+  opacity: 1;
+}
+.analytics-trend-bar-label {
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted);
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.analytics-trend-bar-label.current {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.analytics-trend-goal-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed rgba(139, 92, 246, 0.4);
+  pointer-events: none;
+}
+.analytics-trend-goal-label {
+  position: absolute;
+  right: 0;
+  top: -11px;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  padding: 0 2px;
+}
 /* Card grid */
 .analytics-grid {
   display: grid;
