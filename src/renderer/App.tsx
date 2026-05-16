@@ -234,6 +234,7 @@ function App() {
   const [timerSceneKey, setTimerSceneKey] = useState<string | null>(null);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRunningRef = useRef(false);
+  const timerStartedAtRef = useRef<number | null>(null);
 
   // Global task timer (persists across view changes)
   const [taskTimerRunning, setTaskTimerRunning] = useState(false);
@@ -256,6 +257,7 @@ function App() {
     if (sceneRaw) {
       try {
         const { id, startedAt } = JSON.parse(sceneRaw);
+        timerStartedAtRef.current = startedAt;
         setTimerSceneKey(id);
         setTimerElapsed(Math.floor((Date.now() - startedAt) / 1000));
         setTimerRunning(true);
@@ -299,7 +301,9 @@ function App() {
   useEffect(() => {
     if (timerRunning) {
       timerIntervalRef.current = setInterval(() => {
-        setTimerElapsed(prev => prev + 1);
+        if (timerStartedAtRef.current !== null) {
+          setTimerElapsed(Math.floor((Date.now() - timerStartedAtRef.current) / 1000));
+        }
       }, 1000);
     } else if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -309,6 +313,17 @@ function App() {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, [timerRunning]);
+
+  // Re-sync scene timer immediately when window regains focus after sleep
+  useEffect(() => {
+    const onVisible = () => {
+      if (timerRunningRef.current && timerStartedAtRef.current !== null) {
+        setTimerElapsed(Math.floor((Date.now() - timerStartedAtRef.current) / 1000));
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   useEffect(() => {
     if (taskTimerRunning && taskTimerStartRef.current) {
@@ -411,14 +426,15 @@ function App() {
   }, [handleStopTimer, handleStopTaskTimer]);
 
   const handleStartTimer = useCallback((sceneKey: string) => {
-    // Stop task timer if running (mutual exclusivity)
     if (taskTimerRunningRef.current) {
       handleStopTaskTimer();
     }
+    const startedAt = Date.now();
+    timerStartedAtRef.current = startedAt;
     setTimerSceneKey(sceneKey);
     setTimerElapsed(0);
     setTimerRunning(true);
-    localStorage.setItem('braidr-active-scene-timer', JSON.stringify({ id: sceneKey, startedAt: Date.now() }));
+    localStorage.setItem('braidr-active-scene-timer', JSON.stringify({ id: sceneKey, startedAt }));
   }, [handleStopTaskTimer]);
 
   const handleAddManualTime = useCallback((sceneKey: string, minutes: number) => {
