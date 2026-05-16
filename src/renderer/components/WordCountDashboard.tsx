@@ -571,6 +571,49 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
         </div>
       </div>
 
+      {/* 12-Week Trend */}
+      {trendData.some(w => w.totalHours > 0) && (
+        <div className="analytics-trend-wrapper">
+          <div className="analytics-card full">
+            <div className="analytics-card-header">
+              <span className="analytics-card-title">12-Week Trend</span>
+            </div>
+            <div
+              className="analytics-trend-chart"
+              style={{ height: `${TREND_CHART_H}px` }}
+            >
+              {goalLinePx !== null && (
+                <div
+                  className="analytics-trend-goal-line"
+                  style={{ bottom: goalLinePx }}
+                >
+                  <span className="analytics-trend-goal-label">{weeklyTargetHours}h</span>
+                </div>
+              )}
+              {trendData.map(week => {
+                const barHeight = Math.max((week.totalHours / maxTrendHours) * 100, week.totalHours > 0 ? 3 : 0);
+                return (
+                  <div key={week.weekStart} className="analytics-trend-bar-group">
+                    <div className="analytics-trend-bar-value">
+                      {week.totalHours > 0 ? (week.totalHours >= 10 ? week.totalHours.toFixed(0) : week.totalHours.toFixed(1)) : ''}
+                    </div>
+                    <div className="analytics-trend-bar-track">
+                      <div
+                        className={`analytics-trend-bar${week.hitGoal ? ' hit-goal' : ''}${week.isCurrent ? ' current' : ''}${week.totalHours > 0 ? ' has-hours' : ''}`}
+                        style={{ height: `${barHeight}%` }}
+                      />
+                    </div>
+                    <div className={`analytics-trend-bar-label${week.isCurrent ? ' current' : ''}`}>
+                      {week.weekLabel}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Grid */}
       <div className="analytics-grid">
 
