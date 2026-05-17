@@ -3,19 +3,15 @@ import { useDroppable } from '@dnd-kit/core';
 import { PlotPoint, Scene } from '../../shared/types';
 import OutlineSceneRow from './OutlineSceneRow';
 import {
-  SortableArea,
   SortableList,
-  DragPreviewCard,
   useAutoScrollContainer,
 } from '../dnd';
 
 interface PovOutlineViewProps {
   sections: PlotPoint[];
   scenes: Scene[];
-  characterColor: string;
   synopsisModes: Record<string, 'inline' | 'expand'>;
   hideHeaders: boolean;
-  onSceneReorder: (sceneId: string, targetSectionId: string, targetSceneNumber: number) => void;
   onSetAside: (sceneId: string) => void;
   onToggleSynopsisMode: (sectionId: string) => void;
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
@@ -164,10 +160,8 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
   const {
     sections,
     scenes,
-    characterColor,
     synopsisModes,
     hideHeaders,
-    onSceneReorder,
     onSetAside,
     onToggleSynopsisMode,
     onSceneChange,
@@ -207,63 +201,9 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     return flat;
   }, [sortedSections, scenesBySection]);
 
-  // Map sceneId -> sectionId for fast lookup on drop
-  const sceneToSection = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const scene of scenes) {
-      if (scene.plotPointId) map.set(scene.id, scene.plotPointId);
-    }
-    return map;
-  }, [scenes]);
-
-  const sceneById = useMemo(() => {
-    const map = new Map<string, Scene>();
-    for (const scene of scenes) {
-      map.set(scene.id, scene);
-    }
-    return map;
-  }, [scenes]);
-
-  const handleDragEnd = ({ activeId, overId }: { activeId: string; overId: string }) => {
-    // Empty-section drop placeholder
-    if (overId.startsWith('section-empty:')) {
-      const targetSectionId = overId.slice('section-empty:'.length);
-      onSceneReorder(activeId, targetSectionId, 1);
-      return;
-    }
-    // POV scene → POV scene
-    const targetSectionId = sceneToSection.get(overId);
-    const overScene = sceneById.get(overId);
-    if (!targetSectionId || !overScene) return;
-    // When dragging downward (active is above over in the flat list), the scene
-    // should land AFTER over → use overScene.sceneNumber + 1. Dragging upward
-    // → land BEFORE over → use overScene.sceneNumber. This matches what the
-    // drop indicator visually shows (above/below the over item).
-    const activeIndex = flatSectionScenes.findIndex(s => s.id === activeId);
-    const overIndex = flatSectionScenes.findIndex(s => s.id === overId);
-    const dropsAfterOver = activeIndex >= 0 && overIndex >= 0 && activeIndex < overIndex;
-    const targetSceneNumber = dropsAfterOver
-      ? overScene.sceneNumber + 1
-      : overScene.sceneNumber;
-    onSceneReorder(activeId, targetSectionId, targetSceneNumber);
-  };
-
-  const renderActive = (activeId: string) => {
-    const scene = sceneById.get(activeId);
-    if (!scene) return null;
-    return (
-      <DragPreviewCard
-        title={scene.title || scene.content || 'Untitled scene'}
-        number={scene.sceneNumber}
-        accentColor={characterColor}
-      />
-    );
-  };
-
   return (
     <div className="pov-outline-view" ref={scrollRef}>
-      <SortableArea onDragEnd={handleDragEnd} renderDragOverlay={renderActive}>
-        <ScrollAutoBinder scrollRef={scrollRef} />
+      <ScrollAutoBinder scrollRef={scrollRef} />
 
         <div className="pov-outline-main">
           <SortableList items={flatSectionScenes}>
@@ -273,8 +213,6 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
               const isFirstInSection = sectionScenes[0]?.id === scene.id;
               const section = sortedSections.find(s => s.id === sectionId);
               const sectionIdx = sortedSections.findIndex(s => s.id === sectionId);
-              const isFirstSection = sectionIdx === 0;
-              const isLastSection = sectionIdx === sortedSections.length - 1;
 
               // Render empty sections that sit immediately before this section
               // (i.e. between the previous non-empty section and this one). Walk
@@ -328,9 +266,13 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                     className={`pov-outline-row-wrapper ${sortable.isOver ? 'is-over' : ''}`}
                     data-section-id={sectionId}
                     data-dnd-sortable-item
-                    {...sortable.attributes}
-                    {...sortable.listeners}
                   >
+                    {/* Drag handle only — keeps listeners off the text inputs */}
+                    <span
+                      className="pov-drag-handle"
+                      {...sortable.attributes}
+                      {...sortable.listeners}
+                    >⋮⋮</span>
                     <OutlineSceneRow
                       scene={scene}
                       displayNumber={scene.sceneNumber}
@@ -373,7 +315,6 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
             });
           })()}
         </div>
-      </SortableArea>
     </div>
   );
 }

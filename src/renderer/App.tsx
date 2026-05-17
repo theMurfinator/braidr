@@ -42,6 +42,8 @@ import { usePaneLayout, createTab } from './components/panes/usePaneLayout';
 import { findLeafPane, findTabByType } from './components/panes/paneUtils';
 import PaneManager from './components/panes/PaneManager';
 import { useAutoScrollOnDrag } from './hooks/useAutoScrollOnDrag';
+import { DndContext, DragOverlay, closestCenter, DragStartEvent, DragEndEvent, DragCancelEvent } from '@dnd-kit/core';
+import { useSortableSensors, DragPreviewCard } from './dnd';
 import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
 import { CompareView } from './components/branches/CompareView';
@@ -144,7 +146,8 @@ function App() {
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
   const draggedPovSceneRef = useRef<Scene | null>(null);
-  const [draggedPovScene, setDraggedPovScene] = useState<Scene | null>(null);
+  const [povActiveId, setPovActiveId] = useState<string | null>(null);
+  const povSensors = useSortableSensors();
   const [showCharacterManager, setShowCharacterManager] = useState(false);
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [allFontSettings, setAllFontSettings] = useState<AllFontSettings>({ global: {} });
@@ -1940,7 +1943,6 @@ function App() {
     const updatedScenes = [...otherScenes, ...charScenes];
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
-    setDraggedPovScene(null);
 
     // Save to file
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
@@ -1950,6 +1952,59 @@ function App() {
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
+  };
+
+  const handlePovDndStart = (e: DragStartEvent) => {
+    setPovActiveId(String(e.active.id));
+  };
+
+  const handlePovDndEnd = (e: DragEndEvent) => {
+    setPovActiveId(null);
+    const { active, over } = e;
+    if (!over || !projectData || !selectedCharacterId) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (activeId === overId) return;
+
+    const activeScene = projectData.scenes.find(s => s.id === activeId);
+    if (!activeScene) return;
+
+    // POV scene dragged onto bullpen → set aside
+    if (overId === 'bullpen') {
+      if (activeScene.plotPointId) handleSetAside(activeId);
+      return;
+    }
+
+    let targetSectionId: string | null = null;
+    let targetSceneNumber = 1;
+
+    if (overId.startsWith('section-empty:')) {
+      targetSectionId = overId.slice('section-empty:'.length);
+      targetSceneNumber = 1;
+    } else {
+      const overScene = projectData.scenes.find(s => s.id === overId);
+      if (!overScene?.plotPointId) return;
+      targetSectionId = overScene.plotPointId;
+
+      // Determine before/after using the flat in-section scene order
+      const inSectionScenes = (displayedScenes ?? [])
+        .filter(s => s.plotPointId !== null)
+        .sort((a, b) => a.sceneNumber - b.sceneNumber);
+      const activeIndex = inSectionScenes.findIndex(s => s.id === activeId);
+      const overIndex = inSectionScenes.findIndex(s => s.id === overId);
+      // Bullpen scenes (activeIndex === -1) default to landing after the over scene
+      const dropsAfterOver = activeIndex < 0 || (activeIndex >= 0 && overIndex >= 0 && activeIndex < overIndex);
+      targetSceneNumber = dropsAfterOver ? overScene.sceneNumber + 1 : overScene.sceneNumber;
+    }
+
+    if (!targetSectionId) return;
+    draggedPovSceneRef.current = activeScene;
+    handlePovSceneDrop(targetSceneNumber, targetSectionId);
+    draggedPovSceneRef.current = null;
+  };
+
+  const handlePovDndCancel = (_e: DragCancelEvent) => {
+    setPovActiveId(null);
   };
 
   const handleSetAside = async (sceneId: string) => {
@@ -1993,18 +2048,43 @@ function App() {
     const scene = projectData.scenes.find(s => s.id === sceneId);
     if (!scene) return;
 
-    scene.plotPointId = targetPlotPointId;
-
-    const charScenes = projectData.scenes
-      .filter(s => s.characterId === selectedCharacterId)
+    // All other char scenes sorted by current sceneNumber (includes other bullpen scenes)
+    const otherCharScenes = projectData.scenes
+      .filter(s => s.characterId === selectedCharacterId && s.id !== sceneId)
       .sort((a, b) => a.sceneNumber - b.sceneNumber);
 
+    // Find insertion point: after the last in-section scene belonging to the target
+    // section or any section ordered before it \u2014 so the returned scene lands at the
+    // end of the target section rather than at its old (arbitrary) sceneNumber position.
+    const charPlotPoints = projectData.plotPoints
+      .filter(p => p.characterId === character.id)
+      .sort((a, b) => a.order - b.order);
+
+    const targetSection = charPlotPoints.find(p => p.id === targetPlotPointId);
+    if (!targetSection) return;
+
+    let insertAfterIdx = 0;
+    for (let i = 0; i < otherCharScenes.length; i++) {
+      const s = otherCharScenes[i];
+      if (!s.plotPointId) continue;
+      const sSection = charPlotPoints.find(p => p.id === s.plotPointId);
+      if (sSection && sSection.order <= targetSection.order) {
+        insertAfterIdx = i + 1;
+      }
+    }
+
+    scene.plotPointId = targetPlotPointId;
+
+    const charScenes = [
+      ...otherCharScenes.slice(0, insertAfterIdx),
+      scene,
+      ...otherCharScenes.slice(insertAfterIdx),
+    ];
     charScenes.forEach((s, idx) => { s.sceneNumber = idx + 1; });
 
     const updatedData = { ...projectData, scenes: [...projectData.scenes] };
     setProjectData(updatedData);
 
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
       await saveTimelineData(updatedData.scenes, sceneConnections, braidedChapters);
@@ -3602,6 +3682,13 @@ function App() {
               />
             ) : mode === 'pov' ? (
               // POV View with plot points and table of contents
+              <DndContext
+                sensors={povSensors}
+                collisionDetection={closestCenter}
+                onDragStart={handlePovDndStart}
+                onDragEnd={handlePovDndEnd}
+                onDragCancel={handlePovDndCancel}
+              >
               <div className={`pov-layout ${isConnecting ? 'is-connecting' : ''}`}>
                 <div className="pov-content">
                 {isConnecting && (
@@ -3612,16 +3699,8 @@ function App() {
                 <PovOutlineView
                   sections={displayedPlotPoints}
                   scenes={displayedScenes.filter(s => s.plotPointId !== null)}
-                  characterColor={getCharacterHexColor(selectedCharacterId ?? '')}
                   synopsisModes={sectionSynopsisModes}
                   hideHeaders={hideSectionHeaders[tabId] ?? false}
-                  onSceneReorder={(sceneId, targetSectionId, targetSceneNumber) => {
-                    const scene = projectData.scenes.find(s => s.id === sceneId);
-                    if (!scene) return;
-                    draggedPovSceneRef.current = scene;
-                    handlePovSceneDrop(targetSceneNumber, targetSectionId);
-                    draggedPovSceneRef.current = null;
-                  }}
                   onSetAside={handleSetAside}
                   onToggleSynopsisMode={handleToggleSynopsisMode}
                   onSceneChange={handleSceneChange}
@@ -3641,14 +3720,23 @@ function App() {
                   getCharacterName={getCharacterName}
                   onReturnScene={handleReturnFromBullpen}
                   onSceneChange={handleSceneChange}
-                  onSceneDrop={handleSetAside}
-                  draggedScene={draggedPovScene}
-                  onDragStart={(scene) => setDraggedPovScene(scene)}
-                  onDragEnd={() => setDraggedPovScene(null)}
                   previousPlotPointIds={previousPlotPointIds}
                   onAddScene={handleAddBullpenScene}
                 />
               </div>
+              <DragOverlay>
+                {povActiveId && (() => {
+                  const s = projectData.scenes.find(sc => sc.id === povActiveId);
+                  return s ? (
+                    <DragPreviewCard
+                      title={s.title || s.content || 'Untitled scene'}
+                      number={s.sceneNumber}
+                      accentColor={getCharacterHexColor(selectedCharacterId ?? '')}
+                    />
+                  ) : null;
+                })()}
+              </DragOverlay>
+              </DndContext>
             ) : braidedSubMode === 'table' ? (
               // Table View
               <>

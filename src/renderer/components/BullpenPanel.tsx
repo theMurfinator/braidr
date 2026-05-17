@@ -1,7 +1,32 @@
 import { useState } from 'react';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { Scene, PlotPoint } from '../../shared/types';
 import OutlineSceneRow from './OutlineSceneRow';
 import SectionPickerDropdown from './SectionPickerDropdown';
+
+interface DraggableBullpenRowProps {
+  scene: Scene;
+  characterName: string;
+  onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
+  children: React.ReactNode;
+}
+
+function DraggableBullpenRow({ scene, characterName, onSceneChange, children }: DraggableBullpenRowProps) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: scene.id });
+  return (
+    <div ref={setNodeRef} className="bullpen-scene-wrapper" style={{ opacity: isDragging ? 0.3 : 1 }}>
+      <span className="pov-drag-handle bullpen-drag-handle" {...attributes} {...listeners}>⋮⋮</span>
+      <OutlineSceneRow
+        scene={scene}
+        characterName={characterName}
+        synopsisVisible={false}
+        onSceneChange={onSceneChange}
+        expandMode={false}
+      />
+      {children}
+    </div>
+  );
+}
 
 interface BullpenPanelProps {
   scenes: Scene[];
@@ -9,10 +34,6 @@ interface BullpenPanelProps {
   getCharacterName: (characterId: string) => string;
   onReturnScene: (sceneId: string, targetPlotPointId: string) => void;
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
-  onSceneDrop: (sceneId: string) => void;
-  draggedScene: Scene | null;
-  onDragStart: (scene: Scene) => void;
-  onDragEnd: () => void;
   previousPlotPointIds?: Record<string, string>;
   onAddScene?: () => void;
 }
@@ -23,42 +44,16 @@ function BullpenPanel({
   getCharacterName,
   onReturnScene,
   onSceneChange,
-  onSceneDrop,
-  draggedScene,
-  onDragStart,
-  onDragEnd,
   previousPlotPointIds,
   onAddScene,
 }: BullpenPanelProps) {
   const [pickerSceneId, setPickerSceneId] = useState<string | null>(null);
-  const [dropHover, setDropHover] = useState(false);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDropHover(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
-      setDropHover(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDropHover(false);
-    if (draggedScene && draggedScene.plotPointId !== null) {
-      onSceneDrop(draggedScene.id);
-    }
-  };
+  const { setNodeRef, isOver } = useDroppable({ id: 'bullpen' });
 
   return (
     <div
-      className={`bullpen-panel ${dropHover ? 'drag-over' : ''}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      ref={setNodeRef}
+      className={`bullpen-panel ${isOver ? 'drag-over' : ''}`}
     >
       <div className="bullpen-header">
         <span className="bullpen-label">Bullpen</span>
@@ -71,16 +66,12 @@ function BullpenPanel({
         </div>
       )}
       {scenes.map((scene) => (
-        <div key={scene.id} className="bullpen-scene-wrapper">
-          <OutlineSceneRow
-            scene={scene}
-            characterName={getCharacterName(scene.characterId)}
-            synopsisVisible={false}
-            onSceneChange={onSceneChange}
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
-            expandMode={false}
-          />
+        <DraggableBullpenRow
+          key={scene.id}
+          scene={scene}
+          characterName={getCharacterName(scene.characterId)}
+          onSceneChange={onSceneChange}
+        >
           <span className="bullpen-scene-actions">
             <button
               className="outline-scene-action-btn bullpen-return-btn"
@@ -100,7 +91,7 @@ function BullpenPanel({
               />
             )}
           </span>
-        </div>
+        </DraggableBullpenRow>
       ))}
       {onAddScene && (
         <button className="bullpen-add-scene-btn" onClick={onAddScene}>

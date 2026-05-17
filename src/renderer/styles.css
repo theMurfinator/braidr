@@ -18329,6 +18329,48 @@ textarea.table-cell-input {
 
 /* ===== POV Outline Mode ===== */
 
+.pov-outline-row-wrapper {
+  position: relative;
+}
+
+/* Drag handle — absolutely positioned in the left gutter of the scene row */
+.pov-drag-handle {
+  position: absolute;
+  left: 4px;
+  top: 9px;
+  opacity: 0;
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  user-select: none;
+  padding: 2px 4px;
+  letter-spacing: 2px;
+  transition: opacity 0.12s;
+  touch-action: none;
+}
+
+.pov-outline-row-wrapper:hover .pov-drag-handle,
+.bullpen-scene-wrapper:hover .pov-drag-handle {
+  opacity: 0.4;
+}
+
+.pov-drag-handle:hover {
+  opacity: 1 !important;
+}
+
+.pov-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Bullpen drag handle — flows in flex layout rather than absolute positioning */
+.bullpen-drag-handle {
+  position: relative;
+  top: 9px;
+  left: auto;
+  flex-shrink: 0;
+}
+
 /* Outline scene row */
 .outline-scene-row {
   position: relative;
@@ -18611,9 +18653,13 @@ textarea.table-cell-input {
 .bullpen-scene-wrapper {
   position: relative;
   margin-bottom: 2px;
+  display: flex;
+  align-items: flex-start;
 }
 
 .bullpen-scene-wrapper .outline-scene-row {
+  flex: 1;
+  min-width: 0;
   padding-left: 4px;
 }
 
