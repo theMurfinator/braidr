@@ -275,7 +275,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                     >⋮⋮</span>
                     <OutlineSceneRow
                       scene={scene}
-                      displayNumber={scene.sceneNumber}
+                      displayNumber={flatSectionScenes.findIndex(s => s.id === scene.id) + 1}
                       characterName={getCharacterName?.(scene.characterId)}
                       synopsisVisible={synopsisModes[sectionId] !== 'expand'}
                       onSceneChange={onSceneChange}

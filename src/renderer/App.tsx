@@ -3726,11 +3726,15 @@ function App() {
               </div>
               <DragOverlay>
                 {povActiveId && (() => {
+                  const inSectionScenes = displayedScenes
+                    .filter(s => s.plotPointId !== null)
+                    .sort((a, b) => a.sceneNumber - b.sceneNumber);
                   const s = projectData.scenes.find(sc => sc.id === povActiveId);
+                  const displayNum = inSectionScenes.findIndex(sc => sc.id === povActiveId) + 1 || s?.sceneNumber;
                   return s ? (
                     <DragPreviewCard
                       title={s.title || s.content || 'Untitled scene'}
-                      number={s.sceneNumber}
+                      number={displayNum}
                       accentColor={getCharacterHexColor(selectedCharacterId ?? '')}
                     />
                   ) : null;
