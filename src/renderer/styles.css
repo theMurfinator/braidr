@@ -18418,34 +18418,76 @@ textarea.table-cell-input {
 
 /* ===== POV Outline Mode ===== */
 
+.pov-outline-view {
+  padding-bottom: 40px;
+}
+
+.pov-outline-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.pov-outline-section-header-area {
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.pov-outline-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 8px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
 .pov-outline-row-wrapper {
   position: relative;
 }
 
-/* Drag handle — absolutely positioned in the left gutter of the scene row */
+/* Drag handle — fills the 24px left gutter of the scene row (matches padding-left: 24px).
+   z-index: 1 needed because outline-scene-row has position: relative (same stacking layer,
+   later in DOM order), which would otherwise paint over this handle and block pointer events. */
 .pov-drag-handle {
   position: absolute;
-  left: 4px;
-  top: 9px;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
   opacity: 0;
   cursor: grab;
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1;
   user-select: none;
-  padding: 2px 4px;
-  letter-spacing: 2px;
   transition: opacity 0.12s;
   touch-action: none;
 }
 
 .pov-outline-row-wrapper:hover .pov-drag-handle,
 .bullpen-scene-wrapper:hover .pov-drag-handle {
-  opacity: 0.4;
+  opacity: 0.5;
 }
 
 .pov-drag-handle:hover {
   opacity: 1 !important;
+}
+
+/* Bullpen variant — inline in flex row, not absolute in gutter */
+.bullpen-drag-handle {
+  position: relative;
+  left: auto;
+  top: 9px;
+  bottom: auto;
+  width: auto;
+  display: inline-flex;
+  padding: 2px 6px;
+  letter-spacing: 2px;
+  flex-shrink: 0;
 }
 
 .pov-drag-handle:active {
@@ -18471,6 +18513,10 @@ textarea.table-cell-input {
   opacity: 0.4;
 }
 
+.pov-outline-section-header:hover .section-delete-btn {
+  opacity: 0.5;
+}
+
 .section-drag-handle:hover {
   opacity: 1 !important;
 }
@@ -18489,6 +18535,20 @@ textarea.table-cell-input {
   top: 9px;
   left: auto;
   flex-shrink: 0;
+}
+
+/* Empty section drop zone when dragging */
+.dnd-section-drop-placeholder {
+  min-height: 40px;
+  border: 2px dashed var(--border);
+  border-radius: 4px;
+  margin: 4px 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dnd-section-drop-placeholder.is-over {
+  background: var(--bg-secondary);
+  border-color: var(--accent);
 }
 
 /* Outline scene row */
