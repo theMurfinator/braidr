@@ -530,19 +530,24 @@ function importData(db: BraidrDB, folderPath: string, warnings: string[]) {
       const notesIndex = JSON.parse(fs.readFileSync(notesIndexPath, 'utf-8'));
       const noteMetas: any[] = notesIndex.notes ?? [];
 
-      for (const meta of noteMetas) {
+      // Pass 1: insert all notes (satisfies parentId FK before any links are wired)
+      // Sort so parents come before children
+      const sorted = [...noteMetas].sort((a, b) => {
+        if (!a.parentId && b.parentId) return -1;
+        if (a.parentId && !b.parentId) return 1;
+        return 0;
+      });
+      for (const meta of sorted) {
         const htmlPath = path.join(folderPath, 'notes', meta.fileName);
         const noteContent = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, 'utf-8') : '';
-
         db.insertNote(meta.id, meta.title ?? '', noteContent, meta.parentId ?? null, meta.order ?? 0);
-
         const noteTagIds = (meta.tags ?? []).map((name: string) => ensureTag(name, 'things'));
         db.replaceNoteTags(meta.id, noteTagIds);
+      }
 
-        // Outgoing note→note links
+      // Pass 2: wire up inter-note links and note→scene links (all notes exist now)
+      for (const meta of sorted) {
         db.replaceNoteLinks(meta.id, meta.outgoingLinks ?? []);
-
-        // Note→scene links
         const noteSceneIds = (meta.sceneLinks ?? [])
           .map((key: string) => sceneKeyToId.get(key))
           .filter(Boolean) as string[];
