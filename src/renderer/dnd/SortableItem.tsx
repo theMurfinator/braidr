@@ -22,10 +22,11 @@ export interface SortableItemRenderProps {
 
 interface SortableItemProps {
   id: string;
+  data?: Record<string, unknown>;
   children: (props: SortableItemRenderProps) => ReactNode;
 }
 
-export function SortableItem({ id, children }: SortableItemProps) {
+export function SortableItem({ id, data, children }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -36,7 +37,7 @@ export function SortableItem({ id, children }: SortableItemProps) {
     isOver,
     activeIndex,
     index,
-  } = useSortable({ id });
+  } = useSortable({ id, data });
 
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),

@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, TimeEntry, BranchIndex, BranchCompareData } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, BranchIndex, BranchCompareData } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
 import { migrateNotesSceneLinks } from './services/migration';
 import SceneCard from './components/SceneCard';
-import PlotPointSection from './components/PlotPointSection';
 import PovOutlineView from './components/PovOutlineView';
 import BullpenPanel from './components/BullpenPanel';
 import FilterBar from './components/FilterBar';
 import TagManager from './components/TagManager';
-import SceneDetailPanel from './components/SceneDetailPanel';
 import CharacterManager from './components/CharacterManager';
 import RailsView from './components/RailsView';
 import TableView from './components/TableView';
@@ -26,15 +24,16 @@ import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
-import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, addManualTime, getSceneSessionsByDate, deleteSceneSession, updateSceneSession, getSceneSessionsList, appendSceneSession, getTodayStr } from './utils/analyticsStore';
+import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, appendSceneSession, getTodayStr } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import { UpdateBanner } from './components/UpdateBanner';
 import UpdateModal from './components/UpdateModal';
 import TourOverlay from './components/TourOverlay';
 import braidrIcon from './assets/braidr-icon.png';
-import braidrLogo from './assets/braidr-logo.png';
 import { track } from './utils/posthogTracker';
+import LandingScreen from './components/LandingScreen';
+import { useTimers } from './hooks/useTimers';
 import { TabParams, defaultTabTitle } from '../shared/paneTypes';
 import { PaneProvider } from './components/panes/PaneContext';
 import { ViewRendererProvider } from './components/panes/TabContent';
@@ -43,6 +42,7 @@ import { findLeafPane, findTabByType } from './components/panes/paneUtils';
 import PaneManager from './components/panes/PaneManager';
 import { useAutoScrollOnDrag } from './hooks/useAutoScrollOnDrag';
 import { DndContext, DragOverlay, closestCenter, DragStartEvent, DragEndEvent, DragCancelEvent } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { useSortableSensors, DragPreviewCard } from './dnd';
 import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
@@ -115,7 +115,6 @@ function App() {
   }, [projectData]);
   const [showTagManager, setShowTagManager] = useState(false);
   const [showPovColors, setShowPovColors] = useState(true);
-  const [allNotesExpanded, setAllNotesExpanded] = useState<boolean | null>(null);
   const [hideSectionHeaders, setHideSectionHeaders] = useState<Record<string, boolean>>({});
   const [sectionSynopsisModes, setSectionSynopsisModes] = useState<Record<string, 'inline' | 'expand'>>({});
   const [previousPlotPointIds, setPreviousPlotPointIds] = useState<Record<string, string>>({});
@@ -136,11 +135,6 @@ function App() {
   const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
   const canDragSceneRef = useRef(false);
-  const dragHandleRefCallback = useCallback((el: HTMLElement | null) => {
-    if (el) el.onmousedown = () => { canDragSceneRef.current = true; };
-  }, []);
-  const [isAddingChapter, setIsAddingChapter] = useState(false);
-  const [newChapterTitle, setNewChapterTitle] = useState('');
   const [draggedChapter, setDraggedChapter] = useState<BraidedChapter | null>(null);
   const [addingChapterAtPosition, setAddingChapterAtPosition] = useState<number | null>(null);
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
@@ -151,7 +145,7 @@ function App() {
   const [showCharacterManager, setShowCharacterManager] = useState(false);
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [allFontSettings, setAllFontSettings] = useState<AllFontSettings>({ global: {} });
-  const sceneListRef = useRef<HTMLDivElement>(null);
+
   const [braidedSubMode, setBraidedSubMode] = useState<BraidedSubMode>(() => {
     if (activeTab?.params.type === 'braided' && 'subMode' in activeTab.params && activeTab.params.subMode) {
       return activeTab.params.subMode;
@@ -221,6 +215,7 @@ function App() {
   const [lockConflict, setLockConflict] = useState<{ projectPath: string; projectName?: string; heldBy: string } | null>(null);
   const [takenOverBy, setTakenOverBy] = useState<string | null>(null);
 
+
   // Session tracker for time tracking
   const sessionTrackerRef = useRef<SessionTracker | null>(null);
   const analyticsRef = useRef<AnalyticsData | null>(null);
@@ -231,241 +226,12 @@ function App() {
   const pendingTotalWordsRef = useRef<number>(0);
   const isClosingRef = useRef(false);
 
-  // Global writing timer (persists across view changes)
-  const [timerRunning, setTimerRunning] = useState(false);
-  const [timerElapsed, setTimerElapsed] = useState(0); // seconds
-  const [timerSceneKey, setTimerSceneKey] = useState<string | null>(null);
-  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timerRunningRef = useRef(false);
-  const timerStartedAtRef = useRef<number | null>(null);
-
-  // Global task timer (persists across view changes)
-  const [taskTimerRunning, setTaskTimerRunning] = useState(false);
-  const [taskTimerElapsed, setTaskTimerElapsed] = useState(0); // milliseconds
-  const [taskTimerTaskId, setTaskTimerTaskId] = useState<string | null>(null);
-  const taskTimerStartRef = useRef<number | null>(null);
-  const taskTimerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const taskTimerRunningRef = useRef(false);
-  const taskTimerTaskIdRef = useRef<string | null>(null);
-
-  useEffect(() => { timerRunningRef.current = timerRunning; }, [timerRunning]);
-  useEffect(() => { taskTimerRunningRef.current = taskTimerRunning; }, [taskTimerRunning]);
-  useEffect(() => { taskTimerTaskIdRef.current = taskTimerTaskId; }, [taskTimerTaskId]);
-
-  // Restore persisted timer on mount
-  useEffect(() => {
-    const sceneRaw = localStorage.getItem('braidr-active-scene-timer');
-    const taskRaw = localStorage.getItem('braidr-active-task-timer');
-
-    if (sceneRaw) {
-      try {
-        const { id, startedAt } = JSON.parse(sceneRaw);
-        timerStartedAtRef.current = startedAt;
-        setTimerSceneKey(id);
-        setTimerElapsed(Math.floor((Date.now() - startedAt) / 1000));
-        setTimerRunning(true);
-      } catch {
-        localStorage.removeItem('braidr-active-scene-timer');
-      }
-      if (taskRaw) localStorage.removeItem('braidr-active-task-timer');
-    } else if (taskRaw) {
-      try {
-        const { id, startedAt } = JSON.parse(taskRaw);
-        taskTimerStartRef.current = startedAt;
-        setTaskTimerTaskId(id);
-        setTaskTimerElapsed(Date.now() - startedAt);
-        setTaskTimerRunning(true);
-      } catch {
-        localStorage.removeItem('braidr-active-task-timer');
-      }
-    }
-  }, []);
-
-  // Validate persisted scene timer target after data loads
-  useEffect(() => {
-    if (timerSceneKey && projectData && projectData.scenes.length > 0) {
-      const exists = projectData.scenes.some(s => s.id === timerSceneKey);
-      if (!exists) {
-        localStorage.removeItem('braidr-active-scene-timer');
-        setTimerRunning(false);
-        setTimerElapsed(0);
-        setTimerSceneKey(null);
-      }
-    }
-  }, [timerSceneKey, projectData]);
-
   // Reset drag ref on mouseup (in case drag is cancelled without dragEnd firing)
   useEffect(() => {
     const resetDrag = () => { canDragSceneRef.current = false; };
     document.addEventListener('mouseup', resetDrag);
     return () => document.removeEventListener('mouseup', resetDrag);
   }, []);
-
-  useEffect(() => {
-    if (timerRunning) {
-      timerIntervalRef.current = setInterval(() => {
-        if (timerStartedAtRef.current !== null) {
-          setTimerElapsed(Math.floor((Date.now() - timerStartedAtRef.current) / 1000));
-        }
-      }, 1000);
-    } else if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-    return () => {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    };
-  }, [timerRunning]);
-
-  // Re-sync scene timer immediately when window regains focus after sleep
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === 'visible' && timerRunningRef.current && timerStartedAtRef.current !== null) {
-        setTimerElapsed(Math.floor((Date.now() - timerStartedAtRef.current) / 1000));
-      }
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, []);
-
-  useEffect(() => {
-    if (taskTimerRunning && taskTimerStartRef.current) {
-      taskTimerIntervalRef.current = setInterval(() => {
-        setTaskTimerElapsed(Date.now() - taskTimerStartRef.current!);
-      }, 1000);
-    } else if (taskTimerIntervalRef.current) {
-      clearInterval(taskTimerIntervalRef.current);
-      taskTimerIntervalRef.current = null;
-    }
-    return () => {
-      if (taskTimerIntervalRef.current) clearInterval(taskTimerIntervalRef.current);
-    };
-  }, [taskTimerRunning]);
-
-  const formatTimer = useCallback((totalSec: number) => {
-    const hrs = Math.floor(totalSec / 3600);
-    const mins = Math.floor((totalSec % 3600) / 60);
-    const secs = totalSec % 60;
-    if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    return `${mins}:${String(secs).padStart(2, '0')}`;
-  }, []);
-
-  const handleStopTimer = useCallback(() => {
-    localStorage.removeItem('braidr-active-scene-timer');
-    setTimerRunning(false);
-    // Save elapsed time as a session when stopping the timer
-    setTimerElapsed(prev => {
-      if (prev >= 1 && timerSceneKey && analyticsRef.current && projectData) {
-        const durationMs = prev * 1000;
-        const now = Date.now();
-        const session: SceneSession = {
-          id: `timer-${now}-${Math.random().toString(36).slice(2, 8)}`,
-          sceneKey: timerSceneKey,
-          date: getTodayStr(),
-          startTime: timerStartedAtRef.current ?? now - durationMs,
-          endTime: now,
-          durationMs,
-          wordsNet: 0,
-          checkin: null,
-        };
-        const updated = appendSceneSession(analyticsRef.current, session);
-        analyticsRef.current = updated;
-        setSceneSessions(updated.sceneSessions || []);
-        saveAnalytics(projectData.projectPath, updated);
-      }
-      return 0; // reset elapsed
-    });
-    timerStartedAtRef.current = null;
-    setTimerSceneKey(null);
-  }, [timerSceneKey, projectData]);
-
-  const handleResetTimer = useCallback(() => {
-    localStorage.removeItem('braidr-active-scene-timer');
-    setTimerRunning(false);
-    setTimerElapsed(0);
-    timerStartedAtRef.current = null;
-    setTimerSceneKey(null);
-  }, []);
-
-  const handleStopTaskTimer = useCallback(() => {
-    const currentTaskId = taskTimerTaskIdRef.current;
-    if (!currentTaskId || !taskTimerStartRef.current) return;
-    localStorage.removeItem('braidr-active-task-timer');
-    const duration = Date.now() - taskTimerStartRef.current;
-    const entry: TimeEntry = {
-      id: crypto.randomUUID(),
-      startedAt: taskTimerStartRef.current,
-      duration,
-    };
-    setTasks(prev => {
-      const updated = prev.map(t =>
-        t.id === currentTaskId
-          ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
-          : t
-      );
-      tasksRef.current = updated;
-      isDirtyRef.current = true;
-      return updated;
-    });
-    setTaskTimerTaskId(null);
-    taskTimerStartRef.current = null;
-    setTaskTimerElapsed(0);
-    setTaskTimerRunning(false);
-  }, []);
-
-  const handleStartTaskTimer = useCallback((taskId: string) => {
-    // Stop scene timer if running (mutual exclusivity)
-    if (timerRunningRef.current) {
-      handleStopTimer();
-    }
-    // Stop any existing task timer
-    if (taskTimerTaskIdRef.current) {
-      handleStopTaskTimer();
-    }
-    const startedAt = Date.now();
-    setTaskTimerTaskId(taskId);
-    taskTimerStartRef.current = startedAt;
-    setTaskTimerElapsed(0);
-    setTaskTimerRunning(true);
-    localStorage.setItem('braidr-active-task-timer', JSON.stringify({ id: taskId, startedAt }));
-  }, [handleStopTimer, handleStopTaskTimer]);
-
-  const handleStartTimer = useCallback((sceneKey: string) => {
-    if (taskTimerRunningRef.current) {
-      handleStopTaskTimer();
-    }
-    const startedAt = Date.now();
-    timerStartedAtRef.current = startedAt;
-    setTimerSceneKey(sceneKey);
-    setTimerElapsed(0);
-    setTimerRunning(true);
-    localStorage.setItem('braidr-active-scene-timer', JSON.stringify({ id: sceneKey, startedAt }));
-  }, [handleStopTaskTimer]);
-
-  const handleAddManualTime = useCallback((sceneKey: string, minutes: number) => {
-    if (!analyticsRef.current || !projectData) return;
-    const durationMs = minutes * 60 * 1000;
-    const updated = addManualTime(analyticsRef.current, sceneKey, durationMs);
-    analyticsRef.current = updated;
-    setSceneSessions(updated.sceneSessions || []);
-    saveAnalytics(projectData.projectPath, updated);
-  }, [projectData]);
-
-  const handleUpdateSession = useCallback((sessionId: string, durationMs: number) => {
-    if (!analyticsRef.current || !projectData) return;
-    const updated = updateSceneSession(analyticsRef.current, sessionId, { durationMs });
-    analyticsRef.current = updated;
-    setSceneSessions(updated.sceneSessions || []);
-    saveAnalytics(projectData.projectPath, updated);
-  }, [projectData]);
-
-  const handleDeleteSession = useCallback((sessionId: string) => {
-    if (!analyticsRef.current || !projectData) return;
-    const updated = deleteSceneSession(analyticsRef.current, sessionId);
-    analyticsRef.current = updated;
-    setSceneSessions(updated.sceneSessions || []);
-    saveAnalytics(projectData.projectPath, updated);
-  }, [projectData]);
 
   // Extract todo items from notes for display in editor sidebar
   const sceneTodos = useMemo(() => {
@@ -489,19 +255,33 @@ function App() {
   const [taskVisibleColumns, setTaskVisibleColumns] = useState<string[] | undefined>(undefined);
   const taskVisibleColumnsRef = useRef<string[] | undefined>(undefined);
 
-  // Validate persisted task timer target after data loads
-  useEffect(() => {
-    if (taskTimerTaskId && tasks.length > 0) {
-      const exists = tasks.some(t => t.id === taskTimerTaskId);
-      if (!exists) {
-        localStorage.removeItem('braidr-active-task-timer');
-        setTaskTimerTaskId(null);
-        taskTimerStartRef.current = null;
-        setTaskTimerElapsed(0);
-        setTaskTimerRunning(false);
-      }
-    }
-  }, [taskTimerTaskId, tasks]);
+  const {
+    timerRunning,
+    timerElapsed,
+    timerSceneKey,
+    taskTimerRunning,
+    taskTimerElapsed,
+    taskTimerTaskId,
+    formatTimer,
+    handleStartTimer,
+    handleStopTimer,
+    handleResetTimer,
+    handleResumeTimer,
+    handleResumeTaskTimer,
+    handleStartTaskTimer,
+    handleStopTaskTimer,
+    handleAddManualTime,
+    handleUpdateSession,
+    handleDeleteSession,
+  } = useTimers({
+    projectData,
+    analyticsRef,
+    setSceneSessions,
+    tasks,
+    setTasks,
+    tasksRef,
+    isDirtyRef,
+  });
 
   // Timeline state
   const [timelineDates, setTimelineDates] = useState<Record<string, string>>({});
@@ -993,11 +773,6 @@ function App() {
     return () => clearTimeout(timer);
   }, [viewMode, selectedCharacterId]);
 
-  const selectedCharacter = useMemo(() => {
-    if (!projectData || !selectedCharacterId) return null;
-    return projectData.characters.find(c => c.id === selectedCharacterId) || null;
-  }, [projectData, selectedCharacterId]);
-
   // Get scenes for current view
   const displayedScenes = useMemo(() => {
     if (!projectData) return [];
@@ -1044,8 +819,8 @@ function App() {
     }
 
     // Sort each plot point's scenes by scene number
-    for (const [charId, plotPointMap] of grouped) {
-      for (const [ppId, scenes] of plotPointMap) {
+    for (const [, plotPointMap] of grouped) {
+      for (const [, scenes] of plotPointMap) {
         scenes.sort((a, b) => a.sceneNumber - b.sceneNumber);
       }
     }
@@ -1141,7 +916,17 @@ function App() {
         if (scene.wordCount !== undefined) wordCounts[scene.id] = scene.wordCount;
       }
       try {
-        await dataService.saveTimeline(positions, data.connections, data.chapters, data.characterColors, wordCounts, data.fontSettings, data.archivedScenes, data.metadataFieldDefs, data.sceneMetadata, data.wordCountGoal, data.allFontSettings, data.tasks, data.taskFieldDefs, data.taskViews, data.inlineMetadataFields, data.showInlineLabels, data.taskColumnWidths, data.taskVisibleColumns, data.timelineDates, data.worldEvents);
+        await dataService.saveTimeline({
+          positions, connections: data.connections, chapters: data.chapters,
+          characterColors: data.characterColors, wordCounts,
+          fontSettings: data.fontSettings, archivedScenes: data.archivedScenes,
+          metadataFieldDefs: data.metadataFieldDefs, sceneMetadata: data.sceneMetadata,
+          wordCountGoal: data.wordCountGoal, allFontSettings: data.allFontSettings,
+          tasks: data.tasks, taskFieldDefs: data.taskFieldDefs, taskViews: data.taskViews,
+          inlineMetadataFields: data.inlineMetadataFields, showInlineLabels: data.showInlineLabels,
+          taskColumnWidths: data.taskColumnWidths, taskVisibleColumns: data.taskVisibleColumns,
+          timelineDates: data.timelineDates, worldEvents: data.worldEvents,
+        });
       } catch (err) {
         console.error('Failed to save migrated timeline data:', err);
       }
@@ -1633,22 +1418,6 @@ function App() {
     return character?.name || 'Unknown';
   }, [projectData?.characters]);
 
-  const extractShortTitle = (content: string): string => {
-    const match = content.match(/==\*\*(.+?)\*\*==/);
-    if (match) return match[1].replace(/#[a-zA-Z0-9_]+/g, '').trim();
-    const cleaned = content
-      .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
-      .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
-    if (cleaned.length > 60) return cleaned.substring(0, 57).trim() + '\u2026';
-    return cleaned;
-  };
-
-  const cleanSceneContent = (content: string): string => {
-    return content
-      .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
-      .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
-  };
-
   // Apply global font settings to CSS variables on :root
   const applyFontSettings = (settings: FontSettings) => {
     const root = document.documentElement;
@@ -1687,11 +1456,13 @@ function App() {
     }
   };
 
-  // Apply per-screen font overrides on .scene-list (overrides :root when set)
+  // Apply per-screen font overrides on :root.
+  // Re-applies global first so switching screens never leaves stale overrides.
   const applyScreenFontOverrides = (screen: ScreenKey | string, all: AllFontSettings) => {
-    const el = sceneListRef.current || document.querySelector('.scene-list') as HTMLElement | null;
-    if (!el) return;
+    applyFontSettings(all.global);
+    const root = document.documentElement;
     const screenSettings = (all.screens as Record<string, FontSettings> | undefined)?.[screen];
+    if (!screenSettings) return;
     const vars: Array<[keyof FontSettings, string, string?]> = [
       ['sectionTitle', '--font-section-title'],
       ['sectionTitleSize', '--font-section-title-size', 'px'],
@@ -1704,25 +1475,20 @@ function App() {
       ['bodyColor', '--font-body-color'],
     ];
     for (const [key, varName, suffix] of vars) {
-      const val = screenSettings?.[key];
+      const val = screenSettings[key];
       if (val !== undefined && val !== null) {
-        el.style.setProperty(varName, suffix ? `${val}${suffix}` : String(val));
-      } else {
-        el.style.removeProperty(varName);
+        root.style.setProperty(varName, suffix ? `${val}${suffix}` : String(val));
       }
     }
-    // Bold weight overrides
     const boldVars: Array<[keyof FontSettings, string]> = [
       ['sectionTitleBold', '--font-section-title-weight'],
       ['sceneTitleBold', '--font-scene-title-weight'],
       ['bodyBold', '--font-body-weight'],
     ];
     for (const [key, varName] of boldVars) {
-      const val = screenSettings?.[key];
+      const val = screenSettings[key];
       if (val !== undefined && val !== null) {
-        el.style.setProperty(varName, val ? '700' : '400');
-      } else {
-        el.style.removeProperty(varName);
+        root.style.setProperty(varName, val ? '700' : '400');
       }
     }
   };
@@ -1761,17 +1527,6 @@ function App() {
     }
   };
 
-  const getPlotPointTitle = (plotPointId: string | null): string | undefined => {
-    if (!plotPointId || !projectData) return undefined;
-    const plotPoint = projectData.plotPoints.find(p => p.id === plotPointId);
-    return plotPoint?.title;
-  };
-
-  const selectedScene = useMemo(() => {
-    if (!projectData || !selectedSceneId) return null;
-    return projectData.scenes.find(s => s.id === selectedSceneId) || null;
-  }, [projectData, selectedSceneId]);
-
   const getConnectedScenes = useCallback((sceneId: string): { id: string; label: string }[] => {
     const connections = sceneConnections[sceneId] || [];
     return connections.map(connId => {
@@ -1782,7 +1537,7 @@ function App() {
     });
   }, [sceneConnections, projectData?.scenes, getCharacterName]);
 
-  const handleSceneClick = (scene: Scene, e: React.MouseEvent) => {
+  const handleSceneClick = (scene: Scene, _e: React.MouseEvent) => {
     // Don't do anything if we're dragging
     if (draggedScene) return;
 
@@ -1808,14 +1563,6 @@ function App() {
     }
 
     // No longer selecting scenes for detail panel - connections handled inline
-  };
-
-  const handleStartConnection = () => {
-    if (selectedSceneId) {
-      setConnectionSource(selectedSceneId);
-      setIsConnecting(true);
-      setSelectedSceneId(null);
-    }
   };
 
   const getConnectableScenes = useCallback((sceneId: string): { id: string; label: string }[] => {
@@ -1876,8 +1623,6 @@ function App() {
 
     const updatedChapters = [...braidedChapters, newChapter].sort((a, b) => a.beforePosition - b.beforePosition);
     setBraidedChapters(updatedChapters);
-    setIsAddingChapter(false);
-    setNewChapterTitle('');
     await saveTimelineData(projectData.scenes, sceneConnections, updatedChapters);
   };
 
@@ -1958,6 +1703,34 @@ function App() {
     setPovActiveId(String(e.active.id));
   };
 
+  const handleSectionReorder = async (activeSectionId: string, overSectionId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+    const charSections = projectData.plotPoints
+      .filter(pp => pp.characterId === selectedCharacterId)
+      .sort((a, b) => a.order - b.order);
+    const activeIdx = charSections.findIndex(s => s.id === activeSectionId);
+    const overIdx = charSections.findIndex(s => s.id === overSectionId);
+    if (activeIdx < 0 || overIdx < 0 || activeIdx === overIdx) return;
+
+    const reordered = arrayMove(charSections, activeIdx, overIdx);
+    const updatedPlotPoints = projectData.plotPoints.map(pp => {
+      const newIdx = reordered.findIndex(s => s.id === pp.id);
+      return newIdx >= 0 ? { ...pp, order: newIdx } : pp;
+    });
+    const updatedData = { ...projectData, plotPoints: updatedPlotPoints };
+    setProjectData(updatedData);
+
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (character) {
+      const charScenes = projectData.scenes.filter(s => s.characterId === character.id);
+      try {
+        await dataService.saveCharacterOutline(character, updatedPlotPoints.filter(pp => pp.characterId === selectedCharacterId), charScenes);
+      } catch {
+        addToast('Couldn’t save section order');
+      }
+    }
+  };
+
   const handlePovDndEnd = (e: DragEndEvent) => {
     setPovActiveId(null);
     const { active, over } = e;
@@ -1966,6 +1739,22 @@ function App() {
     const overId = String(over.id);
     if (activeId === overId) return;
 
+    const activeType = (active.data.current as Record<string, unknown> | undefined)?.type;
+
+    // Section drag — reorder sections
+    if (activeType === 'section') {
+      // over might be another section or a scene; find the target section either way
+      const overType = (over.data.current as Record<string, unknown> | undefined)?.type;
+      let targetSectionId = overId;
+      if (overType === 'scene') {
+        const sectionId = (over.data.current as Record<string, unknown>)?.sectionId as string | undefined;
+        targetSectionId = sectionId ?? overId;
+      }
+      handleSectionReorder(activeId, targetSectionId);
+      return;
+    }
+
+    // Scene drag
     const activeScene = projectData.scenes.find(s => s.id === activeId);
     if (!activeScene) return;
 
@@ -1982,19 +1771,25 @@ function App() {
       targetSectionId = overId.slice('section-empty:'.length);
       targetSceneNumber = 1;
     } else {
-      const overScene = projectData.scenes.find(s => s.id === overId);
-      if (!overScene?.plotPointId) return;
-      targetSectionId = overScene.plotPointId;
+      const overType = (over.data.current as Record<string, unknown> | undefined)?.type;
+      if (overType === 'section') {
+        // Dragging a scene onto a section header → drop at start of that section
+        targetSectionId = overId;
+        targetSceneNumber = 1;
+      } else {
+        const overScene = projectData.scenes.find(s => s.id === overId);
+        if (!overScene?.plotPointId) return;
+        targetSectionId = overScene.plotPointId;
 
-      // Determine before/after using the flat in-section scene order
-      const inSectionScenes = (displayedScenes ?? [])
-        .filter(s => s.plotPointId !== null)
-        .sort((a, b) => a.sceneNumber - b.sceneNumber);
-      const activeIndex = inSectionScenes.findIndex(s => s.id === activeId);
-      const overIndex = inSectionScenes.findIndex(s => s.id === overId);
-      // Bullpen scenes (activeIndex === -1) default to landing after the over scene
-      const dropsAfterOver = activeIndex < 0 || (activeIndex >= 0 && overIndex >= 0 && activeIndex < overIndex);
-      targetSceneNumber = dropsAfterOver ? overScene.sceneNumber + 1 : overScene.sceneNumber;
+        // Determine before/after using the flat in-section scene order
+        const inSectionScenes = (displayedScenes ?? [])
+          .filter(s => s.plotPointId !== null)
+          .sort((a, b) => a.sceneNumber - b.sceneNumber);
+        const activeIndex = inSectionScenes.findIndex(s => s.id === activeId);
+        const overIndex = inSectionScenes.findIndex(s => s.id === overId);
+        const dropsAfterOver = activeIndex < 0 || (activeIndex >= 0 && overIndex >= 0 && activeIndex < overIndex);
+        targetSceneNumber = dropsAfterOver ? overScene.sceneNumber + 1 : overScene.sceneNumber;
+      }
     }
 
     if (!targetSectionId) return;
@@ -2195,34 +1990,6 @@ function App() {
     return () => window.removeEventListener('resize', measurePositions);
   }, [viewMode, displayedScenes, sceneConnections]);
 
-  // Soft pastel colors for POV characters
-  const POV_COLORS = [
-    'rgba(59, 130, 246, 0.08)',  // blue
-    'rgba(239, 68, 68, 0.08)',   // red
-    'rgba(34, 197, 94, 0.08)',   // green
-    'rgba(168, 85, 247, 0.08)',  // purple
-    'rgba(249, 115, 22, 0.08)',  // orange
-    'rgba(236, 72, 153, 0.08)',  // pink
-    'rgba(20, 184, 166, 0.08)',  // teal
-    'rgba(245, 158, 11, 0.08)',  // amber
-  ];
-
-  const getCharacterColor = useCallback((characterId: string): string => {
-    if (!projectData) return 'transparent';
-    // Use custom color if set
-    if (characterColors[characterId]) {
-      // Convert hex to rgba with low opacity
-      const hex = characterColors[characterId].replace('#', '');
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
-      return `rgba(${r}, ${g}, ${b}, 0.08)`;
-    }
-    // Fall back to automatic color
-    const index = projectData.characters.findIndex(c => c.id === characterId);
-    return POV_COLORS[index % POV_COLORS.length];
-  }, [projectData, characterColors]);
-
   const DEFAULT_HEX_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#14b8a6', '#f59e0b'];
 
   const getCharacterHexColor = useCallback((characterId: string): string => {
@@ -2364,95 +2131,6 @@ function App() {
     }
   };
 
-  const handleAddScene = async (plotPointId: string, afterSceneNumber?: number) => {
-    if (!projectData || !selectedCharacterId) return;
-
-    const character = projectData.characters.find(c => c.id === selectedCharacterId);
-    if (!character) return;
-
-    // Get existing scenes for this character, sorted by scene number
-    const charScenes = projectData.scenes
-      .filter(s => s.characterId === selectedCharacterId)
-      .sort((a, b) => a.sceneNumber - b.sceneNumber);
-
-    // Determine insert position
-    let insertAfterIndex: number;
-    if (afterSceneNumber !== undefined) {
-      // Insert after the specified scene
-      insertAfterIndex = charScenes.findIndex(s => s.sceneNumber === afterSceneNumber);
-      if (insertAfterIndex === -1) insertAfterIndex = charScenes.length - 1;
-    } else {
-      // Insert after the last scene in this plot point
-      const plotPointScenes = charScenes.filter(s => s.plotPointId === plotPointId);
-      if (plotPointScenes.length > 0) {
-        const lastPlotPointScene = plotPointScenes[plotPointScenes.length - 1];
-        insertAfterIndex = charScenes.findIndex(s => s.id === lastPlotPointScene.id);
-      } else {
-        // No scenes in this plot point, find where this plot point falls in order
-        const plotPoints = projectData.plotPoints
-          .filter(p => p.characterId === selectedCharacterId)
-          .sort((a, b) => a.order - b.order);
-        const ppIndex = plotPoints.findIndex(p => p.id === plotPointId);
-
-        // Find the last scene before this plot point
-        let lastSceneBeforeIndex = -1;
-        for (let i = ppIndex - 1; i >= 0; i--) {
-          const prevPPScenes = charScenes.filter(s => s.plotPointId === plotPoints[i].id);
-          if (prevPPScenes.length > 0) {
-            const lastScene = prevPPScenes[prevPPScenes.length - 1];
-            lastSceneBeforeIndex = charScenes.findIndex(s => s.id === lastScene.id);
-            break;
-          }
-        }
-        insertAfterIndex = lastSceneBeforeIndex;
-      }
-    }
-
-    // Calculate new scene number (will be insertAfterIndex + 2, since we renumber from 1)
-    const newSceneNumber = insertAfterIndex + 2;
-
-    // Auto-add character name as a tag
-    const characterTag = character.name.toLowerCase().replace(/\s+/g, '_');
-
-    const newScene: Scene = {
-      id: Math.random().toString(36).substring(2, 11),
-      characterId: selectedCharacterId,
-      sceneNumber: newSceneNumber,
-      title: 'New scene',
-      content: 'New scene',
-      tags: [characterTag],
-      timelinePosition: null,
-      isHighlighted: false,
-      notes: [],
-      plotPointId: plotPointId,
-    };
-
-    // Insert the new scene at the right position
-    const newCharScenes = [...charScenes];
-    newCharScenes.splice(insertAfterIndex + 1, 0, newScene);
-
-    // Renumber all scenes (stable IDs mean no data remapping needed)
-    newCharScenes.forEach((scene, idx) => {
-      scene.sceneNumber = idx + 1;
-    });
-
-    // Update the full scenes array
-    const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
-    const updatedScenes = [...otherScenes, ...newCharScenes];
-    const updatedData = { ...projectData, scenes: updatedScenes };
-    setProjectData(updatedData);
-
-    // Save to file
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
-    try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
-      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
-      track('scene_created', { character_id: selectedCharacterId });
-    } catch (err) {
-      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-    }
-  };
-
   // Save timeline positions, connections, and chapters to file
   const saveTimelineData = useCallback(async (
     scenes: Scene[],
@@ -2486,7 +2164,28 @@ function App() {
         }
       }
       // Connections are already keyed by scene.id at runtime — save directly
-      await dataService.saveTimeline(positions, connections, chapters, characterColorsRef.current, sceneWordCounts, allFontSettingsRef.current.global, archivedScenesRef.current, metadataFieldDefsRef.current, metaForSave, wordCountGoalRef.current, allFontSettingsRef.current, tasksRef.current, taskFieldDefsRef.current, taskViewsRef.current, inlineMetadataFieldsRef.current, showInlineLabelsRef.current, taskColumnWidthsRef.current, taskVisibleColumnsRef.current, timelineDatesRef.current, worldEventsRef.current, timelineEndDatesRef.current, tagsRef.current);
+      await dataService.saveTimeline({
+        positions, connections, chapters,
+        characterColors: characterColorsRef.current,
+        wordCounts: sceneWordCounts,
+        fontSettings: allFontSettingsRef.current.global,
+        archivedScenes: archivedScenesRef.current,
+        metadataFieldDefs: metadataFieldDefsRef.current,
+        sceneMetadata: metaForSave,
+        wordCountGoal: wordCountGoalRef.current,
+        allFontSettings: allFontSettingsRef.current,
+        tasks: tasksRef.current,
+        taskFieldDefs: taskFieldDefsRef.current,
+        taskViews: taskViewsRef.current,
+        inlineMetadataFields: inlineMetadataFieldsRef.current,
+        showInlineLabels: showInlineLabelsRef.current,
+        taskColumnWidths: taskColumnWidthsRef.current,
+        taskVisibleColumns: taskVisibleColumnsRef.current,
+        timelineDates: timelineDatesRef.current,
+        worldEvents: worldEventsRef.current,
+        timelineEndDates: timelineEndDatesRef.current,
+        tags: tagsRef.current,
+      });
       isDirtyRef.current = false;
       setSaveStatus('saved');
       if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
@@ -3292,226 +2991,34 @@ function App() {
 
   // Welcome screen when no project loaded
   if (!projectData) {
-    const templateOptions: { id: ProjectTemplate; name: string; description: string }[] = [
-      { id: 'three-act', name: 'Three-Act Structure', description: 'Classic setup, confrontation, resolution' },
-      { id: 'save-the-cat', name: 'Save the Cat', description: '15 beats from Opening Image to Final Image' },
-      { id: 'heros-journey', name: "Hero's Journey", description: '12 stages of the monomyth' },
-      { id: 'blank', name: 'Blank', description: 'Start from scratch' },
-    ];
-
     return (
-      <div className="app">
-        {!showUpdateModal && <UpdateBanner />}
-        <div className="main-content welcome-main-content">
-          <div className="welcome-screen">
-            {!showNewProject ? (
-              <>
-                <div className="welcome-header">
-                  <img src={braidrLogo} alt="Braidr" className="welcome-logo" />
-                </div>
-
-                <div className="welcome-grid">
-                  {/* New Novel card */}
-                  <button
-                    className="welcome-new-card"
-                    onClick={() => setShowNewProject(true)}
-                    disabled={loading}
-                  >
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                      <circle cx="16" cy="16" r="15" stroke="currentColor" strokeWidth="1.5"/>
-                      <path d="M16 10v12M10 16h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                    <span className="welcome-new-label">New Novel</span>
-                  </button>
-
-                  {/* Project cards */}
-                  {recentProjects.map(project => {
-                    const charNames = project.characterNames || [];
-                    const charIds = project.characterIds || [];
-                    const colors = project.characterColors || {};
-                    const defaultColors = ['#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#14b8a6', '#f59e0b'];
-                    // Map each character to their color using ID lookup with fallback
-                    const charColors = charNames.map((_, i) => {
-                      const id = charIds[i];
-                      return (id && colors[id]) || defaultColors[i % defaultColors.length];
-                    });
-                    const initials = charNames.slice(0, 4).map(name => {
-                      const parts = name.trim().split(/\s+/);
-                      return parts.length >= 2
-                        ? (parts[0][0] + parts[1][0]).toUpperCase()
-                        : name.substring(0, 2).toUpperCase();
-                    });
-                    const extraCount = charNames.length > 4 ? charNames.length - 4 : 0;
-
-                    return (
-                      <button
-                        key={project.path}
-                        className="welcome-project-card"
-                        onClick={() => handleOpenRecentProject(project)}
-                        disabled={loading}
-                      >
-                        <div className="welcome-card-color-bar">
-                          {charColors.slice(0, 5).map((color, i) => (
-                            <span key={i} className="welcome-card-color-segment" style={{ background: color }} />
-                          ))}
-                        </div>
-                        <div className="welcome-card-body">
-                          <div className="welcome-card-title">{project.name}</div>
-                          <div className="welcome-card-stats">
-                            {(project.characterCount || 0) > 0 || (project.sceneCount || 0) > 0 ? (
-                              <>
-                                {(project.characterCount || 0) > 0 && (
-                                  <>{project.characterCount} Perspective{(project.characterCount || 0) !== 1 ? 's' : ''}</>
-                                )}
-                                {(project.sceneCount || 0) > 0 && (
-                                  <>{(project.characterCount || 0) > 0 ? ' · ' : ''}{project.sceneCount} Scene{(project.sceneCount || 0) !== 1 ? 's' : ''}</>
-                                )}
-                                {(project.totalWordCount ?? 0) > 0 && (
-                                  <>{' · '}{((project.totalWordCount || 0) / 1000).toFixed(1)}k words</>
-                                )}
-                              </>
-                            ) : (
-                              <>Opened {new Date(project.lastOpened).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>
-                            )}
-                          </div>
-                          <div className="welcome-card-bottom">
-                            <div className="welcome-card-avatars">
-                              {initials.map((ini, i) => (
-                                <span
-                                  key={i}
-                                  className="welcome-card-avatar"
-                                  style={{ background: charColors[i] || '#9CA3AF' }}
-                                >
-                                  {ini}
-                                </span>
-                              ))}
-                              {extraCount > 0 && (
-                                <span className="welcome-card-avatar welcome-card-avatar-extra">+{extraCount}</span>
-                              )}
-                            </div>
-                            <svg className="welcome-card-arrow" width="18" height="18" viewBox="0 0 20 20" fill="none">
-                              <path d="M5 10h10M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  className="welcome-import-btn"
-                  onClick={handleSelectFolder}
-                  disabled={loading}
-                >
-                  Import existing folder
-                </button>
-
-                {error && <p className="error-message">{error}</p>}
-              </>
-            ) : (
-              <>
-                <h2>Create New Novel</h2>
-
-                <div className="new-project-form">
-                  <div className="form-group">
-                    <label>Novel Title</label>
-                    <input
-                      type="text"
-                      placeholder="My Novel"
-                      value={newProjectName}
-                      onChange={e => setNewProjectName(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Location</label>
-                    <div className="location-picker">
-                      <span className="location-path">
-                        {newProjectLocation || 'Choose where to save...'}
-                      </span>
-                      <button
-                        className="btn btn-small"
-                        onClick={handleSelectLocation}
-                      >
-                        Browse
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Story Structure Template</label>
-                    <div className="template-options">
-                      {templateOptions.map(template => (
-                        <button
-                          key={template.id}
-                          className={`template-option ${newProjectTemplate === template.id ? 'selected' : ''}`}
-                          onClick={() => setNewProjectTemplate(template.id)}
-                        >
-                          <span className="template-name">{template.name}</span>
-                          <span className="template-desc">{template.description}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="form-actions">
-                    <button
-                      className="btn btn-secondary"
-                      onClick={() => {
-                        setShowNewProject(false);
-                        setNewProjectName('');
-                        setNewProjectLocation(null);
-                        setError(null);
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleCreateNewProject}
-                      disabled={!newProjectName.trim() || !newProjectLocation || loading}
-                    >
-                      {loading ? 'Creating...' : 'Create Novel'}
-                    </button>
-                  </div>
-
-                  {error && <p className="error-message">{error}</p>}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-        {showUpdateModal && (
-          <UpdateModal onClose={() => setShowUpdateModal(false)} />
-        )}
-        {lockConflict && (
-          <div className="lock-takeover-overlay" onClick={() => setLockConflict(null)}>
-            <div className="lock-takeover-dialog" onClick={e => e.stopPropagation()}>
-              <h3>Project already open</h3>
-              <p>
-                This project is currently being edited on <strong>{lockConflict.heldBy}</strong>.
-              </p>
-              <p>Taking over will close the project on that device.</p>
-              <div className="lock-takeover-actions">
-                <button onClick={() => setLockConflict(null)}>Cancel</button>
-                <button
-                  className="lock-takeover-confirm"
-                  onClick={async () => {
-                    const { projectPath, projectName } = lockConflict;
-                    setLockConflict(null);
-                    await dataService.acquireProjectLock(projectPath, true);
-                    await loadProjectFromPath(projectPath, projectName);
-                  }}
-                >
-                  Take Over
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      <LandingScreen
+        recentProjects={recentProjects}
+        loading={loading}
+        error={error}
+        showUpdateModal={showUpdateModal}
+        onCloseUpdateModal={() => setShowUpdateModal(false)}
+        showNewProject={showNewProject}
+        onSetShowNewProject={setShowNewProject}
+        newProjectName={newProjectName}
+        onNewProjectNameChange={setNewProjectName}
+        newProjectLocation={newProjectLocation}
+        onNewProjectLocationChange={setNewProjectLocation}
+        newProjectTemplate={newProjectTemplate}
+        onTemplateChange={setNewProjectTemplate}
+        onCreateNewProject={handleCreateNewProject}
+        onSelectFolder={handleSelectFolder}
+        onOpenRecentProject={handleOpenRecentProject}
+        onSelectLocation={handleSelectLocation}
+        onClearError={() => setError(null)}
+        lockConflict={lockConflict}
+        onCloseLockConflict={() => setLockConflict(null)}
+        onTakeOver={async (projectPath, projectName) => {
+          setLockConflict(null);
+          await dataService.acquireProjectLock(projectPath, true);
+          await loadProjectFromPath(projectPath, projectName);
+        }}
+      />
     );
   }
 
@@ -3539,7 +3046,7 @@ function App() {
         ) : (
           <div
             className={`scene-list scene-list--${mode}`}
-            ref={mode === viewMode ? sceneListRef : undefined}
+
             style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account'
               ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, margin: 0, maxWidth: 'none', minHeight: 0 }
               : undefined}
@@ -3726,6 +3233,13 @@ function App() {
               </div>
               <DragOverlay>
                 {povActiveId && (() => {
+                  const accentColor = getCharacterHexColor(selectedCharacterId ?? '');
+                  // Section drag overlay
+                  const activeSection = displayedPlotPoints.find(pp => pp.id === povActiveId);
+                  if (activeSection) {
+                    return <DragPreviewCard title={activeSection.title || 'Section'} accentColor={accentColor} />;
+                  }
+                  // Scene drag overlay
                   const inSectionScenes = displayedScenes
                     .filter(s => s.plotPointId !== null)
                     .sort((a, b) => a.sceneNumber - b.sceneNumber);
@@ -3735,7 +3249,7 @@ function App() {
                     <DragPreviewCard
                       title={s.title || s.content || 'Untitled scene'}
                       number={displayNum}
-                      accentColor={getCharacterHexColor(selectedCharacterId ?? '')}
+                      accentColor={accentColor}
                     />
                   ) : null;
                 })()}
@@ -4681,7 +4195,7 @@ function App() {
                   if (timerRunning) {
                     handleStopTimer();
                   } else {
-                    setTimerRunning(true);
+                    handleResumeTimer();
                   }
                 }}
                 title={timerRunning ? 'Pause timer' : 'Resume timer'}
@@ -4709,9 +4223,7 @@ function App() {
                   if (taskTimerRunning) {
                     handleStopTaskTimer();
                   } else {
-                    // Resume — restart from where we left off
-                    taskTimerStartRef.current = Date.now() - taskTimerElapsed;
-                    setTaskTimerRunning(true);
+                    handleResumeTaskTimer();
                   }
                 }}
                 title={taskTimerRunning ? 'Stop task timer' : 'Resume task timer'}
@@ -4840,6 +4352,23 @@ function App() {
                     <polyline points="7 3 15 3 15 7"/>
                   </svg>
                   Backup
+                </button>
+                <button onClick={async () => {
+                  setShowSettingsMenu(false);
+                  const api = (window as any).electronAPI;
+                  const result = await api.convertToBraidr(projectData!.projectPath);
+                  if (result?.success) {
+                    alert(`Converted! Saved to: ${result.dbPath}`);
+                  } else {
+                    alert(`Conversion failed: ${result?.error}`);
+                  }
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Convert to .braidr
                 </button>
                 {viewMode === 'editor' && (
                   <button onClick={() => { editorViewRef.current?.print(); setShowSettingsMenu(false); }}>

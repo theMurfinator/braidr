@@ -294,7 +294,7 @@ export default function RailsView({
     }
   }, [floatingEditorScene]);
 
-  const handleSceneClick = (scene: Scene, e: React.MouseEvent) => {
+  const handleSceneClick = (scene: Scene, _e: React.MouseEvent) => {
     // If in connection mode, complete the connection
     if (isConnecting && connectionSource && connectionSource !== scene.id) {
       onCompleteConnection(scene.id);
@@ -575,7 +575,6 @@ export default function RailsView({
 
                   // Calculate control points for bezier curve
                   const horizontalDist = Math.abs(endX - startX);
-                  const verticalDist = Math.abs(endPos.y - startPos.y);
                   const curveOffset = Math.max(40, Math.min(horizontalDist * 0.4, 100));
 
                   let path: string;
@@ -588,7 +587,6 @@ export default function RailsView({
                               ${endX} ${endPos.y}`;
                   } else {
                     // Different columns - S-curve between them
-                    const midY = (startPos.y + endPos.y) / 2;
                     path = `M ${startX} ${startPos.y}
                             C ${startX + (endX > startX ? curveOffset : -curveOffset)} ${startPos.y},
                               ${endX + (endX > startX ? -curveOffset : curveOffset)} ${endPos.y},
@@ -626,7 +624,6 @@ export default function RailsView({
             style={{ '--rails-columns': numColumns } as React.CSSProperties}
           >
             {gridRows.map((row, index) => {
-              const charIndex = characters.findIndex(c => c.id === row.characterId);
               const rowHeight = getRowHeight(row.scene.wordCount);
 
               return (
@@ -701,7 +698,7 @@ export default function RailsView({
                   </div>
 
                   {/* Cells for each character */}
-                  {characters.map((char, cellIndex) => {
+                  {characters.map((char) => {
                     const connector = getCellConnector(index, char.id);
                     return (
                     <div

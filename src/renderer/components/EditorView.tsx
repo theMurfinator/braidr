@@ -185,7 +185,7 @@ function computeWordDiff(oldText: string, newText: string): DiffChunk[] {
 const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function EditorView({
   scenes,
   characters,
-  plotPoints,
+  plotPoints: _plotPoints,
   tags,
   characterColors,
   draftContent,
@@ -208,7 +208,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   sceneTodos = [],
   sceneSessions = [],
   onTodoToggle,
-  onAddInlineTodo,
+  onAddInlineTodo: _onAddInlineTodo,
   onRemoveInlineTodo,
   timerRunning: timerRunningProp = false,
   timerElapsed: timerElapsedProp = 0,
@@ -219,7 +219,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   onAddManualTime,
   onUpdateSession,
   onDeleteSession,
-  sceneSessionsByDate,
+  sceneSessionsByDate: _sceneSessionsByDate,
   sceneSessionsList,
   notesIndex = [],
   onGoToNote,
@@ -362,7 +362,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const [editingStatuses, setEditingStatuses] = useState<{ value: string; color: string }[]>([]);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const statusPillRef = useRef<HTMLDivElement>(null);
-  const [showToolbar, setShowToolbar] = useState(() => {
+  const [showToolbar] = useState(() => {
     const saved = localStorage.getItem(sk('editor-show-toolbar'));
     return saved !== null ? JSON.parse(saved) : true;
   });
@@ -408,15 +408,6 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     }
     return true;
   });
-
-  // Group scenes by character for the navigator
-  const groupedScenes = characters.reduce<Record<string, Scene[]>>((acc, char) => {
-    const charScenes = filteredScenes
-      .filter(s => s.characterId === char.id)
-      .sort((a, b) => a.sceneNumber - b.sceneNumber);
-    if (charScenes.length > 0) acc[char.id] = charScenes;
-    return acc;
-  }, {});
 
   // Braided order: placed scenes sorted by timeline position, then unplaced at bottom
   const braidedPlaced = filteredScenes
@@ -858,11 +849,6 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     ? Object.values(subEditorWordCounts).reduce((sum, c) => sum + c, 0)
     : singleWordCount;
 
-  // The active editor for toolbar commands
-  const activeEditor = isMultiSelect
-    ? (activeEditorKey ? subEditorsRef.current.get(activeEditorKey) || null : null)
-    : editor;
-
   // Sub-editor callbacks
   const handleSubEditorFocus = useCallback((sceneKey: string) => {
     setActiveEditorKey(sceneKey);
@@ -942,10 +928,10 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       const modifier = isMac ? e.metaKey : e.ctrlKey;
       if (modifier && e.key === '[') {
         e.preventDefault();
-        setShowNav(v => !v);
+        setShowNav((v: boolean) => !v);
       } else if (modifier && e.key === ']') {
         e.preventDefault();
-        setShowMeta(v => !v);
+        setShowMeta((v: boolean) => !v);
       } else if (modifier && e.key === 'a') {
         // Cmd+A: select all scenes, but only when not inside an editor/input
         const active = document.activeElement;
@@ -2079,7 +2065,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               <button className="modal-close-btn" onClick={() => setShowMetaEditor(false)}>×</button>
             </div>
             <div className="modal-body" style={{ padding: '16px', minWidth: '520px', overflowY: 'auto' }}>
-              {editingFieldDefs.map((field, i) => (
+              {editingFieldDefs.map((field, _i) => (
                 <div key={field.id} className="meta-field-editor-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <input

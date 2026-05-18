@@ -34,7 +34,7 @@ export function MobileApp() {
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [editingSceneKey, setEditingSceneKey] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<MobileView>('pov');
-  const [notesIndex, setNotesIndex] = useState<NotesIndex | null>(null);
+  const [, setNotesIndex] = useState<NotesIndex | null>(null);
   const isDirtyRef = useRef(false);
   const editorViewRef = useRef<any>(null);
 
@@ -192,7 +192,7 @@ export function MobileApp() {
       if (scene.wordCount !== undefined) wordCounts[scene.id] = scene.wordCount;
     }
     try {
-      await dataService.saveTimeline(positions, connections, chapters, characterColorsRef.current, wordCounts);
+      await dataService.saveTimeline({ positions, connections, chapters, characterColors: characterColorsRef.current, wordCounts });
       isDirtyRef.current = false;
     } catch (err) { console.error('Failed to save timeline:', err); }
   }, []);
@@ -486,7 +486,7 @@ export function MobileApp() {
                     onMoveDown={() => {}}
                     isFirst={index === 0}
                     isLast={index === characterPlotPoints.length - 1}
-                    connectedScenes={getConnectedScenes}
+                    getConnectedScenes={getConnectedScenes}
                     onStartConnection={() => {}}
                     onRemoveConnection={() => {}}
                     isConnecting={false}

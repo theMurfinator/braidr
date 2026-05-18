@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Task, TaskFilter, TaskFieldDef, TaskViewConfig, Tag, Character, Scene, TimeEntry } from '../../../shared/types';
 import TaskTable, { BUILTIN_COLUMNS } from './TaskTable';
 import TaskToolbar from './TaskToolbar';
@@ -88,7 +88,7 @@ export default function TasksView({
   initialVisibleColumns,
   onColumnConfigChange,
   activeTimerTaskId,
-  taskTimerElapsed,
+  taskTimerElapsed: _taskTimerElapsed,
   onStartTimer: startTimer,
   onStopTimer: stopTimer,
 }: TasksViewProps) {
@@ -142,9 +142,6 @@ export default function TasksView({
   };
 
   // Get active timer task title
-  const activeTimerTaskTitle = activeTimerTaskId
-    ? tasks.find(t => t.id === activeTimerTaskId)?.title || 'Untitled'
-    : '';
 
   function handleSortChange(field: string | undefined, dir: 'asc' | 'desc') {
     setSortBy(field);

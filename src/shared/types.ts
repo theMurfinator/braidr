@@ -137,6 +137,14 @@ export interface TimelineData {
   tags?: Tag[];
 }
 
+// Object-argument form of saveTimeline — derived from TimelineData but with
+// file-only fields removed and the three required fields made non-optional.
+export type SaveTimelinePayload =
+  Omit<TimelineData, 'connections' | 'chapters' | 'draftContent' | 'drafts' | 'scratchpad' | 'sceneComments' | 'tableViews'> & {
+    connections: Record<string, string[]>;
+    chapters: BraidedChapter[];
+  };
+
 // ── Task Management ──────────────────────────────────────────────────────────
 
 export type TaskStatus = 'open' | 'in-progress' | 'done';
@@ -427,4 +435,27 @@ export const IPC_CHANNELS = {
   LOCK_WRITE: 'lock:write',
   LOCK_DELETE: 'lock:delete',
   GET_DEVICE_INFO: 'get-device-info',
+  // SQLite .braidr file operations
+  DETECT_PROJECT_FORMAT: 'detect-project-format',
+  CONVERT_TO_BRAIDR: 'convert-to-braidr',
+  SELECT_BRAIDR_FILE: 'select-braidr-file',
+  // .braidr SQLite read/write operations
+  BRAIDR_LOAD_PROJECT: 'braidr:load-project',
+  BRAIDR_SAVE_TIMELINE: 'braidr:save-timeline',
+  BRAIDR_SAVE_CHARACTER: 'braidr:save-character',
+  BRAIDR_CREATE_CHARACTER: 'braidr:create-character',
+  BRAIDR_READ_DRAFT: 'braidr:read-draft',
+  BRAIDR_SAVE_DRAFT: 'braidr:save-draft',
+  BRAIDR_READ_SCRATCHPAD: 'braidr:read-scratchpad',
+  BRAIDR_SAVE_SCRATCHPAD: 'braidr:save-scratchpad',
+  BRAIDR_READ_DRAFT_VERSIONS: 'braidr:read-draft-versions',
+  BRAIDR_SAVE_DRAFT_VERSIONS: 'braidr:save-draft-versions',
+  BRAIDR_READ_SCENE_COMMENTS: 'braidr:read-scene-comments',
+  BRAIDR_SAVE_SCENE_COMMENTS: 'braidr:save-scene-comments',
+  BRAIDR_LOAD_NOTES_INDEX: 'braidr:load-notes-index',
+  BRAIDR_SAVE_NOTES_INDEX: 'braidr:save-notes-index',
+  BRAIDR_READ_NOTE: 'braidr:read-note',
+  BRAIDR_SAVE_NOTE: 'braidr:save-note',
+  BRAIDR_CREATE_NOTE: 'braidr:create-note',
+  BRAIDR_DELETE_NOTE: 'braidr:delete-note',
 } as const;

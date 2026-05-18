@@ -80,7 +80,6 @@ export const ColumnBlock = Node.create({
       const handles: HTMLElement[] = [];
       const numCols = node.attrs.columns;
 
-      let isResizing = false;
       let currentMoveHandler: ((e: MouseEvent) => void) | null = null;
       let currentUpHandler: ((e: MouseEvent) => void) | null = null;
 
@@ -89,7 +88,6 @@ export const ColumnBlock = Node.create({
         if (currentUpHandler) document.removeEventListener('mouseup', currentUpHandler);
         currentMoveHandler = null;
         currentUpHandler = null;
-        isResizing = false;
         dom.classList.remove('column-resizing');
         handles.forEach(h => h.classList.remove('active'));
       };
@@ -118,7 +116,6 @@ export const ColumnBlock = Node.create({
           e.preventDefault();
 
           cleanupResize();
-          isResizing = true;
           const startX = e.clientX;
 
           const columns = contentDOM.querySelectorAll(':scope > .column-item');
@@ -218,7 +215,8 @@ export const ColumnBlock = Node.create({
         // (style changes on column items, handle repositioning).
         // Without this, ProseMirror re-parses the document on every
         // resize frame, corrupting its internal state.
-        ignoreMutation: (mutation: MutationRecord) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ignoreMutation: (mutation: any) => {
           // Ignore all style attribute changes (from resizing flex values, handle left positions)
           if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
             return true;

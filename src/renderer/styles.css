@@ -8775,6 +8775,95 @@ textarea.editor-meta-field-input {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
+.conversion-modal {
+  width: 440px;
+  max-width: 90vw;
+}
+
+.conversion-modal-body {
+  padding: 16px 20px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.conversion-modal-body p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.conversion-modal-body code {
+  background: var(--bg-secondary);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
+
+.conversion-modal-note {
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+}
+
+.conversion-modal-error {
+  color: var(--color-error, #e53e3e) !important;
+  font-size: 12px !important;
+}
+
+.conversion-modal-progress,
+.conversion-modal-done {
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+  font-style: italic;
+}
+
+.conversion-modal-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px 20px;
+  justify-content: flex-end;
+}
+
+.btn-primary {
+  background: var(--accent, #5c6bc0);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-secondary);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -18363,6 +18452,37 @@ textarea.table-cell-input {
   cursor: grabbing;
 }
 
+/* Section drag handle — appears to the left of the section header on hover */
+.section-drag-handle {
+  opacity: 0;
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1;
+  user-select: none;
+  padding: 2px 4px;
+  letter-spacing: 2px;
+  transition: opacity 0.12s;
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+.pov-outline-section:hover .section-drag-handle {
+  opacity: 0.4;
+}
+
+.section-drag-handle:hover {
+  opacity: 1 !important;
+}
+
+.section-drag-handle:active {
+  cursor: grabbing;
+}
+
+.pov-outline-section.is-dragging {
+  opacity: 0.4;
+}
+
 /* Bullpen drag handle — flows in flex layout rather than absolute positioning */
 .bullpen-drag-handle {
   position: relative;
@@ -18575,6 +18695,51 @@ textarea.table-cell-input {
 
 .section-synopsis-chevron.collapsed {
   transform: rotate(-90deg);
+}
+
+/* Section description / synopsis area */
+.section-description-area {
+  padding: 4px 8px 6px 28px;
+  cursor: text;
+  border-radius: 4px;
+  transition: background 0.12s;
+  min-height: 20px;
+}
+
+.section-description-area:hover {
+  background: var(--bg-secondary);
+}
+
+.section-description-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.section-description-placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.section-description-input {
+  width: 100%;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  background: var(--bg-input, var(--bg-secondary));
+  border: 1px solid var(--border-focus, rgba(255,255,255,0.2));
+  border-radius: 4px;
+  padding: 4px 6px;
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.section-description-input:focus {
+  outline: none;
+  border-color: var(--accent-primary, #3b82f6);
 }
 
 /* Reduce spacing between sections in outline mode */

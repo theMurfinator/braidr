@@ -60,7 +60,7 @@ function htmlToPlainText(html: string): string {
   return text;
 }
 
-export default function CompileModal({ scenes, characters, plotPoints, chapters, draftContent, sceneMetadata, metadataFieldDefs, characterColors, onClose }: CompileModalProps) {
+export default function CompileModal({ scenes, characters, plotPoints: _plotPoints, chapters, draftContent, sceneMetadata, metadataFieldDefs, characterColors, onClose }: CompileModalProps) {
   const [title, setTitle] = useState('My Novel');
   const [authorName, setAuthorName] = useState('');
   const [format, setFormat] = useState<'md' | 'pdf' | 'docx'>('md');

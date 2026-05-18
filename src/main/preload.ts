@@ -55,6 +55,28 @@ const IPC_CHANNELS = {
   LOCK_WRITE: 'lock:write',
   LOCK_DELETE: 'lock:delete',
   GET_DEVICE_INFO: 'get-device-info',
+  // SQLite .braidr file operations
+  DETECT_PROJECT_FORMAT: 'detect-project-format',
+  CONVERT_TO_BRAIDR: 'convert-to-braidr',
+  SELECT_BRAIDR_FILE: 'select-braidr-file',
+  BRAIDR_LOAD_PROJECT: 'braidr:load-project',
+  BRAIDR_SAVE_TIMELINE: 'braidr:save-timeline',
+  BRAIDR_SAVE_CHARACTER: 'braidr:save-character',
+  BRAIDR_CREATE_CHARACTER: 'braidr:create-character',
+  BRAIDR_READ_DRAFT: 'braidr:read-draft',
+  BRAIDR_SAVE_DRAFT: 'braidr:save-draft',
+  BRAIDR_READ_SCRATCHPAD: 'braidr:read-scratchpad',
+  BRAIDR_SAVE_SCRATCHPAD: 'braidr:save-scratchpad',
+  BRAIDR_READ_DRAFT_VERSIONS: 'braidr:read-draft-versions',
+  BRAIDR_SAVE_DRAFT_VERSIONS: 'braidr:save-draft-versions',
+  BRAIDR_READ_SCENE_COMMENTS: 'braidr:read-scene-comments',
+  BRAIDR_SAVE_SCENE_COMMENTS: 'braidr:save-scene-comments',
+  BRAIDR_LOAD_NOTES_INDEX: 'braidr:load-notes-index',
+  BRAIDR_SAVE_NOTES_INDEX: 'braidr:save-notes-index',
+  BRAIDR_READ_NOTE: 'braidr:read-note',
+  BRAIDR_SAVE_NOTE: 'braidr:save-note',
+  BRAIDR_CREATE_NOTE: 'braidr:create-note',
+  BRAIDR_DELETE_NOTE: 'braidr:delete-note',
   // Per-scene content (extracted from timeline.json)
   READ_DRAFT: 'read-draft',
   SAVE_DRAFT: 'save-draft',
@@ -208,4 +230,48 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   updateDownload: () => ipcRenderer.send('update-download'),
   updateInstall: () => ipcRenderer.send('update-install'),
+  // SQLite .braidr project format
+  detectProjectFormat: (folderPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.DETECT_PROJECT_FORMAT, folderPath),
+  convertToBraidr: (folderPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONVERT_TO_BRAIDR, folderPath),
+  selectBraidrFile: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.SELECT_BRAIDR_FILE),
+  // .braidr SQLite read/write
+  braidrLoadProject: (braidrPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, braidrPath),
+  braidrSaveTimeline: (braidrPath: string, payload: any) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, braidrPath, payload),
+  braidrSaveCharacter: (braidrPath: string, payload: any) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_CHARACTER, braidrPath, payload),
+  braidrCreateCharacter: (braidrPath: string, name: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_CREATE_CHARACTER, braidrPath, name),
+  braidrReadDraft: (braidrPath: string, sceneId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_READ_DRAFT, braidrPath, sceneId),
+  braidrSaveDraft: (braidrPath: string, sceneId: string, content: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_DRAFT, braidrPath, sceneId, content),
+  braidrReadScratchpad: (braidrPath: string, sceneId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_READ_SCRATCHPAD, braidrPath, sceneId),
+  braidrSaveScratchpad: (braidrPath: string, sceneId: string, content: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_SCRATCHPAD, braidrPath, sceneId, content),
+  braidrReadDraftVersions: (braidrPath: string, sceneId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_READ_DRAFT_VERSIONS, braidrPath, sceneId),
+  braidrSaveDraftVersions: (braidrPath: string, sceneId: string, versions: any[]) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_DRAFT_VERSIONS, braidrPath, sceneId, versions),
+  braidrReadSceneComments: (braidrPath: string, sceneId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_READ_SCENE_COMMENTS, braidrPath, sceneId),
+  braidrSaveSceneComments: (braidrPath: string, sceneId: string, comments: any[]) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_SCENE_COMMENTS, braidrPath, sceneId, comments),
+  braidrLoadNotesIndex: (braidrPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_LOAD_NOTES_INDEX, braidrPath),
+  braidrSaveNotesIndex: (braidrPath: string, notesIndex: any) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_NOTES_INDEX, braidrPath, notesIndex),
+  braidrReadNote: (braidrPath: string, noteId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_READ_NOTE, braidrPath, noteId),
+  braidrSaveNote: (braidrPath: string, noteId: string, content: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_NOTE, braidrPath, noteId, content),
+  braidrCreateNote: (braidrPath: string, noteId: string, title: string, parentId: string | null) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_CREATE_NOTE, braidrPath, noteId, title, parentId),
+  braidrDeleteNote: (braidrPath: string, noteId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_DELETE_NOTE, braidrPath, noteId),
 });

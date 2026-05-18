@@ -276,7 +276,7 @@ export default function NoteEditor({
         spellcheck: 'true',
       },
       handleDOMEvents: {
-        contextmenu: (view, event) => {
+        contextmenu: (_view, event) => {
           // Check if right-click is inside a table
           const target = event.target as HTMLElement;
           if (target.closest('table')) {
@@ -287,7 +287,7 @@ export default function NoteEditor({
           return false;
         },
       },
-      handlePaste: (view, event) => {
+      handlePaste: (_view, event) => {
         const items = event.clipboardData?.items;
         if (!items) return false;
 
@@ -372,8 +372,8 @@ export default function NoteEditor({
   // Keep TodoWidget storage in sync with scenes and characters
   useEffect(() => {
     if (editor) {
-      editor.storage.todoWidget.scenes = scenes;
-      editor.storage.todoWidget.characters = characters;
+      (editor.storage as any).todoWidget.scenes = scenes;
+      (editor.storage as any).todoWidget.characters = characters;
     }
   }, [editor, scenes, characters]);
 

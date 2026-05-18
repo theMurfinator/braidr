@@ -25,7 +25,7 @@ interface FloatingEditorProps {
 
 export default function FloatingEditor({
   scene,
-  draftContent,
+  draftContent: _draftContent,
   characterName,
   tags,
   connectedScenes,
@@ -36,7 +36,7 @@ export default function FloatingEditor({
   onStartConnection,
   onRemoveConnection,
   onWordCountChange,
-  onDraftChange,
+  onDraftChange: _onDraftChange,
   onOpenInEditor,
   scratchpadContent: scratchpadContentProp,
   onScratchpadChange,

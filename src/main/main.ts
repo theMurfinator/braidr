@@ -461,6 +461,9 @@ function createWindow() {
   }
 }
 
+// Register braidr SQLite IPC handlers (lazy-require inside to avoid native module at startup)
+require('./braidrIpc');
+
 app.whenReady().then(() => {
   // Register custom protocol for serving note images
   // URL format: braidr-img:///path/to/project/notes/images/filename.png
@@ -1200,7 +1203,6 @@ ipcMain.handle(IPC_CHANNELS.SELECT_SAVE_LOCATION, async () => {
 
 ipcMain.handle(IPC_CHANNELS.CREATE_PROJECT, async (_event, parentPath: string, projectName: string, template: ProjectTemplate) => {
   try {
-    // Create project folder
     const projectPath = path.join(parentPath, projectName);
 
     if (fs.existsSync(projectPath)) {
@@ -1209,34 +1211,27 @@ ipcMain.handle(IPC_CHANNELS.CREATE_PROJECT, async (_event, parentPath: string, p
 
     fs.mkdirSync(projectPath, { recursive: true });
 
-    // Get template
     const templateData = TEMPLATES[template];
+    const rId = () => Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 
-    // Create the protagonist file with template sections
-    const fileName = `${templateData.characterName.toLowerCase().replace(/\s+/g, '-')}.md`;
-    const filePath = path.join(projectPath, fileName);
+    // Create SQLite .braidr project file
+    const { openDatabase } = require('./database') as typeof import('./database');
+    const dbPath = path.join(projectPath, `${projectName}.braidr`);
+    const db = openDatabase(dbPath);
 
-    let content = `---
-character: ${templateData.characterName}
----
-
-`;
-
-    let sceneNumber = 1;
-    for (const section of templateData.sections) {
-      content += `## ${section.title}\n`;
-      if (section.description) {
-        content += `${section.description}\n`;
+    db.transaction(() => {
+      db.upsertProject(projectName, null);
+      const charId = rId();
+      db.insertCharacter(charId, templateData.characterName, null, 0);
+      let sceneNumber = 1;
+      for (let i = 0; i < templateData.sections.length; i++) {
+        const section = templateData.sections[i];
+        const ppId = rId();
+        db.insertPlotPoint(ppId, charId, section.title, section.description || null, null, i);
+        db.insertScene(rId(), charId, ppId, 'First scene', 'First scene', sceneNumber, null, false, null);
+        sceneNumber++;
       }
-      content += `\n${sceneNumber}. First scene\n\n`;
-      sceneNumber++;
-    }
-
-    fs.writeFileSync(filePath, content, 'utf-8');
-
-    // Create empty timeline.json
-    const timelinePath = path.join(projectPath, 'timeline.json');
-    fs.writeFileSync(timelinePath, JSON.stringify({ positions: {}, connections: {}, chapters: [] }, null, 2), 'utf-8');
+    });
 
     return { success: true, projectPath };
   } catch (error) {
@@ -1666,4 +1661,57 @@ ipcMain.handle(IPC_CHANNELS.PRINT_TO_PDF, async (_event, html: string) => {
       pdfWindow.destroy();
     }
   }
+});
+
+// ── .braidr SQLite format handlers ──────────────────────────────────────────
+
+/**
+ * Detect whether a folder is a legacy (md/json) project or already a .braidr file.
+ * Returns: { format: 'legacy' | 'braidr' | 'unknown', braidrPath?: string }
+ */
+ipcMain.handle(IPC_CHANNELS.DETECT_PROJECT_FORMAT, async (_event, folderPath: string) => {
+  try {
+    const braidrFile = fs.readdirSync(folderPath).find(f => {
+      if (!f.endsWith('.braidr')) return false;
+      return fs.statSync(path.join(folderPath, f)).isFile();
+    });
+    if (braidrFile) {
+      return { success: true, format: 'braidr', braidrPath: path.join(folderPath, braidrFile) };
+    }
+    const hasMd = fs.readdirSync(folderPath).some(f => f.endsWith('.md') && !f.startsWith('CLAUDE'));
+    return { success: true, format: hasMd ? 'legacy' : 'unknown' };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.CONVERT_TO_BRAIDR, async (_event, folderPath: string) => {
+  try {
+    // Lazy-load to avoid native module issues at startup
+    const { importLegacyProject } = require('./importer');
+    const projectName = path.basename(folderPath);
+    const outputPath = path.join(folderPath, `${projectName}.braidr`);
+    const result = importLegacyProject(folderPath, outputPath);
+    return { success: true, ...result };
+  } catch (error) {
+    console.error('[CONVERT_TO_BRAIDR] error:', error);
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.SELECT_BRAIDR_FILE, async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    title: 'Open Braidr Project',
+    filters: [{ name: 'Braidr Projects', extensions: ['braidr'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+
+app.on('before-quit', () => {
+  try {
+    const { closeAllDatabases } = require('./database');
+    closeAllDatabases();
+  } catch { /* database may not have been used */ }
 });

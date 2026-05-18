@@ -45,6 +45,28 @@ interface Window {
     readAnalytics: (projectPath: string) => Promise<{ success: boolean; data?: any; error?: string }>;
     saveAnalytics: (projectPath: string, data: any) => Promise<{ success: boolean; error?: string }>;
     openFeedbackEmail: (category: string, message: string) => Promise<{ success: boolean; error?: string }>;
+    // License
+    getLicenseStatus: () => Promise<any>;
+    activateLicense: (email: string) => Promise<any>;
+    startTrial: (email: string) => Promise<any>;
+    deactivateLicense: () => Promise<any>;
+    openPurchaseUrl: () => Promise<any>;
+    openBillingPortal: () => Promise<any>;
+    refreshLicenseStatus: () => Promise<any>;
+    // Subscription
+    getSubscriptionDetails: () => Promise<any>;
+    cancelSubscription: () => Promise<any>;
+    reactivateSubscription: () => Promise<any>;
+    // Analytics event
+    captureAnalyticsEvent: (eventName: string, properties: Record<string, any>) => Promise<any>;
+    // Print
+    printPreview: (html: string) => Promise<any>;
+    // Event listeners
+    onShowLicenseDialog: (callback: () => void) => () => void;
+    onNavigateToAccount: (callback: () => void) => () => void;
+    onAppClosing: (callback: () => void) => () => void;
+    onShowUpdateModal: (callback: () => void) => () => void;
+    safeToClose: () => void;
     // Auto-updater
     onUpdateStatus: (callback: (data: any) => void) => () => void;
     updateDownload: () => void;
@@ -63,5 +85,37 @@ interface Window {
     lockWrite: (projectPath: string, data: { deviceId: string; deviceName: string; timestamp: number }) => Promise<any>;
     lockDelete: (projectPath: string) => Promise<any>;
     getDeviceInfo: () => Promise<any>;
+    // Per-scene content
+    readDraft: (projectPath: string, sceneId: string) => Promise<any>;
+    saveDraft: (projectPath: string, sceneId: string, content: string) => Promise<any>;
+    readScratchpad: (projectPath: string, sceneId: string) => Promise<any>;
+    saveScratchpad: (projectPath: string, sceneId: string, content: string) => Promise<any>;
+    readDraftVersions: (projectPath: string, sceneId: string) => Promise<any>;
+    saveDraftVersions: (projectPath: string, sceneId: string, content: string) => Promise<any>;
+    readSceneComments: (projectPath: string, sceneId: string) => Promise<any>;
+    saveSceneComments: (projectPath: string, sceneId: string, content: string) => Promise<any>;
+    readAllPerSceneContent: (projectPath: string) => Promise<any>;
+    // SQLite .braidr project format
+    detectProjectFormat: (folderPath: string) => Promise<any>;
+    convertToBraidr: (folderPath: string) => Promise<any>;
+    selectBraidrFile: () => Promise<any>;
+    braidrLoadProject: (braidrPath: string) => Promise<any>;
+    braidrSaveTimeline: (braidrPath: string, payload: any) => Promise<any>;
+    braidrSaveCharacter: (braidrPath: string, payload: any) => Promise<any>;
+    braidrCreateCharacter: (braidrPath: string, name: string) => Promise<any>;
+    braidrReadDraft: (braidrPath: string, sceneId: string) => Promise<any>;
+    braidrSaveDraft: (braidrPath: string, sceneId: string, content: string) => Promise<any>;
+    braidrReadScratchpad: (braidrPath: string, sceneId: string) => Promise<any>;
+    braidrSaveScratchpad: (braidrPath: string, sceneId: string, content: string) => Promise<any>;
+    braidrReadDraftVersions: (braidrPath: string, sceneId: string) => Promise<any>;
+    braidrSaveDraftVersions: (braidrPath: string, sceneId: string, versions: any[]) => Promise<any>;
+    braidrReadSceneComments: (braidrPath: string, sceneId: string) => Promise<any>;
+    braidrSaveSceneComments: (braidrPath: string, sceneId: string, comments: any[]) => Promise<any>;
+    braidrLoadNotesIndex: (braidrPath: string) => Promise<any>;
+    braidrSaveNotesIndex: (braidrPath: string, notesIndex: any) => Promise<any>;
+    braidrReadNote: (braidrPath: string, noteId: string) => Promise<any>;
+    braidrSaveNote: (braidrPath: string, noteId: string, content: string) => Promise<any>;
+    braidrCreateNote: (braidrPath: string, noteId: string, title: string, parentId: string | null) => Promise<any>;
+    braidrDeleteNote: (braidrPath: string, noteId: string) => Promise<any>;
   };
 }

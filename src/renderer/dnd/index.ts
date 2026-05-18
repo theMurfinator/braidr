@@ -1,6 +1,7 @@
 import './dnd.css';
 
 export { SortableArea } from './SortableArea';
+export type { DragOverEvent } from './SortableArea';
 export { SortableList } from './SortableList';
 export { SortableItem } from './SortableItem';
 export type { SortableItemRenderProps } from './SortableItem';

@@ -158,7 +158,7 @@ export const DragHandle = Extension.create({
               return false;
             },
 
-            drop(view, event) {
+            drop(_view, _event) {
               isDragging = false;
               if (dropIndicator) dropIndicator.style.display = 'none';
               // Let ProseMirror handle the actual drop

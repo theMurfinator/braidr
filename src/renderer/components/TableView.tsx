@@ -52,7 +52,7 @@ export default function TableView({
   characters,
   metadataFieldDefs,
   sceneMetadata,
-  tags,
+  tags: _tags,
   tableViews: _tableViews,
   plotPoints,
   characterColors,
@@ -60,7 +60,7 @@ export default function TableView({
   onMetadataChange,
   onWordCountChange,
   onTableViewsChange: _onTableViewsChange,
-  onSceneChange,
+  onSceneChange: _onSceneChange,
   povReorderedScenes,
 }: TableViewProps) {
   // Use localStorage for now instead of props
@@ -198,8 +198,8 @@ export default function TableView({
         aVal = a.wordCount ?? 0;
         bVal = b.wordCount ?? 0;
       } else if (sortField === 'plotPoint') {
-        aVal = a.plotPoint || '';
-        bVal = b.plotPoint || '';
+        aVal = a.plotPointId || '';
+        bVal = b.plotPointId || '';
       } else {
         // Custom metadata field
         const aKey = a.id;
@@ -921,9 +921,7 @@ export default function TableView({
                       <select
                         className="table-cell-input"
                         value={scene.plotPointId || ''}
-                        onChange={(e) => {
-                          // Handle plot point change here
-                          // This would need a new handler passed from App.tsx
+                        onChange={(_e) => {
                           setEditingCell(null);
                         }}
                         onBlur={() => setEditingCell(null)}

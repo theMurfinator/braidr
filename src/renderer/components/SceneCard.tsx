@@ -81,7 +81,7 @@ function SceneCard({
   metadataFieldDefs = [],
   sceneMetadata = {},
   onMetadataChange,
-  onMetadataFieldDefsChange,
+  onMetadataFieldDefsChange: _onMetadataFieldDefsChange,
   inlineMetadataFields = [],
   showInlineLabels = true,
   sceneDate,
@@ -102,12 +102,6 @@ function SceneCard({
   const connectSearchRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const tagPickerRef = useRef<HTMLDivElement>(null);
-  const [metadataExpanded, setMetadataExpanded] = useState(false);
-  const [showAddField, setShowAddField] = useState(false);
-  const [newFieldLabel, setNewFieldLabel] = useState('');
-  const [newFieldType, setNewFieldType] = useState<'text' | 'dropdown' | 'multiselect'>('text');
-  const [newFieldOptions, setNewFieldOptions] = useState('');
-
   // Use refs to always have current values in callbacks
   const sceneRef = useRef(scene);
   const editContentRef = useRef(editContent);
@@ -282,11 +276,6 @@ function SceneCard({
     setNotesExpanded(!notesExpanded);
   };
 
-  const toggleMetadataExpanded = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setMetadataExpanded(!metadataExpanded);
-  };
-
   const toggleMultiselect = (fieldId: string, option: string) => {
     if (!onMetadataChange) return;
     const current = sceneMetadata[fieldId];
@@ -297,32 +286,6 @@ function SceneCard({
     onMetadataChange(scene.id, fieldId, updated);
   };
 
-  const handleAddField = () => {
-    if (!onMetadataFieldDefsChange || !newFieldLabel.trim()) return;
-
-    const newField: MetadataFieldDef = {
-      id: `field_${Date.now()}`,
-      label: newFieldLabel.trim(),
-      type: newFieldType,
-      options: (newFieldType === 'dropdown' || newFieldType === 'multiselect')
-        ? newFieldOptions.split(',').map(s => s.trim()).filter(Boolean)
-        : undefined,
-      order: metadataFieldDefs.filter(f => f.id !== '_status').length,
-    };
-
-    const statusDef = metadataFieldDefs.find(f => f.id === '_status');
-    const otherDefs = metadataFieldDefs.filter(f => f.id !== '_status');
-    const updatedDefs = statusDef ? [statusDef, ...otherDefs, newField] : [...otherDefs, newField];
-
-    onMetadataFieldDefsChange(updatedDefs);
-
-    // Reset form
-    setNewFieldLabel('');
-    setNewFieldType('text');
-    setNewFieldOptions('');
-    setShowAddField(false);
-  };
-
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
@@ -331,8 +294,6 @@ function SceneCard({
       textareaRef.current.setSelectionRange(len, len);
     }
   }, [isEditing]);
-
-  const hasNotes = scene.notes.length > 0 || (editor && editor.getText().trim().length > 0);
 
   return (
     <div

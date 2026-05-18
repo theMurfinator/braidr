@@ -26,6 +26,7 @@ import {
   BranchInfo,
   BranchCompareData,
   BranchSceneDiff,
+  SaveTimelinePayload,
 } from '../../shared/types';
 import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
@@ -493,30 +494,7 @@ export class CapacitorDataService implements DataService {
 
   // ── Timeline I/O ───────────────────────────────────────────────────────
 
-  async saveTimeline(
-    positions: Record<string, number>,
-    connections: Record<string, string[]>,
-    chapters: BraidedChapter[],
-    characterColors?: Record<string, string>,
-    wordCounts?: Record<string, number>,
-    fontSettings?: FontSettings,
-    archivedScenes?: ArchivedScene[],
-    metadataFieldDefs?: MetadataFieldDef[],
-    sceneMetadata?: Record<string, Record<string, string | string[]>>,
-    wordCountGoal?: number,
-    allFontSettings?: AllFontSettings,
-    tasks?: Task[],
-    taskFieldDefs?: TaskFieldDef[],
-    taskViews?: TaskViewConfig[],
-    inlineMetadataFields?: string[],
-    showInlineLabels?: boolean,
-    taskColumnWidths?: Record<string, number>,
-    taskVisibleColumns?: string[],
-    timelineDates?: Record<string, string>,
-    worldEvents?: WorldEvent[],
-    timelineEndDates?: Record<string, string>,
-    tags?: Tag[],
-  ): Promise<void> {
+  async saveTimeline(payload: SaveTimelinePayload): Promise<void> {
     if (!this.projectPath) {
       throw new Error('No project loaded');
     }
@@ -524,34 +502,11 @@ export class CapacitorDataService implements DataService {
     if (this.activeBranch) {
       await writeTextFile(
         `${this.projectPath}/branches/${this.activeBranch}/positions.json`,
-        JSON.stringify(positions, null, 2),
+        JSON.stringify(payload.positions, null, 2),
       );
     }
 
-    const data: TimelineData = {
-      positions,
-      connections,
-      chapters,
-      characterColors,
-      wordCounts,
-      fontSettings,
-      archivedScenes,
-      metadataFieldDefs,
-      sceneMetadata,
-      wordCountGoal,
-      allFontSettings,
-      tasks,
-      taskFieldDefs,
-      taskViews,
-      inlineMetadataFields,
-      showInlineLabels,
-      taskColumnWidths,
-      taskVisibleColumns,
-      timelineDates,
-      timelineEndDates,
-      worldEvents,
-      tags,
-    };
+    const data: TimelineData = { ...payload };
 
     // Preserve task-family data when caller omits it — mirrors the
     // main-process saveTimelineToDisk guard (see src/main/saveTimeline.ts).

@@ -1,4 +1,4 @@
-export type MobileView = 'pov' | 'rails' | 'notes';
+export type MobileView = 'pov' | 'rails' | 'notes' | 'editor';
 
 interface MobileSidebarProps {
   currentView: MobileView;
@@ -12,6 +12,7 @@ const viewLabels: Record<MobileView, string> = {
   pov: 'POV',
   rails: 'Rails',
   notes: 'Notes',
+  editor: 'Edit',
 };
 
 export default function MobileSidebar({

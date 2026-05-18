@@ -21,7 +21,7 @@ interface OutlineSceneRowProps {
 function OutlineSceneRow({
   scene,
   displayNumber,
-  characterName,
+  characterName: _characterName,
   synopsisVisible,
   onSceneChange,
   onSetAside,

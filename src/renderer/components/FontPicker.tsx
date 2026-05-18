@@ -76,7 +76,7 @@ const TAB_SECTIONS: Record<TabKey, FontSection[]> = {
 };
 
 // Helper to get the resolved value for a field (screen override or global fallback)
-function getResolved(all: AllFontSettings, tab: TabKey, field: keyof FontSettings): string | number | undefined {
+function getResolved(all: AllFontSettings, tab: TabKey, field: keyof FontSettings): string | number | boolean | undefined {
   if (tab === 'global') {
     return all.global[field];
   }
@@ -102,7 +102,7 @@ function FontPicker({ allFontSettings, onFontSettingsChange, onClose }: FontPick
   // Font values are now resolved dynamically in the render loop
 
   // Update a field — on 'global' tab updates global, on screen tabs updates screen override
-  const updateField = (field: keyof FontSettings, value: string | number) => {
+  const updateField = (field: keyof FontSettings, value: string | number | boolean) => {
     setLocalSettings(prev => {
       if (activeTab === 'global') {
         return { ...prev, global: { ...prev.global, [field]: value } };

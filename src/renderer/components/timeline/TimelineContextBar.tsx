@@ -16,7 +16,6 @@ interface TimelineContextBarProps {
   onViewportChange: (start: number, end: number) => void;
 }
 
-const BAR_HEIGHT = 44;
 const VIEWPORT_MIN_FRAC = 0.02; // minimum viewport width as fraction
 
 export default function TimelineContextBar({

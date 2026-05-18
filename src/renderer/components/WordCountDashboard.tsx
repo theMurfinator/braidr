@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Scene, Character, PlotPoint, MetadataFieldDef, Task } from '../../shared/types';
-import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getRecentDays, getThisWeekWords, getTodayStr, toLocalDateStr, getCheckinAverages, getWeekSaturday, getWeekDays, formatWeekLabel } from '../utils/analyticsStore';
+import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getRecentDays, getTodayStr, toLocalDateStr, getCheckinAverages, getWeekSaturday, getWeekDays, formatWeekLabel } from '../utils/analyticsStore';
 import { track } from '../utils/posthogTracker';
 
 interface WordCountDashboardProps {
@@ -28,7 +28,7 @@ function countWords(html: string): number {
 }
 
 
-export default function WordCountDashboard({ scenes, characters, plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [], customCheckinCategories = [], tasks = [] }: WordCountDashboardProps) {
+export default function WordCountDashboard({ scenes, characters, plotPoints: _plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [], customCheckinCategories = [], tasks = [] }: WordCountDashboardProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(wordCountGoal || ''));
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -139,7 +139,6 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
   const recentDays = analytics ? getRecentDays(analytics.sessions, 30) : [];
   const maxDayWords = Math.max(...recentDays.map(d => d.words), 1);
   const todayWords = recentDays.length > 0 ? recentDays[recentDays.length - 1].words : 0;
-  const weekWords = analytics ? getThisWeekWords(analytics.sessions) : 0;
   const dailyGoalProgress = analytics?.dailyGoal.enabled && analytics.dailyGoal.target > 0
     ? Math.min(todayWords / analytics.dailyGoal.target, 1)
     : 0;
@@ -992,7 +991,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints, cha
               <span className="analytics-card-subtitle">Top {topScenesByTime.length}</span>
             </div>
             <div className="analytics-scene-time-list">
-              {topScenesByTime.map((scene, i) => {
+              {topScenesByTime.map((scene, _i) => {
                 const maxMs = topScenesByTime[0].totalMs;
                 const barWidth = maxMs > 0 ? (scene.totalMs / maxMs) * 100 : 0;
                 const hrs = Math.floor(scene.totalMs / 3600000);
