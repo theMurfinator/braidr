@@ -271,8 +271,21 @@ function importData(db: BraidrDB, folderPath: string, warnings: string[]) {
   const timelineDates: Record<string, string> = timelineData.timelineDates ?? {};
   const timelineEndDates: Record<string, string> = timelineData.timelineEndDates ?? {};
 
+  // Insert field defs before scenes so FK on field_def_id resolves during value inserts
+  if (metadataFieldDefs.length > 0) {
+    db.replaceMetadataFieldDefs(metadataFieldDefs.map((d: any) => ({
+      id: d.id,
+      label: d.label,
+      field_type: d.type ?? 'text',
+      options: d.options ? JSON.stringify(d.options) : null,
+      option_colors: d.optionColors ? JSON.stringify(d.optionColors) : null,
+      display_order: d.order ?? 0,
+    })));
+  }
+
   // Map old "characterId:sceneNumber" key → new scene UUID
   const sceneKeyToId = new Map<string, string>();
+  const insertedSceneIds = new Set<string>();
 
   for (let charIdx = 0; charIdx < mdFiles.length; charIdx++) {
     const fileName = mdFiles[charIdx];
@@ -292,7 +305,9 @@ function importData(db: BraidrDB, folderPath: string, warnings: string[]) {
       const oldKey = `${parsed.id}:${scene.sceneNumber}`;
       sceneKeyToId.set(oldKey, scene.id);
 
-      const timelinePos = positions[oldKey] ?? null;
+      // Prefer direct scene-ID key (new format); fall back to charId:sceneNum (old format)
+      const timelinePos = positions[scene.id] ?? positions[oldKey] ?? null;
+      const wordCount = (timelineData.wordCounts ?? {})[scene.id] ?? (timelineData.wordCounts ?? {})[oldKey] ?? null;
 
       db.insertScene(
         scene.id,
@@ -303,8 +318,9 @@ function importData(db: BraidrDB, folderPath: string, warnings: string[]) {
         scene.sceneNumber,
         timelinePos,
         scene.isHighlighted,
-        null,
+        wordCount,
       );
+      insertedSceneIds.add(scene.id);
 
       // Scene notes
       if (scene.notes.length > 0) {
@@ -339,7 +355,7 @@ function importData(db: BraidrDB, folderPath: string, warnings: string[]) {
 
       // Also try old key-based draft versions from timeline.json
       if (!fs.existsSync(versionsPath)) {
-        const oldVersions: any[] = (timelineData.drafts ?? {})[oldKey] ?? [];
+        const oldVersions: any[] = (timelineData.drafts ?? {})[scene.id] ?? (timelineData.drafts ?? {})[oldKey] ?? [];
         if (oldVersions.length > 0) {
           const rows = oldVersions.map((v: any, i: number) => ({
             id: randomId(),
@@ -357,7 +373,7 @@ function importData(db: BraidrDB, folderPath: string, warnings: string[]) {
         const scratchContent = fs.readFileSync(scratchPath, 'utf-8');
         db.upsertScratchpad(scene.id, scratchContent);
       } else {
-        const oldScratch: string = (timelineData.scratchpad ?? {})[oldKey] ?? '';
+        const oldScratch: string = (timelineData.scratchpad ?? {})[scene.id] ?? (timelineData.scratchpad ?? {})[oldKey] ?? '';
         if (oldScratch) db.upsertScratchpad(scene.id, oldScratch);
       }
 
@@ -375,7 +391,7 @@ function importData(db: BraidrDB, folderPath: string, warnings: string[]) {
           warnings.push(`Comments parse error for scene ${scene.id}: ${e}`);
         }
       } else {
-        const oldComments: any[] = (timelineData.sceneComments ?? {})[oldKey] ?? [];
+        const oldComments: any[] = (timelineData.sceneComments ?? {})[scene.id] ?? (timelineData.sceneComments ?? {})[oldKey] ?? [];
         if (oldComments.length > 0) {
           db.replaceSceneComments(scene.id, oldComments.map((c: any) => ({
             id: c.id ?? randomId(),
@@ -386,33 +402,22 @@ function importData(db: BraidrDB, folderPath: string, warnings: string[]) {
       }
 
       // Scene date
-      const dateKey = oldKey;
-      if (timelineDates[dateKey]) {
-        db.upsertSceneDate(scene.id, timelineDates[dateKey], timelineEndDates[dateKey] ?? null);
+      const resolvedDate = timelineDates[scene.id] ?? timelineDates[oldKey];
+      if (resolvedDate) {
+        const resolvedEndDate = (timelineData.timelineEndDates ?? {})[scene.id] ?? (timelineData.timelineEndDates ?? {})[oldKey] ?? null;
+        db.upsertSceneDate(scene.id, resolvedDate, resolvedEndDate);
       }
 
-      // Metadata values
-      if (sceneMetadata[oldKey]) {
-        const values = Object.entries(sceneMetadata[oldKey]).map(([fieldDefId, val]) => ({
+      // Metadata values (skip if scene ID not in DB — orphaned entries from deleted scenes)
+      const resolvedMeta = insertedSceneIds.has(scene.id) ? (sceneMetadata[scene.id] ?? sceneMetadata[oldKey]) : null;
+      if (resolvedMeta) {
+        const values = Object.entries(resolvedMeta).map(([fieldDefId, val]) => ({
           field_def_id: fieldDefId,
           value: JSON.stringify(val),
         }));
         db.replaceSceneMetadataValues(scene.id, values);
       }
     }
-  }
-
-  // ── metadata field defs ───────────────────────────────────────────────────
-
-  if (metadataFieldDefs.length > 0) {
-    db.replaceMetadataFieldDefs(metadataFieldDefs.map((d: any) => ({
-      id: d.id,
-      label: d.label,
-      field_type: d.type ?? 'text',
-      options: d.options ? JSON.stringify(d.options) : null,
-      option_colors: d.optionColors ? JSON.stringify(d.optionColors) : null,
-      display_order: d.order ?? 0,
-    })));
   }
 
   // ── braided chapters ───────────────────────────────────────────────────────
