@@ -1,5 +1,5 @@
 /* Typography — editorial fonts for content, system font for UI */
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Bitter:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,300..700;1,7..72,300..700&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Bitter:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 /* Base styles — minimal, clean palette */
 :root {
@@ -49,20 +49,21 @@
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
 
-  /* Font variables — Lora for content, system font for UI */
-  --font-section-title: 'Lora', Georgia, serif;
-  --font-section-title-size: 20px;
-  --font-section-title-weight: 700;
+  /* Font variables — Literata for all editorial, DM Sans for UI chrome */
+  --font-section-title: 'Literata', Georgia, serif;
+  --font-section-title-size: 18px;
+  --font-section-title-weight: 600;
   --font-section-title-color: var(--text-primary);
-  --font-scene-title: 'Lora', Georgia, serif;
+  --font-scene-title: 'Literata', Georgia, serif;
   --font-scene-title-size: 16px;
-  --font-scene-title-weight: 700;
+  --font-scene-title-weight: 500;
   --font-scene-title-color: var(--text-primary);
-  --font-body: 'Lora', Georgia, serif;
-  --font-body-size: 16px;
+  --font-body: 'Literata', Georgia, serif;
+  --font-body-size: 15px;
   --font-body-weight: 400;
   --font-body-color: var(--text-primary);
-  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-ui: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
 /* Hide scrollbars — content still scrollable */
@@ -1616,6 +1617,7 @@
   font-size: var(--font-section-title-size);
   font-weight: var(--font-section-title-weight);
   font-family: var(--font-section-title);
+  font-optical-sizing: auto;
   color: var(--font-section-title-color);
   cursor: pointer;
   letter-spacing: -0.01em;
@@ -1701,8 +1703,9 @@
 .description-editor {
   font-size: var(--font-body-size);
   font-family: var(--font-body);
+  font-optical-sizing: auto;
   color: var(--font-body-color);
-  line-height: 1.6;
+  line-height: 1.75;
 }
 
 .description-editor .tiptap {
@@ -2189,8 +2192,9 @@
 .notes-editor {
   font-size: var(--font-body-size);
   font-family: var(--font-body);
+  font-optical-sizing: auto;
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: 1.75;
 }
 
 .notes-editor .tiptap {
@@ -3790,10 +3794,11 @@ textarea.scene-metadata-field-input {
 }
 
 .scene-detail-text {
-  font-size: 18px;
+  font-size: var(--font-body-size);
   font-family: var(--font-body);
+  font-optical-sizing: auto;
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: 1.75;
   cursor: pointer;
   padding: 8px;
   border-radius: 4px;
@@ -3805,10 +3810,11 @@ textarea.scene-metadata-field-input {
 }
 
 .scene-detail-textarea {
-  font-size: 18px;
+  font-size: var(--font-body-size);
   font-family: var(--font-body);
+  font-optical-sizing: auto;
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: 1.75;
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -4310,6 +4316,21 @@ textarea.scene-metadata-field-input {
 .braided-insert-zone:hover .braided-insert-btn,
 .braided-insert-btn:focus {
   opacity: 1;
+}
+
+.braided-timeline.is-dragging .braided-insert-zone {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@keyframes just-moved-fade {
+  0% { background: rgba(59, 130, 246, 0.18); }
+  60% { background: rgba(59, 130, 246, 0.12); }
+  100% { background: transparent; }
+}
+
+.braided-row-wrapper.just-moved {
+  animation: just-moved-fade 5s ease-out forwards;
 }
 
 .braided-insert-btn:hover {
@@ -10600,7 +10621,7 @@ textarea.table-cell-input {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.9em;
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono);
 }
 
 .note-editor-content .tiptap pre {
@@ -11821,7 +11842,7 @@ textarea.table-cell-input {
   margin-bottom: 32px;
 }
 .analytics-title {
-  font-family: var(--font-body, Georgia, serif);
+  font-family: var(--font-body);
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -11853,7 +11874,7 @@ textarea.table-cell-input {
   font-family: var(--font-ui);
 }
 .analytics-summary-value {
-  font-family: var(--font-body, Georgia, serif);
+  font-family: var(--font-body);
   font-size: 32px;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -11902,7 +11923,7 @@ textarea.table-cell-input {
   gap: 12px;
 }
 .analytics-weekly-hours-big {
-  font-family: var(--font-body, Georgia, serif);
+  font-family: var(--font-body);
   letter-spacing: -0.02em;
 }
 .analytics-weekly-hours-current {
@@ -12109,7 +12130,7 @@ textarea.table-cell-input {
   margin-bottom: 20px;
 }
 .analytics-card-title {
-  font-family: var(--font-body, Georgia, serif);
+  font-family: var(--font-body);
   font-size: 16px;
   font-weight: 600;
   font-style: italic;
@@ -12267,7 +12288,7 @@ textarea.table-cell-input {
   justify-content: center;
 }
 .analytics-goal-ring-pct {
-  font-family: var(--font-body, Georgia, serif);
+  font-family: var(--font-body);
   font-size: 28px;
   font-weight: 700;
   color: var(--text-primary);
@@ -12282,7 +12303,7 @@ textarea.table-cell-input {
 }
 .analytics-goal-details { flex: 1; }
 .analytics-goal-title {
-  font-family: var(--font-body, Georgia, serif);
+  font-family: var(--font-body);
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 6px;
@@ -14074,7 +14095,7 @@ textarea.table-cell-input {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: 15px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: var(--font-mono);
   letter-spacing: 1px;
   color: var(--text-primary);
   background: var(--bg-primary);
@@ -17415,7 +17436,7 @@ textarea.table-cell-input {
   height: 28px;
   padding: 0 10px;
   font-size: 12px;
-  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-family: var(--font-ui);
   color: var(--text-muted, #888);
   border-radius: 6px 6px 0 0;
   cursor: pointer;
@@ -18567,26 +18588,14 @@ textarea.table-cell-input {
   opacity: 0.25;
 }
 
-.outline-scene-row.drop-above::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--accent);
-  border-radius: 2px;
+.outline-scene-row.drop-above {
+  box-shadow: 0 -3px 0 0 #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
 }
 
-.outline-scene-row.drop-below::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--accent);
-  border-radius: 2px;
+.outline-scene-row.drop-below {
+  box-shadow: 0 3px 0 0 #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
 }
 
 /* Character name tag — shown in braided list view */
@@ -18654,7 +18663,7 @@ textarea.table-cell-input {
 }
 
 .outline-scene-number {
-  font-size: 15px;
+  font-size: 13px;
   font-family: var(--font-ui);
   font-weight: 400;
   color: var(--text-muted);
@@ -18668,7 +18677,7 @@ textarea.table-cell-input {
   flex: 1;
   font-family: var(--font-scene-title);
   font-size: var(--font-scene-title-size);
-  font-weight: 500;
+  font-weight: var(--font-scene-title-weight);
   color: var(--font-scene-title-color);
   cursor: text;
   line-height: 1.5;
@@ -18682,7 +18691,7 @@ textarea.table-cell-input {
   flex: 1;
   font-family: var(--font-scene-title);
   font-size: var(--font-scene-title-size);
-  font-weight: 500;
+  font-weight: var(--font-scene-title-weight);
   color: var(--font-scene-title-color);
   line-height: 1.5;
   min-width: 0;
@@ -18758,8 +18767,9 @@ textarea.table-cell-input {
   font-family: var(--font-body);
   font-size: var(--font-body-size);
   font-weight: var(--font-body-weight);
+  font-optical-sizing: auto;
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: 1.75;
   border: none;
   outline: none;
   background: transparent;

@@ -299,7 +299,7 @@ export default function GraphView({ notes, scenes, characters, onSelectNote, sel
       }
 
       const fontSize = isHovered || isSelected ? 12 : 10;
-      ctx.font = `${isSelected ? '600' : '400'} ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      ctx.font = `${isSelected ? '600' : '400'} ${fontSize}px "DM Sans", system-ui, sans-serif`;
       ctx.fillStyle = isHovered || isSelected ? '#1f2937' : '#6b7280';
       ctx.textAlign = 'center';
       const label = node.title.length > 24 ? node.title.substring(0, 22) + '...' : node.title;

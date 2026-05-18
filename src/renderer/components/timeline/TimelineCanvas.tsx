@@ -328,7 +328,7 @@ export default function TimelineCanvas({
 
     // 4. Day labels at top
     ctx.textAlign = 'center';
-    ctx.font = '11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+    ctx.font = '11px "DM Sans", system-ui, sans-serif';
     for (const date of dateRange) {
       const x = dayX(date);
       const charMap = sceneDateMap[date] || {};
@@ -363,7 +363,7 @@ export default function TimelineCanvas({
 
     // 6. Character lane labels (left side)
     ctx.textAlign = 'right';
-    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+    ctx.font = 'bold 11px "DM Sans", system-ui, sans-serif';
     for (let i = 0; i < characters.length; i++) {
       const char = characters[i];
       const color = characterColors[char.id] || '#888';
@@ -375,7 +375,7 @@ export default function TimelineCanvas({
 
     // 7. World events row label
     ctx.fillStyle = COLORS.worldEventStroke + '99';
-    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+    ctx.font = 'bold 11px "DM Sans", system-ui, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText('World', labelWidthRef.current - 12, TOP_MARGIN + EVENT_HEIGHT / 2 + 4);
 
@@ -498,13 +498,13 @@ export default function TimelineCanvas({
 
       // Scene number
       ctx.fillStyle = color + '99';
-      ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+      ctx.font = 'bold 10px "DM Sans", system-ui, sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText(`#${scene.sceneNumber}`, r.x + 10, r.y + 14);
 
       // Scene title
       ctx.fillStyle = isHovered || isSelected ? COLORS.cardText : '#555555';
-      ctx.font = '12px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+      ctx.font = '12px "DM Sans", system-ui, sans-serif';
       const title = scene.title || `Scene ${scene.sceneNumber}`;
       const displayTitle = truncateText(ctx, title, r.w - 16);
       ctx.fillText(displayTitle, r.x + 10, r.y + 32);
@@ -557,7 +557,7 @@ export default function TimelineCanvas({
       ctx.fillStyle = isHovered || isSelected
         ? COLORS.worldEventText
         : COLORS.worldEventText + 'CC';
-      ctx.font = '11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+      ctx.font = '11px "DM Sans", system-ui, sans-serif';
       ctx.textAlign = 'left';
       const evTitle = truncateText(ctx, ev.title, r.w - 28);
       ctx.fillText(evTitle, r.x + 22, r.y + r.h / 2 + 4);

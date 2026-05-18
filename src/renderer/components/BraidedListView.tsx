@@ -1,4 +1,4 @@
-import { useState, useRef, CSSProperties } from 'react';
+import { useState, useRef, useEffect, CSSProperties, Fragment } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -248,6 +248,7 @@ interface BraidedTimelineProps {
   displayedScenes: Scene[];
   braidedChapters: BraidedChapter[];
   dndActiveId: string | null;
+  lastMovedSceneId: string | null;
   povReorderedScenes: Set<string>;
   characters: Character[];
   plotPoints: PlotPoint[];
@@ -277,6 +278,7 @@ function BraidedTimeline({
   displayedScenes,
   braidedChapters,
   dndActiveId,
+  lastMovedSceneId,
   povReorderedScenes,
   characters,
   plotPoints,
@@ -307,7 +309,7 @@ function BraidedTimeline({
   const isDraggingAny = !!dndActiveId || !!draggedChapter;
 
   return (
-    <div className="braided-timeline" ref={scrollRef}>
+    <div className={`braided-timeline${isDraggingAny ? ' is-dragging' : ''}`} ref={scrollRef}>
       <SortableContext items={displayedScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
         {displayedScenes.length === 0 && (
           <div className="drop-zone empty-timeline">
@@ -320,7 +322,7 @@ function BraidedTimeline({
           const chapterBefore = braidedChapters.find(ch => ch.beforePosition === displayPosition);
 
           return (
-            <div key={scene.id}>
+            <Fragment key={scene.id}>
               {chapterBefore && (
                 <div
                   className={`braided-chapter${draggedChapter?.id === chapterBefore.id ? ' dragging' : ''}`}
@@ -371,32 +373,30 @@ function BraidedTimeline({
                 </div>
               )}
 
-              {!isDraggingAny && (
-                <InsertPopover
-                  index={index}
-                  displayPosition={displayPosition}
-                  displayedScenesLength={displayedScenes.length}
-                  characters={characters}
-                  plotPoints={plotPoints}
-                  braidedChapters={braidedChapters}
-                  characterColors={characterColors}
-                  insertAtPosition={insertAtPosition}
-                  setInsertAtPosition={setInsertAtPosition}
-                  insertCharacterId={insertCharacterId}
-                  setInsertCharacterId={setInsertCharacterId}
-                  addingChapterAtPosition={addingChapterAtPosition}
-                  setAddingChapterAtPosition={setAddingChapterAtPosition}
-                  onInsertSceneAtPosition={onInsertSceneAtPosition}
-                  onAddChapter={onAddChapter}
-                />
-              )}
+              <InsertPopover
+                index={index}
+                displayPosition={displayPosition}
+                displayedScenesLength={displayedScenes.length}
+                characters={characters}
+                plotPoints={plotPoints}
+                braidedChapters={braidedChapters}
+                characterColors={characterColors}
+                insertAtPosition={insertAtPosition}
+                setInsertAtPosition={setInsertAtPosition}
+                insertCharacterId={insertCharacterId}
+                setInsertCharacterId={setInsertCharacterId}
+                addingChapterAtPosition={addingChapterAtPosition}
+                setAddingChapterAtPosition={setAddingChapterAtPosition}
+                onInsertSceneAtPosition={onInsertSceneAtPosition}
+                onAddChapter={onAddChapter}
+              />
 
               <SortableItem id={scene.id} data={{ type: 'timeline-scene', scene }}>
                 {({ setNodeRef, style, attributes, listeners, isDragging, dropPosition }) => (
                   <div
                     ref={setNodeRef}
                     style={{ ...style, '--char-color': getCharacterHexColor(scene.characterId) } as CSSProperties}
-                    className={`pov-outline-row-wrapper braided-row-wrapper${povReorderedScenes.has(scene.id) ? ' pov-reordered' : ''}`}
+                    className={`pov-outline-row-wrapper braided-row-wrapper${povReorderedScenes.has(scene.id) ? ' pov-reordered' : ''}${lastMovedSceneId === scene.id ? ' just-moved' : ''}`}
                   >
                     <span className="pov-drag-handle" {...attributes} {...listeners}>⋮⋮</span>
                     <OutlineSceneRow
@@ -414,12 +414,12 @@ function BraidedTimeline({
                   </div>
                 )}
               </SortableItem>
-            </div>
+            </Fragment>
           );
         })}
 
         {/* End insert zone */}
-        {displayedScenes.length > 0 && !isDraggingAny && (
+        {displayedScenes.length > 0 && (
           <InsertPopover
             index={displayedScenes.length}
             displayPosition={displayedScenes.length + 1}
@@ -486,6 +486,10 @@ export default function BraidedListView({
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
   const [addingChapterAtPosition, setAddingChapterAtPosition] = useState<number | null>(null);
+  const [lastMovedSceneId, setLastMovedSceneId] = useState<string | null>(null);
+  const lastMovedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (lastMovedTimerRef.current) clearTimeout(lastMovedTimerRef.current); }, []);
 
   const handleDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
@@ -499,15 +503,23 @@ export default function BraidedListView({
 
     const activeType = active.data.current?.type as string | undefined;
 
+    const markMoved = (id: string) => {
+      if (lastMovedTimerRef.current) clearTimeout(lastMovedTimerRef.current);
+      setLastMovedSceneId(id);
+      lastMovedTimerRef.current = setTimeout(() => setLastMovedSceneId(null), 5000);
+    };
+
     if (activeType === 'timeline-scene') {
       if (over.id === 'braided-inbox') {
         onMoveToInbox(String(active.id));
       } else if (active.id !== over.id) {
         onReorderTimeline(String(active.id), String(over.id));
+        markMoved(String(active.id));
       }
     } else if (activeType === 'inbox-scene') {
       if (over.id !== 'braided-inbox') {
         onMoveFromInbox(String(active.id), String(over.id));
+        markMoved(String(active.id));
       }
     }
   };
@@ -561,6 +573,7 @@ export default function BraidedListView({
           displayedScenes={displayedScenes}
           braidedChapters={braidedChapters}
           dndActiveId={activeId}
+          lastMovedSceneId={lastMovedSceneId}
           povReorderedScenes={povReorderedScenes}
           characters={characters}
           plotPoints={plotPoints}
@@ -651,7 +664,7 @@ export default function BraidedListView({
         </InboxDropZone>
       </div>
 
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {getDragOverlayContent()}
       </DragOverlay>
     </DndContext>

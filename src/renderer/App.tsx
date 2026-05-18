@@ -509,6 +509,7 @@ function App() {
         } else {
           undoProjectData();
         }
+        isDirtyRef.current = true;
       }
 
       // Cmd+K / Ctrl+K: Open search
