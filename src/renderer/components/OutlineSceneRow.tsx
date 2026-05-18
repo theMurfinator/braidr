@@ -21,7 +21,7 @@ interface OutlineSceneRowProps {
 function OutlineSceneRow({
   scene,
   displayNumber,
-  characterName: _characterName,
+  characterName,
   synopsisVisible,
   onSceneChange,
   onSetAside,
@@ -138,6 +138,9 @@ function OutlineSceneRow({
         )}
         {displayNumber !== undefined && (
           <span className="outline-scene-number">{displayNumber}.</span>
+        )}
+        {characterName && (
+          <span className="outline-scene-character-tag">{characterName}</span>
         )}
         {editingTitle ? (
           <input

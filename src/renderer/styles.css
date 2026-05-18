@@ -18567,6 +18567,59 @@ textarea.table-cell-input {
   opacity: 0.25;
 }
 
+.outline-scene-row.drop-above::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.outline-scene-row.drop-below::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* Character name tag — shown in braided list view */
+.outline-scene-character-tag {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+/* Braided row wrapper — extends pov-outline-row-wrapper with char color strip */
+.braided-row-wrapper::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  background: var(--char-color, transparent);
+  border-radius: 2px;
+  z-index: 2;
+}
+
+/* Inbox highlight when dnd-kit drag enters it */
+.dnd-inbox-over {
+  background: var(--bg-secondary);
+}
 
 /* Main row: handle + number + title + tag + actions */
 .outline-scene-main {

@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, BranchIndex, BranchCompareData } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
 import { migrateNotesSceneLinks } from './services/migration';
-import SceneCard from './components/SceneCard';
 import PovOutlineView from './components/PovOutlineView';
 import BullpenPanel from './components/BullpenPanel';
 import FilterBar from './components/FilterBar';
@@ -44,6 +43,7 @@ import { useAutoScrollOnDrag } from './hooks/useAutoScrollOnDrag';
 import { DndContext, DragOverlay, closestCenter, DragStartEvent, DragEndEvent, DragCancelEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useSortableSensors, DragPreviewCard } from './dnd';
+import BraidedListView from './components/BraidedListView';
 import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
 import { CompareView } from './components/branches/CompareView';
@@ -90,7 +90,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draggedScene, setDraggedScene] = useState<Scene | null>(null);
-  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const [_dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
   // Compute which braided scenes are out of POV order (per character)
   const povReorderedScenes = useMemo(() => {
     if (!projectData) return new Set<string>();
@@ -128,17 +128,11 @@ function App() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionSource, setConnectionSource] = useState<string | null>(null);
   const [sceneConnections, setSceneConnections] = useState<Record<string, string[]>>({});
-  const [scenePositions, setScenePositions] = useState<Record<string, number>>({});
   const [braidedChapters, setBraidedChapters] = useState<BraidedChapter[]>([]);
   const [characterColors, setCharacterColors] = useState<Record<string, string>>({});
   const characterColorsRef = useRef<Record<string, string>>({});
   const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
-  const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
   const canDragSceneRef = useRef(false);
-  const [draggedChapter, setDraggedChapter] = useState<BraidedChapter | null>(null);
-  const [addingChapterAtPosition, setAddingChapterAtPosition] = useState<number | null>(null);
-  const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
-  const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
   const draggedPovSceneRef = useRef<Scene | null>(null);
   const [povActiveId, setPovActiveId] = useState<string | null>(null);
   const povSensors = useSortableSensors();
@@ -408,21 +402,6 @@ function App() {
     worldEventsRef.current = events;
     isDirtyRef.current = true;
   }, []);
-
-  const handleSceneDateChange = useCallback((sceneId: string, date: string | undefined) => {
-    if (!projectData) return;
-    if (date) {
-      const year = new Date(date + 'T00:00:00').getFullYear();
-      if (isNaN(year) || year < 1 || year > 2200) return;
-    }
-    const s = projectData.scenes.find(sc => sc.id === sceneId);
-    if (s) {
-      const updated = { ...timelineDatesRef.current };
-      if (date) updated[s.id] = date;
-      else delete updated[s.id];
-      handleTimelineDatesChange(updated);
-    }
-  }, [projectData, handleTimelineDatesChange]);
 
   // Welcome screen state
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
@@ -1537,61 +1516,6 @@ function App() {
     });
   }, [sceneConnections, projectData?.scenes, getCharacterName]);
 
-  const handleSceneClick = (scene: Scene, _e: React.MouseEvent) => {
-    // Don't do anything if we're dragging
-    if (draggedScene) return;
-
-    // If we're in connection mode, complete the connection
-    if (isConnecting && connectionSource && connectionSource !== scene.id && projectData) {
-      const sourceConnections = sceneConnections[connectionSource] || [];
-      const targetConnections = sceneConnections[scene.id] || [];
-
-      // Add bidirectional connection
-      if (!sourceConnections.includes(scene.id)) {
-        const newConnections = {
-          ...sceneConnections,
-          [connectionSource]: [...sourceConnections, scene.id],
-          [scene.id]: [...targetConnections, connectionSource],
-        };
-        setSceneConnections(newConnections);
-        // Save connections to file
-        saveTimelineData(projectData.scenes, newConnections, braidedChapters);
-      }
-      setIsConnecting(false);
-      setConnectionSource(null);
-      return;
-    }
-
-    // No longer selecting scenes for detail panel - connections handled inline
-  };
-
-  const getConnectableScenes = useCallback((sceneId: string): { id: string; label: string }[] => {
-    if (!projectData) return [];
-    const alreadyConnected = new Set(sceneConnections[sceneId] || []);
-    return projectData.scenes
-      .filter(s => s.id !== sceneId && !alreadyConnected.has(s.id))
-      .map(s => {
-        const charName = getCharacterName(s.characterId);
-        return { id: s.id, label: `${charName} - Scene ${s.sceneNumber}` };
-      });
-  }, [projectData, sceneConnections, getCharacterName]);
-
-  const handleCompleteConnection = async (sourceId: string, targetId: string) => {
-    if (!projectData) return;
-    const sourceConnections = sceneConnections[sourceId] || [];
-    const targetConnections = sceneConnections[targetId] || [];
-    if (!sourceConnections.includes(targetId)) {
-      const newConnections = {
-        ...sceneConnections,
-        [sourceId]: [...sourceConnections, targetId],
-        [targetId]: [...targetConnections, sourceId],
-      };
-      setSceneConnections(newConnections);
-      await saveTimelineData(projectData.scenes, newConnections, braidedChapters);
-      track('connection_created');
-    }
-  };
-
   const handleRemoveConnection = async (sourceId: string, targetId: string) => {
     if (!projectData) return;
     const newConnections = { ...sceneConnections };
@@ -1960,36 +1884,6 @@ function App() {
     await saveTimelineData(projectData.scenes, sceneConnections, updatedChapters);
   };
 
-  // Measure scene positions for connection lines
-  useLayoutEffect(() => {
-    if (!timelineRef.current || viewMode !== 'braided') return;
-
-    const measurePositions = () => {
-      const container = timelineRef.current;
-      if (!container) return;
-
-      const positions: Record<string, number> = {};
-      const wrappers = container.querySelectorAll('.braided-scene-wrapper');
-      const containerRect = container.getBoundingClientRect();
-
-      wrappers.forEach((wrapper) => {
-        const sceneId = wrapper.getAttribute('data-scene-id');
-        if (sceneId) {
-          const rect = wrapper.getBoundingClientRect();
-          // Get center Y position relative to container
-          positions[sceneId] = rect.top - containerRect.top + rect.height / 2;
-        }
-      });
-
-      setScenePositions(positions);
-    };
-
-    measurePositions();
-    // Re-measure on window resize
-    window.addEventListener('resize', measurePositions);
-    return () => window.removeEventListener('resize', measurePositions);
-  }, [viewMode, displayedScenes, sceneConnections]);
-
   const DEFAULT_HEX_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#14b8a6', '#f59e0b'];
 
   const getCharacterHexColor = useCallback((characterId: string): string => {
@@ -2282,12 +2176,6 @@ function App() {
     setDropTargetIndex(null);
   };
 
-  const handleDragOverTimeline = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDropTargetIndex(index);
-  };
-
   const handleDropOnTimeline = async (e: React.DragEvent | null, targetIndex: number) => {
     if (e) {
       e.preventDefault();
@@ -2329,11 +2217,6 @@ function App() {
     track('scene_reordered', { view: 'braided' });
   };
 
-  const handleDragOverInbox = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
   const handleDropOnInbox = async (e: React.DragEvent | null) => {
     if (e) {
       e.preventDefault();
@@ -2367,6 +2250,62 @@ function App() {
 
     await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
   };
+
+  // dnd-kit handlers for BraidedListView (separate from HTML5 drag handlers used by RailsView)
+  const handleBraidedReorder = useCallback(async (activeId: string, overId: string) => {
+    if (!projectData) return;
+    const braidedScenes = projectData.scenes
+      .filter(s => s.timelinePosition !== null)
+      .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+    const oldIndex = braidedScenes.findIndex(s => s.id === activeId);
+    const newIndex = braidedScenes.findIndex(s => s.id === overId);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(braidedScenes, oldIndex, newIndex);
+    const newPositions = new Map(reordered.map((s, i) => [s.id, i + 1]));
+    const finalScenes = projectData.scenes.map(s => {
+      const pos = newPositions.get(s.id);
+      return pos !== undefined ? { ...s, timelinePosition: pos } : s;
+    });
+    setProjectData({ ...projectData, scenes: finalScenes });
+    await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
+    track('scene_reordered', { view: 'braided' });
+  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+
+  const handleBraidedMoveToInbox = useCallback(async (sceneId: string) => {
+    if (!projectData) return;
+    const updatedScenes = projectData.scenes.map(s =>
+      s.id === sceneId ? { ...s, timelinePosition: null } : s
+    );
+    const braidedRemaining = updatedScenes
+      .filter(s => s.timelinePosition !== null)
+      .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+    const finalScenes = updatedScenes.map(scene => {
+      const idx = braidedRemaining.findIndex(s => s.id === scene.id);
+      return idx !== -1 ? { ...scene, timelinePosition: idx + 1 } : scene;
+    });
+    setProjectData({ ...projectData, scenes: finalScenes });
+    await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
+  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+
+  const handleBraidedMoveFromInbox = useCallback(async (sceneId: string, overSceneId: string) => {
+    if (!projectData) return;
+    const braidedScenes = projectData.scenes
+      .filter(s => s.timelinePosition !== null)
+      .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+    const overIndex = braidedScenes.findIndex(s => s.id === overSceneId);
+    const insertAt = overIndex === -1 ? braidedScenes.length : overIndex;
+    const inboxScene = projectData.scenes.find(s => s.id === sceneId);
+    if (!inboxScene) return;
+    const withInbox = [...braidedScenes];
+    withInbox.splice(insertAt, 0, inboxScene);
+    const newPositions = new Map(withInbox.map((s, i) => [s.id, i + 1]));
+    const finalScenes = projectData.scenes.map(s => {
+      const pos = newPositions.get(s.id);
+      return pos !== undefined ? { ...s, timelinePosition: pos } : s;
+    });
+    setProjectData({ ...projectData, scenes: finalScenes });
+    await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
+  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
 
   // Tag management handlers
   const handleUpdateTag = (tagId: string, category: TagCategory) => {
@@ -2480,9 +2419,6 @@ function App() {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
 
-    // Close popover (don't navigate away from current view)
-    setInsertAtPosition(null);
-    setInsertCharacterId(null);
   };
 
   const handleInsertSceneOnTimeline = async (characterId: string, plotPointId: string, date: string): Promise<string | null> => {
@@ -3363,465 +3299,30 @@ function App() {
                 onInsertSceneAtPosition={handleInsertSceneAtPosition}
               />
             ) : (
-              // Braided List View
-              <div className={`braided-layout ${draggedScene ? 'is-dragging' : ''} ${isConnecting ? 'is-connecting' : ''}`}>
-                <div className="braided-timeline" ref={timelineRef}>
-                  <svg className="connection-lines">
-                    {displayedScenes.map((scene, index) => {
-                      const connections = sceneConnections[scene.id] || [];
-                      const startY = scenePositions[scene.id];
-                      if (startY === undefined) return null;
-                      return connections.map(connId => {
-                        const targetIndex = displayedScenes.findIndex(s => s.id === connId);
-                        if (targetIndex === -1 || targetIndex <= index) return null;
-                        const endY = scenePositions[connId];
-                        if (endY === undefined) return null;
-                        const distance = Math.abs(targetIndex - index);
-                        const curveDepth = 20 + Math.min(distance, 6) * 8;
-                        const cardEdgeX = 38;
-                        const isHighlighted =
-                          scene.id === hoveredSceneId ||
-                          scene.id === selectedSceneId ||
-                          connId === hoveredSceneId ||
-                          connId === selectedSceneId;
-                        return (
-                          <path
-                            key={`${scene.id}-${connId}`}
-                            d={`M ${cardEdgeX} ${startY} C ${cardEdgeX - curveDepth} ${startY}, ${cardEdgeX - curveDepth} ${endY}, ${cardEdgeX} ${endY}`}
-                            className={`connection-line ${isHighlighted ? 'highlighted' : ''}`}
-                            onClick={() => setSelectedSceneId(scene.id)}
-                          />
-                        );
-                      });
-                    })}
-                  </svg>
-                  {isConnecting && (
-                    <div className="connecting-banner">
-                      Click another scene to connect, or <button onClick={() => { setIsConnecting(false); setConnectionSource(null); }}>cancel</button>
-                    </div>
-                  )}
-                  {displayedScenes.length === 0 && (
-                    <div
-                      className={`drop-zone empty-timeline ${dropTargetIndex === 0 ? 'active' : ''}`}
-                      onDragOver={(e) => handleDragOverTimeline(e, 0)}
-                      onDrop={(e) => handleDropOnTimeline(e, 0)}
-                    >
-                      Drag scenes here to start braiding
-                    </div>
-                  )}
-                  {displayedScenes.map((scene, index) => {
-                    const displayPosition = index + 1;
-                    const chapterBefore = braidedChapters.find(ch => ch.beforePosition === displayPosition);
-                    return (
-                      <div key={scene.id}>
-                        {chapterBefore && (
-                          <div
-                            className={`braided-chapter ${draggedChapter?.id === chapterBefore.id ? 'dragging' : ''}`}
-                            draggable
-                            onDragStart={(e) => {
-                              setDraggedChapter(chapterBefore);
-                              e.dataTransfer.effectAllowed = 'move';
-                              e.dataTransfer.setData('text/plain', chapterBefore.id);
-                            }}
-                            onDragEnd={() => setDraggedChapter(null)}
-                          >
-                            <span className="chapter-drag-handle">&#8942;&#8942;</span>
-                            <input
-                              type="text"
-                              className="braided-chapter-title"
-                              defaultValue={chapterBefore.title}
-                              onBlur={(e) => {
-                                if (e.target.value !== chapterBefore.title) {
-                                  handleUpdateChapter(chapterBefore.id, e.target.value);
-                                }
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  (e.target as HTMLInputElement).blur();
-                                }
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <button
-                              className="delete-chapter-btn"
-                              onClick={() => handleDeleteChapter(chapterBefore.id)}
-                              title="Delete chapter"
-                            >
-                              &#215;
-                            </button>
-                          </div>
-                        )}
-                        {!chapterBefore && draggedChapter && (
-                          <div
-                            className="chapter-drop-zone"
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              e.dataTransfer.dropEffect = 'move';
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              if (draggedChapter) {
-                                handleMoveChapter(draggedChapter.id, displayPosition);
-                                setDraggedChapter(null);
-                              }
-                            }}
-                          >
-                            Move chapter here
-                          </div>
-                        )}
-                        {!draggedScene && !draggedChapter && (
-                          <div className="braided-insert-zone">
-                            <button
-                              className="braided-insert-btn"
-                              onClick={() => {
-                                setInsertAtPosition(insertAtPosition === index ? null : index);
-                                setInsertCharacterId(null);
-                                setAddingChapterAtPosition(null);
-                              }}
-                              title="Insert here"
-                            >+</button>
-                            {insertAtPosition === index && (
-                              <div className="braided-insert-popover">
-                                {addingChapterAtPosition === displayPosition ? (
-                                  <div className="braided-insert-chapter-input">
-                                    <input
-                                      type="text"
-                                      className="add-chapter-input"
-                                      placeholder="Chapter title..."
-                                      autoFocus
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          const input = e.target as HTMLInputElement;
-                                          if (input.value.trim()) {
-                                            handleAddChapter(input.value.trim(), displayPosition);
-                                            setAddingChapterAtPosition(null);
-                                            setInsertAtPosition(null);
-                                          }
-                                        } else if (e.key === 'Escape') {
-                                          setAddingChapterAtPosition(null);
-                                        }
-                                      }}
-                                      onBlur={(e) => {
-                                        if (e.target.value.trim()) {
-                                          handleAddChapter(e.target.value.trim(), displayPosition);
-                                        }
-                                        setAddingChapterAtPosition(null);
-                                        setInsertAtPosition(null);
-                                      }}
-                                    />
-                                  </div>
-                                ) : !insertCharacterId ? (
-                                  <>
-                                    <button
-                                      className="braided-insert-popover-item braided-insert-chapter-option"
-                                      onClick={() => setAddingChapterAtPosition(displayPosition)}
-                                    >
-                                      + Chapter
-                                    </button>
-                                    <div className="braided-insert-divider" />
-                                    <div className="braided-insert-popover-title">Insert scene</div>
-                                    {projectData?.characters.map(char => (
-                                      <button
-                                        key={char.id}
-                                        className="braided-insert-popover-item"
-                                        onClick={() => setInsertCharacterId(char.id)}
-                                      >
-                                        <span className="braided-insert-color-dot" style={{ background: characterColors[char.id] || '#888' }} />
-                                        {char.name}
-                                      </button>
-                                    ))}
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="braided-insert-popover-title">
-                                      <button className="braided-insert-back-btn" onClick={() => setInsertCharacterId(null)}>&larr;</button>
-                                      Pick a section
-                                    </div>
-                                    {projectData?.plotPoints
-                                      .filter(p => p.characterId === insertCharacterId)
-                                      .sort((a, b) => a.order - b.order)
-                                      .map(pp => (
-                                        <button
-                                          key={pp.id}
-                                          className="braided-insert-popover-item"
-                                          onClick={() => handleInsertSceneAtPosition(index, insertCharacterId!, pp.id)}
-                                        >
-                                          {pp.title}
-                                        </button>
-                                      ))}
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <div className="braided-scene-wrapper" data-scene-id={scene.id}>
-                          <div
-                            className={`drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
-                            onDragOver={(e) => handleDragOverTimeline(e, index)}
-                            onDrop={(e) => handleDropOnTimeline(e, index)}
-                          />
-                          <div
-                            draggable="true"
-                            onDragStart={(e) => {
-                              if (canDragSceneRef.current) {
-                                handleDragStart(e, scene);
-                              } else {
-                                e.preventDefault();
-                              }
-                            }}
-                            onDragEnd={() => {
-                              handleDragEnd();
-                              canDragSceneRef.current = false;
-                            }}
-                            onClick={(e) => {
-                              if (isConnecting && connectionSource && connectionSource !== scene.id) {
-                                handleSceneClick(scene, e);
-                              }
-                            }}
-                            onMouseEnter={() => setHoveredSceneId(scene.id)}
-                            onMouseLeave={() => setHoveredSceneId(null)}
-                            className={`braided-scene-drag-wrapper ${draggedScene?.id === scene.id ? 'dragging' : ''} ${isConnecting && connectionSource !== scene.id ? 'connect-target' : ''} ${povReorderedScenes.has(scene.id) ? 'pov-reordered' : ''}`}
-                          >
-                            <div
-                              className="scene-drag-gutter"
-                              onMouseDown={() => { canDragSceneRef.current = true; }}
-                            >
-                              <span className="scene-drag-gutter-icon">⋮⋮</span>
-                            </div>
-                            <SceneCard
-                              scene={scene}
-                              tags={projectData.tags}
-                              showCharacter={true}
-                              characterName={getCharacterName(scene.characterId)}
-                              displayNumber={displayPosition}
-                              plotPointTitle={scene.plotPointId ? projectData.plotPoints.find(p => p.id === scene.plotPointId)?.title : undefined}
-                              showDragHandle={false}
-                              backgroundColor={undefined}
-                              onSceneChange={handleSceneChange}
-                              onTagsChange={handleTagsChange}
-                              onCreateTag={handleCreateTag}
-                              onDeleteScene={handleArchiveScene}
-                              onDuplicateScene={handleDuplicateScene}
-                              connectedScenes={getConnectedScenes(scene.id)}
-                              onStartConnection={() => {
-                                setConnectionSource(scene.id);
-                                setIsConnecting(true);
-                              }}
-                              onRemoveConnection={(targetId) => handleRemoveConnection(scene.id, targetId)}
-                              onWordCountChange={handleWordCountChange}
-                              connectableScenes={getConnectableScenes(scene.id)}
-                              onCompleteConnection={(targetId) => handleCompleteConnection(scene.id, targetId)}
-                              onOpenInEditor={handleOpenInEditor}
-                              metadataFieldDefs={metadataFieldDefs}
-                              sceneMetadata={sceneMetadata[scene.id]}
-                              onMetadataChange={(sceneId, fieldId, value) => {
-                                handleMetadataChange(sceneId, fieldId, value);
-                              }}
-                              onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
-                              inlineMetadataFields={inlineMetadataFields}
-                              showInlineLabels={showInlineLabels}
-                              sceneDate={timelineDates[scene.id]}
-                              onDateChange={handleSceneDateChange}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {displayedScenes.length > 0 && (
-                    <div
-                      className={`drop-zone ${dropTargetIndex === displayedScenes.length ? 'active' : ''}`}
-                      onDragOver={(e) => handleDragOverTimeline(e, displayedScenes.length)}
-                      onDrop={(e) => handleDropOnTimeline(e, displayedScenes.length)}
-                    />
-                  )}
-                  {displayedScenes.length > 0 && !draggedScene && !draggedChapter && (
-                    <div className="braided-insert-zone">
-                      <button
-                        className="braided-insert-btn"
-                        onClick={() => {
-                          const pos = displayedScenes.length;
-                          setInsertAtPosition(insertAtPosition === pos ? null : pos);
-                          setInsertCharacterId(null);
-                          setAddingChapterAtPosition(null);
-                        }}
-                        title="Insert here"
-                      >+</button>
-                      {insertAtPosition === displayedScenes.length && (
-                        <div className="braided-insert-popover">
-                          {addingChapterAtPosition === displayedScenes.length + 1 ? (
-                            <div className="braided-insert-chapter-input">
-                              <input
-                                type="text"
-                                className="add-chapter-input"
-                                placeholder="Chapter title..."
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    const input = e.target as HTMLInputElement;
-                                    if (input.value.trim()) {
-                                      const existingPositions = braidedChapters.map(ch => ch.beforePosition);
-                                      let newPosition = displayedScenes.length + 1;
-                                      while (existingPositions.includes(newPosition)) newPosition++;
-                                      handleAddChapter(input.value.trim(), newPosition);
-                                      setAddingChapterAtPosition(null);
-                                      setInsertAtPosition(null);
-                                    }
-                                  } else if (e.key === 'Escape') {
-                                    setAddingChapterAtPosition(null);
-                                  }
-                                }}
-                                onBlur={(e) => {
-                                  if (e.target.value.trim()) {
-                                    const existingPositions = braidedChapters.map(ch => ch.beforePosition);
-                                    let newPosition = displayedScenes.length + 1;
-                                    while (existingPositions.includes(newPosition)) newPosition++;
-                                    handleAddChapter(e.target.value.trim(), newPosition);
-                                  }
-                                  setAddingChapterAtPosition(null);
-                                  setInsertAtPosition(null);
-                                }}
-                              />
-                            </div>
-                          ) : !insertCharacterId ? (
-                            <>
-                              <button
-                                className="braided-insert-popover-item braided-insert-chapter-option"
-                                onClick={() => setAddingChapterAtPosition(displayedScenes.length + 1)}
-                              >
-                                + Chapter
-                              </button>
-                              <div className="braided-insert-divider" />
-                              <div className="braided-insert-popover-title">Insert scene</div>
-                              {projectData?.characters.map(char => (
-                                <button
-                                  key={char.id}
-                                  className="braided-insert-popover-item"
-                                  onClick={() => setInsertCharacterId(char.id)}
-                                >
-                                  <span className="braided-insert-color-dot" style={{ background: characterColors[char.id] || '#888' }} />
-                                  {char.name}
-                                </button>
-                              ))}
-                            </>
-                          ) : (
-                            <>
-                              <div className="braided-insert-popover-title">
-                                <button className="braided-insert-back-btn" onClick={() => setInsertCharacterId(null)}>&larr;</button>
-                                Pick a section
-                              </div>
-                              {projectData?.plotPoints
-                                .filter(p => p.characterId === insertCharacterId)
-                                .sort((a, b) => a.order - b.order)
-                                .map(pp => (
-                                  <button
-                                    key={pp.id}
-                                    className="braided-insert-popover-item"
-                                    onClick={() => handleInsertSceneAtPosition(displayedScenes.length, insertCharacterId!, pp.id)}
-                                  >
-                                    {pp.title}
-                                  </button>
-                                ))}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* To Braid Inbox */}
-                <div
-                  className="to-braid-inbox"
-                  onDragOver={handleDragOverInbox}
-                  onDrop={handleDropOnInbox}
-                >
-                  <div className="inbox-header">
-                    <h2 className="inbox-title">To Braid</h2>
-                    <select
-                      className="inbox-char-filter"
-                      value={listInboxCharFilter[tabId] ?? 'all'}
-                      onChange={(e) => setListInboxCharFilter(prev => ({ ...prev, [tabId]: e.target.value }))}
-                    >
-                      <option value="all">All Characters</option>
-                      {projectData.characters.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="inbox-characters">
-                    {projectData.characters.filter(c => (listInboxCharFilter[tabId] ?? 'all') === 'all' || c.id === (listInboxCharFilter[tabId] ?? 'all')).map(char => {
-                      const charPlotPointMap = unbraidedScenesByCharacter.get(char.id);
-                      const charPlotPoints = projectData.plotPoints
-                        .filter(p => p.characterId === char.id)
-                        .sort((a, b) => a.order - b.order);
-                      let totalUnbraided = 0;
-                      if (charPlotPointMap) {
-                        for (const scenes of charPlotPointMap.values()) {
-                          totalUnbraided += scenes.length;
-                        }
-                      }
-                      const charColor = getCharacterHexColor(char.id);
-                      return (
-                        <div key={char.id} className="inbox-character-group">
-                          <div className="inbox-character-header">
-                            <div className="inbox-character-color" style={{ backgroundColor: charColor }} />
-                            <h3 className="inbox-character-name">{char.name}</h3>
-                            {totalUnbraided > 0 && (
-                              <span className="inbox-character-count">{totalUnbraided}</span>
-                            )}
-                          </div>
-                          <div className="inbox-scenes">
-                            {totalUnbraided > 0 ? (
-                              <>
-                                {charPlotPoints.map(plotPoint => {
-                                  const plotPointScenes = charPlotPointMap?.get(plotPoint.id);
-                                  if (!plotPointScenes || plotPointScenes.length === 0) return null;
-                                  return (
-                                    <div key={plotPoint.id} className="inbox-plot-point-group">
-                                      <div className="inbox-plot-point-header">{plotPoint.title}</div>
-                                      {plotPointScenes.map(scene => (
-                                        <div
-                                          key={scene.id}
-                                          className="inbox-scene"
-                                          style={{ '--char-color': charColor } as React.CSSProperties}
-                                          draggable
-                                          onDragStart={(e) => handleDragStart(e, scene)}
-                                          onDragEnd={handleDragEnd}
-                                        >
-                                          <span className="inbox-scene-number">{scene.sceneNumber}.</span>
-                                          <span className="inbox-scene-title">{scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  );
-                                })}
-                                {charPlotPointMap?.get('no-plot-point')?.map(scene => (
-                                  <div
-                                    key={scene.id}
-                                    className="inbox-scene"
-                                    style={{ '--char-color': charColor } as React.CSSProperties}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, scene)}
-                                    onDragEnd={handleDragEnd}
-                                  >
-                                    <span className="inbox-scene-number">{scene.sceneNumber}.</span>
-                                    <span className="inbox-scene-title">{scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')}</span>
-                                  </div>
-                                ))}
-                              </>
-                            ) : (
-                              <div className="inbox-empty">All braided</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-              </div>
+              <BraidedListView
+                displayedScenes={displayedScenes}
+                unbraidedScenesByCharacter={unbraidedScenesByCharacter}
+                characters={projectData.characters}
+                plotPoints={projectData.plotPoints}
+                braidedChapters={braidedChapters}
+                characterColors={characterColors}
+                getCharacterName={getCharacterName}
+                getCharacterHexColor={getCharacterHexColor}
+                povReorderedScenes={povReorderedScenes}
+                inboxCharFilter={listInboxCharFilter[tabId] ?? 'all'}
+                onInboxCharFilterChange={(v) => setListInboxCharFilter(prev => ({ ...prev, [tabId]: v }))}
+                synopsisVisible={false}
+                onSceneChange={handleSceneChange}
+                onReorderTimeline={handleBraidedReorder}
+                onMoveToInbox={handleBraidedMoveToInbox}
+                onMoveFromInbox={handleBraidedMoveFromInbox}
+                onAddChapter={handleAddChapter}
+                onMoveChapter={handleMoveChapter}
+                onUpdateChapter={handleUpdateChapter}
+                onDeleteChapter={handleDeleteChapter}
+                onInsertSceneAtPosition={handleInsertSceneAtPosition}
+                onOpenInEditor={handleOpenInEditor}
+              />
             )}
 
             {displayedScenes.length === 0 && (
