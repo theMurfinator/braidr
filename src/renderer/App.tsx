@@ -1217,13 +1217,13 @@ function App() {
       setLoading(true);
       setError(null);
 
-      const folderPath = await dataService.selectProjectFolder();
-      if (!folderPath) {
+      const filePath = await dataService.selectBraidrFile();
+      if (!filePath) {
         setLoading(false);
         return;
       }
 
-      await loadProjectFromPath(folderPath);
+      await loadProjectFromPath(filePath);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load project');
     } finally {

@@ -1671,6 +1671,10 @@ ipcMain.handle(IPC_CHANNELS.PRINT_TO_PDF, async (_event, html: string) => {
  */
 ipcMain.handle(IPC_CHANNELS.DETECT_PROJECT_FORMAT, async (_event, folderPath: string) => {
   try {
+    // Direct .braidr file path
+    if (folderPath.endsWith('.braidr') && fs.existsSync(folderPath) && fs.statSync(folderPath).isFile()) {
+      return { success: true, format: 'braidr', braidrPath: folderPath };
+    }
     const braidrFile = fs.readdirSync(folderPath).find(f => {
       if (!f.endsWith('.braidr')) return false;
       return fs.statSync(path.join(folderPath, f)).isFile();

@@ -199,6 +199,10 @@ export class CapacitorDataService implements DataService {
 
   // ── Folder selection ────────────────────────────────────────────────────
 
+  async selectBraidrFile(): Promise<string | null> {
+    return this.selectProjectFolder();
+  }
+
   async selectProjectFolder(): Promise<string | null> {
     // Try native document picker first (Capacitor 6+).
     // Falls back to a prompt for the simulator where pickDirectory may not exist.
