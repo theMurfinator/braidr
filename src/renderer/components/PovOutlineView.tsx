@@ -322,12 +322,12 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                     {(() => {
                       const hasChapters = chapters && chapters.length > 0;
                       let sceneRenderContent: ReactElement;
+                      let orderedSectionIds: string[];
 
                       if (hasChapters) {
                         const sortedChapters = [...(chapters || [])].sort((a, b) => a.order - b.order);
 
-                        const unchapteredInSection = sectionScenes.filter(s => !s.chapterId || !chapters?.find(ch => ch.id === s.chapterId));
-
+                        // Build chapter groups first so we know which chapterIds have scenes here
                         const chapterGroupsInSection = sortedChapters
                           .map(ch => ({
                             chapter: ch,
@@ -336,6 +336,18 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                               .sort((a, b) => a.sceneOrder - b.sceneOrder),
                           }))
                           .filter(g => g.scenes.length > 0);
+
+                        // Unchaptered = no chapterId, invalid chapterId, OR chapter has no scenes in THIS section
+                        const renderedChapterIds = new Set(chapterGroupsInSection.map(g => g.chapter.id));
+                        const unchapteredInSection = sectionScenes.filter(
+                          s => !s.chapterId || !renderedChapterIds.has(s.chapterId)
+                        );
+
+                        // Items in visual order so dnd-kit computes drop targets correctly
+                        orderedSectionIds = [
+                          ...unchapteredInSection.map(s => s.id),
+                          ...chapterGroupsInSection.flatMap(g => g.scenes.map(s => s.id)),
+                        ];
 
                         sceneRenderContent = (
                           <>
@@ -393,6 +405,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                           </>
                         );
                       } else {
+                        orderedSectionIds = sectionScenes.map(s => s.id);
                         sceneRenderContent = (
                           <>
                             {sectionScenes.map(scene => (
@@ -433,7 +446,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
 
                       return (
                         <>
-                          <SortableContext items={sectionScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                          <SortableContext items={orderedSectionIds} strategy={verticalListSortingStrategy}>
                             {sceneRenderContent}
                           </SortableContext>
                           {onAddChapter && (
