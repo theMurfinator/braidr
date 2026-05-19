@@ -1918,6 +1918,8 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId: null,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     const newCharScenes = [...charScenes, newScene];
@@ -2432,6 +2434,8 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     // Add new scene to character's scenes
@@ -2497,6 +2501,8 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     const newCharScenes = [...charScenes, newScene];
@@ -2764,6 +2770,8 @@ function App() {
       notes: archived.notes,
       plotPointId: targetPlotPointId,
       wordCount: archived.wordCount,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     // Restore draft content if it was preserved
@@ -2893,6 +2901,8 @@ function App() {
       notes: [...scene.notes],
       plotPointId: scene.plotPointId,
       wordCount: scene.wordCount,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     // Insert duplicate after original

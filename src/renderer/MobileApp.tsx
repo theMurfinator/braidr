@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-import { Scene, ProjectData, BraidedChapter, SceneComment, DraftVersion, NotesIndex } from '../shared/types';
+import { Scene, ProjectData, Chapter, SceneComment, DraftVersion, NotesIndex } from '../shared/types';
 import { dataService } from './services/dataService';
 import { detectConflicts } from './services/conflictDetector';
 import EditorView from './components/EditorView';
@@ -27,7 +27,7 @@ export function MobileApp() {
   const draftsRef = useRef<Record<string, DraftVersion[]>>({});
 
   const [sceneConnections, setSceneConnections] = useState<Record<string, string[]>>({});
-  const [braidedChapters, setBraidedChapters] = useState<BraidedChapter[]>([]);
+  const [, setBraidedChapters] = useState<Chapter[]>([]);
   const [characterColors, setCharacterColors] = useState<Record<string, string>>({});
   const characterColorsRef = useRef<Record<string, string>>({});
 
@@ -184,7 +184,7 @@ export function MobileApp() {
     }
   }, [projectData]);
 
-  const saveTimelineData = useCallback(async (scenes: Scene[], connections: Record<string, string[]>, chapters: BraidedChapter[]) => {
+  const saveTimelineData = useCallback(async (scenes: Scene[], connections: Record<string, string[]>) => {
     const positions: Record<string, number> = {};
     const wordCounts: Record<string, number> = {};
     for (const scene of scenes) {
@@ -192,7 +192,7 @@ export function MobileApp() {
       if (scene.wordCount !== undefined) wordCounts[scene.id] = scene.wordCount;
     }
     try {
-      await dataService.saveTimeline({ positions, connections, chapters, characterColors: characterColorsRef.current, wordCounts });
+      await dataService.saveTimeline({ positions, connections, characterColors: characterColorsRef.current, wordCounts });
       isDirtyRef.current = false;
     } catch (err) { console.error('Failed to save timeline:', err); }
   }, []);
@@ -202,22 +202,22 @@ export function MobileApp() {
     const interval = setInterval(() => {
       if (projectData && isDirtyRef.current) {
         editorViewRef.current?.flush?.();
-        saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+        saveTimelineData(projectData.scenes, sceneConnections);
       }
     }, 10000);
     return () => clearInterval(interval);
-  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+  }, [projectData, sceneConnections, saveTimelineData]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && projectData && isDirtyRef.current) {
         editorViewRef.current?.flush?.();
-        saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+        saveTimelineData(projectData.scenes, sceneConnections);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+  }, [projectData, sceneConnections, saveTimelineData]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const selectedCharacter = useMemo(() => {
@@ -352,6 +352,8 @@ export function MobileApp() {
       isHighlighted: false,
       notes: [],
       plotPointId,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     const newCharScenes = [...charScenes];
@@ -365,11 +367,11 @@ export function MobileApp() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
-      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+      await saveTimelineData(updatedScenes, sceneConnections);
     } catch (err) {
       console.error('Failed to save after adding scene:', err);
     }
-  }, [projectData, selectedCharacterId, sceneConnections, braidedChapters, saveTimelineData]);
+  }, [projectData, selectedCharacterId, sceneConnections, saveTimelineData]);
 
   const openEditor = useCallback((sceneKey: string) => {
     setEditingSceneKey(sceneKey);
