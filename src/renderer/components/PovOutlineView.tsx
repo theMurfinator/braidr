@@ -1,7 +1,7 @@
-import { useRef, useMemo, useState, useEffect } from 'react';
+import { useRef, useMemo, useState, useEffect, ReactElement } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { PlotPoint, Scene } from '../../shared/types';
+import { PlotPoint, Scene, Chapter } from '../../shared/types';
 import OutlineSceneRow from './OutlineSceneRow';
 import {
   SortableItem,
@@ -20,6 +20,9 @@ interface PovOutlineViewProps {
   onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
   onDeleteSection?: (sectionId: string) => void;
   getCharacterName?: (characterId: string) => string;
+  chapters?: Chapter[];
+  onAddChapter?: (title: string) => void;
+  onAssignSceneToChapter?: (sceneId: string, chapterId: string | null, sceneOrder: number) => void;
 }
 
 function ScrollAutoBinder({ scrollRef }: { scrollRef: React.RefObject<HTMLDivElement | null> }) {
@@ -211,6 +214,37 @@ function EmptySectionDropZone({ sectionId }: { sectionId: string }) {
   );
 }
 
+function AddChapterInlineButton({ onAdd }: { onAdd: (title: string) => void }) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [title, setTitle] = useState('');
+
+  if (!isAdding) {
+    return (
+      <button className="pov-add-chapter-btn" onClick={() => setIsAdding(true)}>
+        + add chapter
+      </button>
+    );
+  }
+
+  return (
+    <div className="pov-add-chapter-input-row">
+      <input
+        autoFocus
+        className="pov-add-chapter-input"
+        placeholder="Chapter title..."
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && title.trim()) { onAdd(title.trim()); setTitle(''); setIsAdding(false); }
+          if (e.key === 'Escape') { setTitle(''); setIsAdding(false); }
+        }}
+      />
+      <button className="pov-add-chapter-confirm" disabled={!title.trim()} onClick={() => { onAdd(title.trim()); setTitle(''); setIsAdding(false); }}>Add</button>
+      <button className="pov-add-chapter-cancel" onClick={() => { setTitle(''); setIsAdding(false); }}>Cancel</button>
+    </div>
+  );
+}
+
 export default function PovOutlineView(props: PovOutlineViewProps) {
   const {
     sections,
@@ -224,6 +258,8 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     onSectionChange,
     onDeleteSection,
     getCharacterName,
+    chapters,
+    onAddChapter,
   } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -283,40 +319,129 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                       />
                     )}
                     {/* Inner SortableContext — scenes within this section */}
-                    <SortableContext items={sectionScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                      {sectionScenes.map(scene => (
-                        <SortableItem key={scene.id} id={scene.id} data={{ type: 'scene', sectionId: section.id }}>
-                          {(sceneSortable) => (
-                            <div
-                              ref={sceneSortable.setNodeRef}
-                              style={sceneSortable.style}
-                              className={`pov-outline-row-wrapper${sceneSortable.isOver ? ' is-over' : ''}`}
-                              data-section-id={section.id}
-                              data-dnd-sortable-item
-                            >
-                              <span
-                                className="pov-drag-handle"
-                                {...sceneSortable.attributes}
-                                {...sceneSortable.listeners}
-                              >⋮⋮</span>
-                              <OutlineSceneRow
-                                scene={scene}
-                                displayNumber={flatSectionScenes.findIndex(s => s.id === scene.id) + 1}
-                                characterName={getCharacterName?.(scene.characterId)}
-                                synopsisVisible={synopsisModes[section.id] !== 'expand'}
-                                onSceneChange={onSceneChange}
-                                onSetAside={onSetAside}
-                                onOpenInEditor={onOpenInEditor}
-                                expandMode={synopsisModes[section.id] === 'expand'}
-                              />
-                            </div>
+                    {(() => {
+                      const hasChapters = chapters && chapters.length > 0;
+                      let sceneRenderContent: ReactElement;
+
+                      if (hasChapters) {
+                        const sortedChapters = [...(chapters || [])].sort((a, b) => a.order - b.order);
+
+                        const unchapteredInSection = sectionScenes.filter(s => !s.chapterId || !chapters?.find(ch => ch.id === s.chapterId));
+
+                        const chapterGroupsInSection = sortedChapters
+                          .map(ch => ({
+                            chapter: ch,
+                            scenes: sectionScenes
+                              .filter(s => s.chapterId === ch.id)
+                              .sort((a, b) => a.sceneOrder - b.sceneOrder),
+                          }))
+                          .filter(g => g.scenes.length > 0);
+
+                        sceneRenderContent = (
+                          <>
+                            {unchapteredInSection.map(scene => (
+                              <SortableItem key={scene.id} id={scene.id} data={{ type: 'scene', sectionId: section.id }}>
+                                {(sceneSortable) => (
+                                  <div ref={sceneSortable.setNodeRef} style={sceneSortable.style}
+                                    className={`pov-outline-row-wrapper${sceneSortable.isOver ? ' is-over' : ''}`}
+                                    data-section-id={section.id} data-dnd-sortable-item>
+                                    <span className="pov-drag-handle" {...sceneSortable.attributes} {...sceneSortable.listeners}>⋮⋮</span>
+                                    <OutlineSceneRow
+                                      scene={scene}
+                                      displayNumber={flatSectionScenes.findIndex(s => s.id === scene.id) + 1}
+                                      characterName={getCharacterName?.(scene.characterId)}
+                                      synopsisVisible={synopsisModes[section.id] !== 'expand'}
+                                      onSceneChange={onSceneChange}
+                                      onSetAside={onSetAside}
+                                      onOpenInEditor={onOpenInEditor}
+                                      expandMode={synopsisModes[section.id] === 'expand'}
+                                    />
+                                  </div>
+                                )}
+                              </SortableItem>
+                            ))}
+                            {chapterGroupsInSection.map(({ chapter, scenes: chScenes }) => (
+                              <div key={chapter.id} className="pov-chapter-group">
+                                <div className="pov-chapter-header">
+                                  <span className="pov-chapter-icon">📂</span>
+                                  <span>{chapter.title}</span>
+                                </div>
+                                {chScenes.map(scene => (
+                                  <SortableItem key={scene.id} id={scene.id} data={{ type: 'scene', sectionId: section.id }}>
+                                    {(sceneSortable) => (
+                                      <div ref={sceneSortable.setNodeRef} style={sceneSortable.style}
+                                        className={`pov-outline-row-wrapper pov-chapter-scene${sceneSortable.isOver ? ' is-over' : ''}`}
+                                        data-section-id={section.id} data-dnd-sortable-item>
+                                        <span className="pov-drag-handle" {...sceneSortable.attributes} {...sceneSortable.listeners}>⋮⋮</span>
+                                        <OutlineSceneRow
+                                          scene={scene}
+                                          displayNumber={flatSectionScenes.findIndex(s => s.id === scene.id) + 1}
+                                          characterName={getCharacterName?.(scene.characterId)}
+                                          synopsisVisible={synopsisModes[section.id] !== 'expand'}
+                                          onSceneChange={onSceneChange}
+                                          onSetAside={onSetAside}
+                                          onOpenInEditor={onOpenInEditor}
+                                          expandMode={synopsisModes[section.id] === 'expand'}
+                                        />
+                                      </div>
+                                    )}
+                                  </SortableItem>
+                                ))}
+                              </div>
+                            ))}
+                            {sectionScenes.length === 0 && <EmptySectionDropZone sectionId={section.id} />}
+                          </>
+                        );
+                      } else {
+                        sceneRenderContent = (
+                          <>
+                            {sectionScenes.map(scene => (
+                              <SortableItem key={scene.id} id={scene.id} data={{ type: 'scene', sectionId: section.id }}>
+                                {(sceneSortable) => (
+                                  <div
+                                    ref={sceneSortable.setNodeRef}
+                                    style={sceneSortable.style}
+                                    className={`pov-outline-row-wrapper${sceneSortable.isOver ? ' is-over' : ''}`}
+                                    data-section-id={section.id}
+                                    data-dnd-sortable-item
+                                  >
+                                    <span
+                                      className="pov-drag-handle"
+                                      {...sceneSortable.attributes}
+                                      {...sceneSortable.listeners}
+                                    >⋮⋮</span>
+                                    <OutlineSceneRow
+                                      scene={scene}
+                                      displayNumber={flatSectionScenes.findIndex(s => s.id === scene.id) + 1}
+                                      characterName={getCharacterName?.(scene.characterId)}
+                                      synopsisVisible={synopsisModes[section.id] !== 'expand'}
+                                      onSceneChange={onSceneChange}
+                                      onSetAside={onSetAside}
+                                      onOpenInEditor={onOpenInEditor}
+                                      expandMode={synopsisModes[section.id] === 'expand'}
+                                    />
+                                  </div>
+                                )}
+                              </SortableItem>
+                            ))}
+                            {sectionScenes.length === 0 && (
+                              <EmptySectionDropZone sectionId={section.id} />
+                            )}
+                          </>
+                        );
+                      }
+
+                      return (
+                        <>
+                          <SortableContext items={sectionScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                            {sceneRenderContent}
+                          </SortableContext>
+                          {onAddChapter && (
+                            <AddChapterInlineButton onAdd={onAddChapter} />
                           )}
-                        </SortableItem>
-                      ))}
-                      {sectionScenes.length === 0 && (
-                        <EmptySectionDropZone sectionId={section.id} />
-                      )}
-                    </SortableContext>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </SortableItem>

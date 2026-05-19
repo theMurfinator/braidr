@@ -19172,3 +19172,72 @@ textarea.table-cell-input {
   padding: 8px;
   font-style: italic;
 }
+
+.pov-chapter-group {
+  margin: 2px 0;
+}
+
+.pov-chapter-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  padding: 3px 6px;
+  background: #fffbeb;
+  border-left: 3px solid #fbbf24;
+  margin: 4px 0 2px 0;
+}
+
+.pov-chapter-icon {
+  font-size: 11px;
+}
+
+.pov-chapter-scene {
+  padding-left: 12px;
+}
+
+.pov-add-chapter-btn {
+  font-size: 11px;
+  color: #3b82f6;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 3px 6px;
+  margin-top: 4px;
+  display: block;
+}
+
+.pov-add-chapter-btn:hover {
+  text-decoration: underline;
+}
+
+.pov-add-chapter-input-row {
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  align-items: center;
+}
+
+.pov-add-chapter-input {
+  flex: 1;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+}
+
+.pov-add-chapter-confirm,
+.pov-add-chapter-cancel {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+}
+
+.pov-add-chapter-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
