@@ -656,6 +656,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_CREATE_CHARACTER, (_event, braidrPath: string
         id: sceneId, characterId: charId, sceneNumber: 1,
         title: 'First scene description here', content: 'First scene description here',
         tags: [], timelinePosition: null, isHighlighted: false, notes: [], plotPointId: ppId,
+        chapterId: null, sceneOrder: 0,
       } as Scene,
     };
   } catch (error) {
