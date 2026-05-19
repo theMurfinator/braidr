@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, type CSSProperties } from 'react';
-import { Scene, Character, PlotPoint, BraidedChapter, MetadataFieldDef } from '../../shared/types';
+import { Scene, Character, PlotPoint, Chapter, MetadataFieldDef } from '../../shared/types';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { track } from '../utils/posthogTracker';
 
@@ -7,7 +7,7 @@ interface CompileModalProps {
   scenes: Scene[];
   characters: Character[];
   plotPoints: PlotPoint[];
-  chapters: BraidedChapter[];
+  chapters: Chapter[];
   draftContent: Record<string, string>;
   sceneMetadata: Record<string, Record<string, string | string[]>>;
   metadataFieldDefs: MetadataFieldDef[];
@@ -143,45 +143,64 @@ export default function CompileModal({ scenes, characters, plotPoints: _plotPoin
 
   // Track scene number across selected scenes for scene numbering
   const previewItems = useMemo(() => {
-    const items: { type: 'chapter' | 'scene'; scene?: Scene; chapterTitle?: string; hasDraft?: boolean; isSelected?: boolean; sceneNumber?: number }[] = [];
-    const sortedChapters = [...chapters].sort((a, b) => a.beforePosition - b.beforePosition);
-    let chapterIdx = 0;
-    let sceneNum = 0;
+    type PreviewItem =
+      | { type: 'scene'; scene: Scene; hasDraft: boolean; isSelected: boolean; sceneNumber: number }
+      | { type: 'chapter'; chapterTitle: string };
 
-    orderedScenes.forEach((scene, i) => {
-      const pos = i + 1; // 1-indexed display position
-      // Insert chapter markers before this position
-      while (chapterIdx < sortedChapters.length && sortedChapters[chapterIdx].beforePosition <= pos) {
-        items.push({ type: 'chapter', chapterTitle: sortedChapters[chapterIdx].title });
-        chapterIdx++;
-      }
-      const key = scene.id;
-      const hasDraft = !!(draftContent[key] && draftContent[key] !== '<p></p>');
-      const isSelected = selectedSceneIds.has(scene.id);
-      if (hasDraft && isSelected) sceneNum++;
-      items.push({
-        type: 'scene',
-        scene,
-        hasDraft,
-        isSelected,
-        sceneNumber: (hasDraft && isSelected) ? sceneNum : undefined,
+    const items: PreviewItem[] = [];
+    const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
+
+    if (chapters.length === 0) {
+      // No chapters: original behavior — sort by timelinePosition
+      orderedScenes.forEach(scene => {
+        items.push({
+          type: 'scene',
+          scene,
+          hasDraft: !!draftContent[scene.id],
+          isSelected: selectedSceneIds.has(scene.id),
+          sceneNumber: scene.sceneNumber,
+        });
       });
-    });
-
-    // Remaining chapters after last scene
-    while (chapterIdx < sortedChapters.length) {
-      items.push({ type: 'chapter', chapterTitle: sortedChapters[chapterIdx].title });
-      chapterIdx++;
+    } else {
+      // Chapters mode: group scenes by chapter in chapter order
+      sortedChapters.forEach(ch => {
+        const chapterScenes = orderedScenes
+          .filter(s => s.chapterId === ch.id)
+          .sort((a, b) => a.sceneOrder - b.sceneOrder);
+        if (chapterScenes.length === 0) return;
+        items.push({ type: 'chapter', chapterTitle: ch.title });
+        chapterScenes.forEach(scene => {
+          items.push({
+            type: 'scene',
+            scene,
+            hasDraft: !!draftContent[scene.id],
+            isSelected: selectedSceneIds.has(scene.id),
+            sceneNumber: scene.sceneNumber,
+          });
+        });
+      });
+      // Unchaptered scenes at end
+      const chapterIds = new Set(chapters.map(ch => ch.id));
+      const unchaptered = orderedScenes.filter(s => !s.chapterId || !chapterIds.has(s.chapterId));
+      unchaptered.forEach(scene => {
+        items.push({
+          type: 'scene',
+          scene,
+          hasDraft: !!draftContent[scene.id],
+          isSelected: selectedSceneIds.has(scene.id),
+          sceneNumber: scene.sceneNumber,
+        });
+      });
     }
-
     return items;
   }, [orderedScenes, chapters, draftContent, selectedSceneIds]);
 
   // Check if a chapter at index i has at least one selected scene with a draft after it
   const chapterHasContent = (items: typeof previewItems, startIdx: number) => {
     for (let k = startIdx + 1; k < items.length; k++) {
-      if (items[k].type === 'chapter') return false; // hit next chapter
-      if (items[k].scene && items[k].hasDraft && items[k].isSelected) return true;
+      const item = items[k];
+      if (item.type === 'chapter') return false; // hit next chapter
+      if (item.type === 'scene' && item.hasDraft && item.isSelected) return true;
     }
     return false;
   };
@@ -209,9 +228,9 @@ export default function CompileModal({ scenes, characters, plotPoints: _plotPoin
     previewItems.forEach((item, idx) => {
       if (item.type === 'chapter' && includeChapterHeadings && chapterHasContent(previewItems, idx)) {
         html += `<h2>${item.chapterTitle}</h2>\n`;
-      } else if (item.scene && item.hasDraft && item.isSelected) {
+      } else if (item.type === 'scene' && item.hasDraft && item.isSelected) {
         const key = item.scene.id;
-        const charName = characters.find(c => c.id === item.scene!.characterId)?.name || '';
+        const charName = characters.find(c => c.id === item.scene.characterId)?.name || '';
         if (includeSceneNumbers && item.sceneNumber) {
           html += `<p class="scene-num">Scene ${item.sceneNumber}</p>\n`;
         }
@@ -240,9 +259,9 @@ export default function CompileModal({ scenes, characters, plotPoints: _plotPoin
     previewItems.forEach((item, idx) => {
       if (item.type === 'chapter' && includeChapterHeadings && chapterHasContent(previewItems, idx)) {
         md += `\n## ${item.chapterTitle}\n\n`;
-      } else if (item.scene && item.hasDraft && item.isSelected) {
+      } else if (item.type === 'scene' && item.hasDraft && item.isSelected) {
         const key = item.scene.id;
-        const charName = characters.find(c => c.id === item.scene!.characterId)?.name || '';
+        const charName = characters.find(c => c.id === item.scene.characterId)?.name || '';
         if (includeSceneNumbers && item.sceneNumber) {
           md += `*Scene ${item.sceneNumber}*\n\n`;
         }
@@ -300,9 +319,9 @@ export default function CompileModal({ scenes, characters, plotPoints: _plotPoin
           alignment: AlignmentType.CENTER,
           spacing: { before: 400, after: 200 },
         }));
-      } else if (item.scene && item.hasDraft && item.isSelected) {
+      } else if (item.type === 'scene' && item.hasDraft && item.isSelected) {
         const key = item.scene.id;
-        const charName = characters.find(c => c.id === item.scene!.characterId)?.name || '';
+        const charName = characters.find(c => c.id === item.scene.characterId)?.name || '';
         const plainText = htmlToPlainText(draftContent[key]);
 
         if (includeSceneNumbers && item.sceneNumber) {
@@ -403,10 +422,10 @@ export default function CompileModal({ scenes, characters, plotPoints: _plotPoin
     previewItems.forEach((item, idx) => {
       if (item.type === 'chapter' && includeChapterHeadings && chapterHasContent(previewItems, idx)) {
         html += `<h2 style="text-align: center; font-size: 18px; margin: 32px 0 16px; color: #555; font-weight: 600;">${item.chapterTitle}</h2>\n`;
-      } else if (item.scene && item.hasDraft && item.isSelected) {
+      } else if (item.type === 'scene' && item.hasDraft && item.isSelected) {
         hasContent = true;
         const key = item.scene.id;
-        const charName = characters.find(c => c.id === item.scene!.characterId)?.name || '';
+        const charName = characters.find(c => c.id === item.scene.characterId)?.name || '';
         if (includeSceneNumbers && item.sceneNumber) {
           html += `<p style="font-style: italic; color: #999; font-size: 0.9em; margin-bottom: 4px;">Scene ${item.sceneNumber}</p>\n`;
         }
@@ -580,19 +599,19 @@ export default function CompileModal({ scenes, characters, plotPoints: _plotPoin
                     </div>
                   ) : null
                 ) : (
-                  <div key={`sc-${item.scene!.id}`} className={`compile-preview-scene ${item.hasDraft ? 'has-draft' : 'no-draft'} ${item.isSelected ? 'selected' : ''}`} style={{ borderLeftColor: characterColors[item.scene!.characterId] || 'transparent' }}>
+                  <div key={`sc-${item.scene.id}`} className={`compile-preview-scene ${item.hasDraft ? 'has-draft' : 'no-draft'} ${item.isSelected ? 'selected' : ''}`} style={{ borderLeftColor: characterColors[item.scene.characterId] || 'transparent' }}>
                     <input
                       type="checkbox"
                       className="compile-scene-checkbox"
                       checked={item.isSelected || false}
-                      onChange={() => toggleSceneSelection(item.scene!.id)}
+                      onChange={() => toggleSceneSelection(item.scene.id)}
                       disabled={!item.hasDraft}
                     />
                     <span className="compile-preview-char">
-                      {characters.find(c => c.id === item.scene!.characterId)?.name}
+                      {characters.find(c => c.id === item.scene.characterId)?.name}
                       {item.sceneNumber && ` — Scene ${item.sceneNumber}`}
                     </span>
-                    <span className="compile-preview-title">{cleanSceneContent(item.scene!.content) || `Scene ${item.scene!.sceneNumber}`}</span>
+                    <span className="compile-preview-title">{cleanSceneContent(item.scene.content) || `Scene ${item.scene.sceneNumber}`}</span>
                     {!item.hasDraft && <span className="compile-preview-badge">No draft</span>}
                   </div>
                 )

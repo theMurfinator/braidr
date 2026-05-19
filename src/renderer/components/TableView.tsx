@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Scene, Character, MetadataFieldDef, Tag, TableViewConfig } from '../../shared/types';
+import { Scene, Character, MetadataFieldDef, Tag, TableViewConfig, Chapter } from '../../shared/types';
 
 type FilterOperator = 'is' | 'is_not' | 'is_blank' | 'is_not_blank' | 'contains';
 
@@ -25,6 +25,7 @@ interface TableViewProps {
   onTableViewsChange: (views: TableViewConfig[]) => void;
   onSceneChange?: (sceneId: string, content: string, notes: string[]) => void;
   povReorderedScenes?: Set<string>;
+  chapters?: Chapter[];
 }
 
 type SortField = 'scene' | 'character' | 'status' | 'words' | 'plotPoint' | string;
@@ -62,6 +63,7 @@ export default function TableView({
   onTableViewsChange: _onTableViewsChange,
   onSceneChange: _onSceneChange,
   povReorderedScenes,
+  chapters,
 }: TableViewProps) {
   // Use localStorage for now instead of props
   const [savedViews, setSavedViews] = useState<TableViewConfig[]>(() => {
@@ -809,7 +811,8 @@ export default function TableView({
           </tr>
         </thead>
         <tbody>
-          {sortedScenes.map(scene => {
+          {(() => {
+            const renderSceneRow = (scene: Scene) => {
             const sceneKey = scene.id;
             const character = characters.find(c => c.id === scene.characterId);
             const metadata = sceneMetadata[sceneKey] || {};
@@ -1037,7 +1040,30 @@ export default function TableView({
                   .map(col => renderCell(col.id))}
               </tr>
             );
-          })}
+            }; // end renderSceneRow
+
+            if (chapters && chapters.length > 0) {
+              const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
+              const chapterIds = new Set(chapters.map(ch => ch.id));
+              const result: React.JSX.Element[] = [];
+              sortedChapters.forEach(ch => {
+                const chScenes = sortedScenes
+                  .filter(s => s.chapterId === ch.id)
+                  .sort((a, b) => a.sceneOrder - b.sceneOrder);
+                if (chScenes.length === 0) return;
+                result.push(
+                  <tr key={`ch-${ch.id}`} className="table-chapter-header">
+                    <td colSpan={100}>{ch.title}</td>
+                  </tr>
+                );
+                chScenes.forEach(scene => result.push(renderSceneRow(scene)));
+              });
+              const unchaptered = sortedScenes.filter(s => !s.chapterId || !chapterIds.has(s.chapterId));
+              unchaptered.forEach(scene => result.push(renderSceneRow(scene)));
+              return result;
+            }
+            return sortedScenes.map(scene => renderSceneRow(scene));
+          })()}
         </tbody>
       </table>
       {sortedScenes.length === 0 && (

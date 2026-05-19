@@ -9743,6 +9743,14 @@ textarea.editor-meta-field-input {
   background: rgba(231, 76, 60, 0.08);
 }
 
+.table-chapter-header td {
+  background: #fef9c3;
+  font-weight: 600;
+  color: #92400e;
+  padding: 6px 12px;
+  border-bottom: 1px solid #fbbf24;
+}
+
 .table-cell {
   padding: 10px 16px;
   color: var(--text-primary);

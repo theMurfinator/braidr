@@ -8,7 +8,7 @@ import Heading from '@tiptap/extension-heading';
 import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion, NoteMetadata, SceneComment, Task, TaskStatus } from '../../shared/types';
+import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion, NoteMetadata, SceneComment, Task, TaskStatus, Chapter } from '../../shared/types';
 import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
 import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
@@ -68,6 +68,7 @@ interface EditorViewProps {
   tasks?: Task[];
   onTasksChange?: (tasks: Task[]) => void;
   storagePrefix?: string;
+  chapters?: Chapter[];
 }
 
 export interface EditorViewHandle {
@@ -234,6 +235,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   tasks,
   onTasksChange,
   storagePrefix,
+  chapters,
 }, ref) {
   const sk = (key: string) => storagePrefix ? `${key}-${storagePrefix}` : key;
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
@@ -1377,7 +1379,17 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     </h2>
                   )}
                   <div className="editor-draft-scene-subtitle">
-                    <span>{characters.find(c => c.id === selectedScene.characterId)?.name} · Scene {selectedScene.sceneNumber}</span>
+                    {(() => {
+                      const char = characters.find(c => c.id === selectedScene.characterId);
+                      const chapter = chapters?.find(ch => ch.id === selectedScene.chapterId);
+                      return (
+                        <span>
+                          {char?.name}
+                          {chapter && <> · {chapter.title}</>}
+                          {' · '}Scene {selectedScene.sceneNumber}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
