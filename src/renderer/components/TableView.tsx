@@ -1047,9 +1047,9 @@ export default function TableView({
               const chapterIds = new Set(chapters.map(ch => ch.id));
               const result: React.JSX.Element[] = [];
               sortedChapters.forEach(ch => {
-                const chScenes = sortedScenes
-                  .filter(s => s.chapterId === ch.id)
-                  .sort((a, b) => a.sceneOrder - b.sceneOrder);
+                const chScenes = sortedScenes.filter(s => s.chapterId === ch.id);
+                // Apply narrative order within chapter only when user hasn't chosen a sort column
+                if (sortField === 'scene') chScenes.sort((a, b) => a.sceneOrder - b.sceneOrder);
                 if (chScenes.length === 0) return;
                 result.push(
                   <tr key={`ch-${ch.id}`} className="table-chapter-header">

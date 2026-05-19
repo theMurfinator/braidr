@@ -1382,13 +1382,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     {(() => {
                       const char = characters.find(c => c.id === selectedScene.characterId);
                       const chapter = chapters?.find(ch => ch.id === selectedScene.chapterId);
-                      return (
-                        <span>
-                          {char?.name}
-                          {chapter && <> · {chapter.title}</>}
-                          {' · '}Scene {selectedScene.sceneNumber}
-                        </span>
-                      );
+                      const parts = [char?.name, chapter?.title, `Scene ${selectedScene.sceneNumber}`].filter(Boolean);
+                      return <span>{parts.join(' · ')}</span>;
                     })()}
                   </div>
                 </div>
