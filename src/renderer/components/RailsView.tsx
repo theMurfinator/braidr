@@ -1,5 +1,5 @@
 import React, { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
-import { Scene, Character, Tag, TagCategory, PlotPoint } from '../../shared/types';
+import { Scene, Character, Tag, TagCategory, PlotPoint, Chapter } from '../../shared/types';
 import RailsSceneCard from './RailsSceneCard';
 import FloatingEditor from './FloatingEditor';
 import { useAutoScrollOnDrag } from '../hooks/useAutoScrollOnDrag';
@@ -37,6 +37,7 @@ interface RailsViewProps {
   onOpenInEditor?: (sceneKey: string) => void;
   povReorderedScenes?: Set<string>;
   onInsertSceneAtPosition?: (position: number, characterId: string, plotPointId: string) => void;
+  chapters: Chapter[];
 }
 
 export default function RailsView({
@@ -72,6 +73,7 @@ export default function RailsView({
   onOpenInEditor,
   povReorderedScenes,
   onInsertSceneAtPosition,
+  chapters,
 }: RailsViewProps) {
   const [inboxCharFilter, setInboxCharFilter] = useState<string>('all');
   const [floatingEditorScene, setFloatingEditorScene] = useState<Scene | null>(null);
@@ -623,123 +625,152 @@ export default function RailsView({
             className={`rails-grid-inner ${draggedSceneId ? 'is-dragging' : ''}`}
             style={{ '--rails-columns': numColumns } as React.CSSProperties}
           >
-            {gridRows.map((row, index) => {
-              const rowHeight = getRowHeight(row.scene.wordCount);
-
-              return (
-                <div
-                  key={row.scene.id}
-                  className="rails-row"
-                  style={{ '--row-height': `${rowHeight}px` } as React.CSSProperties}
-                >
-                  {/* Drop zone before this row */}
+            {(() => {
+              const renderGridRow = (row: { position: number; scene: Scene; characterId: string }, index: number) => {
+                const rowHeight = getRowHeight(row.scene.wordCount);
+                return (
                   <div
-                    className={`rails-drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
-                    style={{ gridColumn: `1 / -1` }}
-                    data-drop-index={index}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, index)}
-                  />
-
-                  {/* Row number — click to insert scene at this position */}
-                  <div
-                    className={`rails-row-number ${onInsertSceneAtPosition ? 'clickable' : ''} ${insertAtPosition === index ? 'active' : ''}`}
-                    onClick={onInsertSceneAtPosition ? () => {
-                      setInsertAtPosition(insertAtPosition === index ? null : index);
-                      setInsertCharacterId(null);
-                    } : undefined}
-                    title={onInsertSceneAtPosition ? 'Insert scene here' : undefined}
+                    key={row.scene.id}
+                    className="rails-row"
+                    style={{ '--row-height': `${rowHeight}px` } as React.CSSProperties}
                   >
-                    {row.position}
-                    {insertAtPosition === index && (
-                      <div className="braided-insert-popover rails-number-popover">
-                        {!insertCharacterId ? (
-                          <>
-                            <div className="braided-insert-popover-title">Pick a character</div>
-                            {allCharacters.map(char => (
-                              <button
-                                key={char.id}
-                                className="braided-insert-popover-item"
-                                onClick={(e) => { e.stopPropagation(); setInsertCharacterId(char.id); }}
-                              >
-                                <span className="braided-insert-color-dot" style={{ background: characterColors[char.id] || '#888' }} />
-                                {char.name}
-                              </button>
-                            ))}
-                          </>
-                        ) : (
-                          <>
-                            <div className="braided-insert-popover-title">
-                              <button className="braided-insert-back-btn" onClick={(e) => { e.stopPropagation(); setInsertCharacterId(null); }}>&larr;</button>
-                              Pick a section
-                            </div>
-                            {plotPoints
-                              .filter(p => p.characterId === insertCharacterId)
-                              .sort((a, b) => a.order - b.order)
-                              .map(pp => (
+                    {/* Drop zone before this row */}
+                    <div
+                      className={`rails-drop-zone ${dropTargetIndex === index ? 'active' : ''}`}
+                      style={{ gridColumn: `1 / -1` }}
+                      data-drop-index={index}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, index)}
+                    />
+
+                    {/* Row number — click to insert scene at this position */}
+                    <div
+                      className={`rails-row-number ${onInsertSceneAtPosition ? 'clickable' : ''} ${insertAtPosition === index ? 'active' : ''}`}
+                      onClick={onInsertSceneAtPosition ? () => {
+                        setInsertAtPosition(insertAtPosition === index ? null : index);
+                        setInsertCharacterId(null);
+                      } : undefined}
+                      title={onInsertSceneAtPosition ? 'Insert scene here' : undefined}
+                    >
+                      {row.position}
+                      {insertAtPosition === index && (
+                        <div className="braided-insert-popover rails-number-popover">
+                          {!insertCharacterId ? (
+                            <>
+                              <div className="braided-insert-popover-title">Pick a character</div>
+                              {allCharacters.map(char => (
                                 <button
-                                  key={pp.id}
+                                  key={char.id}
                                   className="braided-insert-popover-item"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onInsertSceneAtPosition!(index, insertCharacterId!, pp.id);
-                                    setInsertAtPosition(null);
-                                    setInsertCharacterId(null);
-                                  }}
+                                  onClick={(e) => { e.stopPropagation(); setInsertCharacterId(char.id); }}
                                 >
-                                  {pp.title}
+                                  <span className="braided-insert-color-dot" style={{ background: characterColors[char.id] || '#888' }} />
+                                  {char.name}
                                 </button>
                               ))}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Cells for each character */}
-                  {characters.map((char) => {
-                    const connector = getCellConnector(index, char.id);
-                    return (
-                    <div
-                      key={char.id}
-                      className={`rails-cell ${char.id === row.characterId ? 'has-scene' : 'empty'} ${connector ? `connector-${connector}` : ''}`}
-                      style={{
-                        backgroundColor: showPovColors && char.id === row.characterId
-                          ? getCharacterBgColor(char.id)
-                          : undefined,
-                        '--connector-color': connector ? getCharacterHexColor(char.id) : undefined,
-                      } as React.CSSProperties}
-                    >
-                      {connector === 'through' && gapWordCounts.has(`${char.id}:${index}`) && (
-                        <span className="rails-gap-words">{formatWordGap(gapWordCounts.get(`${char.id}:${index}`)!)}</span>
-                      )}
-                      {char.id === row.characterId && (
-                        <RailsSceneCard
-                          scene={row.scene}
-                          characterColor={getCharacterHexColor(row.characterId)}
-                          onClick={(e) => handleSceneClick(row.scene, e)}
-                          onMouseEnter={() => setHoveredSceneId(row.scene.id)}
-                          onMouseLeave={() => setHoveredSceneId(null)}
-                          isHighlighted={hoveredSceneId === row.scene.id ||
-                            (connections[row.scene.id] || []).includes(hoveredSceneId || '')}
-                          hasConnections={(connections[row.scene.id]?.length || 0) > 0}
-                          isConnecting={isConnecting}
-                          isConnectionSource={connectionSource === row.scene.id}
-                          isConnectionTarget={isConnecting && connectionSource !== row.scene.id}
-                          onDragStart={(e) => wrappedDragStart(e, row.scene)}
-                          onDragEnd={wrappedDragEnd}
-                          onPointerDown={(e) => handlePointerDown(e, row.scene)}
-                          isDragging={draggedSceneId === row.scene.id}
-                          isPovReordered={povReorderedScenes?.has(row.scene.id) || false}
-                        />
+                            </>
+                          ) : (
+                            <>
+                              <div className="braided-insert-popover-title">
+                                <button className="braided-insert-back-btn" onClick={(e) => { e.stopPropagation(); setInsertCharacterId(null); }}>&larr;</button>
+                                Pick a section
+                              </div>
+                              {plotPoints
+                                .filter(p => p.characterId === insertCharacterId)
+                                .sort((a, b) => a.order - b.order)
+                                .map(pp => (
+                                  <button
+                                    key={pp.id}
+                                    className="braided-insert-popover-item"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onInsertSceneAtPosition!(index, insertCharacterId!, pp.id);
+                                      setInsertAtPosition(null);
+                                      setInsertCharacterId(null);
+                                    }}
+                                  >
+                                    {pp.title}
+                                  </button>
+                                ))}
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
+
+                    {/* Cells for each character */}
+                    {characters.map((char) => {
+                      const connector = getCellConnector(index, char.id);
+                      return (
+                      <div
+                        key={char.id}
+                        className={`rails-cell ${char.id === row.characterId ? 'has-scene' : 'empty'} ${connector ? `connector-${connector}` : ''}`}
+                        style={{
+                          backgroundColor: showPovColors && char.id === row.characterId
+                            ? getCharacterBgColor(char.id)
+                            : undefined,
+                          '--connector-color': connector ? getCharacterHexColor(char.id) : undefined,
+                        } as React.CSSProperties}
+                      >
+                        {connector === 'through' && gapWordCounts.has(`${char.id}:${index}`) && (
+                          <span className="rails-gap-words">{formatWordGap(gapWordCounts.get(`${char.id}:${index}`)!)}</span>
+                        )}
+                        {char.id === row.characterId && (
+                          <RailsSceneCard
+                            scene={row.scene}
+                            characterColor={getCharacterHexColor(row.characterId)}
+                            onClick={(e) => handleSceneClick(row.scene, e)}
+                            onMouseEnter={() => setHoveredSceneId(row.scene.id)}
+                            onMouseLeave={() => setHoveredSceneId(null)}
+                            isHighlighted={hoveredSceneId === row.scene.id ||
+                              (connections[row.scene.id] || []).includes(hoveredSceneId || '')}
+                            hasConnections={(connections[row.scene.id]?.length || 0) > 0}
+                            isConnecting={isConnecting}
+                            isConnectionSource={connectionSource === row.scene.id}
+                            isConnectionTarget={isConnecting && connectionSource !== row.scene.id}
+                            onDragStart={(e) => wrappedDragStart(e, row.scene)}
+                            onDragEnd={wrappedDragEnd}
+                            onPointerDown={(e) => handlePointerDown(e, row.scene)}
+                            isDragging={draggedSceneId === row.scene.id}
+                            isPovReordered={povReorderedScenes?.has(row.scene.id) || false}
+                          />
+                        )}
+                      </div>
+                      );
+                    })}
+                  </div>
+                );
+              };
+
+              if (chapters.length > 0) {
+                const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
+                // Build reverse map: sceneId -> chapter (for the first scene in each chapter)
+                const sceneToChapter = new Map<string, Chapter>();
+                sortedChapters.forEach(ch => {
+                  const chScenes = gridRows
+                    .filter(r => r.scene.chapterId === ch.id)
+                    .sort((a, b) => a.scene.sceneOrder - b.scene.sceneOrder);
+                  if (chScenes.length > 0) {
+                    sceneToChapter.set(chScenes[0].scene.id, ch);
+                  }
+                });
+
+                return gridRows.flatMap((row, index) => {
+                  const chapterHeader = sceneToChapter.get(row.scene.id);
+                  return [
+                    ...(chapterHeader ? [
+                      <div key={`ch-header-${chapterHeader.id}`} className="rails-chapter-header">
+                        <span className="rails-chapter-header-title">{chapterHeader.title}</span>
+                      </div>
+                    ] : []),
+                    renderGridRow(row, index),
+                  ];
+                });
+              }
+
+              return gridRows.map((row, index) => renderGridRow(row, index));
+            })()}
 
             {/* Drop zone at the end */}
             {scenes.length > 0 && (

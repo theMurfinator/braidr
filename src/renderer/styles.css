@@ -4230,6 +4230,25 @@ textarea.scene-metadata-field-input {
   color: var(--tag-arcs);
 }
 
+/* Rails chapter header rows */
+.rails-chapter-header {
+  grid-column: 1 / -1;
+  background: #fef9c3;
+  border: 1px solid #fbbf24;
+  border-radius: 5px;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rails-chapter-header-title {
+  flex: 1;
+}
+
 /* Add Chapter Input */
 .add-chapter-input-container {
   display: flex;

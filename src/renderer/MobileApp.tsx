@@ -563,6 +563,7 @@ export function MobileApp() {
           draftContent={draftContent}
           onDraftChange={handleDraftChange}
           onOpenInEditor={openEditor}
+          chapters={[]}
         />
       );
     }
