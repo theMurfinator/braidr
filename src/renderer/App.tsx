@@ -1554,7 +1554,11 @@ function App() {
     const updated = [...chaptersRef.current, newChapter];
     setChapters(updated);
     chaptersRef.current = updated;
-    await dataService.saveChapter(newChapter);
+    try {
+      await dataService.saveChapter(newChapter);
+    } catch {
+      addToast('Couldn’t save chapter');
+    }
   };
 
   const handleUpdateChapter = async (
@@ -1567,24 +1571,40 @@ function App() {
     setChapters(updated);
     chaptersRef.current = updated;
     const chapter = updated.find(ch => ch.id === chapterId);
-    if (chapter) await dataService.saveChapter(chapter);
+    if (chapter) {
+      try {
+        await dataService.saveChapter(chapter);
+      } catch {
+        addToast('Couldn’t save chapter');
+      }
+    }
   };
 
   const handleDeleteChapter = async (chapterId: string) => {
     const updated = chaptersRef.current.filter(ch => ch.id !== chapterId);
     setChapters(updated);
     chaptersRef.current = updated;
-    await dataService.deleteChapter(chapterId);
+    try {
+      await dataService.deleteChapter(chapterId);
+    } catch {
+      addToast('Couldn’t delete chapter');
+    }
   };
 
   const handleReorderChapters = async (orderedIds: string[]) => {
-    const reordered = orderedIds.map((id, idx) => {
-      const ch = chaptersRef.current.find(c => c.id === id)!;
-      return { ...ch, order: idx };
-    });
+    const reordered = orderedIds
+      .map((id, idx) => {
+        const ch = chaptersRef.current.find(c => c.id === id);
+        return ch ? { ...ch, order: idx } : null;
+      })
+      .filter((ch): ch is Chapter => ch !== null);
     setChapters(reordered);
     chaptersRef.current = reordered;
-    await dataService.reorderChapters(orderedIds);
+    try {
+      await dataService.reorderChapters(orderedIds);
+    } catch {
+      addToast('Couldn’t reorder chapters');
+    }
   };
 
   const handleAssignSceneToChapter = async (
@@ -1599,7 +1619,11 @@ function App() {
         s.id === sceneId ? { ...s, chapterId, sceneOrder } : s
       ),
     });
-    await dataService.assignSceneToChapter(sceneId, chapterId, sceneOrder);
+    try {
+      await dataService.assignSceneToChapter(sceneId, chapterId, sceneOrder);
+    } catch {
+      addToast('Couldn’t assign scene to chapter');
+    }
   };
 
   const handlePovSceneDrop = async (targetSceneNumber: number, targetPlotPointId: string) => {
