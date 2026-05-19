@@ -1,4 +1,4 @@
-# Braidr — Launch Readiness
+# Braidr — Launch Readiness (2026-05-19)
 
 Master checklist for commercial launch. Everything here is required before actively promoting Braidr.
 
@@ -90,6 +90,9 @@ Full dnd-kit migration — 12 remaining contexts still on HTML5 DnD. Each ships 
 - [ ] **Delete project** — add delete action to project cards on the home screen (with confirmation)
 - [ ] **Project stats on cards** — show word count, scene count, character count, last opened date
 - [ ] **Home screen redesign** — the current screen is a bare project picker; make it a proper home with visual polish, clear calls to action for new vs. existing projects, and an empty state for first-time users
+
+### Character Management
+- [ ] **Character creation flow** — current process is too bare; needs a proper creation experience (name, color, optional bio/notes) that guides the writer rather than just adding a blank entry
 
 ### Chapters UI
 *(Depends on §1 Data & Architecture — chapters model must be designed first)*
