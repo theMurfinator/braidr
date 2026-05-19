@@ -27,7 +27,7 @@ export function MobileApp() {
   const draftsRef = useRef<Record<string, DraftVersion[]>>({});
 
   const [sceneConnections, setSceneConnections] = useState<Record<string, string[]>>({});
-  const [, setBraidedChapters] = useState<Chapter[]>([]);
+  const [, setChapters] = useState<Chapter[]>([]);
   const [characterColors, setCharacterColors] = useState<Record<string, string>>({});
   const characterColorsRef = useRef<Record<string, string>>({});
 
@@ -47,7 +47,7 @@ export function MobileApp() {
       const name = folderPath.split('/').pop() || 'Untitled';
 
       setSceneConnections(data.connections);
-      setBraidedChapters(data.chapters);
+      setChapters(data.chapters);
       const loadedColors = data.characterColors || {};
       setCharacterColors(loadedColors);
       characterColorsRef.current = loadedColors;
