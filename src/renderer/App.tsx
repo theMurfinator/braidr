@@ -860,13 +860,19 @@ function App() {
 
   // Helper to load a project from a path
   const loadProjectFromPath = async (folderPath: string, projectName?: string) => {
+    // Lock files live in the project folder's .braidr/ dir. If folderPath points
+    // directly to the .braidr SQLite file, derive the folder from it.
+    const lockBasePath = folderPath.endsWith('.braidr')
+      ? folderPath.substring(0, folderPath.lastIndexOf('/'))
+      : folderPath;
+
     loadInProgressRef.current = true;
     // Acquire project lock
     try {
-      const lockResult = await dataService.acquireProjectLock(folderPath);
+      const lockResult = await dataService.acquireProjectLock(lockBasePath);
       if (!lockResult.acquired) {
         loadInProgressRef.current = false;
-        setLockConflict({ projectPath: folderPath, projectName: projectName, heldBy: lockResult.heldBy || 'another device' });
+        setLockConflict({ projectPath: lockBasePath, projectName: projectName, heldBy: lockResult.heldBy || 'another device' });
         return;
       }
     } catch (err) {
@@ -1136,7 +1142,7 @@ function App() {
     setRecentProjects(projects);
 
     // Start lock heartbeat
-    dataService.startLockHeartbeat(folderPath, (byDeviceName) => {
+    dataService.startLockHeartbeat(lockBasePath, (byDeviceName) => {
       if (isDirtyRef.current) {
         editorViewRef.current?.flush();
       }
@@ -4193,9 +4199,13 @@ function App() {
                 className="lock-takeover-confirm"
                 onClick={async () => {
                   const { projectPath, projectName } = lockConflict;
-                  setLockConflict(null);
-                  await dataService.acquireProjectLock(projectPath, true);
-                  await loadProjectFromPath(projectPath, projectName);
+                  try {
+                    await dataService.acquireProjectLock(projectPath, true);
+                    setLockConflict(null);
+                    await loadProjectFromPath(projectPath, projectName);
+                  } catch (err) {
+                    addToast('Failed to take over project — please try again.');
+                  }
                 }}
               >
                 Take Over
