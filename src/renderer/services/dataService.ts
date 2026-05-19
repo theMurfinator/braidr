@@ -1,4 +1,4 @@
-import { Character, Scene, PlotPoint, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload } from '../../shared/types';
+import { Character, Scene, PlotPoint, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload } from '../../shared/types';
 import { CapacitorDataService } from './capacitorDataService';
 import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } from './projectLock';
 
@@ -6,10 +6,15 @@ import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } fro
 export interface DataService {
   selectProjectFolder(): Promise<string | null>;
   selectBraidrFile(): Promise<string | null>;
-  loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }>;
+  loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }>;
   saveCharacterOutline(character: Character, plotPoints: PlotPoint[], scenes: Scene[]): Promise<void>;
   createCharacter(folderPath: string, name: string): Promise<Character>;
   saveTimeline(payload: SaveTimelinePayload): Promise<void>;
+  getChapters(): Promise<Chapter[]>;
+  saveChapter(chapter: Chapter): Promise<void>;
+  deleteChapter(chapterId: string): Promise<void>;
+  reorderChapters(orderedIds: string[]): Promise<void>;
+  assignSceneToChapter(sceneId: string, chapterId: string | null, sceneOrder: number): Promise<void>;
   getRecentProjects(): Promise<RecentProject[]>;
   addRecentProject(project: RecentProject): Promise<void>;
   selectSaveLocation(): Promise<string | null>;
@@ -65,7 +70,7 @@ class ElectronDataService implements DataService {
     return window.electronAPI.selectBraidrFile();
   }
 
-  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: BraidedChapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }> {
+  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }> {
     const formatResult = await window.electronAPI.detectProjectFormat(folderPath);
     if (formatResult?.format === 'braidr' && formatResult.braidrPath) {
       this.braidrPath = formatResult.braidrPath;
@@ -93,6 +98,37 @@ class ElectronDataService implements DataService {
     if (!this.braidrPath) throw new Error('No project loaded');
     const result = await window.electronAPI.braidrSaveTimeline(this.braidrPath, payload);
     if (!result.success) throw new Error(result.error || 'Failed to save timeline');
+  }
+
+  async getChapters(): Promise<Chapter[]> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrGetChapters(this.braidrPath);
+    if (!result.success) throw new Error(result.error || 'Failed to get chapters');
+    return result.chapters as Chapter[];
+  }
+
+  async saveChapter(chapter: Chapter): Promise<void> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrSaveChapter(this.braidrPath, chapter);
+    if (!result.success) throw new Error(result.error || 'Failed to save chapter');
+  }
+
+  async deleteChapter(chapterId: string): Promise<void> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrDeleteChapter(this.braidrPath, chapterId);
+    if (!result.success) throw new Error(result.error || 'Failed to delete chapter');
+  }
+
+  async reorderChapters(orderedIds: string[]): Promise<void> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrReorderChapters(this.braidrPath, orderedIds);
+    if (!result.success) throw new Error(result.error || 'Failed to reorder chapters');
+  }
+
+  async assignSceneToChapter(sceneId: string, chapterId: string | null, sceneOrder: number): Promise<void> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrAssignSceneToChapter(this.braidrPath, sceneId, chapterId, sceneOrder);
+    if (!result.success) throw new Error(result.error || 'Failed to assign scene to chapter');
   }
 
   async getRecentProjects(): Promise<RecentProject[]> {
