@@ -639,6 +639,11 @@ export default function BraidedListView({
         const targetId = String(over.id);
         const targetScenes = scenesByChapter.get(targetId) || [];
         onAssignSceneToChapter(String(active.id), targetId, targetScenes.length);
+        // Renumber source chapter to close the gap
+        if (activeChapterId) {
+          const srcScenes = (scenesByChapter.get(activeChapterId) || []).filter(s => s.id !== active.id);
+          srcScenes.forEach((s, idx) => onAssignSceneToChapter(s.id, activeChapterId, idx));
+        }
         markMoved(String(active.id));
         return;
       }
@@ -668,14 +673,10 @@ export default function BraidedListView({
             srcScenes.forEach((s, idx) => onAssignSceneToChapter(s.id, activeChapterId, idx));
           }
 
-          // Renumber target chapter after insertion
-          const newTargetScenes = [
-            ...targetScenes.slice(0, finalIdx),
-            displayedScenes.find(s => s.id === active.id)!,
-            ...targetScenes.slice(finalIdx),
-          ];
-          newTargetScenes.forEach((s, idx) => {
-            if (s && s.id !== active.id) onAssignSceneToChapter(s.id, overChapterId, idx);
+          // Renumber target chapter: shift existing scenes around the insertion point
+          targetScenes.forEach((s, idx) => {
+            const adjustedIdx = idx < finalIdx ? idx : idx + 1;
+            onAssignSceneToChapter(s.id, overChapterId, adjustedIdx);
           });
           markMoved(String(active.id));
         }
