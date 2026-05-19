@@ -485,8 +485,11 @@ export default function TimelineGrid({
           const multiDayStartCols = new Set<number>();
 
           // Pre-scan for multi-day scenes in this character's row
-          for (const [sk, date] of Object.entries(timelineDates)) {
-            if (!sk.startsWith(char.id + ':')) continue;
+          for (const scene of scenes) {
+            if (scene.characterId !== char.id) continue;
+            const sk = scene.id;
+            const date = timelineDates[sk];
+            if (!date) continue;
             const endDate = timelineEndDates[sk];
             const span = dateSpanColumns(date, endDate, dateRange);
             if (span > 1) {
