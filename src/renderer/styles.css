@@ -4470,6 +4470,77 @@ textarea.scene-metadata-field-input {
   width: 100%;
 }
 
+/* New chapter containers */
+.chapter-container {
+  border: 1px solid #fbbf24;
+  border-radius: 6px;
+  background: #fffbeb;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.chapter-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef9c3;
+  padding: 6px 10px;
+  border-bottom: 1px solid #fbbf24;
+}
+
+.chapter-title {
+  flex: 1;
+  font-weight: 600;
+  color: #92400e;
+  cursor: default;
+}
+
+.chapter-title-input {
+  flex: 1;
+  font-weight: 600;
+  color: #92400e;
+  border: 1px solid #fbbf24;
+  border-radius: 3px;
+  padding: 2px 4px;
+  background: white;
+  font-size: inherit;
+}
+
+.chapter-scene-count {
+  font-size: 11px;
+  color: #a16207;
+}
+
+.chapter-scenes {
+  padding: 4px 0;
+}
+
+.chapter-empty-drop {
+  padding: 16px;
+  text-align: center;
+  color: #aaa;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.unchaptered-scenes {
+  margin-top: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.unchaptered-header {
+  padding: 6px 10px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* POV View Layout with Table of Contents */
 .main-content:has(.pov-layout) {
   padding-right: 0;

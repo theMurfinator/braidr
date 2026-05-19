@@ -10,17 +10,18 @@ import {
   useDroppable,
   useDraggable,
 } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Character, Scene, PlotPoint, BraidedChapter } from '../../shared/types';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Character, Scene, PlotPoint, Chapter } from '../../shared/types';
 import { SortableItem, useAutoScrollContainer, DragPreviewCard, useSortableSensors } from '../dnd';
 import OutlineSceneRow from './OutlineSceneRow';
 
 interface BraidedListViewProps {
+  // Keep all non-chapter props unchanged:
   displayedScenes: Scene[];
   unbraidedScenesByCharacter: Map<string, Map<string, Scene[]>>;
   characters: Character[];
   plotPoints: PlotPoint[];
-  braidedChapters: BraidedChapter[];
   characterColors: Record<string, string>;
   getCharacterName: (id: string) => string;
   getCharacterHexColor: (id: string) => string;
@@ -32,12 +33,15 @@ interface BraidedListViewProps {
   onReorderTimeline: (activeId: string, overId: string) => void;
   onMoveToInbox: (sceneId: string) => void;
   onMoveFromInbox: (sceneId: string, overId: string) => void;
-  onAddChapter: (title: string, beforePosition: number) => void;
-  onMoveChapter: (chapterId: string, newBeforePosition: number) => void;
-  onUpdateChapter: (chapterId: string, newTitle: string) => void;
-  onDeleteChapter: (chapterId: string) => void;
   onInsertSceneAtPosition: (position: number, characterId: string, plotPointId: string) => void;
   onOpenInEditor?: (sceneId: string) => void;
+  // New chapter props:
+  chapters: Chapter[];
+  onAddChapter: (title: string) => void;
+  onUpdateChapter: (chapterId: string, updates: Partial<Pick<Chapter, 'title' | 'description'>>) => void;
+  onDeleteChapter: (chapterId: string) => void;
+  onReorderChapters: (orderedIds: string[]) => void;
+  onAssignSceneToChapter: (sceneId: string, chapterId: string | null, sceneOrder: number) => void;
 }
 
 // ---------- InboxSceneItem ----------
@@ -111,56 +115,25 @@ interface InsertPopoverProps {
   displayedScenesLength: number;
   characters: Character[];
   plotPoints: PlotPoint[];
-  braidedChapters: BraidedChapter[];
   characterColors: Record<string, string>;
   insertAtPosition: number | null;
   setInsertAtPosition: (pos: number | null) => void;
   insertCharacterId: string | null;
   setInsertCharacterId: (id: string | null) => void;
-  addingChapterAtPosition: number | null;
-  setAddingChapterAtPosition: (pos: number | null) => void;
   onInsertSceneAtPosition: (position: number, characterId: string, plotPointId: string) => void;
-  onAddChapter: (title: string, beforePosition: number) => void;
 }
 
 function InsertPopover({
   index,
-  displayPosition,
-  displayedScenesLength,
   characters,
   plotPoints,
-  braidedChapters,
   characterColors,
   insertAtPosition,
   setInsertAtPosition,
   insertCharacterId,
   setInsertCharacterId,
-  addingChapterAtPosition,
-  setAddingChapterAtPosition,
   onInsertSceneAtPosition,
-  onAddChapter,
 }: InsertPopoverProps) {
-  const isEndZone = index === displayedScenesLength;
-
-  const handleChapterInputBlur = (value: string) => {
-    if (value.trim()) {
-      if (isEndZone) {
-        const existingPositions = braidedChapters.map(ch => ch.beforePosition);
-        let newPosition = displayedScenesLength + 1;
-        while (existingPositions.includes(newPosition)) newPosition++;
-        onAddChapter(value.trim(), newPosition);
-      } else {
-        onAddChapter(value.trim(), displayPosition);
-      }
-    }
-    setAddingChapterAtPosition(null);
-    setInsertAtPosition(null);
-  };
-
-  const handleChapterAddClick = () => {
-    setAddingChapterAtPosition(isEndZone ? displayedScenesLength + 1 : displayPosition);
-  };
-
   return (
     <div className="braided-insert-zone">
       <button
@@ -168,38 +141,13 @@ function InsertPopover({
         onClick={() => {
           setInsertAtPosition(insertAtPosition === index ? null : index);
           setInsertCharacterId(null);
-          setAddingChapterAtPosition(null);
         }}
         title="Insert here"
       >+</button>
       {insertAtPosition === index && (
         <div className="braided-insert-popover">
-          {addingChapterAtPosition !== null ? (
-            <div className="braided-insert-chapter-input">
-              <input
-                type="text"
-                className="add-chapter-input"
-                placeholder="Chapter title..."
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleChapterInputBlur((e.target as HTMLInputElement).value);
-                  } else if (e.key === 'Escape') {
-                    setAddingChapterAtPosition(null);
-                  }
-                }}
-                onBlur={(e) => handleChapterInputBlur(e.target.value)}
-              />
-            </div>
-          ) : !insertCharacterId ? (
+          {!insertCharacterId ? (
             <>
-              <button
-                className="braided-insert-popover-item braided-insert-chapter-option"
-                onClick={handleChapterAddClick}
-              >
-                + Chapter
-              </button>
-              <div className="braided-insert-divider" />
               <div className="braided-insert-popover-title">Insert scene</div>
               {characters.map(char => (
                 <button
@@ -242,11 +190,146 @@ function InsertPopover({
   );
 }
 
+// ---------- AddChapterInput ----------
+
+function AddChapterInput({ onAdd, onCancel }: { onAdd: (title: string) => void; onCancel: () => void }) {
+  const [value, setValue] = useState('');
+  return (
+    <div className="add-chapter-input-container">
+      <input
+        autoFocus
+        className="add-chapter-input"
+        placeholder="Chapter title..."
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && value.trim()) onAdd(value.trim());
+          if (e.key === 'Escape') onCancel();
+        }}
+      />
+      <button className="add-chapter-confirm-btn" disabled={!value.trim()} onClick={() => onAdd(value.trim())}>Add</button>
+      <button className="add-chapter-cancel-btn" onClick={onCancel}>Cancel</button>
+    </div>
+  );
+}
+
+// ---------- SortableChapterContainer ----------
+
+interface SortableChapterContainerProps {
+  chapter: Chapter;
+  scenes: Scene[];
+  onUpdateChapter: (chapterId: string, updates: Partial<Pick<Chapter, 'title' | 'description'>>) => void;
+  onDeleteChapter: (chapterId: string) => void;
+  onSceneChange: (sceneId: string, content: string, notes: string[]) => void;
+  onOpenInEditor?: (sceneId: string) => void;
+  getCharacterName: (id: string) => string;
+  getCharacterHexColor: (id: string) => string;
+  onMoveToInbox: (sceneId: string) => void;
+  synopsisVisible: boolean;
+}
+
+function SortableChapterContainer({
+  chapter,
+  scenes,
+  onUpdateChapter,
+  onDeleteChapter,
+  onSceneChange,
+  onOpenInEditor,
+  getCharacterName,
+  getCharacterHexColor,
+  onMoveToInbox,
+  synopsisVisible,
+}: SortableChapterContainerProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: chapter.id,
+    data: { type: 'chapter' },
+  });
+
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState(chapter.title);
+
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="chapter-container">
+      <div className="chapter-header">
+        <span className="chapter-drag-handle" {...attributes} {...listeners}>⠿</span>
+        {isEditingTitle ? (
+          <input
+            autoFocus
+            value={editTitle}
+            onChange={e => setEditTitle(e.target.value)}
+            onBlur={() => {
+              if (editTitle.trim()) onUpdateChapter(chapter.id, { title: editTitle.trim() });
+              setIsEditingTitle(false);
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              if (e.key === 'Escape') { setEditTitle(chapter.title); setIsEditingTitle(false); }
+            }}
+            className="chapter-title-input"
+          />
+        ) : (
+          <span
+            className="chapter-title"
+            onDoubleClick={() => { setEditTitle(chapter.title); setIsEditingTitle(true); }}
+          >
+            {chapter.title}
+          </span>
+        )}
+        <span className="chapter-scene-count">{scenes.length} scene{scenes.length !== 1 ? 's' : ''}</span>
+        <button
+          className="delete-chapter-btn"
+          title="Delete chapter"
+          onClick={() => onDeleteChapter(chapter.id)}
+        >×</button>
+      </div>
+
+      <div className="chapter-scenes">
+        <SortableContext items={scenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
+          {scenes.map((scene, index) => (
+            <SortableItem key={scene.id} id={scene.id} data={{ type: 'chapter-scene', chapterId: chapter.id }}>
+              {({ setNodeRef: sceneRef, style: sceneStyle, attributes: sceneAttrs, listeners: sceneListeners, isDragging: sceneIsDragging, dropPosition }) => (
+                <div
+                  ref={sceneRef}
+                  style={{ ...sceneStyle, '--char-color': getCharacterHexColor(scene.characterId) } as CSSProperties}
+                  className="pov-outline-row-wrapper braided-row-wrapper"
+                >
+                  <span className="pov-drag-handle" {...sceneAttrs} {...sceneListeners}>⋮⋮</span>
+                  <OutlineSceneRow
+                    scene={scene}
+                    displayNumber={index + 1}
+                    characterName={getCharacterName(scene.characterId)}
+                    synopsisVisible={synopsisVisible}
+                    onSceneChange={onSceneChange}
+                    onSetAside={onMoveToInbox}
+                    onOpenInEditor={onOpenInEditor}
+                    expandMode={true}
+                    isDragging={sceneIsDragging}
+                    dropPosition={dropPosition}
+                  />
+                </div>
+              )}
+            </SortableItem>
+          ))}
+          {scenes.length === 0 && (
+            <div className="chapter-empty-drop">Drop scenes here</div>
+          )}
+        </SortableContext>
+      </div>
+    </div>
+  );
+}
+
 // ---------- BraidedTimeline ----------
 
 interface BraidedTimelineProps {
   displayedScenes: Scene[];
-  braidedChapters: BraidedChapter[];
+  chapters: Chapter[];
   dndActiveId: string | null;
   lastMovedSceneId: string | null;
   povReorderedScenes: Set<string>;
@@ -260,23 +343,20 @@ interface BraidedTimelineProps {
   setInsertAtPosition: (pos: number | null) => void;
   insertCharacterId: string | null;
   setInsertCharacterId: (id: string | null) => void;
-  addingChapterAtPosition: number | null;
-  setAddingChapterAtPosition: (pos: number | null) => void;
-  draggedChapter: BraidedChapter | null;
-  setDraggedChapter: (ch: BraidedChapter | null) => void;
+  showAddChapter: boolean;
+  setShowAddChapter: (v: boolean) => void;
   onSceneChange: (sceneId: string, content: string, notes: string[]) => void;
   onMoveToInbox: (sceneId: string) => void;
-  onMoveChapter: (chapterId: string, newBeforePosition: number) => void;
-  onUpdateChapter: (chapterId: string, newTitle: string) => void;
+  onUpdateChapter: (chapterId: string, updates: Partial<Pick<Chapter, 'title' | 'description'>>) => void;
   onDeleteChapter: (chapterId: string) => void;
-  onAddChapter: (title: string, beforePosition: number) => void;
+  onAddChapter: (title: string) => void;
   onInsertSceneAtPosition: (position: number, characterId: string, plotPointId: string) => void;
   onOpenInEditor?: (sceneId: string) => void;
 }
 
 function BraidedTimeline({
   displayedScenes,
-  braidedChapters,
+  chapters,
   dndActiveId,
   lastMovedSceneId,
   povReorderedScenes,
@@ -290,13 +370,10 @@ function BraidedTimeline({
   setInsertAtPosition,
   insertCharacterId,
   setInsertCharacterId,
-  addingChapterAtPosition,
-  setAddingChapterAtPosition,
-  draggedChapter,
-  setDraggedChapter,
+  showAddChapter,
+  setShowAddChapter,
   onSceneChange,
   onMoveToInbox,
-  onMoveChapter,
   onUpdateChapter,
   onDeleteChapter,
   onAddChapter,
@@ -306,8 +383,89 @@ function BraidedTimeline({
   const scrollRef = useRef<HTMLDivElement>(null);
   useAutoScrollContainer(scrollRef);
 
-  const isDraggingAny = !!dndActiveId || !!draggedChapter;
+  const isDraggingAny = !!dndActiveId;
 
+  if (chapters.length > 0) {
+    const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
+    const scenesByChapter = new Map<string, Scene[]>();
+    sortedChapters.forEach(ch => {
+      scenesByChapter.set(
+        ch.id,
+        displayedScenes.filter(s => s.chapterId === ch.id).sort((a, b) => a.sceneOrder - b.sceneOrder)
+      );
+    });
+    const unchapteredScenes = displayedScenes
+      .filter(s => !s.chapterId || !chapters.find(ch => ch.id === s.chapterId))
+      .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+
+    return (
+      <div className={`braided-timeline${isDraggingAny ? ' is-dragging' : ''}`} ref={scrollRef}>
+        <SortableContext items={sortedChapters.map(ch => ch.id)} strategy={verticalListSortingStrategy}>
+          {sortedChapters.map(chapter => (
+            <SortableChapterContainer
+              key={chapter.id}
+              chapter={chapter}
+              scenes={scenesByChapter.get(chapter.id) || []}
+              onUpdateChapter={onUpdateChapter}
+              onDeleteChapter={onDeleteChapter}
+              onSceneChange={onSceneChange}
+              onOpenInEditor={onOpenInEditor}
+              getCharacterName={getCharacterName}
+              getCharacterHexColor={getCharacterHexColor}
+              onMoveToInbox={onMoveToInbox}
+              synopsisVisible={synopsisVisible}
+            />
+          ))}
+        </SortableContext>
+
+        {unchapteredScenes.length > 0 && (
+          <div className="unchaptered-scenes">
+            <div className="unchaptered-header">Unchaptered</div>
+            <SortableContext items={unchapteredScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
+              {unchapteredScenes.map((scene, index) => (
+                <SortableItem key={scene.id} id={scene.id} data={{ type: 'chapter-scene', chapterId: null }}>
+                  {({ setNodeRef, style, attributes, listeners, isDragging, dropPosition }) => (
+                    <div
+                      ref={setNodeRef}
+                      style={{ ...style, '--char-color': getCharacterHexColor(scene.characterId) } as CSSProperties}
+                      className="pov-outline-row-wrapper braided-row-wrapper"
+                    >
+                      <span className="pov-drag-handle" {...attributes} {...listeners}>⋮⋮</span>
+                      <OutlineSceneRow
+                        scene={scene}
+                        displayNumber={index + 1}
+                        characterName={getCharacterName(scene.characterId)}
+                        synopsisVisible={synopsisVisible}
+                        onSceneChange={onSceneChange}
+                        onSetAside={onMoveToInbox}
+                        onOpenInEditor={onOpenInEditor}
+                        expandMode={true}
+                        isDragging={isDragging}
+                        dropPosition={dropPosition}
+                      />
+                    </div>
+                  )}
+                </SortableItem>
+              ))}
+            </SortableContext>
+          </div>
+        )}
+
+        {showAddChapter ? (
+          <AddChapterInput
+            onAdd={(title) => { onAddChapter(title); setShowAddChapter(false); }}
+            onCancel={() => setShowAddChapter(false)}
+          />
+        ) : (
+          <button className="add-chapter-inline-btn" onClick={() => setShowAddChapter(true)}>
+            + Add chapter
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // No chapters: flat list (existing behavior unchanged)
   return (
     <div className={`braided-timeline${isDraggingAny ? ' is-dragging' : ''}`} ref={scrollRef}>
       <SortableContext items={displayedScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
@@ -319,76 +477,21 @@ function BraidedTimeline({
 
         {displayedScenes.map((scene, index) => {
           const displayPosition = index + 1;
-          const chapterBefore = braidedChapters.find(ch => ch.beforePosition === displayPosition);
 
           return (
             <Fragment key={scene.id}>
-              {chapterBefore && (
-                <div
-                  className={`braided-chapter${draggedChapter?.id === chapterBefore.id ? ' dragging' : ''}`}
-                  draggable
-                  onDragStart={(e) => {
-                    setDraggedChapter(chapterBefore);
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', chapterBefore.id);
-                  }}
-                  onDragEnd={() => setDraggedChapter(null)}
-                >
-                  <span className="chapter-drag-handle">&#8942;&#8942;</span>
-                  <input
-                    type="text"
-                    className="braided-chapter-title"
-                    defaultValue={chapterBefore.title}
-                    onBlur={(e) => {
-                      if (e.target.value !== chapterBefore.title) {
-                        onUpdateChapter(chapterBefore.id, e.target.value);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <button
-                    className="delete-chapter-btn"
-                    onClick={() => onDeleteChapter(chapterBefore.id)}
-                    title="Delete chapter"
-                  >&#215;</button>
-                </div>
-              )}
-
-              {!chapterBefore && draggedChapter && (
-                <div
-                  className="chapter-drop-zone"
-                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (draggedChapter) {
-                      onMoveChapter(draggedChapter.id, displayPosition);
-                      setDraggedChapter(null);
-                    }
-                  }}
-                >
-                  Move chapter here
-                </div>
-              )}
-
               <InsertPopover
                 index={index}
                 displayPosition={displayPosition}
                 displayedScenesLength={displayedScenes.length}
                 characters={characters}
                 plotPoints={plotPoints}
-                braidedChapters={braidedChapters}
                 characterColors={characterColors}
                 insertAtPosition={insertAtPosition}
                 setInsertAtPosition={setInsertAtPosition}
                 insertCharacterId={insertCharacterId}
                 setInsertCharacterId={setInsertCharacterId}
-                addingChapterAtPosition={addingChapterAtPosition}
-                setAddingChapterAtPosition={setAddingChapterAtPosition}
                 onInsertSceneAtPosition={onInsertSceneAtPosition}
-                onAddChapter={onAddChapter}
               />
 
               <SortableItem id={scene.id} data={{ type: 'timeline-scene', scene }}>
@@ -426,16 +529,12 @@ function BraidedTimeline({
             displayedScenesLength={displayedScenes.length}
             characters={characters}
             plotPoints={plotPoints}
-            braidedChapters={braidedChapters}
             characterColors={characterColors}
             insertAtPosition={insertAtPosition}
             setInsertAtPosition={setInsertAtPosition}
             insertCharacterId={insertCharacterId}
             setInsertCharacterId={setInsertCharacterId}
-            addingChapterAtPosition={addingChapterAtPosition}
-            setAddingChapterAtPosition={setAddingChapterAtPosition}
             onInsertSceneAtPosition={onInsertSceneAtPosition}
-            onAddChapter={onAddChapter}
           />
         )}
       </SortableContext>
@@ -461,7 +560,7 @@ export default function BraidedListView({
   unbraidedScenesByCharacter,
   characters,
   plotPoints,
-  braidedChapters,
+  chapters,
   characterColors,
   getCharacterName,
   getCharacterHexColor,
@@ -474,18 +573,18 @@ export default function BraidedListView({
   onMoveToInbox,
   onMoveFromInbox,
   onAddChapter,
-  onMoveChapter,
   onUpdateChapter,
   onDeleteChapter,
+  onReorderChapters,
+  onAssignSceneToChapter,
   onInsertSceneAtPosition,
   onOpenInEditor,
 }: BraidedListViewProps) {
   const sensors = useSortableSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [draggedChapter, setDraggedChapter] = useState<BraidedChapter | null>(null);
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
-  const [addingChapterAtPosition, setAddingChapterAtPosition] = useState<number | null>(null);
+  const [showAddChapter, setShowAddChapter] = useState(false);
   const [lastMovedSceneId, setLastMovedSceneId] = useState<string | null>(null);
   const lastMovedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -502,6 +601,7 @@ export default function BraidedListView({
     if (!over) return;
 
     const activeType = active.data.current?.type as string | undefined;
+    const overType = over.data.current?.type as string | undefined;
 
     const markMoved = (id: string) => {
       if (lastMovedTimerRef.current) clearTimeout(lastMovedTimerRef.current);
@@ -509,6 +609,81 @@ export default function BraidedListView({
       lastMovedTimerRef.current = setTimeout(() => setLastMovedSceneId(null), 5000);
     };
 
+    if (activeType === 'chapter') {
+      // Reorder chapters
+      const sortedChs = [...chapters].sort((a, b) => a.order - b.order);
+      const oldIdx = sortedChs.findIndex(ch => ch.id === active.id);
+      const newIdx = sortedChs.findIndex(ch => ch.id === over.id);
+      if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
+        const reordered = arrayMove(sortedChs, oldIdx, newIdx);
+        onReorderChapters(reordered.map(ch => ch.id));
+      }
+      return;
+    }
+
+    if (activeType === 'chapter-scene') {
+      const activeChapterId = active.data.current?.chapterId as string | undefined;
+      const overChapterId = over.data.current?.chapterId as string | undefined;
+
+      const sortedChs = [...chapters].sort((a, b) => a.order - b.order);
+      const scenesByChapter = new Map<string, Scene[]>();
+      sortedChs.forEach(ch => {
+        scenesByChapter.set(
+          ch.id,
+          displayedScenes.filter(s => s.chapterId === ch.id).sort((a, b) => a.sceneOrder - b.sceneOrder)
+        );
+      });
+
+      if (overType === 'chapter') {
+        // Dropped onto a chapter header — append to that chapter
+        const targetId = String(over.id);
+        const targetScenes = scenesByChapter.get(targetId) || [];
+        onAssignSceneToChapter(String(active.id), targetId, targetScenes.length);
+        markMoved(String(active.id));
+        return;
+      }
+
+      if (overType === 'chapter-scene') {
+        if (activeChapterId === overChapterId && activeChapterId) {
+          // Same chapter: reorder
+          const chScenes = [...(scenesByChapter.get(activeChapterId) || [])];
+          const oldIdx = chScenes.findIndex(s => s.id === active.id);
+          const newIdx = chScenes.findIndex(s => s.id === over.id);
+          if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
+            const reordered = arrayMove(chScenes, oldIdx, newIdx);
+            reordered.forEach((s, idx) => onAssignSceneToChapter(s.id, activeChapterId, idx));
+            markMoved(String(active.id));
+          }
+        } else if (overChapterId) {
+          // Cross-chapter move
+          const targetScenes = [...(scenesByChapter.get(overChapterId) || [])];
+          const insertIdx = targetScenes.findIndex(s => s.id === over.id);
+          const finalIdx = insertIdx === -1 ? targetScenes.length : insertIdx;
+
+          onAssignSceneToChapter(String(active.id), overChapterId, finalIdx);
+
+          // Renumber source chapter (excluding the moved scene)
+          if (activeChapterId) {
+            const srcScenes = (scenesByChapter.get(activeChapterId) || []).filter(s => s.id !== active.id);
+            srcScenes.forEach((s, idx) => onAssignSceneToChapter(s.id, activeChapterId, idx));
+          }
+
+          // Renumber target chapter after insertion
+          const newTargetScenes = [
+            ...targetScenes.slice(0, finalIdx),
+            displayedScenes.find(s => s.id === active.id)!,
+            ...targetScenes.slice(finalIdx),
+          ];
+          newTargetScenes.forEach((s, idx) => {
+            if (s && s.id !== active.id) onAssignSceneToChapter(s.id, overChapterId, idx);
+          });
+          markMoved(String(active.id));
+        }
+        return;
+      }
+    }
+
+    // Legacy flat timeline drag (no chapters mode)
     if (activeType === 'timeline-scene') {
       if (over.id === 'braided-inbox') {
         onMoveToInbox(String(active.id));
@@ -571,7 +746,7 @@ export default function BraidedListView({
       <div className={`braided-layout${activeId ? ' is-dragging' : ''}`}>
         <BraidedTimeline
           displayedScenes={displayedScenes}
-          braidedChapters={braidedChapters}
+          chapters={chapters}
           dndActiveId={activeId}
           lastMovedSceneId={lastMovedSceneId}
           povReorderedScenes={povReorderedScenes}
@@ -585,13 +760,10 @@ export default function BraidedListView({
           setInsertAtPosition={setInsertAtPosition}
           insertCharacterId={insertCharacterId}
           setInsertCharacterId={setInsertCharacterId}
-          addingChapterAtPosition={addingChapterAtPosition}
-          setAddingChapterAtPosition={setAddingChapterAtPosition}
-          draggedChapter={draggedChapter}
-          setDraggedChapter={setDraggedChapter}
+          showAddChapter={showAddChapter}
+          setShowAddChapter={setShowAddChapter}
           onSceneChange={onSceneChange}
           onMoveToInbox={onMoveToInbox}
-          onMoveChapter={onMoveChapter}
           onUpdateChapter={onUpdateChapter}
           onDeleteChapter={onDeleteChapter}
           onAddChapter={onAddChapter}
