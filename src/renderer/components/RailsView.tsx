@@ -745,15 +745,13 @@ export default function RailsView({
 
               if (chapters.length > 0) {
                 const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
-                // Build reverse map: sceneId -> chapter (for the first scene in each chapter)
+                // Build reverse map: sceneId -> chapter (for the first visible row in each chapter)
+                // Use gridRows order (display order) so the header appears before the correct row
+                // even when gridRows is filtered or drag-reordered.
                 const sceneToChapter = new Map<string, Chapter>();
                 sortedChapters.forEach(ch => {
-                  const chScenes = gridRows
-                    .filter(r => r.scene.chapterId === ch.id)
-                    .sort((a, b) => a.scene.sceneOrder - b.scene.sceneOrder);
-                  if (chScenes.length > 0) {
-                    sceneToChapter.set(chScenes[0].scene.id, ch);
-                  }
+                  const firstRow = gridRows.find(r => r.scene.chapterId === ch.id);
+                  if (firstRow) sceneToChapter.set(firstRow.scene.id, ch);
                 });
 
                 return gridRows.flatMap((row, index) => {
