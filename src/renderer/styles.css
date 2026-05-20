@@ -845,7 +845,6 @@
 
 .toolbar-btn--primary:hover {
   filter: brightness(1.08);
-  opacity: 1;
 }
 
 .toolbar-btn svg {
@@ -9092,6 +9091,7 @@ textarea.editor-meta-field-input {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  transition: filter 0.15s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
