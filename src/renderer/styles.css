@@ -3521,8 +3521,9 @@ textarea.scene-metadata-field-input {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9009,8 +9010,9 @@ textarea.editor-meta-field-input {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9020,6 +9022,7 @@ textarea.editor-meta-field-input {
 .modal {
   background: var(--bg-primary);
   border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
   padding: 0;
   max-height: 80vh;
   display: flex;
