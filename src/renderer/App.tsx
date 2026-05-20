@@ -124,6 +124,9 @@ function App() {
   const showInlineLabelsRef = useRef(true);
   const [showFieldsDropdown, setShowFieldsDropdown] = useState(false);
   const fieldsDropdownRef = useRef<HTMLDivElement>(null);
+  const [showNewDropdown, setShowNewDropdown] = useState(false);
+  const [showAddChapterInput, setShowAddChapterInput] = useState(false);
+  const newDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionSource, setConnectionSource] = useState<string | null>(null);
@@ -443,6 +446,19 @@ function App() {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showFieldsDropdown]);
+
+  // Close new dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (newDropdownRef.current && !newDropdownRef.current.contains(e.target as Node)) {
+        setShowNewDropdown(false);
+      }
+    };
+    if (showNewDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNewDropdown]);
 
   // Fetch license status for account display
   useEffect(() => {
@@ -3410,7 +3426,6 @@ function App() {
                 characters={projectData.characters}
                 plotPoints={projectData.plotPoints}
                 chapters={chapters}
-                characterColors={characterColors}
                 getCharacterName={getCharacterName}
                 getCharacterHexColor={getCharacterHexColor}
                 povReorderedScenes={povReorderedScenes}
@@ -3426,7 +3441,8 @@ function App() {
                 onDeleteChapter={handleDeleteChapter}
                 onReorderChapters={handleReorderChapters}
                 onAssignSceneToChapter={handleAssignSceneToChapter}
-                onAddSceneToInbox={handleAddSceneToInbox}
+                showAddChapterInput={showAddChapterInput}
+                onDismissAddChapter={() => setShowAddChapterInput(false)}
                 onOpenInEditor={handleOpenInEditor}
               />
             )}
@@ -3623,16 +3639,48 @@ function App() {
           ) : (
             <h1>{projectData.projectName || 'Braidr'}</h1>
           )}
-          {viewMode === 'pov' && (
+          {(viewMode === 'pov' || (viewMode === 'braided' && braidedSubMode === 'list')) && (
             <>
               <div className="toolbar-divider" />
-              <button
-                className="toolbar-btn toolbar-btn--primary"
-                onClick={() => selectedCharacterId && handleAddSceneToInbox(selectedCharacterId)}
-                title="Add a new scene to inbox"
-              >
-                + New Scene
-              </button>
+              {viewMode === 'pov' ? (
+                <button
+                  className="toolbar-btn toolbar-btn--primary"
+                  onClick={() => selectedCharacterId && handleAddSceneToInbox(selectedCharacterId)}
+                  title="Add a new scene to inbox"
+                >
+                  + New Scene
+                </button>
+              ) : (
+                <div className="toolbar-dropdown-container" ref={newDropdownRef}>
+                  <button
+                    className="toolbar-btn toolbar-btn--primary"
+                    onClick={() => setShowNewDropdown(o => !o)}
+                  >
+                    + New ▾
+                  </button>
+                  {showNewDropdown && (
+                    <div className="add-dropdown-menu">
+                      {projectData.characters.map(char => (
+                        <button
+                          key={char.id}
+                          className="add-dropdown-item"
+                          onClick={() => { handleAddSceneToInbox(char.id); setShowNewDropdown(false); }}
+                        >
+                          <span className="add-dropdown-color" style={{ background: characterColors[char.id] || '#888' }} />
+                          New {char.name} Scene
+                        </button>
+                      ))}
+                      <div className="add-dropdown-divider" />
+                      <button
+                        className="add-dropdown-item"
+                        onClick={() => { setShowAddChapterInput(true); setShowNewDropdown(false); }}
+                      >
+                        New Chapter
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="toolbar-divider" />
               <button
                 className="toolbar-btn"

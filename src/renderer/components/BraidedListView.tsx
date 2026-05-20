@@ -22,7 +22,6 @@ interface BraidedListViewProps {
   unbraidedScenesByCharacter: Map<string, Map<string, Scene[]>>;
   characters: Character[];
   plotPoints: PlotPoint[];
-  characterColors: Record<string, string>;
   getCharacterName: (id: string) => string;
   getCharacterHexColor: (id: string) => string;
   povReorderedScenes: Set<string>;
@@ -33,7 +32,8 @@ interface BraidedListViewProps {
   onReorderTimeline: (activeId: string, overId: string) => void;
   onMoveToInbox: (sceneId: string) => void;
   onMoveFromInbox: (sceneId: string, overId: string) => void;
-  onAddSceneToInbox: (characterId: string) => void;
+  showAddChapterInput: boolean;
+  onDismissAddChapter: () => void;
   onOpenInEditor?: (sceneId: string) => void;
   // New chapter props:
   chapters: Chapter[];
@@ -103,61 +103,6 @@ function InboxDropZone({ children, charFilter, onCharFilterChange, characters }:
       <div className="inbox-characters">
         {children}
       </div>
-    </div>
-  );
-}
-
-// ---------- AddDropdownButton ----------
-
-function AddDropdownButton({
-  characters,
-  characterColors,
-  onAddSceneToInbox,
-  onOpenAddChapter,
-}: {
-  characters: Character[];
-  characterColors: Record<string, string>;
-  onAddSceneToInbox: (characterId: string) => void;
-  onOpenAddChapter: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
-
-  return (
-    <div className="add-dropdown-wrapper" ref={ref}>
-      <button className="add-dropdown-btn" onClick={() => setOpen(o => !o)}>
-        + New ▾
-      </button>
-      {open && (
-        <div className="add-dropdown-menu">
-          {characters.map(char => (
-            <button
-              key={char.id}
-              className="add-dropdown-item"
-              onClick={() => { onAddSceneToInbox(char.id); setOpen(false); }}
-            >
-              <span className="add-dropdown-color" style={{ background: characterColors[char.id] || '#888' }} />
-              New {char.name} Scene
-            </button>
-          ))}
-          <div className="add-dropdown-divider" />
-          <button
-            className="add-dropdown-item"
-            onClick={() => { onOpenAddChapter(); setOpen(false); }}
-          >
-            New Chapter
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -468,7 +413,6 @@ export default function BraidedListView({
   characters,
   plotPoints,
   chapters,
-  characterColors,
   getCharacterName,
   getCharacterHexColor,
   povReorderedScenes,
@@ -484,12 +428,12 @@ export default function BraidedListView({
   onDeleteChapter,
   onReorderChapters,
   onAssignSceneToChapter,
-  onAddSceneToInbox,
+  showAddChapterInput,
+  onDismissAddChapter,
   onOpenInEditor,
 }: BraidedListViewProps) {
   const sensors = useSortableSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [showAddChapter, setShowAddChapter] = useState(false);
   const [lastMovedSceneId, setLastMovedSceneId] = useState<string | null>(null);
   const lastMovedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -650,18 +594,10 @@ export default function BraidedListView({
     >
       <div className={`braided-layout${activeId ? ' is-dragging' : ''}`}>
         <div className="braided-main">
-          <div className="braided-toolbar">
-            <AddDropdownButton
-              characters={characters}
-              characterColors={characterColors}
-              onAddSceneToInbox={onAddSceneToInbox}
-              onOpenAddChapter={() => setShowAddChapter(true)}
-            />
-          </div>
-          {showAddChapter && (
+          {showAddChapterInput && (
             <AddChapterInput
-              onAdd={(title) => { onAddChapter(title); setShowAddChapter(false); }}
-              onCancel={() => setShowAddChapter(false)}
+              onAdd={(title) => { onAddChapter(title); onDismissAddChapter(); }}
+              onCancel={onDismissAddChapter}
             />
           )}
           <BraidedTimeline
