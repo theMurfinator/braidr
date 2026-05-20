@@ -745,26 +745,33 @@ export default function RailsView({
 
               if (chapters.length > 0) {
                 const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
-                // Build reverse map: sceneId -> chapter (for the first visible row in each chapter)
-                // Use gridRows order (display order) so the header appears before the correct row
-                // even when gridRows is filtered or drag-reordered.
-                const sceneToChapter = new Map<string, Chapter>();
-                sortedChapters.forEach(ch => {
-                  const firstRow = gridRows.find(r => r.scene.chapterId === ch.id);
-                  if (firstRow) sceneToChapter.set(firstRow.scene.id, ch);
-                });
 
-                return gridRows.flatMap((row, index) => {
-                  const chapterHeader = sceneToChapter.get(row.scene.id);
-                  return [
-                    ...(chapterHeader ? [
-                      <div key={`ch-header-${chapterHeader.id}`} className="rails-chapter-header">
-                        <span className="rails-chapter-header-title">{chapterHeader.title}</span>
+                // Group rows by chapter, preserving original gridRows index for drop logic
+                const indexedRows = gridRows.map((row, idx) => ({ row, idx }));
+                const unchapteredRows = indexedRows.filter(({ row }) => !row.scene.chapterId);
+                const chapterRows = sortedChapters.map(ch => ({
+                  chapter: ch,
+                  rows: indexedRows.filter(({ row }) => row.scene.chapterId === ch.id),
+                })).filter(g => g.rows.length > 0);
+
+                return [
+                  ...unchapteredRows.map(({ row, idx }) => renderGridRow(row, idx)),
+                  ...chapterRows.map(({ chapter, rows }) => (
+                    <div
+                      key={chapter.id}
+                      className="rails-chapter-group"
+                      style={{ gridColumn: '1 / -1', '--rails-columns': numColumns } as React.CSSProperties}
+                    >
+                      <div className="rails-chapter-group-header">
+                        <span className="rails-chapter-group-title">{chapter.title}</span>
+                        <span className="rails-chapter-group-count">{rows.length} scene{rows.length !== 1 ? 's' : ''}</span>
                       </div>
-                    ] : []),
-                    renderGridRow(row, index),
-                  ];
-                });
+                      <div className="rails-chapter-group-inner">
+                        {rows.map(({ row, idx }) => renderGridRow(row, idx))}
+                      </div>
+                    </div>
+                  )),
+                ];
               }
 
               return gridRows.map((row, index) => renderGridRow(row, index));

@@ -4294,23 +4294,43 @@ textarea.scene-metadata-field-input {
   color: var(--tag-arcs);
 }
 
-/* Rails chapter header rows */
-.rails-chapter-header {
-  grid-column: 1 / -1;
-  background: #fef9c3;
-  border: 1px solid #fbbf24;
-  border-radius: 5px;
-  padding: 6px 10px;
+/* Rails chapter group — wraps header + scenes in a bordered box */
+.rails-chapter-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
   margin-bottom: 4px;
-  font-weight: 600;
-  color: #92400e;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
-.rails-chapter-header-title {
+.rails-chapter-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-ui);
+}
+
+.rails-chapter-group-title {
   flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.rails-chapter-group-count {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.rails-chapter-group-inner {
+  display: grid;
+  grid-template-columns: 50px repeat(var(--rails-columns, 4), 1fr);
+  gap: 10px;
+  padding: 10px 12px;
 }
 
 /* Add Chapter Input */
@@ -4555,9 +4575,9 @@ textarea.scene-metadata-field-input {
 
 /* New chapter containers */
 .chapter-container {
-  border: 1px solid #fbbf24;
-  border-radius: 6px;
-  background: #fffbeb;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
   margin-bottom: 8px;
   overflow: hidden;
 }
@@ -4566,32 +4586,37 @@ textarea.scene-metadata-field-input {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #fef9c3;
+  background: var(--bg-secondary);
   padding: 6px 10px;
-  border-bottom: 1px solid #fbbf24;
+  border-bottom: 1px solid var(--border);
 }
 
 .chapter-title {
   flex: 1;
+  font-size: 12px;
   font-weight: 600;
-  color: #92400e;
+  color: var(--text-primary);
   cursor: default;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-family: var(--font-ui);
 }
 
 .chapter-title-input {
   flex: 1;
+  font-size: 12px;
   font-weight: 600;
-  color: #92400e;
-  border: 1px solid #fbbf24;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
   border-radius: 3px;
   padding: 2px 4px;
-  background: white;
-  font-size: inherit;
+  background: var(--bg-primary);
+  font-family: var(--font-ui);
 }
 
 .chapter-scene-count {
   font-size: 11px;
-  color: #a16207;
+  color: var(--text-muted);
 }
 
 .chapter-scenes {
