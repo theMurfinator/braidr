@@ -4344,12 +4344,12 @@ textarea.scene-metadata-field-input {
 
 /* Rails chapter group — wraps header + scenes in a bordered box */
 .rails-chapter-group {
-  border: 1px solid #E2D9CC;
-  border-left: 3px solid #8B7355;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--color-primary);
   border-radius: var(--radius-md);
   overflow: hidden;
   margin-bottom: 8px;
-  background: #FDFAF6;
+  background: var(--bg-secondary);
 }
 
 .rails-chapter-group-header {
@@ -4357,8 +4357,8 @@ textarea.scene-metadata-field-input {
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
-  background: #F5F0E8;
-  border-bottom: 1px solid #E2D9CC;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
 }
 
 .rails-chapter-group-num {
@@ -4366,7 +4366,7 @@ textarea.scene-metadata-field-input {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8B7355;
+  color: var(--color-primary);
   font-family: var(--font-ui);
   white-space: nowrap;
 }
@@ -4382,7 +4382,7 @@ textarea.scene-metadata-field-input {
 
 .rails-chapter-group-count {
   font-size: 11px;
-  color: #A08060;
+  color: var(--text-muted);
   font-family: var(--font-ui);
 }
 
@@ -4390,7 +4390,7 @@ textarea.scene-metadata-field-input {
   background: none;
   border: none;
   cursor: pointer;
-  color: #B0967A;
+  color: var(--text-muted);
   font-size: 16px;
   line-height: 1;
   padding: 0 2px;
@@ -4411,7 +4411,7 @@ textarea.scene-metadata-field-input {
   grid-template-columns: 50px repeat(var(--rails-columns, 4), 1fr);
   gap: 10px;
   padding: 10px 12px;
-  background: #FDFAF6;
+  background: var(--bg-secondary);
 }
 
 .rails-chapter-empty {
@@ -4419,7 +4419,7 @@ textarea.scene-metadata-field-input {
   padding: 16px;
   text-align: center;
   font-size: 12px;
-  color: #B0967A;
+  color: var(--text-muted);
   font-family: var(--font-ui);
   font-style: italic;
 }
@@ -4666,10 +4666,10 @@ textarea.scene-metadata-field-input {
 
 /* New chapter containers */
 .chapter-container {
-  border: 1px solid #E2D9CC;
-  border-left: 3px solid #8B7355;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--color-primary);
   border-radius: var(--radius-md);
-  background: #FDFAF6;
+  background: var(--bg-secondary);
   margin-bottom: 8px;
   overflow: hidden;
 }
@@ -4678,9 +4678,9 @@ textarea.scene-metadata-field-input {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #F5F0E8;
+  background: var(--bg-tertiary);
   padding: 7px 10px;
-  border-bottom: 1px solid #E2D9CC;
+  border-bottom: 1px solid var(--border);
 }
 
 .chapter-title {
@@ -4699,16 +4699,16 @@ textarea.scene-metadata-field-input {
   font-weight: 500;
   font-style: italic;
   color: var(--text-primary);
-  border: 1px solid #E2D9CC;
+  border: 1px solid var(--border);
   border-radius: 3px;
   padding: 2px 6px;
-  background: #FDFAF6;
+  background: var(--bg-secondary);
   font-family: var(--font-section-title);
 }
 
 .chapter-scene-count {
   font-size: 11px;
-  color: #A08060;
+  color: var(--text-muted);
   font-family: var(--font-ui);
 }
 
