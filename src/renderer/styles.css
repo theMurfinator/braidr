@@ -9929,11 +9929,12 @@ textarea.editor-meta-field-input {
 }
 
 .table-chapter-header td {
-  background: #fef9c3;
+  background: var(--bg-tertiary);
   font-weight: 600;
-  color: #92400e;
+  color: var(--color-primary);
   padding: 6px 12px;
-  border-bottom: 1px solid #fbbf24;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--color-primary);
 }
 
 .table-cell {
