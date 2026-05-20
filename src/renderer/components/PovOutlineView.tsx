@@ -22,6 +22,7 @@ interface PovOutlineViewProps {
   getCharacterName?: (characterId: string) => string;
   chapters?: Chapter[];
   onAssignSceneToChapter?: (sceneId: string, chapterId: string | null, sceneOrder: number) => void;
+  povReorderedScenes?: Set<string>;
 }
 
 function ScrollAutoBinder({ scrollRef }: { scrollRef: React.RefObject<HTMLDivElement | null> }) {
@@ -227,6 +228,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     onDeleteSection,
     getCharacterName,
     chapters,
+    povReorderedScenes,
   } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -322,7 +324,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                               <SortableItem key={scene.id} id={scene.id} data={{ type: 'scene', sectionId: section.id }}>
                                 {(sceneSortable) => (
                                   <div ref={sceneSortable.setNodeRef} style={sceneSortable.style}
-                                    className={`pov-outline-row-wrapper${sceneSortable.isOver ? ' is-over' : ''}`}
+                                    className={`pov-outline-row-wrapper${sceneSortable.isOver ? ' is-over' : ''}${povReorderedScenes?.has(scene.id) ? ' pov-reordered' : ''}`}
                                     data-section-id={section.id} data-dnd-sortable-item>
                                     <span className="pov-drag-handle" {...sceneSortable.attributes} {...sceneSortable.listeners}>⋮⋮</span>
                                     <OutlineSceneRow
@@ -349,7 +351,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                                   <SortableItem key={scene.id} id={scene.id} data={{ type: 'scene', sectionId: section.id }}>
                                     {(sceneSortable) => (
                                       <div ref={sceneSortable.setNodeRef} style={sceneSortable.style}
-                                        className={`pov-outline-row-wrapper pov-chapter-scene${sceneSortable.isOver ? ' is-over' : ''}`}
+                                        className={`pov-outline-row-wrapper pov-chapter-scene${sceneSortable.isOver ? ' is-over' : ''}${povReorderedScenes?.has(scene.id) ? ' pov-reordered' : ''}`}
                                         data-section-id={section.id} data-dnd-sortable-item>
                                         <span className="pov-drag-handle" {...sceneSortable.attributes} {...sceneSortable.listeners}>⋮⋮</span>
                                         <OutlineSceneRow
@@ -381,7 +383,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                                   <div
                                     ref={sceneSortable.setNodeRef}
                                     style={sceneSortable.style}
-                                    className={`pov-outline-row-wrapper${sceneSortable.isOver ? ' is-over' : ''}`}
+                                    className={`pov-outline-row-wrapper${sceneSortable.isOver ? ' is-over' : ''}${povReorderedScenes?.has(scene.id) ? ' pov-reordered' : ''}`}
                                     data-section-id={section.id}
                                     data-dnd-sortable-item
                                   >

@@ -18628,6 +18628,13 @@ textarea.table-cell-input {
   position: relative;
 }
 
+.pov-outline-row-wrapper.pov-reordered .outline-scene-row {
+  outline: 2px solid #e74c3c;
+  outline-offset: -1px;
+  background: rgba(231, 76, 60, 0.07);
+  border-radius: 4px;
+}
+
 /* Drag handle — fills the 24px left gutter of the scene row (matches padding-left: 24px).
    z-index: 1 needed because outline-scene-row has position: relative (same stacking layer,
    later in DOM order), which would otherwise paint over this handle and block pointer events. */

@@ -3270,6 +3270,7 @@ function App() {
                   onSectionChange={handlePlotPointChange}
                   onDeleteSection={handleDeletePlotPoint}
                   getCharacterName={getCharacterName}
+                  povReorderedScenes={povReorderedScenes}
                 />
                 <button className="add-section-btn" onClick={handleCreatePlotPoint}>
                   + Add Section
