@@ -2496,7 +2496,7 @@ function App() {
       timelinePosition: null,
       isHighlighted: false,
       notes: [],
-      plotPointId: projectData.plotPoints.find(p => p.characterId === characterId)?.id || null,
+      plotPointId: null,
       chapterId: null,
       sceneOrder: 0,
     };
@@ -3244,7 +3244,6 @@ function App() {
                   sections={displayedPlotPoints}
                   scenes={displayedScenes.filter(s => s.plotPointId !== null)}
                   chapters={chapters}
-                  onAddChapter={handleAddChapter}
                   onAssignSceneToChapter={handleAssignSceneToChapter}
                   synopsisModes={sectionSynopsisModes}
                   hideHeaders={hideSectionHeaders[tabId] ?? false}
@@ -3626,6 +3625,14 @@ function App() {
           )}
           {viewMode === 'pov' && (
             <>
+              <div className="toolbar-divider" />
+              <button
+                className="toolbar-btn toolbar-btn--primary"
+                onClick={() => selectedCharacterId && handleAddSceneToInbox(selectedCharacterId)}
+                title="Add a new scene to inbox"
+              >
+                + New Scene
+              </button>
               <div className="toolbar-divider" />
               <button
                 className="toolbar-btn"

@@ -828,6 +828,17 @@
   font-weight: 600;
 }
 
+.toolbar-btn--primary {
+  background: var(--text-primary);
+  color: white;
+}
+
+.toolbar-btn--primary:hover {
+  background: var(--text-primary);
+  color: white;
+  opacity: 0.85;
+}
+
 .toolbar-btn svg {
   opacity: 0.75;
 }

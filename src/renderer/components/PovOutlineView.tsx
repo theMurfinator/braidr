@@ -21,7 +21,6 @@ interface PovOutlineViewProps {
   onDeleteSection?: (sectionId: string) => void;
   getCharacterName?: (characterId: string) => string;
   chapters?: Chapter[];
-  onAddChapter?: (title: string) => void;
   onAssignSceneToChapter?: (sceneId: string, chapterId: string | null, sceneOrder: number) => void;
 }
 
@@ -214,37 +213,6 @@ function EmptySectionDropZone({ sectionId }: { sectionId: string }) {
   );
 }
 
-function AddChapterInlineButton({ onAdd }: { onAdd: (title: string) => void }) {
-  const [isAdding, setIsAdding] = useState(false);
-  const [title, setTitle] = useState('');
-
-  if (!isAdding) {
-    return (
-      <button className="pov-add-chapter-btn" onClick={() => setIsAdding(true)}>
-        + add chapter
-      </button>
-    );
-  }
-
-  return (
-    <div className="pov-add-chapter-input-row">
-      <input
-        autoFocus
-        className="pov-add-chapter-input"
-        placeholder="Chapter title..."
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-        onKeyDown={e => {
-          if (e.key === 'Enter' && title.trim()) { onAdd(title.trim()); setTitle(''); setIsAdding(false); }
-          if (e.key === 'Escape') { setTitle(''); setIsAdding(false); }
-        }}
-      />
-      <button className="pov-add-chapter-confirm" disabled={!title.trim()} onClick={() => { onAdd(title.trim()); setTitle(''); setIsAdding(false); }}>Add</button>
-      <button className="pov-add-chapter-cancel" onClick={() => { setTitle(''); setIsAdding(false); }}>Cancel</button>
-    </div>
-  );
-}
-
 export default function PovOutlineView(props: PovOutlineViewProps) {
   const {
     sections,
@@ -259,7 +227,6 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     onDeleteSection,
     getCharacterName,
     chapters,
-    onAddChapter,
   } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -449,9 +416,6 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                           <SortableContext items={orderedSectionIds} strategy={verticalListSortingStrategy}>
                             {sceneRenderContent}
                           </SortableContext>
-                          {onAddChapter && (
-                            <AddChapterInlineButton onAdd={onAddChapter} />
-                          )}
                         </>
                       );
                     })()}
