@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Scene, Character, MetadataFieldDef, Tag, TableViewConfig } from '../../shared/types';
+import { Scene, Character, MetadataFieldDef, Tag, TableViewConfig, Chapter } from '../../shared/types';
 
 type FilterOperator = 'is' | 'is_not' | 'is_blank' | 'is_not_blank' | 'contains';
 
@@ -25,6 +25,7 @@ interface TableViewProps {
   onTableViewsChange: (views: TableViewConfig[]) => void;
   onSceneChange?: (sceneId: string, content: string, notes: string[]) => void;
   povReorderedScenes?: Set<string>;
+  chapters?: Chapter[];
 }
 
 type SortField = 'scene' | 'character' | 'status' | 'words' | 'plotPoint' | string;
@@ -62,6 +63,7 @@ export default function TableView({
   onTableViewsChange: _onTableViewsChange,
   onSceneChange: _onSceneChange,
   povReorderedScenes,
+  chapters,
 }: TableViewProps) {
   // Use localStorage for now instead of props
   const [savedViews, setSavedViews] = useState<TableViewConfig[]>(() => {
@@ -808,8 +810,8 @@ export default function TableView({
                 ))}
           </tr>
         </thead>
-        <tbody>
-          {sortedScenes.map(scene => {
+        {(() => {
+            const renderSceneRow = (scene: Scene) => {
             const sceneKey = scene.id;
             const character = characters.find(c => c.id === scene.characterId);
             const metadata = sceneMetadata[sceneKey] || {};
@@ -1037,8 +1039,53 @@ export default function TableView({
                   .map(col => renderCell(col.id))}
               </tr>
             );
-          })}
-        </tbody>
+            }; // end renderSceneRow
+
+            if (chapters && chapters.length > 0) {
+              const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
+              const chapterMap = new Map(sortedChapters.map((ch, i) => [ch.id, { chapter: ch, chapterNum: i + 1 }]));
+              const processedChapters = new Set<string>();
+              const result: React.JSX.Element[] = [];
+
+              // Walk scenes in display order; render chapter groups at position of their first scene
+              for (const scene of sortedScenes) {
+                if (!scene.chapterId || !chapterMap.has(scene.chapterId)) {
+                  result.push(<tbody key={`s-${scene.id}`}>{renderSceneRow(scene)}</tbody>);
+                } else {
+                  const chId = scene.chapterId;
+                  if (!processedChapters.has(chId)) {
+                    processedChapters.add(chId);
+                    const chInfo = chapterMap.get(chId)!;
+                    const chScenes = sortedScenes.filter(s => s.chapterId === chId);
+                    result.push(
+                      <tbody key={`ch-${chId}`} className="chapter-tbody">
+                        <tr className="table-chapter-header">
+                          <td colSpan={100}><span className="table-chapter-num">Ch. {chInfo.chapterNum}</span>{chInfo.chapter.title}</td>
+                        </tr>
+                        {chScenes.map(s => renderSceneRow(s))}
+                      </tbody>
+                    );
+                  }
+                }
+              }
+
+              // Empty chapters at end
+              sortedChapters.forEach((chapter, chIdx) => {
+                if (!processedChapters.has(chapter.id)) {
+                  result.push(
+                    <tbody key={`ch-${chapter.id}`} className="chapter-tbody">
+                      <tr className="table-chapter-header">
+                        <td colSpan={100}><span className="table-chapter-num">Ch. {chIdx + 1}</span>{chapter.title}</td>
+                      </tr>
+                    </tbody>
+                  );
+                }
+              });
+
+              return result;
+            }
+            return <tbody>{sortedScenes.map(scene => renderSceneRow(scene))}</tbody>;
+          })()}
       </table>
       {sortedScenes.length === 0 && (
         <div className="table-empty">No scenes in timeline</div>

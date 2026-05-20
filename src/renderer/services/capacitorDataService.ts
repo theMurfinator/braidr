@@ -8,7 +8,7 @@ import {
   OutlineFile,
   ProjectData,
   TimelineData,
-  BraidedChapter,
+  Chapter,
   RecentProject,
   ProjectTemplate,
   FontSettings,
@@ -236,7 +236,7 @@ export class CapacitorDataService implements DataService {
   async loadProject(folderPath: string): Promise<
     ProjectData & {
       connections: Record<string, string[]>;
-      chapters: BraidedChapter[];
+      chapters: Chapter[];
       characterColors: Record<string, string>;
       fontSettings: FontSettings;
       allFontSettings?: AllFontSettings;
@@ -392,7 +392,7 @@ export class CapacitorDataService implements DataService {
       plotPoints: allPlotPoints,
       tags: allTags,
       connections: timelineData.connections || {},
-      chapters: timelineData.chapters || [],
+      chapters: [],
       characterColors: timelineData.characterColors || {},
       fontSettings: timelineData.fontSettings || {},
       allFontSettings: timelineData.allFontSettings,
@@ -487,6 +487,8 @@ export class CapacitorDataService implements DataService {
           isHighlighted: false,
           notes: [],
           plotPointId: null,
+          chapterId: null,
+          sceneOrder: 0,
         },
       ],
       rawContent: initialContent,
@@ -952,4 +954,10 @@ export class CapacitorDataService implements DataService {
   stopLockHeartbeat(): void {
     stopHeartbeat();
   }
+
+  async getChapters(): Promise<Chapter[]> { return []; }
+  async saveChapter(_chapter: Chapter): Promise<void> {}
+  async deleteChapter(_chapterId: string): Promise<void> {}
+  async reorderChapters(_orderedIds: string[]): Promise<void> {}
+  async assignSceneToChapter(_sceneId: string, _chapterId: string | null, _sceneOrder: number): Promise<void> {}
 }

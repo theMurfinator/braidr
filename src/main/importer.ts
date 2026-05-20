@@ -420,15 +420,6 @@ function importData(db: BraidrDB, folderPath: string, warnings: string[]) {
     }
   }
 
-  // ── braided chapters ───────────────────────────────────────────────────────
-
-  const chapters: any[] = timelineData.chapters ?? [];
-  db.replaceBraidedChapters(chapters.map(c => ({
-    id: c.id ?? randomId(),
-    title: c.title ?? '',
-    before_position: c.beforePosition ?? 0,
-  })));
-
   // ── archived scenes ────────────────────────────────────────────────────────
 
   const archivedScenes: any[] = timelineData.archivedScenes ?? [];

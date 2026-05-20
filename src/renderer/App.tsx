@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, BraidedChapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, BranchIndex, BranchCompareData } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, BranchIndex, BranchCompareData } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -124,11 +124,15 @@ function App() {
   const showInlineLabelsRef = useRef(true);
   const [showFieldsDropdown, setShowFieldsDropdown] = useState(false);
   const fieldsDropdownRef = useRef<HTMLDivElement>(null);
+  const [showNewDropdown, setShowNewDropdown] = useState(false);
+  const [showAddChapterInput, setShowAddChapterInput] = useState(false);
+  const newDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionSource, setConnectionSource] = useState<string | null>(null);
   const [sceneConnections, setSceneConnections] = useState<Record<string, string[]>>({});
-  const [braidedChapters, setBraidedChapters] = useState<BraidedChapter[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const chaptersRef = useRef<Chapter[]>([]);
   const [characterColors, setCharacterColors] = useState<Record<string, string>>({});
   const characterColorsRef = useRef<Record<string, string>>({});
   const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
@@ -442,6 +446,19 @@ function App() {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showFieldsDropdown]);
+
+  // Close new dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (newDropdownRef.current && !newDropdownRef.current.contains(e.target as Node)) {
+        setShowNewDropdown(false);
+      }
+    };
+    if (showNewDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNewDropdown]);
 
   // Fetch license status for account display
   useEffect(() => {
@@ -903,7 +920,7 @@ function App() {
       }
       try {
         await dataService.saveTimeline({
-          positions, connections: data.connections, chapters: data.chapters,
+          positions, connections: data.connections,
           characterColors: data.characterColors, wordCounts,
           fontSettings: data.fontSettings, archivedScenes: data.archivedScenes,
           metadataFieldDefs: data.metadataFieldDefs, sceneMetadata: data.sceneMetadata,
@@ -934,7 +951,8 @@ function App() {
 
     // Connections are already keyed by scene.id (migrated in dataService)
     setSceneConnections(data.connections);
-    setBraidedChapters(data.chapters);
+    setChapters(data.chapters);
+    chaptersRef.current = data.chapters;
     const loadedColors = data.characterColors || {};
     setCharacterColors(loadedColors);
     characterColorsRef.current = loadedColors;
@@ -1375,7 +1393,7 @@ function App() {
     }
 
     // Save timeline (refs already updated)
-    await saveTimelineData(updatedScenes, updatedConnections, braidedChapters);
+    await saveTimelineData(updatedScenes, updatedConnections);
   };
 
   const handleBackupProject = async () => {
@@ -1503,7 +1521,7 @@ function App() {
     // Save via the standard save path (avoids parameter drift)
     if (projectData) {
       try {
-        await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+        await saveTimelineData(projectData.scenes, sceneConnections);
       } catch (err) {
         console.error('Failed to save font settings:', err);
         addToast('Failed to save font settings');
@@ -1539,31 +1557,89 @@ function App() {
     }
 
     setSceneConnections(newConnections);
-    await saveTimelineData(projectData.scenes, newConnections, braidedChapters);
+    await saveTimelineData(projectData.scenes, newConnections);
   };
 
   // Chapter handlers
-  const handleAddChapter = async (title: string, beforePosition: number) => {
-    if (!projectData || !title.trim()) return;
-
-    const newChapter: BraidedChapter = {
-      id: Math.random().toString(36).substring(2, 11),
+  const handleAddChapter = async (title: string) => {
+    const newChapter: Chapter = {
+      id: crypto.randomUUID(),
       title: title.trim(),
-      beforePosition,
+      order: chaptersRef.current.length,
     };
-
-    const updatedChapters = [...braidedChapters, newChapter].sort((a, b) => a.beforePosition - b.beforePosition);
-    setBraidedChapters(updatedChapters);
-    await saveTimelineData(projectData.scenes, sceneConnections, updatedChapters);
+    const updated = [...chaptersRef.current, newChapter];
+    setChapters(updated);
+    chaptersRef.current = updated;
+    try {
+      await dataService.saveChapter(newChapter);
+    } catch {
+      addToast("Couldn't save chapter");
+    }
   };
 
-  const handleMoveChapter = async (chapterId: string, newBeforePosition: number) => {
+  const handleUpdateChapter = async (
+    chapterId: string,
+    updates: Partial<Pick<Chapter, 'title' | 'description'>>
+  ) => {
+    const updated = chaptersRef.current.map(ch =>
+      ch.id === chapterId ? { ...ch, ...updates } : ch
+    );
+    setChapters(updated);
+    chaptersRef.current = updated;
+    const chapter = updated.find(ch => ch.id === chapterId);
+    if (chapter) {
+      try {
+        await dataService.saveChapter(chapter);
+      } catch {
+        addToast("Couldn't save chapter");
+      }
+    }
+  };
+
+  const handleDeleteChapter = async (chapterId: string) => {
+    const updated = chaptersRef.current.filter(ch => ch.id !== chapterId);
+    setChapters(updated);
+    chaptersRef.current = updated;
+    try {
+      await dataService.deleteChapter(chapterId);
+    } catch {
+      addToast("Couldn't delete chapter");
+    }
+  };
+
+  const handleReorderChapters = async (orderedIds: string[]) => {
+    const reordered = orderedIds
+      .map((id, idx) => {
+        const ch = chaptersRef.current.find(c => c.id === id);
+        return ch ? { ...ch, order: idx } : null;
+      })
+      .filter((ch): ch is Chapter => ch !== null);
+    setChapters(reordered);
+    chaptersRef.current = reordered;
+    try {
+      await dataService.reorderChapters(orderedIds);
+    } catch {
+      addToast("Couldn't reorder chapters");
+    }
+  };
+
+  const handleAssignSceneToChapter = async (
+    sceneId: string,
+    chapterId: string | null,
+    sceneOrder: number
+  ) => {
     if (!projectData) return;
-    const updatedChapters = braidedChapters.map(ch =>
-      ch.id === chapterId ? { ...ch, beforePosition: newBeforePosition } : ch
-    ).sort((a, b) => a.beforePosition - b.beforePosition);
-    setBraidedChapters(updatedChapters);
-    await saveTimelineData(projectData.scenes, sceneConnections, updatedChapters);
+    setProjectData({
+      ...projectData,
+      scenes: projectData.scenes.map(s =>
+        s.id === sceneId ? { ...s, chapterId, sceneOrder } : s
+      ),
+    });
+    try {
+      await dataService.assignSceneToChapter(sceneId, chapterId, sceneOrder);
+    } catch {
+      addToast("Couldn't assign scene to chapter");
+    }
   };
 
   const handlePovSceneDrop = async (targetSceneNumber: number, targetPlotPointId: string) => {
@@ -1624,7 +1700,7 @@ function App() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+      await saveTimelineData(updatedScenes, sceneConnections);
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
@@ -1657,7 +1733,7 @@ function App() {
       try {
         await dataService.saveCharacterOutline(character, updatedPlotPoints.filter(pp => pp.characterId === selectedCharacterId), charScenes);
       } catch {
-        addToast('Couldn’t save section order');
+        addToast("Couldn't save section order");
       }
     }
   };
@@ -1759,7 +1835,7 @@ function App() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedData.scenes, sceneConnections, braidedChapters);
+      await saveTimelineData(updatedData.scenes, sceneConnections);
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
@@ -1813,7 +1889,7 @@ function App() {
 
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedData.scenes, sceneConnections, braidedChapters);
+      await saveTimelineData(updatedData.scenes, sceneConnections);
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
@@ -1858,6 +1934,8 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId: null,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     const newCharScenes = [...charScenes, newScene];
@@ -1869,27 +1947,13 @@ function App() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
-      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+      await saveTimelineData(updatedScenes, sceneConnections);
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
-  const handleUpdateChapter = async (chapterId: string, newTitle: string) => {
-    if (!projectData) return;
-    const updatedChapters = braidedChapters.map(ch =>
-      ch.id === chapterId ? { ...ch, title: newTitle } : ch
-    );
-    setBraidedChapters(updatedChapters);
-    await saveTimelineData(projectData.scenes, sceneConnections, updatedChapters);
-  };
 
-  const handleDeleteChapter = async (chapterId: string) => {
-    if (!projectData) return;
-    const updatedChapters = braidedChapters.filter(ch => ch.id !== chapterId);
-    setBraidedChapters(updatedChapters);
-    await saveTimelineData(projectData.scenes, sceneConnections, updatedChapters);
-  };
 
   const DEFAULT_HEX_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#14b8a6', '#f59e0b'];
 
@@ -1905,7 +1969,7 @@ function App() {
     setCharacterColors(newColors);
     characterColorsRef.current = newColors;
     if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+      await saveTimelineData(projectData.scenes, sceneConnections);
     }
   };
 
@@ -2036,7 +2100,6 @@ function App() {
   const saveTimelineData = useCallback(async (
     scenes: Scene[],
     connections: Record<string, string[]>,
-    chapters: BraidedChapter[]
   ) => {
     const positions: Record<string, number> = {};
     const sceneWordCounts: Record<string, number> = {};
@@ -2066,7 +2129,7 @@ function App() {
       }
       // Connections are already keyed by scene.id at runtime — save directly
       await dataService.saveTimeline({
-        positions, connections, chapters,
+        positions, connections,
         characterColors: characterColorsRef.current,
         wordCounts: sceneWordCounts,
         fontSettings: allFontSettingsRef.current.global,
@@ -2103,11 +2166,11 @@ function App() {
       if (projectData && isDirtyRef.current && !loadInProgressRef.current) {
         // Flush any pending editor content first
         editorViewRef.current?.flush();
-        saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+        saveTimelineData(projectData.scenes, sceneConnections);
       }
     }, 10000);
     return () => clearInterval(interval);
-  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+  }, [projectData, sceneConnections, saveTimelineData]);
 
   // Flush and save on window close / beforeunload
   useEffect(() => {
@@ -2115,12 +2178,12 @@ function App() {
       editorViewRef.current?.flush();
       // Trigger a save (best-effort since beforeunload doesn't wait for async)
       if (projectData && !loadInProgressRef.current) {
-        saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+        saveTimelineData(projectData.scenes, sceneConnections);
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+  }, [projectData, sceneConnections, saveTimelineData]);
 
   // Listen for app-closing IPC from main process (graceful quit)
   useEffect(() => {
@@ -2140,7 +2203,7 @@ function App() {
           }
         }
         if (projectData) {
-          await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+          await saveTimelineData(projectData.scenes, sceneConnections);
         }
         if (projectData) {
           try {
@@ -2151,7 +2214,7 @@ function App() {
       });
       return cleanup;
     }
-  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+  }, [projectData, sceneConnections, saveTimelineData]);
 
   // Auto-dismiss the "taken over" toast after 5 seconds
   useEffect(() => {
@@ -2220,7 +2283,7 @@ function App() {
     setDraggedScene(null);
     setDropTargetIndex(null);
 
-    await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
+    await saveTimelineData(finalScenes, sceneConnections);
     track('scene_reordered', { view: 'braided' });
   };
 
@@ -2255,7 +2318,7 @@ function App() {
     setDraggedScene(null);
     setDropTargetIndex(null);
 
-    await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
+    await saveTimelineData(finalScenes, sceneConnections);
   };
 
   // dnd-kit handlers for BraidedListView (separate from HTML5 drag handlers used by RailsView)
@@ -2274,9 +2337,9 @@ function App() {
       return pos !== undefined ? { ...s, timelinePosition: pos } : s;
     });
     setProjectData({ ...projectData, scenes: finalScenes });
-    await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
+    await saveTimelineData(finalScenes, sceneConnections);
     track('scene_reordered', { view: 'braided' });
-  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+  }, [projectData, sceneConnections, saveTimelineData]);
 
   const handleBraidedMoveToInbox = useCallback(async (sceneId: string) => {
     if (!projectData) return;
@@ -2291,8 +2354,8 @@ function App() {
       return idx !== -1 ? { ...scene, timelinePosition: idx + 1 } : scene;
     });
     setProjectData({ ...projectData, scenes: finalScenes });
-    await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
-  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+    await saveTimelineData(finalScenes, sceneConnections);
+  }, [projectData, sceneConnections, saveTimelineData]);
 
   const handleBraidedMoveFromInbox = useCallback(async (sceneId: string, overSceneId: string) => {
     if (!projectData) return;
@@ -2311,8 +2374,8 @@ function App() {
       return pos !== undefined ? { ...s, timelinePosition: pos } : s;
     });
     setProjectData({ ...projectData, scenes: finalScenes });
-    await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
-  }, [projectData, sceneConnections, braidedChapters, saveTimelineData]);
+    await saveTimelineData(finalScenes, sceneConnections);
+  }, [projectData, sceneConnections, saveTimelineData]);
 
   // Tag management handlers
   const handleUpdateTag = (tagId: string, category: TagCategory) => {
@@ -2387,6 +2450,8 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     // Add new scene to character's scenes
@@ -2420,12 +2485,50 @@ function App() {
     const finalCharScenes = finalScenes.filter(s => s.characterId === characterId).sort((a, b) => a.sceneNumber - b.sceneNumber);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, finalCharScenes);
-      await saveTimelineData(finalScenes, sceneConnections, braidedChapters);
+      await saveTimelineData(finalScenes, sceneConnections);
       track('scene_created', { character_id: characterId, source: 'braided_insert' });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
 
+  };
+
+  const handleAddSceneToInbox = async (characterId: string) => {
+    if (!projectData) return;
+    const character = projectData.characters.find(c => c.id === characterId);
+    if (!character) return;
+
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === characterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    const newScene: Scene = {
+      id: Math.random().toString(36).substring(2, 11),
+      characterId,
+      sceneNumber: charScenes.length + 1,
+      title: 'New scene',
+      content: 'New scene',
+      tags: [character.name.toLowerCase().replace(/\s+/g, '_')],
+      timelinePosition: null,
+      isHighlighted: false,
+      notes: [],
+      plotPointId: null,
+      chapterId: null,
+      sceneOrder: 0,
+    };
+
+    const updatedScenes = [...projectData.scenes, newScene];
+    setProjectData({ ...projectData, scenes: updatedScenes });
+
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    const finalCharScenes = updatedScenes.filter(s => s.characterId === characterId).sort((a, b) => a.sceneNumber - b.sceneNumber);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, finalCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections);
+      track('scene_created', { character_id: characterId, source: 'toolbar_inbox' });
+    } catch (_err) {
+      addToast("Couldn't save your changes — check that the project folder still exists");
+    }
   };
 
   const handleInsertSceneOnTimeline = async (characterId: string, plotPointId: string, date: string): Promise<string | null> => {
@@ -2452,6 +2555,8 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     const newCharScenes = [...charScenes, newScene];
@@ -2469,7 +2574,7 @@ function App() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
-      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+      await saveTimelineData(updatedScenes, sceneConnections);
       track('scene_created', { character_id: characterId, source: 'timeline_insert' });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
@@ -2581,7 +2686,7 @@ function App() {
     setSceneMetadata(updated);
     sceneMetadataRef.current = updated;
     if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+      await saveTimelineData(projectData.scenes, sceneConnections);
     }
   };
 
@@ -2589,7 +2694,7 @@ function App() {
     setInlineMetadataFields(fields);
     inlineMetadataFieldsRef.current = fields;
     if (projectData) {
-      saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+      saveTimelineData(projectData.scenes, sceneConnections);
     }
   };
 
@@ -2597,7 +2702,7 @@ function App() {
     setShowInlineLabels(show);
     showInlineLabelsRef.current = show;
     if (projectData) {
-      saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+      saveTimelineData(projectData.scenes, sceneConnections);
     }
   };
 
@@ -2605,7 +2710,7 @@ function App() {
     setMetadataFieldDefs(defs);
     metadataFieldDefsRef.current = defs;
     if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+      await saveTimelineData(projectData.scenes, sceneConnections);
     }
   };
 
@@ -2684,7 +2789,7 @@ function App() {
       const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
       try {
         await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-        await saveTimelineData(updatedScenes, newConnections, braidedChapters);
+        await saveTimelineData(updatedScenes, newConnections);
       } catch (err) {
         addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
       }
@@ -2719,6 +2824,8 @@ function App() {
       notes: archived.notes,
       plotPointId: targetPlotPointId,
       wordCount: archived.wordCount,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     // Restore draft content if it was preserved
@@ -2739,7 +2846,7 @@ function App() {
       const updatedCharScenes = updatedScenes.filter(s => s.characterId === character.id);
       try {
         await dataService.saveCharacterOutline(character, updatedCharPlotPoints, updatedCharScenes);
-        await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+        await saveTimelineData(updatedScenes, sceneConnections);
       } catch (err) {
         addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
       }
@@ -2848,6 +2955,8 @@ function App() {
       notes: [...scene.notes],
       plotPointId: scene.plotPointId,
       wordCount: scene.wordCount,
+      chapterId: null,
+      sceneOrder: 0,
     };
 
     // Insert duplicate after original
@@ -2868,7 +2977,7 @@ function App() {
     const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
       await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+      await saveTimelineData(updatedScenes, sceneConnections);
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
@@ -2885,7 +2994,7 @@ function App() {
     setProjectData(updatedData);
 
     // Save word count to timeline.json
-    await saveTimelineData(updatedScenes, sceneConnections, braidedChapters);
+    await saveTimelineData(updatedScenes, sceneConnections);
   };
 
   const handleTagsChange = async (sceneId: string, newTags: string[]) => {
@@ -2970,7 +3079,7 @@ function App() {
     setWordCountGoal(goal);
     wordCountGoalRef.current = goal;
     if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+      await saveTimelineData(projectData.scenes, sceneConnections);
     }
   };
 
@@ -3129,6 +3238,7 @@ function App() {
                 typewriterMode={typewriterMode}
                 tasks={tasks}
                 onTasksChange={handleTasksChange}
+                chapters={chapters}
               />
             ) : mode === 'pov' ? (
               // POV View with plot points and table of contents
@@ -3149,6 +3259,8 @@ function App() {
                 <PovOutlineView
                   sections={displayedPlotPoints}
                   scenes={displayedScenes.filter(s => s.plotPointId !== null)}
+                  chapters={chapters}
+                  onAssignSceneToChapter={handleAssignSceneToChapter}
                   synopsisModes={sectionSynopsisModes}
                   hideHeaders={hideSectionHeaders[tabId] ?? false}
                   onSetAside={handleSetAside}
@@ -3158,6 +3270,7 @@ function App() {
                   onSectionChange={handlePlotPointChange}
                   onDeleteSection={handleDeletePlotPoint}
                   getCharacterName={getCharacterName}
+                  povReorderedScenes={povReorderedScenes}
                 />
                 <button className="add-section-btn" onClick={handleCreatePlotPoint}>
                   + Add Section
@@ -3204,6 +3317,7 @@ function App() {
                 <TableView
                   scenes={projectData.scenes}
                   characters={projectData.characters}
+                  chapters={chapters}
                   metadataFieldDefs={metadataFieldDefs}
                   sceneMetadata={sceneMetadata}
                   tags={projectData.tags}
@@ -3252,6 +3366,7 @@ function App() {
               <RailsView
                 scenes={displayedScenes}
                 characters={railsDisplayCharacters}
+                chapters={chapters}
                 characterColors={characterColors}
                 connections={sceneConnections}
                 showConnections={showRailsConnections}
@@ -3279,7 +3394,7 @@ function App() {
                         [targetId]: [...targetConnections, connectionSource],
                       };
                       setSceneConnections(newConnections);
-                      saveTimelineData(projectData.scenes, newConnections, braidedChapters);
+                      saveTimelineData(projectData.scenes, newConnections);
                     }
                   }
                   setIsConnecting(false);
@@ -3304,6 +3419,7 @@ function App() {
                 onOpenInEditor={handleOpenInEditor}
                 povReorderedScenes={povReorderedScenes}
                 onInsertSceneAtPosition={handleInsertSceneAtPosition}
+                onDeleteChapter={handleDeleteChapter}
               />
             ) : (
               <BraidedListView
@@ -3311,8 +3427,7 @@ function App() {
                 unbraidedScenesByCharacter={unbraidedScenesByCharacter}
                 characters={projectData.characters}
                 plotPoints={projectData.plotPoints}
-                braidedChapters={braidedChapters}
-                characterColors={characterColors}
+                chapters={chapters}
                 getCharacterName={getCharacterName}
                 getCharacterHexColor={getCharacterHexColor}
                 povReorderedScenes={povReorderedScenes}
@@ -3324,10 +3439,12 @@ function App() {
                 onMoveToInbox={handleBraidedMoveToInbox}
                 onMoveFromInbox={handleBraidedMoveFromInbox}
                 onAddChapter={handleAddChapter}
-                onMoveChapter={handleMoveChapter}
                 onUpdateChapter={handleUpdateChapter}
                 onDeleteChapter={handleDeleteChapter}
-                onInsertSceneAtPosition={handleInsertSceneAtPosition}
+                onReorderChapters={handleReorderChapters}
+                onAssignSceneToChapter={handleAssignSceneToChapter}
+                showAddChapterInput={showAddChapterInput}
+                onDismissAddChapter={() => setShowAddChapterInput(false)}
                 onOpenInEditor={handleOpenInEditor}
               />
             )}
@@ -3524,8 +3641,48 @@ function App() {
           ) : (
             <h1>{projectData.projectName || 'Braidr'}</h1>
           )}
-          {viewMode === 'pov' && (
+          {(viewMode === 'pov' || viewMode === 'braided') && (
             <>
+              <div className="toolbar-divider" />
+              {viewMode === 'pov' ? (
+                <button
+                  className="toolbar-btn toolbar-btn--primary"
+                  onClick={() => selectedCharacterId && handleAddSceneToInbox(selectedCharacterId)}
+                  title="Add a new scene to inbox"
+                >
+                  + New Scene
+                </button>
+              ) : (
+                <div className="toolbar-dropdown-container" ref={newDropdownRef}>
+                  <button
+                    className="toolbar-btn toolbar-btn--primary"
+                    onClick={() => setShowNewDropdown(o => !o)}
+                  >
+                    + New ▾
+                  </button>
+                  {showNewDropdown && (
+                    <div className="add-dropdown-menu">
+                      {projectData.characters.map(char => (
+                        <button
+                          key={char.id}
+                          className="add-dropdown-item"
+                          onClick={() => { handleAddSceneToInbox(char.id); setShowNewDropdown(false); }}
+                        >
+                          <span className="add-dropdown-color" style={{ background: characterColors[char.id] || '#888' }} />
+                          New {char.name} Scene
+                        </button>
+                      ))}
+                      <div className="add-dropdown-divider" />
+                      <button
+                        className="add-dropdown-item"
+                        onClick={() => { setShowAddChapterInput(true); setShowNewDropdown(false); }}
+                      >
+                        New Chapter
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="toolbar-divider" />
               <button
                 className="toolbar-btn"
@@ -3903,7 +4060,7 @@ function App() {
                   if (isDirtyRef.current) {
                     editorViewRef.current?.flush();
                     if (projectData) {
-                      await saveTimelineData(projectData.scenes, sceneConnections, braidedChapters);
+                      await saveTimelineData(projectData.scenes, sceneConnections);
                     }
                   }
                   if (projectData) {
@@ -3983,7 +4140,7 @@ function App() {
           scenes={projectData.scenes}
           characters={projectData.characters}
           plotPoints={projectData.plotPoints}
-          chapters={braidedChapters}
+          chapters={chapters}
           draftContent={draftContent}
           sceneMetadata={sceneMetadata}
           metadataFieldDefs={metadataFieldDefs}

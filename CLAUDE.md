@@ -130,6 +130,9 @@ Description of what happens in this plot point section...
 - Team ID: CBMC9F64HB (hardcoded in `scripts/notarize.js` and workflow)
 - **Always read the release workflow and notarize script before giving release instructions**
 
+## Documentation
+- **Always update `docs/features.md`** when adding, changing, or removing any user-facing feature. Keep it current — it is the canonical feature reference for the project.
+
 ## Bug Workflow
 - When a bug is reported, **do not start by trying to fix it**
 - First, write a test that reproduces the bug

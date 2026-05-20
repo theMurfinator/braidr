@@ -1,7 +1,7 @@
-import { useRef, useMemo, useState, useEffect } from 'react';
+import { useRef, useMemo, useState, useEffect, ReactElement } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { PlotPoint, Scene } from '../../shared/types';
+import { PlotPoint, Scene, Chapter } from '../../shared/types';
 import OutlineSceneRow from './OutlineSceneRow';
 import {
   SortableItem,
@@ -20,6 +20,9 @@ interface PovOutlineViewProps {
   onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
   onDeleteSection?: (sectionId: string) => void;
   getCharacterName?: (characterId: string) => string;
+  chapters?: Chapter[];
+  onAssignSceneToChapter?: (sceneId: string, chapterId: string | null, sceneOrder: number) => void;
+  povReorderedScenes?: Set<string>;
 }
 
 function ScrollAutoBinder({ scrollRef }: { scrollRef: React.RefObject<HTMLDivElement | null> }) {
@@ -224,6 +227,8 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     onSectionChange,
     onDeleteSection,
     getCharacterName,
+    chapters,
+    povReorderedScenes,
   } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -283,40 +288,139 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                       />
                     )}
                     {/* Inner SortableContext — scenes within this section */}
-                    <SortableContext items={sectionScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                      {sectionScenes.map(scene => (
-                        <SortableItem key={scene.id} id={scene.id} data={{ type: 'scene', sectionId: section.id }}>
-                          {(sceneSortable) => (
-                            <div
-                              ref={sceneSortable.setNodeRef}
-                              style={sceneSortable.style}
-                              className={`pov-outline-row-wrapper${sceneSortable.isOver ? ' is-over' : ''}`}
-                              data-section-id={section.id}
-                              data-dnd-sortable-item
-                            >
-                              <span
-                                className="pov-drag-handle"
-                                {...sceneSortable.attributes}
-                                {...sceneSortable.listeners}
-                              >⋮⋮</span>
-                              <OutlineSceneRow
-                                scene={scene}
-                                displayNumber={flatSectionScenes.findIndex(s => s.id === scene.id) + 1}
-                                characterName={getCharacterName?.(scene.characterId)}
-                                synopsisVisible={synopsisModes[section.id] !== 'expand'}
-                                onSceneChange={onSceneChange}
-                                onSetAside={onSetAside}
-                                onOpenInEditor={onOpenInEditor}
-                                expandMode={synopsisModes[section.id] === 'expand'}
-                              />
-                            </div>
-                          )}
-                        </SortableItem>
-                      ))}
-                      {sectionScenes.length === 0 && (
-                        <EmptySectionDropZone sectionId={section.id} />
-                      )}
-                    </SortableContext>
+                    {(() => {
+                      const hasChapters = chapters && chapters.length > 0;
+                      let sceneRenderContent: ReactElement;
+                      let orderedSectionIds: string[];
+
+                      if (hasChapters) {
+                        const sortedChapters = [...(chapters || [])].sort((a, b) => a.order - b.order);
+
+                        // Build chapter groups first so we know which chapterIds have scenes here
+                        const chapterGroupsInSection = sortedChapters
+                          .map(ch => ({
+                            chapter: ch,
+                            scenes: sectionScenes
+                              .filter(s => s.chapterId === ch.id)
+                              .sort((a, b) => a.sceneOrder - b.sceneOrder),
+                          }))
+                          .filter(g => g.scenes.length > 0);
+
+                        // Unchaptered = no chapterId, invalid chapterId, OR chapter has no scenes in THIS section
+                        const renderedChapterIds = new Set(chapterGroupsInSection.map(g => g.chapter.id));
+                        const unchapteredInSection = sectionScenes.filter(
+                          s => !s.chapterId || !renderedChapterIds.has(s.chapterId)
+                        );
+
+                        // Items in visual order so dnd-kit computes drop targets correctly
+                        orderedSectionIds = [
+                          ...unchapteredInSection.map(s => s.id),
+                          ...chapterGroupsInSection.flatMap(g => g.scenes.map(s => s.id)),
+                        ];
+
+                        sceneRenderContent = (
+                          <>
+                            {unchapteredInSection.map(scene => (
+                              <SortableItem key={scene.id} id={scene.id} data={{ type: 'scene', sectionId: section.id }}>
+                                {(sceneSortable) => (
+                                  <div ref={sceneSortable.setNodeRef} style={sceneSortable.style}
+                                    className={`pov-outline-row-wrapper${sceneSortable.isOver ? ' is-over' : ''}${povReorderedScenes?.has(scene.id) ? ' pov-reordered' : ''}`}
+                                    data-section-id={section.id} data-dnd-sortable-item>
+                                    <span className="pov-drag-handle" {...sceneSortable.attributes} {...sceneSortable.listeners}>⋮⋮</span>
+                                    <OutlineSceneRow
+                                      scene={scene}
+                                      displayNumber={flatSectionScenes.findIndex(s => s.id === scene.id) + 1}
+                                      characterName={getCharacterName?.(scene.characterId)}
+                                      synopsisVisible={synopsisModes[section.id] !== 'expand'}
+                                      onSceneChange={onSceneChange}
+                                      onSetAside={onSetAside}
+                                      onOpenInEditor={onOpenInEditor}
+                                      expandMode={synopsisModes[section.id] === 'expand'}
+                                    />
+                                  </div>
+                                )}
+                              </SortableItem>
+                            ))}
+                            {chapterGroupsInSection.map(({ chapter, scenes: chScenes }) => (
+                              <div key={chapter.id} className="pov-chapter-group">
+                                <div className="pov-chapter-header">
+                                  <span className="pov-chapter-icon">📂</span>
+                                  <span>{chapter.title}</span>
+                                </div>
+                                {chScenes.map(scene => (
+                                  <SortableItem key={scene.id} id={scene.id} data={{ type: 'scene', sectionId: section.id }}>
+                                    {(sceneSortable) => (
+                                      <div ref={sceneSortable.setNodeRef} style={sceneSortable.style}
+                                        className={`pov-outline-row-wrapper pov-chapter-scene${sceneSortable.isOver ? ' is-over' : ''}${povReorderedScenes?.has(scene.id) ? ' pov-reordered' : ''}`}
+                                        data-section-id={section.id} data-dnd-sortable-item>
+                                        <span className="pov-drag-handle" {...sceneSortable.attributes} {...sceneSortable.listeners}>⋮⋮</span>
+                                        <OutlineSceneRow
+                                          scene={scene}
+                                          displayNumber={flatSectionScenes.findIndex(s => s.id === scene.id) + 1}
+                                          characterName={getCharacterName?.(scene.characterId)}
+                                          synopsisVisible={synopsisModes[section.id] !== 'expand'}
+                                          onSceneChange={onSceneChange}
+                                          onSetAside={onSetAside}
+                                          onOpenInEditor={onOpenInEditor}
+                                          expandMode={synopsisModes[section.id] === 'expand'}
+                                        />
+                                      </div>
+                                    )}
+                                  </SortableItem>
+                                ))}
+                              </div>
+                            ))}
+                            {sectionScenes.length === 0 && <EmptySectionDropZone sectionId={section.id} />}
+                          </>
+                        );
+                      } else {
+                        orderedSectionIds = sectionScenes.map(s => s.id);
+                        sceneRenderContent = (
+                          <>
+                            {sectionScenes.map(scene => (
+                              <SortableItem key={scene.id} id={scene.id} data={{ type: 'scene', sectionId: section.id }}>
+                                {(sceneSortable) => (
+                                  <div
+                                    ref={sceneSortable.setNodeRef}
+                                    style={sceneSortable.style}
+                                    className={`pov-outline-row-wrapper${sceneSortable.isOver ? ' is-over' : ''}${povReorderedScenes?.has(scene.id) ? ' pov-reordered' : ''}`}
+                                    data-section-id={section.id}
+                                    data-dnd-sortable-item
+                                  >
+                                    <span
+                                      className="pov-drag-handle"
+                                      {...sceneSortable.attributes}
+                                      {...sceneSortable.listeners}
+                                    >⋮⋮</span>
+                                    <OutlineSceneRow
+                                      scene={scene}
+                                      displayNumber={flatSectionScenes.findIndex(s => s.id === scene.id) + 1}
+                                      characterName={getCharacterName?.(scene.characterId)}
+                                      synopsisVisible={synopsisModes[section.id] !== 'expand'}
+                                      onSceneChange={onSceneChange}
+                                      onSetAside={onSetAside}
+                                      onOpenInEditor={onOpenInEditor}
+                                      expandMode={synopsisModes[section.id] === 'expand'}
+                                    />
+                                  </div>
+                                )}
+                              </SortableItem>
+                            ))}
+                            {sectionScenes.length === 0 && (
+                              <EmptySectionDropZone sectionId={section.id} />
+                            )}
+                          </>
+                        );
+                      }
+
+                      return (
+                        <>
+                          <SortableContext items={orderedSectionIds} strategy={verticalListSortingStrategy}>
+                            {sceneRenderContent}
+                          </SortableContext>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </SortableItem>

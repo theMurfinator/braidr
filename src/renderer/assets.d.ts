@@ -117,5 +117,10 @@ interface Window {
     braidrSaveNote: (braidrPath: string, noteId: string, content: string) => Promise<any>;
     braidrCreateNote: (braidrPath: string, noteId: string, title: string, parentId: string | null) => Promise<any>;
     braidrDeleteNote: (braidrPath: string, noteId: string) => Promise<any>;
+    braidrGetChapters: (braidrPath: string) => Promise<any>;
+    braidrSaveChapter: (braidrPath: string, chapter: any) => Promise<any>;
+    braidrDeleteChapter: (braidrPath: string, chapterId: string) => Promise<any>;
+    braidrReorderChapters: (braidrPath: string, orderedIds: string[]) => Promise<any>;
+    braidrAssignSceneToChapter: (braidrPath: string, sceneId: string, chapterId: string | null, sceneOrder: number) => Promise<any>;
   };
 }

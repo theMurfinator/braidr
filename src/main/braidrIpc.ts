@@ -3,10 +3,10 @@ import { IPC_CHANNELS } from '../shared/types';
 import type {
   Character, Scene, PlotPoint, Tag, ArchivedScene, MetadataFieldDef,
   DraftVersion, SceneComment, Task, TaskFieldDef, TaskViewConfig,
-  WorldEvent, NotesIndex, NoteMetadata, BraidedChapter, FontSettings,
+  WorldEvent, NotesIndex, NoteMetadata, Chapter, FontSettings,
   AllFontSettings,
 } from '../shared/types';
-import type { BraidrDB } from './database';
+import type { BraidrDB, ChapterRow } from './database';
 
 function getDb(braidrPath: string): BraidrDB {
   const { openDatabase } = require('./database') as typeof import('./database');
@@ -82,6 +82,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       notes: sceneNotes[row.id] || [],
       plotPointId: row.plot_point_id,
       wordCount: row.word_count ?? undefined,
+      chapterId: row.chapter_id,
+      sceneOrder: row.scene_order,
     }));
 
     // Connections
@@ -92,11 +94,12 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     }
 
     // Chapters
-    const chapterRows = db.getBraidedChapters();
-    const chapters: BraidedChapter[] = chapterRows.map(row => ({
+    const chapterRows = db.getChapters();
+    const chapters: Chapter[] = chapterRows.map((row: ChapterRow) => ({
       id: row.id,
       title: row.title,
-      beforePosition: row.before_position,
+      order: row.ord,
+      description: row.description ?? undefined,
     }));
 
     // Font settings
@@ -331,7 +334,6 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
 ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, (_event, braidrPath: string, payload: {
   positions?: Record<string, number>;
   connections?: Record<string, string[]>;
-  chapters?: BraidedChapter[];
   characterColors?: Record<string, string>;
   wordCounts?: Record<string, number>;
   fontSettings?: FontSettings;
@@ -381,15 +383,6 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, (_event, braidrPath: string, p
           }
         }
         db.replaceSceneConnections(rows);
-      }
-
-      // Chapters
-      if (payload.chapters) {
-        db.replaceBraidedChapters(payload.chapters.map(c => ({
-          id: c.id,
-          title: c.title,
-          before_position: c.beforePosition,
-        })));
       }
 
       // Character colors
@@ -663,6 +656,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_CREATE_CHARACTER, (_event, braidrPath: string
         id: sceneId, characterId: charId, sceneNumber: 1,
         title: 'First scene description here', content: 'First scene description here',
         tags: [], timelinePosition: null, isHighlighted: false, notes: [], plotPointId: ppId,
+        chapterId: null, sceneOrder: 0,
       } as Scene,
     };
   } catch (error) {
@@ -905,6 +899,70 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_DELETE_NOTE, (_event, braidrPath: string, not
   try {
     const db = getDb(braidrPath);
     db.deleteNote(noteId);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+// ── Chapter handlers ─────────────────────────────────────────────────────────
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_GET_CHAPTERS, (_event, braidrPath: string) => {
+  try {
+    const db = getDb(braidrPath);
+    const rows = db.getChapters();
+    const chapters: Chapter[] = rows.map((row: ChapterRow) => ({
+      id: row.id,
+      title: row.title,
+      order: row.ord,
+      description: row.description ?? undefined,
+    }));
+    return { success: true, chapters };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_CHAPTER, (_event, braidrPath: string, chapter: Chapter) => {
+  try {
+    const db = getDb(braidrPath);
+    db.saveChapter(chapter);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_DELETE_CHAPTER, (_event, braidrPath: string, chapterId: string) => {
+  try {
+    const db = getDb(braidrPath);
+    db.deleteChapter(chapterId);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_REORDER_CHAPTERS, (_event, braidrPath: string, orderedIds: string[]) => {
+  try {
+    const db = getDb(braidrPath);
+    db.reorderChapters(orderedIds);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_ASSIGN_SCENE_TO_CHAPTER, (
+  _event,
+  braidrPath: string,
+  sceneId: string,
+  chapterId: string | null,
+  sceneOrder: number
+) => {
+  try {
+    const db = getDb(braidrPath);
+    db.updateScene(sceneId, { chapterId, sceneOrder });
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };

@@ -54,7 +54,9 @@ const CREATE_SCHEMA = `
     is_highlighted INTEGER NOT NULL DEFAULT 0,
     word_count INTEGER,
     created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
+    updated_at INTEGER NOT NULL,
+    chapter_id TEXT REFERENCES chapters(id) ON DELETE SET NULL,
+    scene_order INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS scene_drafts (
@@ -97,6 +99,13 @@ const CREATE_SCHEMA = `
     source_scene_id TEXT NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
     target_scene_id TEXT NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
     label TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS chapters (
+    id          TEXT PRIMARY KEY,
+    title       TEXT NOT NULL,
+    ord         INTEGER NOT NULL,
+    description TEXT
   );
 
   CREATE TABLE IF NOT EXISTS braided_chapters (
@@ -314,11 +323,32 @@ export class BraidrDB {
 
   private initialize() {
     this.db.exec(CREATE_SCHEMA);
+    this.migrate();
 
     const row = this.db.prepare('SELECT version FROM schema_version').get() as { version: number } | undefined;
     if (!row) {
       this.db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(SCHEMA_VERSION);
     }
+  }
+
+  private migrate() {
+    const sceneColumns = (
+      this.db.prepare('PRAGMA table_info(scenes)').all() as { name: string }[]
+    ).map(c => c.name);
+
+    if (!sceneColumns.includes('chapter_id')) {
+      this.db.exec(
+        'ALTER TABLE scenes ADD COLUMN chapter_id TEXT REFERENCES chapters(id) ON DELETE SET NULL'
+      );
+    }
+    if (!sceneColumns.includes('scene_order')) {
+      this.db.exec(
+        'ALTER TABLE scenes ADD COLUMN scene_order INTEGER NOT NULL DEFAULT 0'
+      );
+    }
+
+    // Drop legacy positional chapters table — no data is migrated
+    this.db.exec('DROP TABLE IF EXISTS braided_chapters');
   }
 
   get path() { return this.filePath; }
@@ -427,7 +457,7 @@ export class BraidrDB {
     this.db.prepare('INSERT INTO scene_drafts (id, scene_id, content, updated_at) VALUES (?, ?, ?, ?)').run(randomId(), id, '', now);
   }
 
-  updateScene(id: string, fields: Partial<{ title: string; synopsis: string; sceneNumber: number; timelinePosition: number | null; isHighlighted: boolean; wordCount: number | null; plotPointId: string | null }>) {
+  updateScene(id: string, fields: Partial<{ title: string; synopsis: string; sceneNumber: number; timelinePosition: number | null; isHighlighted: boolean; wordCount: number | null; plotPointId: string | null; chapterId: string | null; sceneOrder: number }>) {
     const updates: string[] = ['updated_at = ?'];
     const values: unknown[] = [Date.now()];
     if ('title' in fields) { updates.push('title = ?'); values.push(fields.title); }
@@ -437,6 +467,8 @@ export class BraidrDB {
     if ('isHighlighted' in fields) { updates.push('is_highlighted = ?'); values.push(fields.isHighlighted ? 1 : 0); }
     if ('wordCount' in fields) { updates.push('word_count = ?'); values.push(fields.wordCount); }
     if ('plotPointId' in fields) { updates.push('plot_point_id = ?'); values.push(fields.plotPointId); }
+    if ('chapterId' in fields) { updates.push('chapter_id = ?'); values.push(fields.chapterId); }
+    if ('sceneOrder' in fields) { updates.push('scene_order = ?'); values.push(fields.sceneOrder); }
     values.push(id);
     this.db.prepare(`UPDATE scenes SET ${updates.join(', ')} WHERE id = ?`).run(...values);
   }
@@ -529,16 +561,33 @@ export class BraidrDB {
     for (const c of connections) insert.run(c.id, c.source_scene_id, c.target_scene_id, c.label);
   }
 
-  // ── Braided Chapters ──────────────────────────────────────────────────────
+  // ── Chapters ──────────────────────────────────────────────────────────────
 
-  getBraidedChapters() {
-    return this.db.prepare('SELECT * FROM braided_chapters ORDER BY before_position').all() as BraidedChapterRow[];
+  getChapters() {
+    return this.db.prepare('SELECT * FROM chapters ORDER BY ord').all() as ChapterRow[];
   }
 
-  replaceBraidedChapters(chapters: { id: string; title: string; before_position: number }[]) {
-    this.db.prepare('DELETE FROM braided_chapters').run();
-    const insert = this.db.prepare('INSERT INTO braided_chapters (id, title, before_position) VALUES (?, ?, ?)');
-    for (const c of chapters) insert.run(c.id, c.title, c.before_position);
+  saveChapter(chapter: { id: string; title: string; order: number; description?: string }) {
+    this.db.prepare(`
+      INSERT INTO chapters (id, title, ord, description)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        title = excluded.title,
+        ord   = excluded.ord,
+        description = excluded.description
+    `).run(chapter.id, chapter.title, chapter.order, chapter.description ?? null);
+  }
+
+  deleteChapter(id: string) {
+    // scenes.chapter_id → NULL via ON DELETE SET NULL FK
+    this.db.prepare('DELETE FROM chapters WHERE id = ?').run(id);
+  }
+
+  reorderChapters(orderedIds: string[]) {
+    const update = this.db.prepare('UPDATE chapters SET ord = ? WHERE id = ?');
+    this.db.transaction(() => {
+      orderedIds.forEach((id, idx) => update.run(idx, id));
+    })();
   }
 
   // ── Tags ──────────────────────────────────────────────────────────────────
@@ -875,12 +924,18 @@ export class BraidrDB {
 export interface ProjectRow { id: string; name: string; word_count_goal: number | null; created_at: number; updated_at: number }
 export interface CharacterRow { id: string; name: string; color: string | null; display_order: number; created_at: number }
 export interface PlotPointRow { id: string; character_id: string; title: string; description: string | null; expected_scene_count: number | null; display_order: number; created_at: number }
-export interface SceneRow { id: string; character_id: string; plot_point_id: string | null; title: string; synopsis: string; scene_number: number; timeline_position: number | null; is_highlighted: number; word_count: number | null; created_at: number; updated_at: number }
+export interface ChapterRow { id: string; title: string; ord: number; description: string | null }
+export interface SceneRow {
+  id: string; character_id: string; plot_point_id: string | null;
+  title: string; synopsis: string; scene_number: number;
+  timeline_position: number | null; is_highlighted: number; word_count: number | null;
+  chapter_id: string | null; scene_order: number;
+  created_at: number; updated_at: number
+}
 export interface DraftVersionRow { id: string; scene_id: string; version: number; content: string; saved_at: number }
 export interface SceneNoteRow { id: string; scene_id: string; content: string; display_order: number }
 export interface SceneCommentRow { id: string; scene_id: string; text: string; created_at: number }
 export interface SceneConnectionRow { id: string; source_scene_id: string; target_scene_id: string; label: string | null }
-export interface BraidedChapterRow { id: string; title: string; before_position: number }
 export interface TagRow { id: string; name: string; category: string }
 export interface MetadataFieldDefRow { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; display_order: number }
 export interface SceneMetadataValueRow { scene_id: string; field_def_id: string; value: string }

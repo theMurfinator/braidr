@@ -18,7 +18,16 @@ export interface Scene {
   isHighlighted: boolean;
   notes: string[];
   plotPointId: string | null;
+  chapterId: string | null;  // null = not assigned to a chapter
+  sceneOrder: number;        // position within the chapter (0-indexed)
   wordCount?: number; // Optional word count for pacing visualization
+}
+
+export interface Chapter {
+  id: string;
+  title: string;
+  order: number;        // global reading order across all chapters
+  description?: string;
 }
 
 export interface FontSettings {
@@ -89,8 +98,6 @@ export interface TimelineData {
   positions: Record<string, number>;
   // Maps "characterId:sceneNumber" to array of connected scene keys
   connections?: Record<string, string[]>;
-  // Chapters in the braided timeline
-  chapters?: BraidedChapter[];
   // Custom colors for characters (characterId -> color)
   characterColors?: Record<string, string>;
   // Word counts for scenes (characterId:sceneNumber -> count)
@@ -140,9 +147,8 @@ export interface TimelineData {
 // Object-argument form of saveTimeline — derived from TimelineData but with
 // file-only fields removed and the three required fields made non-optional.
 export type SaveTimelinePayload =
-  Omit<TimelineData, 'connections' | 'chapters' | 'draftContent' | 'drafts' | 'scratchpad' | 'sceneComments' | 'tableViews'> & {
+  Omit<TimelineData, 'connections' | 'draftContent' | 'drafts' | 'scratchpad' | 'sceneComments' | 'tableViews'> & {
     connections: Record<string, string[]>;
-    chapters: BraidedChapter[];
   };
 
 // ── Task Management ──────────────────────────────────────────────────────────
@@ -221,13 +227,6 @@ export interface SceneComment {
   id: string;
   text: string;
   createdAt: number;
-}
-
-export interface BraidedChapter {
-  id: string;
-  title: string;
-  // Chapter appears before this timeline position (1-indexed)
-  beforePosition: number;
 }
 
 export interface PlotPoint {
@@ -458,4 +457,10 @@ export const IPC_CHANNELS = {
   BRAIDR_SAVE_NOTE: 'braidr:save-note',
   BRAIDR_CREATE_NOTE: 'braidr:create-note',
   BRAIDR_DELETE_NOTE: 'braidr:delete-note',
+  // Chapters
+  BRAIDR_GET_CHAPTERS: 'braidr:get-chapters',
+  BRAIDR_SAVE_CHAPTER: 'braidr:save-chapter',
+  BRAIDR_DELETE_CHAPTER: 'braidr:delete-chapter',
+  BRAIDR_REORDER_CHAPTERS: 'braidr:reorder-chapters',
+  BRAIDR_ASSIGN_SCENE_TO_CHAPTER: 'braidr:assign-scene-to-chapter',
 } as const;
