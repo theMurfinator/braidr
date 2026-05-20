@@ -1573,7 +1573,7 @@ function App() {
     try {
       await dataService.saveChapter(newChapter);
     } catch {
-      addToast('Couldn’t save chapter');
+      addToast("Couldn't save chapter");
     }
   };
 
@@ -1591,7 +1591,7 @@ function App() {
       try {
         await dataService.saveChapter(chapter);
       } catch {
-        addToast('Couldn’t save chapter');
+        addToast("Couldn't save chapter");
       }
     }
   };
@@ -1603,7 +1603,7 @@ function App() {
     try {
       await dataService.deleteChapter(chapterId);
     } catch {
-      addToast('Couldn’t delete chapter');
+      addToast("Couldn't delete chapter");
     }
   };
 
@@ -1619,7 +1619,7 @@ function App() {
     try {
       await dataService.reorderChapters(orderedIds);
     } catch {
-      addToast('Couldn’t reorder chapters');
+      addToast("Couldn't reorder chapters");
     }
   };
 
@@ -1638,7 +1638,7 @@ function App() {
     try {
       await dataService.assignSceneToChapter(sceneId, chapterId, sceneOrder);
     } catch {
-      addToast('Couldn’t assign scene to chapter');
+      addToast("Couldn't assign scene to chapter");
     }
   };
 
@@ -1733,7 +1733,7 @@ function App() {
       try {
         await dataService.saveCharacterOutline(character, updatedPlotPoints.filter(pp => pp.characterId === selectedCharacterId), charScenes);
       } catch {
-        addToast('Couldn’t save section order');
+        addToast("Couldn't save section order");
       }
     }
   };
@@ -2527,7 +2527,7 @@ function App() {
       await saveTimelineData(updatedScenes, sceneConnections);
       track('scene_created', { character_id: characterId, source: 'toolbar_inbox' });
     } catch (_err) {
-      addToast('Couldn’t save your changes — check that the project folder still exists');
+      addToast("Couldn't save your changes — check that the project folder still exists");
     }
   };
 
