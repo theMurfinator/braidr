@@ -188,8 +188,8 @@
 }
 
 .app-sidebar-btn.active {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
+  color: var(--color-primary);
+  background: var(--color-primary-bg);
 }
 
 .app-sidebar-btn.active::before {
@@ -201,7 +201,7 @@
   width: 3px;
   height: 18px;
   border-radius: 0 2px 2px 0;
-  background: var(--text-primary);
+  background: var(--color-primary-gradient);
 }
 
 .app-sidebar-spacer {
@@ -293,7 +293,7 @@
 
 .view-toggle button.active {
   background: var(--bg-primary);
-  color: var(--text-primary);
+  color: var(--color-primary);
   box-shadow: var(--shadow-sm);
   font-weight: 600;
 }
@@ -340,10 +340,14 @@
   transition: all 0.15s;
 }
 
-.icon-btn:hover,
-.icon-btn.active {
+.icon-btn:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
+}
+
+.icon-btn.active {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
 }
 
 .icon-btn:disabled,
@@ -833,8 +837,8 @@
 }
 
 .toolbar-btn.active {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -953,7 +957,8 @@
 
 .sub-view-toggle button.active {
   background: var(--bg-primary);
-  color: var(--text-primary);
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .secondary-toolbar .character-selector select {
