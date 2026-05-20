@@ -23,13 +23,12 @@
 
   /* Brand primary — blue interactive system */
   --color-primary: #3B82F6;
-  --color-primary-dark: #0058be;
+  --color-primary-dark: #0058BE;
   --color-primary-light: #14BAFF;
   --color-primary-gradient: linear-gradient(135deg, #3B82F6, #14BAFF);
   --color-primary-gradient-subtle: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(20,186,255,0.08));
   --color-primary-bg: rgba(59, 130, 246, 0.08);
   --color-primary-glow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-  --shadow-luminous: 0 8px 20px rgba(59, 130, 246, 0.04), 0 2px 8px rgba(0, 0, 0, 0.06);
 
   /* Surface */
   --surface-light: #FFFFFF;
@@ -58,6 +57,7 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(59, 130, 246, 0.04);
   --shadow-lg: 0 8px 20px rgba(59, 130, 246, 0.06), 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-luminous: 0 8px 20px rgba(59, 130, 246, 0.04), 0 2px 8px rgba(0, 0, 0, 0.06);
 
   /* Font variables — Literata for all editorial, DM Sans for UI chrome */
   --font-section-title: 'Literata', Georgia, serif;
