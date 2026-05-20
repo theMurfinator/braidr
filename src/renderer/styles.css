@@ -237,8 +237,10 @@ textarea:focus-visible {
   justify-content: space-between;
   height: 40px;
   padding: 0 16px;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border);
+  background: rgba(247, 249, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(238, 240, 242, 0.7);
   -webkit-app-region: drag;
   gap: 16px;
 }
