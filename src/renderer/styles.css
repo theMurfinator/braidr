@@ -4160,8 +4160,21 @@ textarea.scene-metadata-field-input {
 }
 
 .braided-scene-item.selected {
-  background: var(--bg-secondary);
-  border-color: rgba(0, 0, 0, 0.1);
+  background: var(--color-primary-bg);
+  border-color: transparent;
+  position: relative;
+}
+
+.braided-scene-item.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--color-primary-gradient);
+  pointer-events: none;
 }
 
 .braided-scene-item.selected .scene-card {
