@@ -2477,6 +2477,44 @@ function App() {
 
   };
 
+  const handleAddSceneToInbox = async (characterId: string) => {
+    if (!projectData) return;
+    const character = projectData.characters.find(c => c.id === characterId);
+    if (!character) return;
+
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === characterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    const newScene: Scene = {
+      id: Math.random().toString(36).substring(2, 11),
+      characterId,
+      sceneNumber: charScenes.length + 1,
+      title: 'New scene',
+      content: 'New scene',
+      tags: [character.name.toLowerCase().replace(/\s+/g, '_')],
+      timelinePosition: null,
+      isHighlighted: false,
+      notes: [],
+      plotPointId: projectData.plotPoints.find(p => p.characterId === characterId)?.id || null,
+      chapterId: null,
+      sceneOrder: 0,
+    };
+
+    const updatedScenes = [...projectData.scenes, newScene];
+    setProjectData({ ...projectData, scenes: updatedScenes });
+
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    const finalCharScenes = updatedScenes.filter(s => s.characterId === characterId).sort((a, b) => a.sceneNumber - b.sceneNumber);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, finalCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections);
+      track('scene_created', { character_id: characterId, source: 'toolbar_inbox' });
+    } catch (_err) {
+      addToast('Couldn’t save your changes — check that the project folder still exists');
+    }
+  };
+
   const handleInsertSceneOnTimeline = async (characterId: string, plotPointId: string, date: string): Promise<string | null> => {
     if (!projectData) return null;
 
@@ -3389,7 +3427,7 @@ function App() {
                 onDeleteChapter={handleDeleteChapter}
                 onReorderChapters={handleReorderChapters}
                 onAssignSceneToChapter={handleAssignSceneToChapter}
-                onInsertSceneAtPosition={handleInsertSceneAtPosition}
+                onAddSceneToInbox={handleAddSceneToInbox}
                 onOpenInEditor={handleOpenInEditor}
               />
             )}

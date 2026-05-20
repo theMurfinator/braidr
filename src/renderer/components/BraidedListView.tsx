@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, CSSProperties, Fragment } from 'react';
+import { useState, useRef, useEffect, CSSProperties } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -33,7 +33,7 @@ interface BraidedListViewProps {
   onReorderTimeline: (activeId: string, overId: string) => void;
   onMoveToInbox: (sceneId: string) => void;
   onMoveFromInbox: (sceneId: string, overId: string) => void;
-  onInsertSceneAtPosition: (position: number, characterId: string, plotPointId: string) => void;
+  onAddSceneToInbox: (characterId: string) => void;
   onOpenInEditor?: (sceneId: string) => void;
   // New chapter props:
   chapters: Chapter[];
@@ -107,83 +107,55 @@ function InboxDropZone({ children, charFilter, onCharFilterChange, characters }:
   );
 }
 
-// ---------- InsertPopover ----------
+// ---------- AddDropdownButton ----------
 
-interface InsertPopoverProps {
-  index: number;
-  displayPosition: number;
-  displayedScenesLength: number;
-  characters: Character[];
-  plotPoints: PlotPoint[];
-  characterColors: Record<string, string>;
-  insertAtPosition: number | null;
-  setInsertAtPosition: (pos: number | null) => void;
-  insertCharacterId: string | null;
-  setInsertCharacterId: (id: string | null) => void;
-  onInsertSceneAtPosition: (position: number, characterId: string, plotPointId: string) => void;
-}
-
-function InsertPopover({
-  index,
+function AddDropdownButton({
   characters,
-  plotPoints,
   characterColors,
-  insertAtPosition,
-  setInsertAtPosition,
-  insertCharacterId,
-  setInsertCharacterId,
-  onInsertSceneAtPosition,
-}: InsertPopoverProps) {
+  onAddSceneToInbox,
+  onOpenAddChapter,
+}: {
+  characters: Character[];
+  characterColors: Record<string, string>;
+  onAddSceneToInbox: (characterId: string) => void;
+  onOpenAddChapter: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
   return (
-    <div className="braided-insert-zone">
-      <button
-        className="braided-insert-btn"
-        onClick={() => {
-          setInsertAtPosition(insertAtPosition === index ? null : index);
-          setInsertCharacterId(null);
-        }}
-        title="Insert here"
-      >+</button>
-      {insertAtPosition === index && (
-        <div className="braided-insert-popover">
-          {!insertCharacterId ? (
-            <>
-              <div className="braided-insert-popover-title">Insert scene</div>
-              {characters.map(char => (
-                <button
-                  key={char.id}
-                  className="braided-insert-popover-item"
-                  onClick={() => setInsertCharacterId(char.id)}
-                >
-                  <span className="braided-insert-color-dot" style={{ background: characterColors[char.id] || '#888' }} />
-                  {char.name}
-                </button>
-              ))}
-            </>
-          ) : (
-            <>
-              <div className="braided-insert-popover-title">
-                <button className="braided-insert-back-btn" onClick={() => setInsertCharacterId(null)}>&larr;</button>
-                Pick a section
-              </div>
-              {plotPoints
-                .filter(p => p.characterId === insertCharacterId)
-                .sort((a, b) => a.order - b.order)
-                .map(pp => (
-                  <button
-                    key={pp.id}
-                    className="braided-insert-popover-item"
-                    onClick={() => {
-                      onInsertSceneAtPosition(index, insertCharacterId!, pp.id);
-                      setInsertAtPosition(null);
-                      setInsertCharacterId(null);
-                    }}
-                  >
-                    {pp.title}
-                  </button>
-                ))}
-            </>
-          )}
+    <div className="add-dropdown-wrapper" ref={ref}>
+      <button className="add-dropdown-btn" onClick={() => setOpen(o => !o)}>
+        + New ▾
+      </button>
+      {open && (
+        <div className="add-dropdown-menu">
+          {characters.map(char => (
+            <button
+              key={char.id}
+              className="add-dropdown-item"
+              onClick={() => { onAddSceneToInbox(char.id); setOpen(false); }}
+            >
+              <span className="add-dropdown-color" style={{ background: characterColors[char.id] || '#888' }} />
+              New {char.name} Scene
+            </button>
+          ))}
+          <div className="add-dropdown-divider" />
+          <button
+            className="add-dropdown-item"
+            onClick={() => { onOpenAddChapter(); setOpen(false); }}
+          >
+            New Chapter
+          </button>
         </div>
       )}
     </div>
@@ -333,24 +305,13 @@ interface BraidedTimelineProps {
   dndActiveId: string | null;
   lastMovedSceneId: string | null;
   povReorderedScenes: Set<string>;
-  characters: Character[];
-  plotPoints: PlotPoint[];
-  characterColors: Record<string, string>;
   getCharacterName: (id: string) => string;
   getCharacterHexColor: (id: string) => string;
   synopsisVisible: boolean;
-  insertAtPosition: number | null;
-  setInsertAtPosition: (pos: number | null) => void;
-  insertCharacterId: string | null;
-  setInsertCharacterId: (id: string | null) => void;
-  showAddChapter: boolean;
-  setShowAddChapter: (v: boolean) => void;
   onSceneChange: (sceneId: string, content: string, notes: string[]) => void;
   onMoveToInbox: (sceneId: string) => void;
   onUpdateChapter: (chapterId: string, updates: Partial<Pick<Chapter, 'title' | 'description'>>) => void;
   onDeleteChapter: (chapterId: string) => void;
-  onAddChapter: (title: string) => void;
-  onInsertSceneAtPosition: (position: number, characterId: string, plotPointId: string) => void;
   onOpenInEditor?: (sceneId: string) => void;
 }
 
@@ -360,24 +321,13 @@ function BraidedTimeline({
   dndActiveId,
   lastMovedSceneId,
   povReorderedScenes,
-  characters,
-  plotPoints,
-  characterColors,
   getCharacterName,
   getCharacterHexColor,
   synopsisVisible,
-  insertAtPosition,
-  setInsertAtPosition,
-  insertCharacterId,
-  setInsertCharacterId,
-  showAddChapter,
-  setShowAddChapter,
   onSceneChange,
   onMoveToInbox,
   onUpdateChapter,
   onDeleteChapter,
-  onAddChapter,
-  onInsertSceneAtPosition,
   onOpenInEditor,
 }: BraidedTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -451,21 +401,11 @@ function BraidedTimeline({
           </div>
         )}
 
-        {showAddChapter ? (
-          <AddChapterInput
-            onAdd={(title) => { onAddChapter(title); setShowAddChapter(false); }}
-            onCancel={() => setShowAddChapter(false)}
-          />
-        ) : (
-          <button className="add-chapter-inline-btn" onClick={() => setShowAddChapter(true)}>
-            + Add chapter
-          </button>
-        )}
       </div>
     );
   }
 
-  // No chapters: flat list (existing behavior unchanged)
+  // No chapters: flat list
   return (
     <div className={`braided-timeline${isDraggingAny ? ' is-dragging' : ''}`} ref={scrollRef}>
       <SortableContext items={displayedScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
@@ -479,64 +419,31 @@ function BraidedTimeline({
           const displayPosition = index + 1;
 
           return (
-            <Fragment key={scene.id}>
-              <InsertPopover
-                index={index}
-                displayPosition={displayPosition}
-                displayedScenesLength={displayedScenes.length}
-                characters={characters}
-                plotPoints={plotPoints}
-                characterColors={characterColors}
-                insertAtPosition={insertAtPosition}
-                setInsertAtPosition={setInsertAtPosition}
-                insertCharacterId={insertCharacterId}
-                setInsertCharacterId={setInsertCharacterId}
-                onInsertSceneAtPosition={onInsertSceneAtPosition}
-              />
-
-              <SortableItem id={scene.id} data={{ type: 'timeline-scene', scene }}>
-                {({ setNodeRef, style, attributes, listeners, isDragging, dropPosition }) => (
-                  <div
-                    ref={setNodeRef}
-                    style={{ ...style, '--char-color': getCharacterHexColor(scene.characterId) } as CSSProperties}
-                    className={`pov-outline-row-wrapper braided-row-wrapper${povReorderedScenes.has(scene.id) ? ' pov-reordered' : ''}${lastMovedSceneId === scene.id ? ' just-moved' : ''}`}
-                  >
-                    <span className="pov-drag-handle" {...attributes} {...listeners}>⋮⋮</span>
-                    <OutlineSceneRow
-                      scene={scene}
-                      displayNumber={displayPosition}
-                      characterName={getCharacterName(scene.characterId)}
-                      synopsisVisible={synopsisVisible}
-                      onSceneChange={onSceneChange}
-                      onSetAside={onMoveToInbox}
-                      onOpenInEditor={onOpenInEditor}
-                      expandMode={true}
-                      isDragging={isDragging}
-                      dropPosition={dropPosition}
-                    />
-                  </div>
-                )}
-              </SortableItem>
-            </Fragment>
+            <SortableItem key={scene.id} id={scene.id} data={{ type: 'timeline-scene', scene }}>
+              {({ setNodeRef, style, attributes, listeners, isDragging, dropPosition }) => (
+                <div
+                  ref={setNodeRef}
+                  style={{ ...style, '--char-color': getCharacterHexColor(scene.characterId) } as CSSProperties}
+                  className={`pov-outline-row-wrapper braided-row-wrapper${povReorderedScenes.has(scene.id) ? ' pov-reordered' : ''}${lastMovedSceneId === scene.id ? ' just-moved' : ''}`}
+                >
+                  <span className="pov-drag-handle" {...attributes} {...listeners}>⋮⋮</span>
+                  <OutlineSceneRow
+                    scene={scene}
+                    displayNumber={displayPosition}
+                    characterName={getCharacterName(scene.characterId)}
+                    synopsisVisible={synopsisVisible}
+                    onSceneChange={onSceneChange}
+                    onSetAside={onMoveToInbox}
+                    onOpenInEditor={onOpenInEditor}
+                    expandMode={true}
+                    isDragging={isDragging}
+                    dropPosition={dropPosition}
+                  />
+                </div>
+              )}
+            </SortableItem>
           );
         })}
-
-        {/* End insert zone */}
-        {displayedScenes.length > 0 && (
-          <InsertPopover
-            index={displayedScenes.length}
-            displayPosition={displayedScenes.length + 1}
-            displayedScenesLength={displayedScenes.length}
-            characters={characters}
-            plotPoints={plotPoints}
-            characterColors={characterColors}
-            insertAtPosition={insertAtPosition}
-            setInsertAtPosition={setInsertAtPosition}
-            insertCharacterId={insertCharacterId}
-            setInsertCharacterId={setInsertCharacterId}
-            onInsertSceneAtPosition={onInsertSceneAtPosition}
-          />
-        )}
       </SortableContext>
     </div>
   );
@@ -577,13 +484,11 @@ export default function BraidedListView({
   onDeleteChapter,
   onReorderChapters,
   onAssignSceneToChapter,
-  onInsertSceneAtPosition,
+  onAddSceneToInbox,
   onOpenInEditor,
 }: BraidedListViewProps) {
   const sensors = useSortableSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
-  const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
   const [showAddChapter, setShowAddChapter] = useState(false);
   const [lastMovedSceneId, setLastMovedSceneId] = useState<string | null>(null);
   const lastMovedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -592,7 +497,6 @@ export default function BraidedListView({
 
   const handleDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
-    setInsertAtPosition(null);
   };
 
   const handleDragEnd = (e: DragEndEvent) => {
@@ -745,32 +649,37 @@ export default function BraidedListView({
       onDragCancel={handleDragCancel}
     >
       <div className={`braided-layout${activeId ? ' is-dragging' : ''}`}>
-        <BraidedTimeline
-          displayedScenes={displayedScenes}
-          chapters={chapters}
-          dndActiveId={activeId}
-          lastMovedSceneId={lastMovedSceneId}
-          povReorderedScenes={povReorderedScenes}
-          characters={characters}
-          plotPoints={plotPoints}
-          characterColors={characterColors}
-          getCharacterName={getCharacterName}
-          getCharacterHexColor={getCharacterHexColor}
-          synopsisVisible={synopsisVisible}
-          insertAtPosition={insertAtPosition}
-          setInsertAtPosition={setInsertAtPosition}
-          insertCharacterId={insertCharacterId}
-          setInsertCharacterId={setInsertCharacterId}
-          showAddChapter={showAddChapter}
-          setShowAddChapter={setShowAddChapter}
-          onSceneChange={onSceneChange}
-          onMoveToInbox={onMoveToInbox}
-          onUpdateChapter={onUpdateChapter}
-          onDeleteChapter={onDeleteChapter}
-          onAddChapter={onAddChapter}
-          onInsertSceneAtPosition={onInsertSceneAtPosition}
-          onOpenInEditor={onOpenInEditor}
-        />
+        <div className="braided-main">
+          <div className="braided-toolbar">
+            <AddDropdownButton
+              characters={characters}
+              characterColors={characterColors}
+              onAddSceneToInbox={onAddSceneToInbox}
+              onOpenAddChapter={() => setShowAddChapter(true)}
+            />
+          </div>
+          {showAddChapter && (
+            <AddChapterInput
+              onAdd={(title) => { onAddChapter(title); setShowAddChapter(false); }}
+              onCancel={() => setShowAddChapter(false)}
+            />
+          )}
+          <BraidedTimeline
+            displayedScenes={displayedScenes}
+            chapters={chapters}
+            dndActiveId={activeId}
+            lastMovedSceneId={lastMovedSceneId}
+            povReorderedScenes={povReorderedScenes}
+            getCharacterName={getCharacterName}
+            getCharacterHexColor={getCharacterHexColor}
+            synopsisVisible={synopsisVisible}
+            onSceneChange={onSceneChange}
+            onMoveToInbox={onMoveToInbox}
+            onUpdateChapter={onUpdateChapter}
+            onDeleteChapter={onDeleteChapter}
+            onOpenInEditor={onOpenInEditor}
+          />
+        </div>
 
         <InboxDropZone
           charFilter={inboxCharFilter}
