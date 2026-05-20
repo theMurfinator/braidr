@@ -810,8 +810,7 @@ export default function TableView({
                 ))}
           </tr>
         </thead>
-        <tbody>
-          {(() => {
+        {(() => {
             const renderSceneRow = (scene: Scene) => {
             const sceneKey = scene.id;
             const character = characters.find(c => c.id === scene.characterId);
@@ -1048,23 +1047,25 @@ export default function TableView({
               const result: React.JSX.Element[] = [];
               sortedChapters.forEach(ch => {
                 const chScenes = sortedScenes.filter(s => s.chapterId === ch.id);
-                // Apply narrative order within chapter only when user hasn't chosen a sort column
                 if (sortField === 'scene') chScenes.sort((a, b) => a.sceneOrder - b.sceneOrder);
                 if (chScenes.length === 0) return;
                 result.push(
-                  <tr key={`ch-${ch.id}`} className="table-chapter-header">
-                    <td colSpan={100}>{ch.title}</td>
-                  </tr>
+                  <tbody key={`ch-${ch.id}`} className="chapter-tbody">
+                    <tr className="table-chapter-header">
+                      <td colSpan={100}>{ch.title}</td>
+                    </tr>
+                    {chScenes.map(scene => renderSceneRow(scene))}
+                  </tbody>
                 );
-                chScenes.forEach(scene => result.push(renderSceneRow(scene)));
               });
               const unchaptered = sortedScenes.filter(s => !s.chapterId || !chapterIds.has(s.chapterId));
-              unchaptered.forEach(scene => result.push(renderSceneRow(scene)));
+              if (unchaptered.length > 0) {
+                result.push(<tbody key="unchaptered">{unchaptered.map(scene => renderSceneRow(scene))}</tbody>);
+              }
               return result;
             }
-            return sortedScenes.map(scene => renderSceneRow(scene));
+            return <tbody>{sortedScenes.map(scene => renderSceneRow(scene))}</tbody>;
           })()}
-        </tbody>
       </table>
       {sortedScenes.length === 0 && (
         <div className="table-empty">No scenes in timeline</div>
