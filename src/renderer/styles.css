@@ -864,7 +864,9 @@ textarea:focus-visible {
 }
 
 .toolbar-btn--primary:hover {
-  filter: brightness(1.08);
+  background: var(--color-primary-gradient);
+  filter: brightness(1.12);
+  color: white;
 }
 
 .toolbar-btn svg {
