@@ -839,14 +839,13 @@
 }
 
 .toolbar-btn--primary {
-  background: var(--text-primary);
+  background: var(--color-primary-gradient);
   color: white;
 }
 
 .toolbar-btn--primary:hover {
-  background: var(--text-primary);
-  color: white;
-  opacity: 0.85;
+  filter: brightness(1.08);
+  opacity: 1;
 }
 
 .toolbar-btn svg {
@@ -978,7 +977,7 @@
 /* Buttons */
 .btn {
   padding: 9px 18px;
-  border-radius: 5px;
+  border-radius: var(--radius-md);
   border: none;
   font-size: 13px;
   font-family: var(--font-ui);
@@ -989,12 +988,12 @@
 }
 
 .btn-primary {
-  background: var(--text-primary);
-  color: var(--bg-primary);
+  background: var(--color-primary-gradient);
+  color: white;
 }
 
 .btn-primary:hover {
-  background: var(--accent-hover);
+  filter: brightness(1.08);
 }
 
 .btn-secondary {
@@ -1004,12 +1003,15 @@
 }
 
 .btn-secondary:hover {
-  background: var(--bg-secondary);
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .btn-secondary.active {
-  background: var(--bg-tertiary);
-  border-color: var(--text-secondary);
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* View toggle */
@@ -1278,7 +1280,7 @@
 .btn {
   padding: 12px 24px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -1287,12 +1289,12 @@
 }
 
 .btn-primary {
-  background: var(--accent);
+  background: var(--color-primary-gradient);
   color: white;
 }
 
 .btn-primary:hover {
-  background: var(--accent-hover);
+  filter: brightness(1.08);
 }
 
 .btn-primary:disabled {
@@ -1307,8 +1309,9 @@
 }
 
 .btn-secondary:hover {
-  border-color: var(--text-secondary);
-  color: var(--text-primary);
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .btn-small {
@@ -9081,10 +9084,10 @@ textarea.editor-meta-field-input {
 }
 
 .btn-primary {
-  background: var(--accent, #5c6bc0);
+  background: var(--color-primary-gradient);
   color: #fff;
   border: none;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-md);
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
@@ -9092,7 +9095,7 @@ textarea.editor-meta-field-input {
 }
 
 .btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  filter: brightness(1.08);
 }
 
 .btn-primary:disabled {
