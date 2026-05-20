@@ -4296,34 +4296,66 @@ textarea.scene-metadata-field-input {
 
 /* Rails chapter group — wraps header + scenes in a bordered box */
 .rails-chapter-group {
-  border: 1px solid var(--border);
+  border: 1px solid #E2D9CC;
+  border-left: 3px solid #8B7355;
   border-radius: var(--radius-md);
   overflow: hidden;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  background: #FDFAF6;
 }
 
 .rails-chapter-group-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  gap: 10px;
+  padding: 8px 14px;
+  background: #F5F0E8;
+  border-bottom: 1px solid #E2D9CC;
+}
+
+.rails-chapter-group-num {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8B7355;
   font-family: var(--font-ui);
+  white-space: nowrap;
 }
 
 .rails-chapter-group-title {
   flex: 1;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 500;
   color: var(--text-primary);
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  font-family: var(--font-section-title);
 }
 
 .rails-chapter-group-count {
   font-size: 11px;
-  color: var(--text-muted);
+  color: #A08060;
+  font-family: var(--font-ui);
+}
+
+.rails-chapter-group-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #B0967A;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.rails-chapter-group-header:hover .rails-chapter-group-delete {
+  opacity: 1;
+}
+
+.rails-chapter-group-delete:hover {
+  color: #c0392b;
 }
 
 .rails-chapter-group-inner {
@@ -4331,6 +4363,17 @@ textarea.scene-metadata-field-input {
   grid-template-columns: 50px repeat(var(--rails-columns, 4), 1fr);
   gap: 10px;
   padding: 10px 12px;
+  background: #FDFAF6;
+}
+
+.rails-chapter-empty {
+  grid-column: 1 / -1;
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #B0967A;
+  font-family: var(--font-ui);
+  font-style: italic;
 }
 
 /* Add Chapter Input */
@@ -4575,9 +4618,10 @@ textarea.scene-metadata-field-input {
 
 /* New chapter containers */
 .chapter-container {
-  border: 1px solid var(--border);
+  border: 1px solid #E2D9CC;
+  border-left: 3px solid #8B7355;
   border-radius: var(--radius-md);
-  background: var(--bg-primary);
+  background: #FDFAF6;
   margin-bottom: 8px;
   overflow: hidden;
 }
@@ -4586,37 +4630,38 @@ textarea.scene-metadata-field-input {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--bg-secondary);
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border);
+  background: #F5F0E8;
+  padding: 7px 10px;
+  border-bottom: 1px solid #E2D9CC;
 }
 
 .chapter-title {
   flex: 1;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
+  font-style: italic;
   color: var(--text-primary);
   cursor: default;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  font-family: var(--font-ui);
+  font-family: var(--font-section-title);
 }
 
 .chapter-title-input {
   flex: 1;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
+  font-style: italic;
   color: var(--text-primary);
-  border: 1px solid var(--border);
+  border: 1px solid #E2D9CC;
   border-radius: 3px;
-  padding: 2px 4px;
-  background: var(--bg-primary);
-  font-family: var(--font-ui);
+  padding: 2px 6px;
+  background: #FDFAF6;
+  font-family: var(--font-section-title);
 }
 
 .chapter-scene-count {
   font-size: 11px;
-  color: var(--text-muted);
+  color: #A08060;
+  font-family: var(--font-ui);
 }
 
 .chapter-scenes {

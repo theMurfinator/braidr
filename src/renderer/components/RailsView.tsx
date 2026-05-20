@@ -38,6 +38,7 @@ interface RailsViewProps {
   povReorderedScenes?: Set<string>;
   onInsertSceneAtPosition?: (position: number, characterId: string, plotPointId: string) => void;
   chapters: Chapter[];
+  onDeleteChapter?: (chapterId: string) => void;
 }
 
 export default function RailsView({
@@ -74,6 +75,7 @@ export default function RailsView({
   povReorderedScenes,
   onInsertSceneAtPosition,
   chapters,
+  onDeleteChapter,
 }: RailsViewProps) {
   const [inboxCharFilter, setInboxCharFilter] = useState<string>('all');
   const [floatingEditorScene, setFloatingEditorScene] = useState<Scene | null>(null);
@@ -749,25 +751,38 @@ export default function RailsView({
                 // Group rows by chapter, preserving original gridRows index for drop logic
                 const indexedRows = gridRows.map((row, idx) => ({ row, idx }));
                 const unchapteredRows = indexedRows.filter(({ row }) => !row.scene.chapterId);
-                const chapterRows = sortedChapters.map(ch => ({
+                // Don't filter out empty chapters — show them so the user can see they exist
+                const chapterGroups = sortedChapters.map((ch, chIdx) => ({
                   chapter: ch,
+                  chapterNum: chIdx + 1,
                   rows: indexedRows.filter(({ row }) => row.scene.chapterId === ch.id),
-                })).filter(g => g.rows.length > 0);
+                }));
 
                 return [
                   ...unchapteredRows.map(({ row, idx }) => renderGridRow(row, idx)),
-                  ...chapterRows.map(({ chapter, rows }) => (
+                  ...chapterGroups.map(({ chapter, chapterNum, rows }) => (
                     <div
                       key={chapter.id}
                       className="rails-chapter-group"
                       style={{ gridColumn: '1 / -1', '--rails-columns': numColumns } as React.CSSProperties}
                     >
                       <div className="rails-chapter-group-header">
+                        <span className="rails-chapter-group-num">Ch. {chapterNum}</span>
                         <span className="rails-chapter-group-title">{chapter.title}</span>
                         <span className="rails-chapter-group-count">{rows.length} scene{rows.length !== 1 ? 's' : ''}</span>
+                        {onDeleteChapter && (
+                          <button
+                            className="rails-chapter-group-delete"
+                            onClick={() => onDeleteChapter(chapter.id)}
+                            title="Delete chapter"
+                          >×</button>
+                        )}
                       </div>
                       <div className="rails-chapter-group-inner">
-                        {rows.map(({ row, idx }) => renderGridRow(row, idx))}
+                        {rows.length > 0
+                          ? rows.map(({ row, idx }) => renderGridRow(row, idx))
+                          : <div className="rails-chapter-empty">No scenes assigned to this chapter</div>
+                        }
                       </div>
                     </div>
                   )),

@@ -3419,6 +3419,7 @@ function App() {
                 onOpenInEditor={handleOpenInEditor}
                 povReorderedScenes={povReorderedScenes}
                 onInsertSceneAtPosition={handleInsertSceneAtPosition}
+                onDeleteChapter={handleDeleteChapter}
               />
             ) : (
               <BraidedListView
