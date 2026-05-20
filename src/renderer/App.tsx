@@ -3641,7 +3641,7 @@ function App() {
           ) : (
             <h1>{projectData.projectName || 'Braidr'}</h1>
           )}
-          {(viewMode === 'pov' || (viewMode === 'braided' && braidedSubMode === 'list')) && (
+          {(viewMode === 'pov' || viewMode === 'braided') && (
             <>
               <div className="toolbar-divider" />
               {viewMode === 'pov' ? (

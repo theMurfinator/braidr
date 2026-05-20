@@ -747,46 +747,78 @@ export default function RailsView({
 
               if (chapters.length > 0) {
                 const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
-
-                // Group rows by chapter, preserving original gridRows index for drop logic
                 const indexedRows = gridRows.map((row, idx) => ({ row, idx }));
-                const unchapteredRows = indexedRows.filter(({ row }) => !row.scene.chapterId);
-                // Don't filter out empty chapters — show them so the user can see they exist
-                const chapterGroups = sortedChapters.map((ch, chIdx) => ({
-                  chapter: ch,
-                  chapterNum: chIdx + 1,
-                  rows: indexedRows.filter(({ row }) => row.scene.chapterId === ch.id),
-                }));
+                const processedChapters = new Set<string>();
+                const result: React.ReactNode[] = [];
 
-                return [
-                  ...unchapteredRows.map(({ row, idx }) => renderGridRow(row, idx)),
-                  ...chapterGroups.map(({ chapter, chapterNum, rows }) => (
-                    <div
-                      key={chapter.id}
-                      className="rails-chapter-group"
-                      style={{ gridColumn: '1 / -1', '--rails-columns': numColumns } as React.CSSProperties}
-                    >
-                      <div className="rails-chapter-group-header">
-                        <span className="rails-chapter-group-num">Ch. {chapterNum}</span>
-                        <span className="rails-chapter-group-title">{chapter.title}</span>
-                        <span className="rails-chapter-group-count">{rows.length} scene{rows.length !== 1 ? 's' : ''}</span>
-                        {onDeleteChapter && (
-                          <button
-                            className="rails-chapter-group-delete"
-                            onClick={() => onDeleteChapter(chapter.id)}
-                            title="Delete chapter"
-                          >×</button>
-                        )}
+                // Walk rows in braided order; when hitting a chapter's first scene, render the whole chapter group
+                for (let i = 0; i < indexedRows.length; i++) {
+                  const { row, idx } = indexedRows[i];
+                  if (!row.scene.chapterId) {
+                    result.push(renderGridRow(row, idx));
+                  } else {
+                    const chId = row.scene.chapterId;
+                    if (!processedChapters.has(chId)) {
+                      processedChapters.add(chId);
+                      const chapter = sortedChapters.find(ch => ch.id === chId);
+                      const chapterNum = sortedChapters.findIndex(ch => ch.id === chId) + 1;
+                      const chapterRows = indexedRows.filter(({ row: r }) => r.scene.chapterId === chId);
+                      if (chapter) {
+                        result.push(
+                          <div
+                            key={chapter.id}
+                            className="rails-chapter-group"
+                            style={{ gridColumn: '1 / -1' } as React.CSSProperties}
+                          >
+                            <div className="rails-chapter-group-header">
+                              <span className="rails-chapter-group-num">Ch. {chapterNum}</span>
+                              <span className="rails-chapter-group-title">{chapter.title}</span>
+                              <span className="rails-chapter-group-count">{chapterRows.length} scene{chapterRows.length !== 1 ? 's' : ''}</span>
+                              {onDeleteChapter && (
+                                <button
+                                  className="rails-chapter-group-delete"
+                                  onClick={() => onDeleteChapter(chapter.id)}
+                                  title="Delete chapter"
+                                >×</button>
+                              )}
+                            </div>
+                            {chapterRows.map(({ row: r, idx: ridx }) => renderGridRow(r, ridx))}
+                          </div>
+                        );
+                      }
+                    }
+                    // Already rendered as part of its chapter group — skip
+                  }
+                }
+
+                // Append empty chapters (no scenes assigned yet) at the end
+                sortedChapters.forEach((chapter, chIdx) => {
+                  if (!processedChapters.has(chapter.id)) {
+                    result.push(
+                      <div
+                        key={chapter.id}
+                        className="rails-chapter-group"
+                        style={{ gridColumn: '1 / -1' } as React.CSSProperties}
+                      >
+                        <div className="rails-chapter-group-header">
+                          <span className="rails-chapter-group-num">Ch. {chIdx + 1}</span>
+                          <span className="rails-chapter-group-title">{chapter.title}</span>
+                          <span className="rails-chapter-group-count">0 scenes</span>
+                          {onDeleteChapter && (
+                            <button
+                              className="rails-chapter-group-delete"
+                              onClick={() => onDeleteChapter(chapter.id)}
+                              title="Delete chapter"
+                            >×</button>
+                          )}
+                        </div>
+                        <div className="rails-chapter-empty">No scenes assigned to this chapter</div>
                       </div>
-                      <div className="rails-chapter-group-inner">
-                        {rows.length > 0
-                          ? rows.map(({ row, idx }) => renderGridRow(row, idx))
-                          : <div className="rails-chapter-empty">No scenes assigned to this chapter</div>
-                        }
-                      </div>
-                    </div>
-                  )),
-                ];
+                    );
+                  }
+                });
+
+                return result;
               }
 
               return gridRows.map((row, index) => renderGridRow(row, index));

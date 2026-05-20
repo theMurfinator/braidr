@@ -243,6 +243,8 @@ textarea:focus-visible {
   border-bottom: 1px solid rgba(238, 240, 242, 0.7);
   -webkit-app-region: drag;
   gap: 16px;
+  position: relative;
+  z-index: 50;
 }
 
 .toolbar-left {
@@ -4344,18 +4346,25 @@ textarea.scene-metadata-field-input {
   color: var(--tag-arcs);
 }
 
-/* Rails chapter group — wraps header + scenes in a bordered box */
+/* Rails chapter group — subgrid so columns align exactly with outer grid */
 .rails-chapter-group {
+  display: grid;
+  grid-template-columns: subgrid;
+  row-gap: 10px;
+  padding-bottom: 10px;
+  /* Left bar via box-shadow (not border-left) so it doesn't shift column positions */
   border: 1.5px solid rgba(59, 130, 246, 0.3);
-  border-left: 3px solid var(--color-primary);
+  border-left: none;
   border-radius: var(--radius-md);
-  overflow: hidden;
   margin-bottom: 12px;
   background: #ffffff;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: -3px 0 0 var(--color-primary),
+              0 2px 8px rgba(59, 130, 246, 0.08),
+              0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .rails-chapter-group-header {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -4410,11 +4419,7 @@ textarea.scene-metadata-field-input {
 }
 
 .rails-chapter-group-inner {
-  display: grid;
-  grid-template-columns: 50px repeat(var(--rails-columns, 4), 1fr);
-  gap: 10px;
-  padding: 10px 12px;
-  background: #ffffff;
+  display: contents;
 }
 
 .rails-chapter-empty {
@@ -5694,6 +5699,8 @@ textarea.scene-metadata-field-input {
 
 .rails-cell.has-scene {
   background: var(--bg-primary);
+  position: relative;
+  z-index: 3;
 }
 
 /* Vertical connector lines between sequential character scenes */
@@ -5707,7 +5714,7 @@ textarea.scene-metadata-field-input {
   height: 30px;
   background: var(--connector-color);
   transform: translateX(-1px);
-  z-index: 6;
+  z-index: 2;
   pointer-events: none;
 }
 
@@ -5721,7 +5728,7 @@ textarea.scene-metadata-field-input {
   height: 30px;
   background: var(--connector-color);
   transform: translateX(-1px);
-  z-index: 6;
+  z-index: 2;
   pointer-events: none;
 }
 
@@ -5734,7 +5741,7 @@ textarea.scene-metadata-field-input {
   height: calc(100% + 60px);
   background: var(--connector-color);
   transform: translateX(-1px);
-  z-index: 6;
+  z-index: 2;
   pointer-events: none;
 }
 
@@ -9932,26 +9939,45 @@ textarea.editor-meta-field-input {
   background: rgba(231, 76, 60, 0.08);
 }
 
-.chapter-tbody {
-  outline: 1.5px solid rgba(59, 130, 246, 0.3);
-  border-radius: var(--radius-md);
+.chapter-tbody td {
+  border-left: none;
+  border-right: none;
+  background: rgba(59, 130, 246, 0.018);
 }
 
 .chapter-tbody tr:first-child td {
-  border-top: none;
+  border-top: 2px solid rgba(59, 130, 246, 0.5);
 }
 
 .chapter-tbody tr:last-child td {
-  border-bottom: none;
+  border-bottom: 2px solid rgba(59, 130, 246, 0.5);
+}
+
+.chapter-tbody td:first-child {
+  border-left: 3px solid var(--color-primary);
 }
 
 .table-chapter-header td {
-  background: rgba(59, 130, 246, 0.05);
+  background: rgba(59, 130, 246, 0.07);
   font-weight: 600;
   color: var(--color-primary);
   padding: 8px 14px;
-  border-bottom: 1px solid rgba(59, 130, 246, 0.15);
-  border-left: 3px solid var(--color-primary);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.table-chapter-num {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-right: 10px;
+  opacity: 0.7;
+}
+
+/* Spacing between chapter groups and unchaptered rows */
+.chapter-tbody + tbody tr:first-child td,
+tbody + .chapter-tbody tr:first-child td {
+  border-top: 2px solid rgba(59, 130, 246, 0.5);
 }
 
 .table-cell {

@@ -1043,25 +1043,45 @@ export default function TableView({
 
             if (chapters && chapters.length > 0) {
               const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
-              const chapterIds = new Set(chapters.map(ch => ch.id));
+              const chapterMap = new Map(sortedChapters.map((ch, i) => [ch.id, { chapter: ch, chapterNum: i + 1 }]));
+              const processedChapters = new Set<string>();
               const result: React.JSX.Element[] = [];
-              sortedChapters.forEach(ch => {
-                const chScenes = sortedScenes.filter(s => s.chapterId === ch.id);
-                if (sortField === 'scene') chScenes.sort((a, b) => a.sceneOrder - b.sceneOrder);
-                if (chScenes.length === 0) return;
-                result.push(
-                  <tbody key={`ch-${ch.id}`} className="chapter-tbody">
-                    <tr className="table-chapter-header">
-                      <td colSpan={100}>{ch.title}</td>
-                    </tr>
-                    {chScenes.map(scene => renderSceneRow(scene))}
-                  </tbody>
-                );
-              });
-              const unchaptered = sortedScenes.filter(s => !s.chapterId || !chapterIds.has(s.chapterId));
-              if (unchaptered.length > 0) {
-                result.push(<tbody key="unchaptered">{unchaptered.map(scene => renderSceneRow(scene))}</tbody>);
+
+              // Walk scenes in display order; render chapter groups at position of their first scene
+              for (const scene of sortedScenes) {
+                if (!scene.chapterId || !chapterMap.has(scene.chapterId)) {
+                  result.push(<tbody key={`s-${scene.id}`}>{renderSceneRow(scene)}</tbody>);
+                } else {
+                  const chId = scene.chapterId;
+                  if (!processedChapters.has(chId)) {
+                    processedChapters.add(chId);
+                    const chInfo = chapterMap.get(chId)!;
+                    const chScenes = sortedScenes.filter(s => s.chapterId === chId);
+                    result.push(
+                      <tbody key={`ch-${chId}`} className="chapter-tbody">
+                        <tr className="table-chapter-header">
+                          <td colSpan={100}><span className="table-chapter-num">Ch. {chInfo.chapterNum}</span>{chInfo.chapter.title}</td>
+                        </tr>
+                        {chScenes.map(s => renderSceneRow(s))}
+                      </tbody>
+                    );
+                  }
+                }
               }
+
+              // Empty chapters at end
+              sortedChapters.forEach((chapter, chIdx) => {
+                if (!processedChapters.has(chapter.id)) {
+                  result.push(
+                    <tbody key={`ch-${chapter.id}`} className="chapter-tbody">
+                      <tr className="table-chapter-header">
+                        <td colSpan={100}><span className="table-chapter-num">Ch. {chIdx + 1}</span>{chapter.title}</td>
+                      </tr>
+                    </tbody>
+                  );
+                }
+              });
+
               return result;
             }
             return <tbody>{sortedScenes.map(scene => renderSceneRow(scene))}</tbody>;
