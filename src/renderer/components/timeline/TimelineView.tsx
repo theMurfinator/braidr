@@ -657,7 +657,8 @@ export default function TimelineView({
                         value={selectedEvent.endDate || ''}
                         onChange={e => {
                           const val = e.target.value;
-                          if (val && selectedEvent.date && val < selectedEvent.date) return;
+                          if (!val) return;
+                          if (selectedEvent.date && val < selectedEvent.date) return;
                           updateEvent(selectedEvent.id, { endDate: val || undefined });
                         }}
                       />

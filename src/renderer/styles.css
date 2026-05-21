@@ -118,7 +118,7 @@ textarea:focus-visible {
 
 /* Left sidebar nav */
 .app-sidebar {
-  width: 58px;
+  width: 76px;
   position: fixed;
   top: 0;
   left: 0;
@@ -226,7 +226,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  margin-left: 58px;
+  margin-left: 76px;
   padding-top: 12px;
 }
 

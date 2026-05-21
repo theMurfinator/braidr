@@ -106,10 +106,32 @@ function App() {
       if (charScenes.length < 2) continue;
       const braidedOrder = [...charScenes].sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
       const povOrder = [...charScenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
-      const povIndexMap = new Map(povOrder.map((s, i) => [s.id, i]));
-      braidedOrder.forEach((scene, braidedIdx) => {
-        if (povIndexMap.get(scene.id) !== braidedIdx) outOfOrder.add(scene.id);
-      });
+      const povRankMap = new Map(povOrder.map((s, i) => [s.id, i]));
+      const ranks = braidedOrder.map(s => povRankMap.get(s.id)!);
+
+      // O(n²) LIS — finds the largest subset already in POV order so only
+      // the minimum displaced scenes are highlighted, not cascading neighbours.
+      const dp = new Array(ranks.length).fill(1);
+      const parent = new Array(ranks.length).fill(-1);
+      for (let i = 1; i < ranks.length; i++) {
+        for (let j = 0; j < i; j++) {
+          if (ranks[j] < ranks[i] && dp[j] + 1 > dp[i]) {
+            dp[i] = dp[j] + 1;
+            parent[i] = j;
+          }
+        }
+      }
+      let maxLen = 0, endIdx = 0;
+      for (let i = 0; i < dp.length; i++) {
+        if (dp[i] > maxLen) { maxLen = dp[i]; endIdx = i; }
+      }
+      const lisIds = new Set<string>();
+      let curr = endIdx;
+      while (curr !== -1) { lisIds.add(braidedOrder[curr].id); curr = parent[curr]; }
+
+      for (const scene of braidedOrder) {
+        if (!lisIds.has(scene.id)) outOfOrder.add(scene.id);
+      }
     }
     return outOfOrder;
   }, [projectData]);

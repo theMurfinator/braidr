@@ -191,7 +191,8 @@ function SceneDetailPanel({
                     value={timelineEndDate || ''}
                     onChange={e => {
                       const val = e.target.value;
-                      if (val && timelineDate && val < timelineDate) return;
+                      if (!val) return;
+                      if (timelineDate && val < timelineDate) return;
                       onTimelineEndDateChange(val);
                     }}
                   />

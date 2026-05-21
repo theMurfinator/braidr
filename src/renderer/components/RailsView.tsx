@@ -285,6 +285,15 @@ export default function RailsView({
     };
   }, [scenes, showConnections, characters]);
 
+  // Sync floatingEditorScene when the parent updates the scene (e.g. after title edit)
+  useEffect(() => {
+    if (!floatingEditorScene) return;
+    const updated = scenes.find(s => s.id === floatingEditorScene.id);
+    if (updated && updated !== floatingEditorScene) {
+      setFloatingEditorScene(updated);
+    }
+  }, [scenes, floatingEditorScene]);
+
   // Restore scroll position after floating editor opens
   useLayoutEffect(() => {
     if (savedScrollTop.current !== null && scrollRef.current) {
