@@ -17,6 +17,43 @@ function randomId() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
 
+const lastBraidrBackupTime: Record<string, number> = {};
+const BRAIDR_BACKUP_INTERVAL_MS = 5 * 60 * 1000;
+const BRAIDR_MAX_BACKUPS = 20;
+
+function autoBackupBraidr(braidrPath: string): void {
+  const now = Date.now();
+  if (now - (lastBraidrBackupTime[braidrPath] || 0) < BRAIDR_BACKUP_INTERVAL_MS) return;
+
+  try {
+    const fs = require('fs') as typeof import('fs');
+    const pathMod = require('path') as typeof import('path');
+    const { app } = require('electron') as typeof import('electron');
+
+    if (!fs.existsSync(braidrPath)) return;
+
+    const projectName = pathMod.basename(braidrPath, '.braidr');
+    const backupDir = pathMod.join(app.getPath('userData'), 'backups', projectName);
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupPath = pathMod.join(backupDir, `${projectName}-${timestamp}.braidr`);
+    fs.copyFileSync(braidrPath, backupPath);
+    lastBraidrBackupTime[braidrPath] = now;
+
+    // Prune oldest backups beyond BRAIDR_MAX_BACKUPS
+    const existing = fs.readdirSync(backupDir)
+      .filter((f: string) => f.endsWith('.braidr'))
+      .sort()
+      .reverse();
+    for (const old of existing.slice(BRAIDR_MAX_BACKUPS)) {
+      fs.unlinkSync(pathMod.join(backupDir, old));
+    }
+  } catch (err) {
+    console.error('[autoBackupBraidr] failed (non-fatal):', err);
+  }
+}
+
 // ── Load project ─────────────────────────────────────────────────────────────
 
 ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) => {
@@ -355,6 +392,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, (_event, braidrPath: string, p
   tags?: Tag[];
 }) => {
   try {
+    autoBackupBraidr(braidrPath);
     const db = getDb(braidrPath);
 
     db.transaction(() => {
