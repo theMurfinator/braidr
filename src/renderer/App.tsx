@@ -102,10 +102,15 @@ function App() {
       list.push(scene);
       braidedByChar.set(scene.characterId, list);
     }
+    const plotPointOrder = new Map(projectData.plotPoints.map(pp => [pp.id, pp.order]));
     for (const [, charScenes] of braidedByChar) {
       if (charScenes.length < 2) continue;
       const braidedOrder = [...charScenes].sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
-      const povOrder = [...charScenes].sort((a, b) => a.sceneNumber - b.sceneNumber);
+      const povOrder = [...charScenes].sort((a, b) => {
+        const ppA = plotPointOrder.get(a.plotPointId ?? '') ?? 0;
+        const ppB = plotPointOrder.get(b.plotPointId ?? '') ?? 0;
+        return ppA !== ppB ? ppA - ppB : a.sceneNumber - b.sceneNumber;
+      });
       const povRankMap = new Map(povOrder.map((s, i) => [s.id, i]));
       const ranks = braidedOrder.map(s => povRankMap.get(s.id)!);
 
