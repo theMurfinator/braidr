@@ -21,37 +21,41 @@ const lastBraidrBackupTime: Record<string, number> = {};
 const BRAIDR_BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 const BRAIDR_MAX_BACKUPS = 20;
 
-function autoBackupBraidr(braidrPath: string): void {
+function autoBackupBraidr(braidrPath: string, db: import('./database').BraidrDB): void {
   const now = Date.now();
   if (now - (lastBraidrBackupTime[braidrPath] || 0) < BRAIDR_BACKUP_INTERVAL_MS) return;
+  lastBraidrBackupTime[braidrPath] = now;
 
-  try {
-    const fs = require('fs') as typeof import('fs');
-    const pathMod = require('path') as typeof import('path');
-    const { app } = require('electron') as typeof import('electron');
+  const fs = require('fs') as typeof import('fs');
+  const pathMod = require('path') as typeof import('path');
+  const { app } = require('electron') as typeof import('electron');
 
-    if (!fs.existsSync(braidrPath)) return;
+  if (!fs.existsSync(braidrPath)) return;
 
-    const projectName = pathMod.basename(braidrPath, '.braidr');
-    const backupDir = pathMod.join(app.getPath('userData'), 'backups', projectName);
-    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+  const projectName = pathMod.basename(braidrPath, '.braidr');
+  const backupDir = pathMod.join(app.getPath('userData'), 'backups', projectName);
+  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupPath = pathMod.join(backupDir, `${projectName}-${timestamp}.braidr`);
-    fs.copyFileSync(braidrPath, backupPath);
-    lastBraidrBackupTime[braidrPath] = now;
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = pathMod.join(backupDir, `${projectName}-${timestamp}.braidr`);
 
-    // Prune oldest backups beyond BRAIDR_MAX_BACKUPS
-    const existing = fs.readdirSync(backupDir)
-      .filter((f: string) => f.endsWith('.braidr'))
-      .sort()
-      .reverse();
-    for (const old of existing.slice(BRAIDR_MAX_BACKUPS)) {
-      fs.unlinkSync(pathMod.join(backupDir, old));
-    }
-  } catch (err) {
-    console.error('[autoBackupBraidr] failed (non-fatal):', err);
-  }
+  // Use SQLite online backup API so WAL frames are included in the snapshot.
+  db.backup(backupPath)
+    .then(() => {
+      // Prune oldest backups beyond BRAIDR_MAX_BACKUPS
+      try {
+        const existing = fs.readdirSync(backupDir)
+          .filter((f: string) => f.endsWith('.braidr'))
+          .sort()
+          .reverse();
+        for (const old of existing.slice(BRAIDR_MAX_BACKUPS)) {
+          fs.unlinkSync(pathMod.join(backupDir, old));
+        }
+      } catch { /* non-fatal */ }
+    })
+    .catch((err: unknown) => {
+      console.error('[autoBackupBraidr] failed (non-fatal):', err);
+    });
 }
 
 // ── Load project ─────────────────────────────────────────────────────────────
@@ -59,6 +63,24 @@ function autoBackupBraidr(braidrPath: string): void {
 ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) => {
   try {
     const db = getDb(braidrPath);
+
+    // Detect corruption before attempting any reads.
+    try {
+      const checkResult = (db.prepare('PRAGMA quick_check').all() as { quick_check: string }[]);
+      if (checkResult[0]?.quick_check !== 'ok') {
+        const { app } = require('electron') as typeof import('electron');
+        const pathMod = require('path') as typeof import('path');
+        const projectName = pathMod.basename(braidrPath, '.braidr');
+        const backupDir = pathMod.join(app.getPath('userData'), 'backups', projectName);
+        return { success: false, error: `Your project file is corrupted. Please restore a backup from: ${backupDir}` };
+      }
+    } catch {
+      const { app } = require('electron') as typeof import('electron');
+      const pathMod = require('path') as typeof import('path');
+      const projectName = pathMod.basename(braidrPath, '.braidr');
+      const backupDir = pathMod.join(app.getPath('userData'), 'backups', projectName);
+      return { success: false, error: `Your project file is corrupted. Please restore a backup from: ${backupDir}` };
+    }
 
     // Characters
     const charRows = db.getCharacters();
@@ -140,26 +162,34 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     }));
 
     // Font settings
-    const fontSettings: FontSettings = JSON.parse(db.getSetting('fontSettings') || '{}');
+    let fontSettings: FontSettings = {};
+    try { fontSettings = JSON.parse(db.getSetting('fontSettings') || '{}'); } catch { /* malformed — use empty */ }
     const rawAllFont = db.getSetting('allFontSettings');
-    const allFontSettings: AllFontSettings | undefined = rawAllFont ? JSON.parse(rawAllFont) : undefined;
+    let allFontSettings: AllFontSettings | undefined;
+    try { allFontSettings = rawAllFont ? JSON.parse(rawAllFont) : undefined; } catch { /* malformed — skip */ }
 
     // Archived scenes
     const archivedRows = db.getArchivedScenes();
-    const archivedScenes: ArchivedScene[] = archivedRows.map(row => ({
-      id: row.id,
-      characterId: row.character_id,
-      originalSceneNumber: row.original_scene_number,
-      plotPointId: row.original_plot_point_id,
-      title: row.title,
-      content: row.synopsis,
-      draftContent: row.draft_content ?? undefined,
-      tags: JSON.parse(row.tags),
-      notes: JSON.parse(row.notes),
-      isHighlighted: row.is_highlighted === 1,
-      wordCount: row.word_count ?? undefined,
-      archivedAt: row.archived_at,
-    }));
+    const archivedScenes: ArchivedScene[] = archivedRows.map(row => {
+      let tags: string[] = [];
+      let notes: string[] = [];
+      try { tags = JSON.parse(row.tags); } catch { /* malformed — skip */ }
+      try { notes = JSON.parse(row.notes); } catch { /* malformed — skip */ }
+      return {
+        id: row.id,
+        characterId: row.character_id,
+        originalSceneNumber: row.original_scene_number,
+        plotPointId: row.original_plot_point_id,
+        title: row.title,
+        content: row.synopsis,
+        draftContent: row.draft_content ?? undefined,
+        tags,
+        notes,
+        isHighlighted: row.is_highlighted === 1,
+        wordCount: row.word_count ?? undefined,
+        archivedAt: row.archived_at,
+      };
+    });
 
     // Draft content (all scenes, bulk)
     const draftRows = db.prepare('SELECT scene_id, content FROM scene_drafts').all() as { scene_id: string; content: string }[];
@@ -174,8 +204,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       id: row.id,
       label: row.label,
       type: row.field_type as MetadataFieldDef['type'],
-      options: row.options ? JSON.parse(row.options) : undefined,
-      optionColors: row.option_colors ? JSON.parse(row.option_colors) : undefined,
+      options: row.options ? (() => { try { return JSON.parse(row.options!); } catch { return undefined; } })() : undefined,
+      optionColors: row.option_colors ? (() => { try { return JSON.parse(row.option_colors!); } catch { return undefined; } })() : undefined,
       order: row.display_order,
     }));
 
@@ -183,7 +213,11 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     const metaValueRows = db.getAllSceneMetadataValues();
     const sceneMetadata: Record<string, Record<string, string | string[]>> = {};
     for (const row of metaValueRows) {
-      (sceneMetadata[row.scene_id] ??= {})[row.field_def_id] = JSON.parse(row.value);
+      try {
+        (sceneMetadata[row.scene_id] ??= {})[row.field_def_id] = JSON.parse(row.value);
+      } catch {
+        // Malformed metadata value — skip rather than crash
+      }
     }
 
     // Draft versions (bulk)
@@ -220,7 +254,11 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     const allTCFV = db.getAllTaskCustomFieldValues();
     const customFieldsByTask: Record<string, Record<string, unknown>> = {};
     for (const v of allTCFV) {
-      (customFieldsByTask[v.task_id] ??= {})[v.field_def_id] = JSON.parse(v.value);
+      try {
+        (customFieldsByTask[v.task_id] ??= {})[v.field_def_id] = JSON.parse(v.value);
+      } catch {
+        // Malformed custom field value — skip
+      }
     }
     const taskTagRows = db.prepare(`
       SELECT tt.task_id, t.name FROM task_tags tt JOIN tags t ON t.id = tt.tag_id
@@ -267,18 +305,23 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       id: row.id,
       name: row.name,
       type: row.field_type as TaskFieldDef['type'],
-      options: row.options ? JSON.parse(row.options) : undefined,
+      options: row.options ? (() => { try { return JSON.parse(row.options!); } catch { return undefined; } })() : undefined,
     }));
 
     // Settings
-    const taskViews: TaskViewConfig[] = JSON.parse(db.getSetting('taskViews') || '[]');
-    const taskColumnWidths: Record<string, number> = JSON.parse(db.getSetting('taskColumnWidths') || '{}');
+    let taskViews: TaskViewConfig[] = [];
+    try { taskViews = JSON.parse(db.getSetting('taskViews') || '[]'); } catch { /* malformed — use empty */ }
+    let taskColumnWidths: Record<string, number> = {};
+    try { taskColumnWidths = JSON.parse(db.getSetting('taskColumnWidths') || '{}'); } catch { /* malformed — use empty */ }
     const rawTVC = db.getSetting('taskVisibleColumns');
-    const taskVisibleColumns: string[] | undefined = rawTVC ? JSON.parse(rawTVC) : undefined;
+    let taskVisibleColumns: string[] | undefined;
+    try { taskVisibleColumns = rawTVC ? JSON.parse(rawTVC) : undefined; } catch { /* malformed — skip */ }
     const rawIMF = db.getSetting('inlineMetadataFields');
-    const inlineMetadataFields: string[] | undefined = rawIMF ? JSON.parse(rawIMF) : undefined;
+    let inlineMetadataFields: string[] | undefined;
+    try { inlineMetadataFields = rawIMF ? JSON.parse(rawIMF) : undefined; } catch { /* malformed — skip */ }
     const rawSIL = db.getSetting('showInlineLabels');
-    const showInlineLabels: boolean | undefined = rawSIL !== null ? JSON.parse(rawSIL) : undefined;
+    let showInlineLabels: boolean | undefined;
+    try { showInlineLabels = rawSIL !== null ? JSON.parse(rawSIL) : undefined; } catch { /* malformed — skip */ }
 
     // Timeline dates
     const sceneDateRows = db.getAllSceneDates();
@@ -392,8 +435,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, (_event, braidrPath: string, p
   tags?: Tag[];
 }) => {
   try {
-    autoBackupBraidr(braidrPath);
     const db = getDb(braidrPath);
+    autoBackupBraidr(braidrPath, db);
 
     db.transaction(() => {
       // Scene positions + word counts

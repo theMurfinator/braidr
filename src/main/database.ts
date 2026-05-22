@@ -321,13 +321,10 @@ export class BraidrDB {
   }
 
   private initialize() {
-    // Switch from WAL to DELETE journal mode if needed.
-    // Must happen before exec(CREATE_SCHEMA) so all subsequent ops use DELETE mode.
-    const journalMode = (this.db.pragma('journal_mode') as { journal_mode: string }[])[0]?.journal_mode;
-    if (journalMode === 'wal') {
-      this.db.pragma('wal_checkpoint(FULL)');
-    }
-    this.db.pragma('journal_mode = DELETE');
+    // WAL mode gives crash safety (main file is never written mid-transaction).
+    // We checkpoint after every save so iCloud always sees the main file as current.
+    this.db.pragma('journal_mode = WAL');
+    this.db.pragma('synchronous = NORMAL');
 
     this.db.exec(CREATE_SCHEMA);
     this.migrate();
@@ -372,7 +369,18 @@ export class BraidrDB {
     return this.db.exec(sql);
   }
 
+  checkpoint() {
+    this.db.pragma('wal_checkpoint(FULL)');
+  }
+
+  backup(destPath: string): Promise<unknown> {
+    return this.db.backup(destPath);
+  }
+
   close() {
+    // Switch back to DELETE mode, which forces a full WAL checkpoint and removes
+    // the -wal/-shm files, so iCloud only needs to sync the single .braidr file.
+    try { this.db.pragma('journal_mode = DELETE'); } catch { /* non-fatal */ }
     this.db.close();
   }
 
