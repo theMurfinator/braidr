@@ -60,6 +60,16 @@ const getConfigPath = () => path.join(app.getPath('userData'), 'recent-projects.
 
 const getDeviceConfigPath = () => path.join(app.getPath('userData'), 'device.json');
 
+function findBraidrFile(folderPath: string): string | null {
+  try {
+    const entries = fs.readdirSync(folderPath);
+    const name = entries.find((f: string) => f.endsWith('.braidr') && !f.startsWith('.'));
+    return name ? path.join(folderPath, name) : null;
+  } catch {
+    return null;
+  }
+}
+
 function getDeviceInfo(): { deviceId: string; deviceName: string } {
   const configPath = getDeviceConfigPath();
   if (fs.existsSync(configPath)) {
@@ -1410,10 +1420,28 @@ ipcMain.handle(IPC_CHANNELS.SELECT_NOTE_IMAGE, async (_event, projectPath: strin
 // Analytics data (separate from timeline for clean separation)
 ipcMain.handle(IPC_CHANNELS.READ_ANALYTICS, async (_event, projectPath: string) => {
   try {
+    const braidrPath = findBraidrFile(projectPath);
+    if (braidrPath) {
+      const { openDatabase } = require('./database') as typeof import('./database');
+      const db = openDatabase(braidrPath);
+      const stored = db.getSetting('analytics');
+      if (stored) {
+        return { success: true, data: JSON.parse(stored) };
+      }
+      // One-time migration from analytics.json
+      const legacyPath = path.join(projectPath, 'analytics.json');
+      if (fs.existsSync(legacyPath)) {
+        const data = JSON.parse(fs.readFileSync(legacyPath, 'utf-8'));
+        db.setSetting('analytics', JSON.stringify(data));
+        try { fs.renameSync(legacyPath, legacyPath + '.bak'); } catch { /* best-effort */ }
+        return { success: true, data };
+      }
+      return { success: true, data: null };
+    }
+    // Fallback: no .braidr file found
     const analyticsPath = path.join(projectPath, 'analytics.json');
     if (fs.existsSync(analyticsPath)) {
-      const content = fs.readFileSync(analyticsPath, 'utf-8');
-      return { success: true, data: JSON.parse(content) };
+      return { success: true, data: JSON.parse(fs.readFileSync(analyticsPath, 'utf-8')) };
     }
     return { success: true, data: null };
   } catch (error) {
@@ -1423,6 +1451,14 @@ ipcMain.handle(IPC_CHANNELS.READ_ANALYTICS, async (_event, projectPath: string) 
 
 ipcMain.handle(IPC_CHANNELS.SAVE_ANALYTICS, async (_event, projectPath: string, data: any) => {
   try {
+    const braidrPath = findBraidrFile(projectPath);
+    if (braidrPath) {
+      const { openDatabase } = require('./database') as typeof import('./database');
+      const db = openDatabase(braidrPath);
+      db.setSetting('analytics', JSON.stringify(data));
+      return { success: true };
+    }
+    // Fallback: write JSON file if no .braidr found
     const analyticsPath = path.join(projectPath, 'analytics.json');
     fs.writeFileSync(analyticsPath, JSON.stringify(data, null, 2), 'utf-8');
     return { success: true };
