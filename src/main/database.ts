@@ -5,7 +5,6 @@ import * as fs from 'fs';
 const SCHEMA_VERSION = 1;
 
 const CREATE_SCHEMA = `
-  PRAGMA journal_mode = WAL;
   PRAGMA foreign_keys = ON;
 
   CREATE TABLE IF NOT EXISTS schema_version (
@@ -322,6 +321,14 @@ export class BraidrDB {
   }
 
   private initialize() {
+    // Switch from WAL to DELETE journal mode if needed.
+    // Must happen before exec(CREATE_SCHEMA) so all subsequent ops use DELETE mode.
+    const journalMode = (this.db.pragma('journal_mode') as { journal_mode: string }[])[0]?.journal_mode;
+    if (journalMode === 'wal') {
+      this.db.pragma('wal_checkpoint(FULL)');
+    }
+    this.db.pragma('journal_mode = DELETE');
+
     this.db.exec(CREATE_SCHEMA);
     this.migrate();
 
