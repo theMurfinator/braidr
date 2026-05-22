@@ -19173,7 +19173,7 @@ textarea.table-cell-input {
   font-size: var(--font-body-size, 12px);
   font-family: var(--font-body);
   font-weight: var(--font-body-weight, 400);
-  color: var(--font-body-color, var(--text-secondary));
+  color: var(--text-secondary);
   line-height: 1.5;
   white-space: pre-wrap;
 }
@@ -19189,7 +19189,7 @@ textarea.table-cell-input {
   font-size: var(--font-body-size, 12px);
   font-family: var(--font-body);
   font-weight: var(--font-body-weight, 400);
-  color: var(--font-body-color, var(--text-secondary));
+  color: var(--text-secondary);
   line-height: 1.5;
   background: var(--bg-input, var(--bg-secondary));
   border: 1px solid var(--border-focus, rgba(255,255,255,0.2));
