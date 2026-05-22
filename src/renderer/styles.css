@@ -69,7 +69,7 @@
   --font-scene-title-weight: 500;
   --font-scene-title-color: var(--text-primary);
   --font-body: 'Literata', Georgia, serif;
-  --font-body-size: 15px;
+  --font-body-size: 16px;
   --font-body-weight: 400;
   --font-body-color: var(--text-primary);
   --font-ui: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -234,7 +234,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px;
+  height: 52px;
   padding: 0 16px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
@@ -981,9 +981,10 @@ textarea:focus-visible {
 .secondary-toolbar .character-selector select {
   padding: 5px 10px;
   font-size: 13px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-primary);
+  box-shadow: var(--color-primary-glow);
   border-radius: 4px;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -1046,8 +1047,9 @@ textarea:focus-visible {
 .character-selector select {
   padding: 8px 12px;
   border-radius: 4px;
-  border: 1px solid var(--border);
-  background: var(--bg-primary);
+  border: 1px solid var(--color-primary);
+  box-shadow: var(--color-primary-glow);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 14px;
   font-family: var(--font-ui);
@@ -19168,8 +19170,10 @@ textarea.table-cell-input {
 }
 
 .section-description-text {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: var(--font-body-size, 12px);
+  font-family: var(--font-body);
+  font-weight: var(--font-body-weight, 400);
+  color: var(--font-body-color, var(--text-secondary));
   line-height: 1.5;
   white-space: pre-wrap;
 }
@@ -19182,15 +19186,16 @@ textarea.table-cell-input {
 
 .section-description-input {
   width: 100%;
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: var(--font-body-size, 12px);
+  font-family: var(--font-body);
+  font-weight: var(--font-body-weight, 400);
+  color: var(--font-body-color, var(--text-secondary));
   line-height: 1.5;
   background: var(--bg-input, var(--bg-secondary));
   border: 1px solid var(--border-focus, rgba(255,255,255,0.2));
   border-radius: 4px;
   padding: 4px 6px;
   resize: vertical;
-  font-family: inherit;
   box-sizing: border-box;
 }
 
