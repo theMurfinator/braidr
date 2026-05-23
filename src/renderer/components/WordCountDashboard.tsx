@@ -201,11 +201,6 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
 
   const avgWordsPerDay = monthlySessionCount > 0 ? Math.round(monthlyWords / monthlySessionCount) : 0;
 
-  // Goal ring: compute circumference
-  const goalRingR = 50;
-  const goalRingC = 2 * Math.PI * goalRingR; // ~314.16
-  const goalRingOffset = goalRingC - goalRingC * goalProgress;
-
   // Deadline goal computed values
   const deadlineGoal = analytics?.deadlineGoal;
   const deadlineStats = useMemo(() => {
@@ -616,6 +611,162 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
       {/* Main Grid */}
       <div className="analytics-grid">
 
+        {/* Goals Card — full width */}
+        <div className="analytics-card full">
+          <div className="analytics-card-header">
+            <span className="analytics-card-title">Writing Goals</span>
+          </div>
+          {/* Today's daily goal — hero section */}
+          <div className="analytics-goals-daily">
+            <div className="analytics-goals-daily-header">
+              <span className="analytics-card-title">Today</span>
+              {editingDailyGoal ? (
+                <div className="analytics-goal-edit inline">
+                  <input
+                    type="number"
+                    value={dailyGoalInput}
+                    onChange={e => setDailyGoalInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleDailyGoalSave();
+                      if (e.key === 'Escape') setEditingDailyGoal(false);
+                    }}
+                    onBlur={handleDailyGoalSave}
+                    autoFocus
+                    min={0}
+                    step={100}
+                    placeholder="words/day"
+                  />
+                </div>
+              ) : (
+                <button className="analytics-goal-edit-btn" onClick={() => { setDailyGoalInput(String(analytics?.dailyGoal.target || 500)); setEditingDailyGoal(true); }}>
+                  {analytics?.dailyGoal.enabled ? `Goal: ${analytics.dailyGoal.target.toLocaleString()} words/day` : 'Set daily goal'}
+                </button>
+              )}
+            </div>
+            <div className="analytics-goals-daily-count">
+              <span className="analytics-goals-daily-big">{todayWords.toLocaleString()}</span>
+              {analytics?.dailyGoal.enabled && analytics.dailyGoal.target > 0 ? (
+                <>
+                  <span className="analytics-goals-daily-of"> of {analytics.dailyGoal.target.toLocaleString()} words</span>
+                  <span className={`analytics-deadline-pill ${dailyGoalProgress >= 1 ? 'on-track' : 'behind'}`} style={{ marginLeft: 'auto' }}>
+                    {dailyGoalProgress >= 1 ? '✓ Done' : `${(analytics.dailyGoal.target - todayWords).toLocaleString()} to go`}
+                  </span>
+                </>
+              ) : (
+                <span className="analytics-goals-daily-of"> words today</span>
+              )}
+            </div>
+            {analytics?.dailyGoal.enabled && analytics.dailyGoal.target > 0 && (
+              <div className="analytics-goal-bar-track analytics-goals-daily-bar">
+                <div className="analytics-goal-bar-fill daily" style={{ width: `${dailyGoalProgress * 100}%` }} />
+              </div>
+            )}
+          </div>
+
+          {/* Project progress + Deadline side by side */}
+          <div className="analytics-goals-bottom">
+            <div className="analytics-goals-project">
+              <div className="analytics-goals-section-header">
+                <span className="analytics-goals-section-label">Project Goal</span>
+                {editingGoal ? (
+                  <div className="analytics-goal-edit inline">
+                    <input
+                      type="number"
+                      value={goalInput}
+                      onChange={e => setGoalInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleGoalSave();
+                        if (e.key === 'Escape') setEditingGoal(false);
+                      }}
+                      onBlur={handleGoalSave}
+                      autoFocus
+                      min={0}
+                      step={1000}
+                      placeholder="Target words"
+                    />
+                  </div>
+                ) : (
+                  <button className="analytics-goal-edit-btn" onClick={() => { setGoalInput(String(wordCountGoal || '')); setEditingGoal(true); }}>
+                    {wordCountGoal > 0 ? 'Edit' : 'Set goal'}
+                  </button>
+                )}
+              </div>
+              <div className="analytics-goals-project-nums">
+                <strong>{stats.totalWords.toLocaleString()}</strong>
+                <span> / {wordCountGoal > 0 ? `${wordCountGoal.toLocaleString()} words` : '—'}</span>
+                {wordCountGoal > 0 && (
+                  <span className="analytics-goals-pct">{Math.round(goalProgress * 100)}%</span>
+                )}
+              </div>
+              {wordCountGoal > 0 && (
+                <div className="analytics-goal-bar-track" style={{ marginTop: '10px' }}>
+                  <div className="analytics-goal-bar-fill" style={{ width: `${goalProgress * 100}%` }} />
+                </div>
+              )}
+            </div>
+
+            <div className="analytics-goals-deadline">
+              <div className="analytics-goals-section-header">
+                <span className="analytics-goals-section-label">Deadline</span>
+                {!editingDeadline && (
+                  <button
+                    className="analytics-goal-edit-btn"
+                    onClick={() => {
+                      setDeadlineTargetInput(String(deadlineGoal?.targetWords || ''));
+                      setDeadlineDateInput(deadlineGoal?.deadlineDate || '');
+                      setEditingDeadline(true);
+                    }}
+                  >
+                    {deadlineGoal?.enabled ? 'Edit' : 'Set deadline'}
+                  </button>
+                )}
+              </div>
+              {editingDeadline ? (
+                <div className="analytics-deadline-edit">
+                  <div className="analytics-deadline-edit-row">
+                    <label>Target words</label>
+                    <input
+                      type="number"
+                      value={deadlineTargetInput}
+                      onChange={e => setDeadlineTargetInput(e.target.value)}
+                      placeholder="e.g. 120000"
+                      min={0}
+                      step={1000}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="analytics-deadline-edit-row">
+                    <label>Deadline</label>
+                    <input
+                      type="date"
+                      value={deadlineDateInput}
+                      onChange={e => setDeadlineDateInput(e.target.value)}
+                    />
+                  </div>
+                  <div className="analytics-deadline-edit-row" style={{ flexDirection: 'row', gap: '8px' }}>
+                    <button className="analytics-goal-edit-btn" onClick={handleDeadlineSave}>Save</button>
+                    {deadlineGoal?.enabled && (
+                      <button className="analytics-goal-edit-btn" onClick={handleDeadlineClear} style={{ opacity: 0.6 }}>Clear</button>
+                    )}
+                    <button className="analytics-goal-edit-btn" onClick={() => setEditingDeadline(false)} style={{ opacity: 0.6 }}>Cancel</button>
+                  </div>
+                </div>
+              ) : deadlineStats ? (
+                <div className="analytics-goals-deadline-stats">
+                  <span className="analytics-goals-deadline-stat"><strong>{deadlineStats.daysRemaining}</strong> days left</span>
+                  <span className="analytics-goals-deadline-stat">Need <strong>{deadlineStats.requiredPerDay.toLocaleString()}</strong>/day</span>
+                  <span className="analytics-goals-deadline-stat">Pace <strong>{deadlineStats.currentPace.toLocaleString()}</strong>/day</span>
+                  <span className={`analytics-deadline-pill ${deadlineStats.onTrack ? 'on-track' : 'behind'}`}>
+                    {deadlineStats.onTrack ? '✓ On track' : '⚠ Behind'}
+                  </span>
+                </div>
+              ) : (
+                <span className="analytics-goals-empty">No deadline set</span>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Calendar Heatmap */}
         <div className="analytics-card">
           <div className="analytics-card-header">
@@ -662,176 +813,6 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
             <div className="analytics-legend-swatch l3" />
             <div className="analytics-legend-swatch l4" />
             <span>2,000+</span>
-          </div>
-        </div>
-
-        {/* Goal Ring */}
-        <div className="analytics-card">
-          <div className="analytics-card-header">
-            <span className="analytics-card-title">Project Goal</span>
-            <span className="analytics-card-subtitle">{stats.totalWords.toLocaleString()} words</span>
-          </div>
-          <div className="analytics-goal-section">
-            <div className="analytics-goal-ring-wrapper">
-              <svg viewBox="0 0 120 120">
-                <circle className="analytics-goal-ring-bg" cx="60" cy="60" r={goalRingR} />
-                {wordCountGoal > 0 && (
-                  <circle
-                    className="analytics-goal-ring-fill"
-                    cx="60" cy="60" r={goalRingR}
-                    strokeDasharray={goalRingC}
-                    strokeDashoffset={goalRingOffset}
-                  />
-                )}
-              </svg>
-              <div className="analytics-goal-ring-center">
-                <span className="analytics-goal-ring-pct">{wordCountGoal > 0 ? `${Math.round(goalProgress * 100)}%` : '—'}</span>
-                <span className="analytics-goal-ring-label">{wordCountGoal > 0 ? 'complete' : 'no goal'}</span>
-              </div>
-            </div>
-            <div className="analytics-goal-details">
-              {editingGoal ? (
-                <div className="analytics-goal-edit">
-                  <input
-                    type="number"
-                    value={goalInput}
-                    onChange={e => setGoalInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleGoalSave();
-                      if (e.key === 'Escape') setEditingGoal(false);
-                    }}
-                    onBlur={handleGoalSave}
-                    autoFocus
-                    min={0}
-                    step={1000}
-                    placeholder="Target words"
-                  />
-                  <span>word goal</span>
-                </div>
-              ) : (
-                <>
-                  <div className="analytics-goal-title">
-                    {wordCountGoal > 0 ? `${wordCountGoal.toLocaleString()} words` : 'Set a goal'}
-                  </div>
-                  <div className="analytics-goal-numbers">
-                    <strong>{stats.totalWords.toLocaleString()}</strong> of {wordCountGoal > 0 ? wordCountGoal.toLocaleString() : '—'} words
-                  </div>
-                  {wordCountGoal > 0 && (
-                    <div className="analytics-goal-bar-track">
-                      <div className="analytics-goal-bar-fill" style={{ width: `${goalProgress * 100}%` }} />
-                    </div>
-                  )}
-                  <button className="analytics-goal-edit-btn" onClick={() => { setGoalInput(String(wordCountGoal || '')); setEditingGoal(true); }}>
-                    {wordCountGoal > 0 ? 'Change goal' : 'Set goal'}
-                  </button>
-                </>
-              )}
-
-              {/* Daily Goal */}
-              <div className="analytics-daily-goal">
-                <div className="analytics-daily-goal-header">
-                  <span className="analytics-daily-goal-label">Daily Target</span>
-                  {editingDailyGoal ? (
-                    <div className="analytics-goal-edit inline">
-                      <input
-                        type="number"
-                        value={dailyGoalInput}
-                        onChange={e => setDailyGoalInput(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') handleDailyGoalSave();
-                          if (e.key === 'Escape') setEditingDailyGoal(false);
-                        }}
-                        onBlur={handleDailyGoalSave}
-                        autoFocus
-                        min={0}
-                        step={100}
-                      />
-                    </div>
-                  ) : (
-                    <button className="analytics-goal-edit-btn" onClick={() => { setDailyGoalInput(String(analytics?.dailyGoal.target || 500)); setEditingDailyGoal(true); }}>
-                      {analytics?.dailyGoal.enabled ? `${analytics.dailyGoal.target.toLocaleString()}/day` : 'Set'}
-                    </button>
-                  )}
-                </div>
-                {analytics?.dailyGoal.enabled && analytics.dailyGoal.target > 0 && (
-                  <div className="analytics-goal-bar-track">
-                    <div className="analytics-goal-bar-fill daily" style={{ width: `${dailyGoalProgress * 100}%` }} />
-                  </div>
-                )}
-                <div className="analytics-daily-today">{todayWords.toLocaleString()} words today</div>
-              </div>
-
-              {/* Deadline Goal */}
-              <div className="analytics-deadline-section">
-                <div className="analytics-deadline-header">
-                  <span className="analytics-deadline-label">Deadline Goal</span>
-                  {!editingDeadline && (
-                    <button
-                      className="analytics-goal-edit-btn"
-                      onClick={() => {
-                        setDeadlineTargetInput(String(deadlineGoal?.targetWords || ''));
-                        setDeadlineDateInput(deadlineGoal?.deadlineDate || '');
-                        setEditingDeadline(true);
-                      }}
-                    >
-                      {deadlineGoal?.enabled ? 'Edit' : 'Set'}
-                    </button>
-                  )}
-                </div>
-
-                {editingDeadline ? (
-                  <div className="analytics-deadline-edit">
-                    <div className="analytics-deadline-edit-row">
-                      <label>Target words</label>
-                      <input
-                        type="number"
-                        value={deadlineTargetInput}
-                        onChange={e => setDeadlineTargetInput(e.target.value)}
-                        placeholder="e.g. 120000"
-                        min={0}
-                        step={1000}
-                        autoFocus
-                      />
-                    </div>
-                    <div className="analytics-deadline-edit-row">
-                      <label>Deadline</label>
-                      <input
-                        type="date"
-                        value={deadlineDateInput}
-                        onChange={e => setDeadlineDateInput(e.target.value)}
-                      />
-                    </div>
-                    <div className="analytics-deadline-edit-row" style={{ flexDirection: 'row', gap: '8px' }}>
-                      <button className="analytics-goal-edit-btn" onClick={handleDeadlineSave}>Save</button>
-                      {deadlineGoal?.enabled && (
-                        <button className="analytics-goal-edit-btn" onClick={handleDeadlineClear} style={{ opacity: 0.6 }}>Clear</button>
-                      )}
-                      <button className="analytics-goal-edit-btn" onClick={() => setEditingDeadline(false)} style={{ opacity: 0.6 }}>Cancel</button>
-                    </div>
-                  </div>
-                ) : deadlineStats ? (
-                  <>
-                    <div className="analytics-deadline-stats">
-                      <div className="analytics-deadline-stat">
-                        <strong>{deadlineStats.daysRemaining}</strong> days left
-                      </div>
-                      <div className="analytics-deadline-stat">
-                        <strong>{deadlineStats.wordsRemaining.toLocaleString()}</strong> words to go
-                      </div>
-                    </div>
-                    <div className="analytics-goal-bar-track">
-                      <div className="analytics-goal-bar-fill" style={{ width: `${deadlineStats.progress * 100}%` }} />
-                    </div>
-                    <div className="analytics-deadline-pace">
-                      Need <strong>{deadlineStats.requiredPerDay.toLocaleString()}</strong>/day · Pace: <strong>{deadlineStats.currentPace.toLocaleString()}</strong>/day
-                      <span className={`analytics-deadline-pill ${deadlineStats.onTrack ? 'on-track' : 'behind'}`}>
-                        {deadlineStats.onTrack ? '✓ On track' : '⚠ Behind pace'}
-                      </span>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            </div>
           </div>
         </div>
 
