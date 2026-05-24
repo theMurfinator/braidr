@@ -110,4 +110,29 @@ final class BraidrDBTests: XCTestCase {
         let updated = scenes.first { $0.id == "s1" }
         XCTAssertEqual(updated?.characterId, "c2")
     }
+
+    func test_fetchProjectName_returnsName() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".braidr")
+        let pool = try DatabasePool(path: url.path)
+        try pool.write { db in
+            try db.execute(sql: """
+                CREATE TABLE project (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT 0);
+                INSERT INTO project VALUES ('p1','The Crossing',0);
+            """)
+        }
+        let testDB = try BraidrDB(url: url)
+        let name = try testDB.fetchProjectName()
+        XCTAssertEqual(name, "The Crossing")
+    }
+
+    func test_fetchProjectName_returnsNilWhenTableMissing() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".braidr")
+        _ = try DatabasePool(path: url.path)
+        let testDB = try BraidrDB(url: url)
+        // Should return nil, not throw, when project table doesn't exist
+        let name = try? testDB.fetchProjectName()
+        XCTAssertNil(name)
+    }
 }

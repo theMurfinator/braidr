@@ -36,6 +36,7 @@ final class ProjectViewModel: ObservableObject {
         scenes     = try db.fetchScenesInTimeline()
         plotPoints = try db.fetchPlotPoints()
         chapters   = try db.fetchChapters()
+        projectName = (try? db.fetchProjectName()) ?? "Braidr"
     }
 
     func restoreFromBookmark() {

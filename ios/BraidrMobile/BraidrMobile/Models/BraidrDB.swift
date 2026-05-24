@@ -67,6 +67,17 @@ final class BraidrDB {
         }
     }
 
+    func fetchProjectName() throws -> String? {
+        do {
+            return try pool.read { db in
+                let row = try Row.fetchOne(db, sql: "SELECT name FROM project LIMIT 1")
+                return row?["name"]
+            }
+        } catch {
+            return nil
+        }
+    }
+
     func updateScene(id: String, characterId: String? = nil,
                      plotPointId: String? = nil, chapterId: String? = nil) throws {
         var sets: [String] = []
