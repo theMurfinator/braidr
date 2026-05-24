@@ -10,6 +10,7 @@
 		0A0C5FFCDD484D1E968EE385 /* AppModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5900FBD12BBA3F58217984E8 /* AppModelsTests.swift */; };
 		2B31B230E358BCA4F9A74783 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E09E73ABB8F7173FF5352DD3 /* ContentView.swift */; };
 		2FF17C609BBFF6991E0AE7A9 /* ColorExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64FBE49FA997CABF6AAD851C /* ColorExtension.swift */; };
+		3305AB8968BF13CAA5C9735D /* BraidrDB.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7EA2A4E9682EF6FDF25C23 /* BraidrDB.swift */; };
 		5F44E77ED4FFA4BE0EB8DAD1 /* BraidrMobileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A08C305C42E41D9952C3437 /* BraidrMobileTests.swift */; };
 		7A57215EF3F791D06A7C1E16 /* Lora-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 498854B97FC9106C4BFBFE23 /* Lora-Italic.ttf */; };
 		80AF25DBA83A42631303740C /* BraidrMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D6797CF3A7976F4DE232E4 /* BraidrMobileApp.swift */; };
@@ -19,6 +20,7 @@
 		D5D3322431AFE7017EC3BBDA /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 87EF3790AC2963374A82DC6C /* GRDB */; };
 		DA4DB32811E564077F249B61 /* AppModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C21F803E7074F82D76464F0 /* AppModels.swift */; };
 		EFFCABB30F2FCB040B402B72 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = F5EEA86D67BDC0810990B7FD /* GRDB */; };
+		FF79F30D75972C521248BC7B /* BraidrDBTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E088BA910E01E1A0684891D7 /* BraidrDBTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,11 +41,13 @@
 		57EDDC6ADBCA8D95DB8486A0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5900FBD12BBA3F58217984E8 /* AppModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelsTests.swift; sourceTree = "<group>"; };
 		59816AD2664D3BD18E4F85F4 /* Lora-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-Regular.ttf"; sourceTree = "<group>"; };
+		5A7EA2A4E9682EF6FDF25C23 /* BraidrDB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrDB.swift; sourceTree = "<group>"; };
 		64FBE49FA997CABF6AAD851C /* ColorExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtension.swift; sourceTree = "<group>"; };
 		8A08C305C42E41D9952C3437 /* BraidrMobileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrMobileTests.swift; sourceTree = "<group>"; };
 		C495055272F73EC3686A2451 /* Lora-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-Medium.ttf"; sourceTree = "<group>"; };
 		CB3CDEAC6336EFBD83056684 /* BraidrMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BraidrMobile.entitlements; sourceTree = "<group>"; };
 		CB6EFEA2C16A75B380C7D602 /* BraidrMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BraidrMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E088BA910E01E1A0684891D7 /* BraidrDBTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrDBTests.swift; sourceTree = "<group>"; };
 		E09E73ABB8F7173FF5352DD3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		E6D6797CF3A7976F4DE232E4 /* BraidrMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrMobileApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -80,6 +84,7 @@
 			isa = PBXGroup;
 			children = (
 				2C21F803E7074F82D76464F0 /* AppModels.swift */,
+				5A7EA2A4E9682EF6FDF25C23 /* BraidrDB.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -121,6 +126,7 @@
 			isa = PBXGroup;
 			children = (
 				5900FBD12BBA3F58217984E8 /* AppModelsTests.swift */,
+				E088BA910E01E1A0684891D7 /* BraidrDBTests.swift */,
 				8A08C305C42E41D9952C3437 /* BraidrMobileTests.swift */,
 			);
 			path = BraidrMobileTests;
@@ -241,6 +247,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0A0C5FFCDD484D1E968EE385 /* AppModelsTests.swift in Sources */,
+				FF79F30D75972C521248BC7B /* BraidrDBTests.swift in Sources */,
 				5F44E77ED4FFA4BE0EB8DAD1 /* BraidrMobileTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -250,6 +257,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA4DB32811E564077F249B61 /* AppModels.swift in Sources */,
+				3305AB8968BF13CAA5C9735D /* BraidrDB.swift in Sources */,
 				80AF25DBA83A42631303740C /* BraidrMobileApp.swift in Sources */,
 				2FF17C609BBFF6991E0AE7A9 /* ColorExtension.swift in Sources */,
 				2B31B230E358BCA4F9A74783 /* ContentView.swift in Sources */,
