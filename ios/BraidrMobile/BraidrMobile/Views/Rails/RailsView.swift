@@ -35,11 +35,11 @@ struct RailsView: View {
                 Divider()
                 ZStack(alignment: .bottom) {
                     grid
-                    if isSelecting && !selectedIds.isEmpty {
+                    if isSelecting && !selectedIds.isEmpty, let db = projectVM.db {
                         ExportBarView(
                             selectedScenes: selectedScenes,
                             selectedWordCount: selectedWordCount,
-                            db: projectVM.db!,
+                            db: db,
                             onCancel: { exitSelection() }
                         )
                         .transition(.move(edge: .bottom))
@@ -166,7 +166,6 @@ struct RailsView: View {
                                     }
                                 }
                                 .frame(height: metrics.rowHeight)
-                                .padding(.vertical, metrics.cardVerticalPadding)
                                 .overlay(alignment: .bottom) { Divider().opacity(0.5) }
                             }
                         }
