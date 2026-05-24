@@ -22,6 +22,7 @@ final class ProjectViewModel: ObservableObject {
             }
             try reload()
             errorMessage = nil
+            if accessing { url.stopAccessingSecurityScopedResource() }
         } catch {
             errorMessage = error.localizedDescription
             if accessing { url.stopAccessingSecurityScopedResource() }
