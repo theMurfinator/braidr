@@ -195,7 +195,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
 
   const handleDeadlineSave = () => {
     if (!analytics || !projectPath) return;
-    const target = parseInt(deadlineTargetInput, 10);
+    const target = parseInt(deadlineTargetInput.replace(/,/g, ''), 10);
     const date = deadlineDateInput;
     if (!isNaN(target) && target > 0 && date) {
       track('goal_set', { type: 'deadline' });
@@ -392,7 +392,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
 
   // Preview calc for the edit form
   const wordEditPreview = (() => {
-    const target = parseInt(deadlineTargetInput, 10);
+    const target = parseInt(deadlineTargetInput.replace(/,/g, ''), 10);
     const date = deadlineDateInput;
     if (isNaN(target) || target <= 0 || !date) return null;
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -656,18 +656,21 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
                 {editingDeadline ? (
                   <div className="analytics-goal-edit inline" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={deadlineTargetInput}
-                      onChange={e => setDeadlineTargetInput(e.target.value)}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                        setDeadlineTargetInput(raw === '' ? '' : parseInt(raw, 10).toLocaleString());
+                      }}
                       placeholder="Target manuscript words"
-                      min={0}
-                      step={1000}
                       autoFocus
                     />
                     <input
                       type="date"
                       value={deadlineDateInput}
                       onChange={e => setDeadlineDateInput(e.target.value)}
+                      style={{ minWidth: '160px', width: '100%' }}
                     />
                     {wordEditPreview && (
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
@@ -684,7 +687,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
                   </div>
                 ) : (
                   <button className="analytics-goal-edit-btn" onClick={() => {
-                    setDeadlineTargetInput(String(deadlineGoal?.targetWords || ''));
+                    setDeadlineTargetInput(deadlineGoal?.targetWords ? deadlineGoal.targetWords.toLocaleString() : '');
                     setDeadlineDateInput(deadlineGoal?.deadlineDate || '');
                     setEditingDeadline(true);
                   }}>
