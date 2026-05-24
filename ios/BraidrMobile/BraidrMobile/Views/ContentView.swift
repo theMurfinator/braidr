@@ -35,5 +35,8 @@ struct ContentView: View {
             }
         }
         .onAppear { projectVM.restoreFromBookmark() }
+        .onOpenURL { url in
+            projectVM.loadFromURL(url)
+        }
     }
 }
