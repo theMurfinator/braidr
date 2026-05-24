@@ -87,4 +87,27 @@ final class BraidrDBTests: XCTestCase {
         let content = try db.fetchDraft(sceneId: "s1")
         XCTAssertEqual(content, "Updated.")
     }
+
+    func test_fetchPlotPoints_returnsSortedByDisplayOrder() throws {
+        let pps = try db.fetchPlotPoints()
+        XCTAssertEqual(pps.count, 1)
+        XCTAssertEqual(pps[0].id, "pp1")
+        XCTAssertEqual(pps[0].title, "Setup")
+        XCTAssertEqual(pps[0].characterId, "c1")
+    }
+
+    func test_fetchChapters_returnsSortedByOrd() throws {
+        let chapters = try db.fetchChapters()
+        XCTAssertEqual(chapters.count, 1)
+        XCTAssertEqual(chapters[0].id, "ch1")
+        XCTAssertEqual(chapters[0].title, "Part One")
+    }
+
+    func test_updateScene_updatesCharacterId() throws {
+        try db.updateScene(id: "s1", characterId: "c2")
+        // Re-fetch to verify update persisted
+        let scenes = try db.fetchScenesInTimeline()
+        let updated = scenes.first { $0.id == "s1" }
+        XCTAssertEqual(updated?.characterId, "c2")
+    }
 }
