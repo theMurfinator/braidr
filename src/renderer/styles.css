@@ -12418,6 +12418,24 @@ textarea.table-cell-input {
   color: var(--text-primary);
   font-weight: 700;
 }
+.analytics-weekly-word-target-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed rgba(139, 92, 246, 0.35);
+  pointer-events: none;
+  z-index: 1;
+}
+.analytics-weekly-word-target-label {
+  position: absolute;
+  right: 0;
+  top: -10px;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  padding: 0 2px;
+}
 .analytics-trend-goal-line {
   position: absolute;
   left: 0;

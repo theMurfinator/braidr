@@ -29,11 +29,7 @@ function countWords(html: string): number {
 
 
 export default function WordCountDashboard({ scenes, characters, plotPoints: _plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [], customCheckinCategories = [], tasks = [] }: WordCountDashboardProps) {
-  const [editingGoal, setEditingGoal] = useState(false);
-  const [goalInput, setGoalInput] = useState(String(wordCountGoal || ''));
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [editingDailyGoal, setEditingDailyGoal] = useState(false);
-  const [dailyGoalInput, setDailyGoalInput] = useState('');
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -42,6 +38,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
   const [deadlineTargetInput, setDeadlineTargetInput] = useState('');
   const [deadlineDateInput, setDeadlineDateInput] = useState('');
   const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week, etc.
+  const [wordWeekOffset, setWordWeekOffset] = useState(0);
   const [editingWeeklyGoal, setEditingWeeklyGoal] = useState(false);
   const [weeklyGoalInput, setWeeklyGoalInput] = useState('');
 
@@ -50,7 +47,6 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     if (projectPath) {
       loadAnalytics(projectPath).then(data => {
         setAnalytics(data);
-        setDailyGoalInput(String(data.dailyGoal.target || 500));
       });
     }
   }, [projectPath]);
@@ -109,40 +105,11 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     return () => clearInterval(interval);
   }, [projectPath]);
 
-  const handleGoalSave = () => {
-    const parsed = parseInt(goalInput, 10);
-    if (!isNaN(parsed) && parsed >= 0) {
-      track('goal_set', { type: 'project' });
-      onGoalChange(parsed);
-    }
-    setEditingGoal(false);
-  };
-
-  const handleDailyGoalSave = () => {
-    if (!analytics || !projectPath) return;
-    const parsed = parseInt(dailyGoalInput, 10);
-    if (!isNaN(parsed) && parsed >= 0) {
-      track('goal_set', { type: 'daily' });
-      const updated = {
-        ...analytics,
-        dailyGoal: { enabled: parsed > 0, target: parsed },
-      };
-      setAnalytics(updated);
-      saveAnalytics(projectPath, updated);
-    }
-    setEditingDailyGoal(false);
-  };
-
   const goalProgress = wordCountGoal > 0 ? Math.min(stats.totalWords / wordCountGoal, 1) : 0;
 
   // Activity data
   const recentDays = analytics ? getRecentDays(analytics.sessions, 30) : [];
   const maxDayWords = Math.max(...recentDays.map(d => d.words), 1);
-  const todayWords = recentDays.length > 0 ? recentDays[recentDays.length - 1].words : 0;
-  const dailyGoalProgress = analytics?.dailyGoal.enabled && analytics.dailyGoal.target > 0
-    ? Math.min(todayWords / analytics.dailyGoal.target, 1)
-    : 0;
-
   // Calendar heatmap data
   const calendarData = useMemo(() => {
     if (!analytics) return [];
@@ -238,6 +205,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
       };
       setAnalytics(updated);
       saveAnalytics(projectPath, updated);
+      onGoalChange(target);
     }
     setEditingDeadline(false);
   };
@@ -307,6 +275,38 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     };
   }, [weekOffset, sceneSessions, tasks]);
 
+  // Weekly word count data (same pattern as weeklyData for hours)
+  const wordWeekData = useMemo(() => {
+    const now = new Date();
+    const currentSat = getWeekSaturday(now);
+    const viewedSat = new Date(currentSat);
+    viewedSat.setDate(currentSat.getDate() + wordWeekOffset * 7);
+    const days = getWeekDays(viewedSat);
+    const todayStr = getTodayStr();
+    const isCurrentWeek = wordWeekOffset === 0;
+    const dayLabels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+    const perDay: number[] = new Array(7).fill(0);
+    if (sceneSessions.length > 0) {
+      for (const ss of sceneSessions) {
+        if (ss.sceneKey === 'manual:checkin') continue;
+        const idx = days.indexOf(ss.date);
+        if (idx >= 0) perDay[idx] += ss.wordsNet;
+      }
+    } else if (analytics) {
+      for (const session of analytics.sessions) {
+        const idx = days.indexOf(session.date);
+        if (idx >= 0) perDay[idx] += session.wordsWritten;
+      }
+    }
+
+    const perDayWords = perDay.map(w => Math.max(0, w));
+    const totalWords = perDayWords.reduce((a, b) => a + b, 0);
+    const todayIdx = days.indexOf(todayStr);
+
+    return { days, dayLabels, perDayWords, totalWords, todayIdx, isCurrentWeek, label: formatWeekLabel(viewedSat) };
+  }, [wordWeekOffset, sceneSessions, analytics]);
+
   const weeklyGoal = analytics?.weeklyGoal;
   const weeklyTargetHours = weeklyGoal?.enabled ? weeklyGoal.targetHours : 0;
 
@@ -369,6 +369,39 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     : weeklyTargetHours;
   const weeklyPace = weeklyData.totalHours - weeklyTargetThroughToday;
   const weeklyOnTrack = weeklyPace >= 0;
+
+  // Word goal derived from deadlineGoal
+  const wordDailyTarget = deadlineStats?.requiredPerDay || 0;
+  const wordWeeklyTarget = wordDailyTarget * 7;
+  const maxWeekWords = Math.max(...wordWeekData.perDayWords, wordDailyTarget, 1);
+  const wordWeeklyProgress = wordWeeklyTarget > 0 ? Math.min(wordWeekData.totalWords / wordWeeklyTarget, 1) : 0;
+  const wordTargetThroughToday = wordWeekData.isCurrentWeek && wordWeekData.todayIdx >= 0
+    ? wordDailyTarget * (wordWeekData.todayIdx + 1)
+    : wordWeeklyTarget;
+  const wordPace = wordWeekData.totalWords - wordTargetThroughToday;
+  const wordOnTrack = wordPace >= 0;
+  // Chart geometry constants (must match .analytics-weekly-chart min-height and bar group layout)
+  const WORD_CHART_H = 140;
+  const WORD_LABEL_H = 14; // .analytics-weekly-bar-value min-height
+  const WORD_DAY_H = 14;   // .analytics-weekly-bar-label approx height
+  const WORD_GAP = 4;
+  const WORD_TRACK_H = WORD_CHART_H - WORD_LABEL_H - WORD_GAP - WORD_DAY_H - WORD_GAP;
+  const wordTargetLinePx = deadlineGoal?.enabled && wordDailyTarget > 0
+    ? (WORD_DAY_H + WORD_GAP) + (Math.min(wordDailyTarget, maxWeekWords) / maxWeekWords) * WORD_TRACK_H
+    : null;
+
+  // Preview calc for the edit form
+  const wordEditPreview = (() => {
+    const target = parseInt(deadlineTargetInput, 10);
+    const date = deadlineDateInput;
+    if (isNaN(target) || target <= 0 || !date) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const deadline = new Date(date + 'T00:00:00');
+    const days = Math.max(1, Math.ceil((deadline.getTime() - today.getTime()) / 86400000) + 1);
+    const remaining = Math.max(0, target - stats.totalWords);
+    const daily = Math.ceil(remaining / days);
+    return { daily, weekly: daily * 7 };
+  })();
 
   const handleWeeklyGoalSave = () => {
     if (!analytics || !projectPath) return;
@@ -565,6 +598,137 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
         </div>
       </div>
 
+      {/* Weekly Words Tracker */}
+      <div className="analytics-weekly-tracker">
+        <div className="analytics-card full">
+          <div className="analytics-card-header">
+            <div className="analytics-calendar-nav">
+              <button onClick={() => setWordWeekOffset(prev => prev - 1)}>&#8249;</button>
+            </div>
+            <div className="analytics-weekly-title-group">
+              <span className="analytics-card-title">Weekly Words</span>
+              <span className="analytics-card-subtitle">{wordWeekData.label}</span>
+            </div>
+            <div className="analytics-calendar-nav">
+              <button onClick={() => setWordWeekOffset(prev => Math.min(prev + 1, 0))}>&#8250;</button>
+            </div>
+          </div>
+
+          <div className="analytics-weekly-body">
+            {/* Left: summary */}
+            <div className="analytics-weekly-summary">
+              <div className="analytics-weekly-hours-big">
+                <span className="analytics-weekly-hours-current">{wordWeekData.totalWords.toLocaleString()}</span>
+                {deadlineGoal?.enabled && wordDailyTarget > 0 && (
+                  <span className="analytics-weekly-hours-target"> / {wordWeeklyTarget.toLocaleString()}</span>
+                )}
+              </div>
+
+              {deadlineGoal?.enabled && wordDailyTarget > 0 && (
+                <>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '-4px' }}>
+                    {wordDailyTarget.toLocaleString()} words/day · {wordWeeklyTarget.toLocaleString()}/week
+                  </div>
+                  <div className="analytics-goal-bar-track">
+                    <div className="analytics-goal-bar-fill weekly" style={{ width: `${wordWeeklyProgress * 100}%` }} />
+                  </div>
+                  {wordWeekData.isCurrentWeek && wordWeekData.todayIdx >= 0 && (
+                    <div className="analytics-weekly-pace">
+                      Target through today: <strong>{wordTargetThroughToday.toLocaleString()}</strong>
+                      {' · '}
+                      {wordPace >= 0
+                        ? <>Ahead by <strong>{wordPace.toLocaleString()}</strong></>
+                        : <>Behind by <strong>{(-wordPace).toLocaleString()}</strong></>}
+                    </div>
+                  )}
+                  <span className={`analytics-deadline-pill ${wordOnTrack ? 'on-track' : 'behind'}`}>
+                    {wordWeekData.totalWords >= wordWeeklyTarget
+                      ? '✓ Target hit'
+                      : wordWeekData.isCurrentWeek
+                        ? (wordOnTrack ? '✓ On track' : '⚠ Behind pace')
+                        : '✗ Missed'
+                    }
+                  </span>
+                </>
+              )}
+
+              <div className="analytics-weekly-goal-edit">
+                {editingDeadline ? (
+                  <div className="analytics-goal-edit inline" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <input
+                      type="number"
+                      value={deadlineTargetInput}
+                      onChange={e => setDeadlineTargetInput(e.target.value)}
+                      placeholder="Target manuscript words"
+                      min={0}
+                      step={1000}
+                      autoFocus
+                    />
+                    <input
+                      type="date"
+                      value={deadlineDateInput}
+                      onChange={e => setDeadlineDateInput(e.target.value)}
+                    />
+                    {wordEditPreview && (
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        = {wordEditPreview.daily.toLocaleString()} words/day · {wordEditPreview.weekly.toLocaleString()}/week
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button className="analytics-goal-edit-btn" onClick={handleDeadlineSave}>Save</button>
+                      {deadlineGoal?.enabled && (
+                        <button className="analytics-goal-edit-btn" onClick={handleDeadlineClear} style={{ opacity: 0.6 }}>Clear</button>
+                      )}
+                      <button className="analytics-goal-edit-btn" onClick={() => setEditingDeadline(false)} style={{ opacity: 0.6 }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button className="analytics-goal-edit-btn" onClick={() => {
+                    setDeadlineTargetInput(String(deadlineGoal?.targetWords || ''));
+                    setDeadlineDateInput(deadlineGoal?.deadlineDate || '');
+                    setEditingDeadline(true);
+                  }}>
+                    {deadlineGoal?.enabled
+                      ? `${deadlineGoal.targetWords.toLocaleString()} words · ${deadlineGoal.deadlineDate}`
+                      : 'Set manuscript goal'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Right: 7-day bar chart */}
+            <div className="analytics-weekly-chart">
+              {wordTargetLinePx !== null && (
+                <div className="analytics-weekly-word-target-line" style={{ bottom: wordTargetLinePx }}>
+                  <span className="analytics-weekly-word-target-label">{wordDailyTarget.toLocaleString()}/day</span>
+                </div>
+              )}
+              {wordWeekData.perDayWords.map((words, i) => {
+                const barHeight = (words / maxWeekWords) * 100;
+                const isToday = i === wordWeekData.todayIdx;
+                const isFuture = wordWeekData.isCurrentWeek && wordWeekData.todayIdx >= 0 && i > wordWeekData.todayIdx;
+                return (
+                  <div key={wordWeekData.days[i]} className="analytics-weekly-bar-group">
+                    <div className="analytics-weekly-bar-value">
+                      {words > 0 ? (words >= 1000 ? `${(words / 1000).toFixed(1)}k` : words) : ''}
+                    </div>
+                    <div className="analytics-weekly-bar-track">
+                      <div
+                        className={`analytics-weekly-bar ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''} ${words > 0 ? 'has-hours' : ''}`}
+                        style={{ height: `${Math.max(barHeight, words > 0 ? 4 : 0)}%` }}
+                      />
+                    </div>
+                    <div className={`analytics-weekly-bar-label ${isToday ? 'today' : ''}`}>
+                      {wordWeekData.dayLabels[i]}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 12-Week Trend */}
       {trendData.some(w => w.totalHours > 0) && (
         <div className="analytics-trend-wrapper">
@@ -611,161 +775,22 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
       {/* Main Grid */}
       <div className="analytics-grid">
 
-        {/* Goals Card — full width */}
-        <div className="analytics-card full">
-          <div className="analytics-card-header">
-            <span className="analytics-card-title">Writing Goals</span>
-          </div>
-          {/* Today's daily goal — hero section */}
-          <div className="analytics-goals-daily">
-            <div className="analytics-goals-daily-header">
-              <span className="analytics-card-title">Today</span>
-              {editingDailyGoal ? (
-                <div className="analytics-goal-edit inline">
-                  <input
-                    type="number"
-                    value={dailyGoalInput}
-                    onChange={e => setDailyGoalInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleDailyGoalSave();
-                      if (e.key === 'Escape') setEditingDailyGoal(false);
-                    }}
-                    onBlur={handleDailyGoalSave}
-                    autoFocus
-                    min={0}
-                    step={100}
-                    placeholder="words/day"
-                  />
-                </div>
-              ) : (
-                <button className="analytics-goal-edit-btn" onClick={() => { setDailyGoalInput(String(analytics?.dailyGoal.target || 500)); setEditingDailyGoal(true); }}>
-                  {analytics?.dailyGoal.enabled ? `Goal: ${analytics.dailyGoal.target.toLocaleString()} words/day` : 'Set daily goal'}
-                </button>
-              )}
+        {/* Manuscript Progress — display only, target set via Weekly Words widget */}
+        {wordCountGoal > 0 && (
+          <div className="analytics-card full">
+            <div className="analytics-card-header">
+              <span className="analytics-card-title">Manuscript Progress</span>
+              <span className="analytics-card-subtitle">{Math.round(goalProgress * 100)}% complete</span>
             </div>
-            <div className="analytics-goals-daily-count">
-              <span className="analytics-goals-daily-big">{todayWords.toLocaleString()}</span>
-              {analytics?.dailyGoal.enabled && analytics.dailyGoal.target > 0 ? (
-                <>
-                  <span className="analytics-goals-daily-of"> of {analytics.dailyGoal.target.toLocaleString()} words</span>
-                  <span className={`analytics-deadline-pill ${dailyGoalProgress >= 1 ? 'on-track' : 'behind'}`} style={{ marginLeft: 'auto' }}>
-                    {dailyGoalProgress >= 1 ? '✓ Done' : `${(analytics.dailyGoal.target - todayWords).toLocaleString()} to go`}
-                  </span>
-                </>
-              ) : (
-                <span className="analytics-goals-daily-of"> words today</span>
-              )}
+            <div className="analytics-goals-project-nums">
+              <strong>{stats.totalWords.toLocaleString()}</strong>
+              <span> / {wordCountGoal.toLocaleString()} words</span>
             </div>
-            {analytics?.dailyGoal.enabled && analytics.dailyGoal.target > 0 && (
-              <div className="analytics-goal-bar-track analytics-goals-daily-bar">
-                <div className="analytics-goal-bar-fill daily" style={{ width: `${dailyGoalProgress * 100}%` }} />
-              </div>
-            )}
-          </div>
-
-          {/* Project progress + Deadline side by side */}
-          <div className="analytics-goals-bottom">
-            <div className="analytics-goals-project">
-              <div className="analytics-goals-section-header">
-                <span className="analytics-goals-section-label">Project Goal</span>
-                {editingGoal ? (
-                  <div className="analytics-goal-edit inline">
-                    <input
-                      type="number"
-                      value={goalInput}
-                      onChange={e => setGoalInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleGoalSave();
-                        if (e.key === 'Escape') setEditingGoal(false);
-                      }}
-                      onBlur={handleGoalSave}
-                      autoFocus
-                      min={0}
-                      step={1000}
-                      placeholder="Target words"
-                    />
-                  </div>
-                ) : (
-                  <button className="analytics-goal-edit-btn" onClick={() => { setGoalInput(String(wordCountGoal || '')); setEditingGoal(true); }}>
-                    {wordCountGoal > 0 ? 'Edit' : 'Set goal'}
-                  </button>
-                )}
-              </div>
-              <div className="analytics-goals-project-nums">
-                <strong>{stats.totalWords.toLocaleString()}</strong>
-                <span> / {wordCountGoal > 0 ? `${wordCountGoal.toLocaleString()} words` : '—'}</span>
-                {wordCountGoal > 0 && (
-                  <span className="analytics-goals-pct">{Math.round(goalProgress * 100)}%</span>
-                )}
-              </div>
-              {wordCountGoal > 0 && (
-                <div className="analytics-goal-bar-track" style={{ marginTop: '10px' }}>
-                  <div className="analytics-goal-bar-fill" style={{ width: `${goalProgress * 100}%` }} />
-                </div>
-              )}
-            </div>
-
-            <div className="analytics-goals-deadline">
-              <div className="analytics-goals-section-header">
-                <span className="analytics-goals-section-label">Deadline</span>
-                {!editingDeadline && (
-                  <button
-                    className="analytics-goal-edit-btn"
-                    onClick={() => {
-                      setDeadlineTargetInput(String(deadlineGoal?.targetWords || ''));
-                      setDeadlineDateInput(deadlineGoal?.deadlineDate || '');
-                      setEditingDeadline(true);
-                    }}
-                  >
-                    {deadlineGoal?.enabled ? 'Edit' : 'Set deadline'}
-                  </button>
-                )}
-              </div>
-              {editingDeadline ? (
-                <div className="analytics-deadline-edit">
-                  <div className="analytics-deadline-edit-row">
-                    <label>Target words</label>
-                    <input
-                      type="number"
-                      value={deadlineTargetInput}
-                      onChange={e => setDeadlineTargetInput(e.target.value)}
-                      placeholder="e.g. 120000"
-                      min={0}
-                      step={1000}
-                      autoFocus
-                    />
-                  </div>
-                  <div className="analytics-deadline-edit-row">
-                    <label>Deadline</label>
-                    <input
-                      type="date"
-                      value={deadlineDateInput}
-                      onChange={e => setDeadlineDateInput(e.target.value)}
-                    />
-                  </div>
-                  <div className="analytics-deadline-edit-row" style={{ flexDirection: 'row', gap: '8px' }}>
-                    <button className="analytics-goal-edit-btn" onClick={handleDeadlineSave}>Save</button>
-                    {deadlineGoal?.enabled && (
-                      <button className="analytics-goal-edit-btn" onClick={handleDeadlineClear} style={{ opacity: 0.6 }}>Clear</button>
-                    )}
-                    <button className="analytics-goal-edit-btn" onClick={() => setEditingDeadline(false)} style={{ opacity: 0.6 }}>Cancel</button>
-                  </div>
-                </div>
-              ) : deadlineStats ? (
-                <div className="analytics-goals-deadline-stats">
-                  <span className="analytics-goals-deadline-stat"><strong>{deadlineStats.daysRemaining}</strong> days left</span>
-                  <span className="analytics-goals-deadline-stat">Need <strong>{deadlineStats.requiredPerDay.toLocaleString()}</strong>/day</span>
-                  <span className="analytics-goals-deadline-stat">Pace <strong>{deadlineStats.currentPace.toLocaleString()}</strong>/day</span>
-                  <span className={`analytics-deadline-pill ${deadlineStats.onTrack ? 'on-track' : 'behind'}`}>
-                    {deadlineStats.onTrack ? '✓ On track' : '⚠ Behind'}
-                  </span>
-                </div>
-              ) : (
-                <span className="analytics-goals-empty">No deadline set</span>
-              )}
+            <div className="analytics-goal-bar-track" style={{ marginTop: '10px' }}>
+              <div className="analytics-goal-bar-fill" style={{ width: `${goalProgress * 100}%` }} />
             </div>
           </div>
-        </div>
+        )}
 
         {/* Calendar Heatmap */}
         <div className="analytics-card">

@@ -90,9 +90,11 @@ A visual timeline canvas.
 Writing session data and productivity trends.
 
 - Session history from check-ins (energy, focus, mood over time)
-- Word count dashboard with weekly totals
+- **Weekly Words** — full-width bar chart of daily word counts (Sat–Fri week), configured with manuscript target length + deadline date; auto-calculates required words/day and words/week, shows pace vs. on-track status
+- **Weekly Hours** — full-width bar chart of daily writing time with configurable weekly target
 - **12-week trend** — rolling chart of output by week
-- Configurable weekly hour target
+- Manuscript progress bar (total words vs. target)
+- Calendar heatmap, words over time, words by character
 
 ### Account View
 License and subscription management.
