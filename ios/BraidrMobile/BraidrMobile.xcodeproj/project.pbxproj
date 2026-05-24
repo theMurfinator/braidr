@@ -1,0 +1,508 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2B31B230E358BCA4F9A74783 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E09E73ABB8F7173FF5352DD3 /* ContentView.swift */; };
+		2FF17C609BBFF6991E0AE7A9 /* ColorExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64FBE49FA997CABF6AAD851C /* ColorExtension.swift */; };
+		5F44E77ED4FFA4BE0EB8DAD1 /* BraidrMobileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A08C305C42E41D9952C3437 /* BraidrMobileTests.swift */; };
+		7A57215EF3F791D06A7C1E16 /* Lora-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 498854B97FC9106C4BFBFE23 /* Lora-Italic.ttf */; };
+		80AF25DBA83A42631303740C /* BraidrMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D6797CF3A7976F4DE232E4 /* BraidrMobileApp.swift */; };
+		AC418B90F573ED13E65A7081 /* Lora-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 59816AD2664D3BD18E4F85F4 /* Lora-Regular.ttf */; };
+		C3AC57CB34CE0C9A1173DFCD /* Lora-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C495055272F73EC3686A2451 /* Lora-Medium.ttf */; };
+		CF7E6478D2ADA059BFE70AFA /* Lora-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 1AE52C16E9BBCA78CC1219D9 /* Lora-SemiBold.ttf */; };
+		D5D3322431AFE7017EC3BBDA /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 87EF3790AC2963374A82DC6C /* GRDB */; };
+		EFFCABB30F2FCB040B402B72 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = F5EEA86D67BDC0810990B7FD /* GRDB */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B0F07661EC434779F1DE48FB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7C96444332C58B0430A27A55 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC5CF1D813835D900E4B35EB;
+			remoteInfo = BraidrMobile;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		1AE52C16E9BBCA78CC1219D9 /* Lora-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-SemiBold.ttf"; sourceTree = "<group>"; };
+		3440B11C47C0BB417C210FA4 /* BraidrMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BraidrMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		498854B97FC9106C4BFBFE23 /* Lora-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-Italic.ttf"; sourceTree = "<group>"; };
+		57EDDC6ADBCA8D95DB8486A0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		59816AD2664D3BD18E4F85F4 /* Lora-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-Regular.ttf"; sourceTree = "<group>"; };
+		64FBE49FA997CABF6AAD851C /* ColorExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtension.swift; sourceTree = "<group>"; };
+		8A08C305C42E41D9952C3437 /* BraidrMobileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrMobileTests.swift; sourceTree = "<group>"; };
+		C495055272F73EC3686A2451 /* Lora-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-Medium.ttf"; sourceTree = "<group>"; };
+		CB3CDEAC6336EFBD83056684 /* BraidrMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BraidrMobile.entitlements; sourceTree = "<group>"; };
+		CB6EFEA2C16A75B380C7D602 /* BraidrMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BraidrMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E09E73ABB8F7173FF5352DD3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		E6D6797CF3A7976F4DE232E4 /* BraidrMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrMobileApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		50642CF65DC11C192DA8B0D8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5D3322431AFE7017EC3BBDA /* GRDB in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3D93F5807359F0364D41EA3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EFFCABB30F2FCB040B402B72 /* GRDB in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1042DC2C2A8767302DED487D /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				E09E73ABB8F7173FF5352DD3 /* ContentView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		158299A9D06BF746BFBE582A /* BraidrMobile */ = {
+			isa = PBXGroup;
+			children = (
+				CB3CDEAC6336EFBD83056684 /* BraidrMobile.entitlements */,
+				E6D6797CF3A7976F4DE232E4 /* BraidrMobileApp.swift */,
+				57EDDC6ADBCA8D95DB8486A0 /* Info.plist */,
+				17F77CE99E84D0434B10C948 /* Resources */,
+				18384D1537A44FBDD0E5178F /* Utils */,
+				1042DC2C2A8767302DED487D /* Views */,
+			);
+			path = BraidrMobile;
+			sourceTree = "<group>";
+		};
+		17F77CE99E84D0434B10C948 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				498854B97FC9106C4BFBFE23 /* Lora-Italic.ttf */,
+				C495055272F73EC3686A2451 /* Lora-Medium.ttf */,
+				59816AD2664D3BD18E4F85F4 /* Lora-Regular.ttf */,
+				1AE52C16E9BBCA78CC1219D9 /* Lora-SemiBold.ttf */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		18384D1537A44FBDD0E5178F /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				64FBE49FA997CABF6AAD851C /* ColorExtension.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		4718EA5FAE1EFC2795083EC8 /* BraidrMobileTests */ = {
+			isa = PBXGroup;
+			children = (
+				8A08C305C42E41D9952C3437 /* BraidrMobileTests.swift */,
+			);
+			path = BraidrMobileTests;
+			sourceTree = "<group>";
+		};
+		4C898151284F5B22B5869ABF = {
+			isa = PBXGroup;
+			children = (
+				158299A9D06BF746BFBE582A /* BraidrMobile */,
+				4718EA5FAE1EFC2795083EC8 /* BraidrMobileTests */,
+				9F088AC1FFECECA997EEE2AA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9F088AC1FFECECA997EEE2AA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3440B11C47C0BB417C210FA4 /* BraidrMobile.app */,
+				CB6EFEA2C16A75B380C7D602 /* BraidrMobileTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3BA0A7E18EA390A921708C4F /* BraidrMobileTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 26125EB3D26FA9049D0A0746 /* Build configuration list for PBXNativeTarget "BraidrMobileTests" */;
+			buildPhases = (
+				DBE63FF45AA4CBD7CB82BC98 /* Sources */,
+				F3D93F5807359F0364D41EA3 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B33A08BDC521083476EADA64 /* PBXTargetDependency */,
+			);
+			name = BraidrMobileTests;
+			packageProductDependencies = (
+				F5EEA86D67BDC0810990B7FD /* GRDB */,
+			);
+			productName = BraidrMobileTests;
+			productReference = CB6EFEA2C16A75B380C7D602 /* BraidrMobileTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		CC5CF1D813835D900E4B35EB /* BraidrMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E9F5679AA44A08AF92193734 /* Build configuration list for PBXNativeTarget "BraidrMobile" */;
+			buildPhases = (
+				E592CB45E7D71AE14585023E /* Sources */,
+				70997D0D54DD0CFDA0B1E6AC /* Resources */,
+				50642CF65DC11C192DA8B0D8 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BraidrMobile;
+			packageProductDependencies = (
+				87EF3790AC2963374A82DC6C /* GRDB */,
+			);
+			productName = BraidrMobile;
+			productReference = 3440B11C47C0BB417C210FA4 /* BraidrMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7C96444332C58B0430A27A55 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 0D6FBC02A10CAEAEE2D78E9E /* Build configuration list for PBXProject "BraidrMobile" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 4C898151284F5B22B5869ABF;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				18DC0044B38D1D3A54158180 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9F088AC1FFECECA997EEE2AA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CC5CF1D813835D900E4B35EB /* BraidrMobile */,
+				3BA0A7E18EA390A921708C4F /* BraidrMobileTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		70997D0D54DD0CFDA0B1E6AC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A57215EF3F791D06A7C1E16 /* Lora-Italic.ttf in Resources */,
+				C3AC57CB34CE0C9A1173DFCD /* Lora-Medium.ttf in Resources */,
+				AC418B90F573ED13E65A7081 /* Lora-Regular.ttf in Resources */,
+				CF7E6478D2ADA059BFE70AFA /* Lora-SemiBold.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DBE63FF45AA4CBD7CB82BC98 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F44E77ED4FFA4BE0EB8DAD1 /* BraidrMobileTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E592CB45E7D71AE14585023E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				80AF25DBA83A42631303740C /* BraidrMobileApp.swift in Sources */,
+				2FF17C609BBFF6991E0AE7A9 /* ColorExtension.swift in Sources */,
+				2B31B230E358BCA4F9A74783 /* ContentView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B33A08BDC521083476EADA64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC5CF1D813835D900E4B35EB /* BraidrMobile */;
+			targetProxy = B0F07661EC434779F1DE48FB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2581A3F13ABBA9B9057F3603 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.braidr.BraidrMobileTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BraidrMobile.app/BraidrMobile";
+			};
+			name = Debug;
+		};
+		7277F102F3B045DF64AB4541 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		796AD9DDDD52EC34D95C60FD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.braidr.BraidrMobileTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BraidrMobile.app/BraidrMobile";
+			};
+			name = Release;
+		};
+		ACB06463A3B855F94646740B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BraidrMobile/BraidrMobile.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = BraidrMobile/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.braidr.BraidrMobile;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B7C228046427D445E25CCEDB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		E0BB13C3C2180BF971720720 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BraidrMobile/BraidrMobile.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = BraidrMobile/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.braidr.BraidrMobile;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0D6FBC02A10CAEAEE2D78E9E /* Build configuration list for PBXProject "BraidrMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7277F102F3B045DF64AB4541 /* Debug */,
+				B7C228046427D445E25CCEDB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		26125EB3D26FA9049D0A0746 /* Build configuration list for PBXNativeTarget "BraidrMobileTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2581A3F13ABBA9B9057F3603 /* Debug */,
+				796AD9DDDD52EC34D95C60FD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E9F5679AA44A08AF92193734 /* Build configuration list for PBXNativeTarget "BraidrMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E0BB13C3C2180BF971720720 /* Debug */,
+				ACB06463A3B855F94646740B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		18DC0044B38D1D3A54158180 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/groue/GRDB.swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		87EF3790AC2963374A82DC6C /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18DC0044B38D1D3A54158180 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			productName = GRDB;
+		};
+		F5EEA86D67BDC0810990B7FD /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18DC0044B38D1D3A54158180 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			productName = GRDB;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 7C96444332C58B0430A27A55 /* Project object */;
+}

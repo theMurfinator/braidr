@@ -1,0 +1,91 @@
+name: BraidrMobile
+options:
+  bundleIdPrefix: com.braidr
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "16.0"
+
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift.git
+    from: 6.0.0
+
+targets:
+  BraidrMobile:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - BraidrMobile
+    resources:
+      - BraidrMobile/Resources
+    entitlements:
+      path: BraidrMobile/BraidrMobile.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.braidr.BraidrMobile
+        com.apple.developer.icloud-services:
+          - CloudDocuments
+        com.apple.developer.ubiquity-container-identifiers:
+          - iCloud.com.braidr.BraidrMobile
+    info:
+      path: BraidrMobile/Info.plist
+      properties:
+        UILaunchScreen:
+          UIColorName: ""
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIRequiredDeviceCapabilities:
+          - armv7
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSUbiquitousContainers:
+          iCloud.com.braidr.BraidrMobile:
+            NSUbiquitousContainerIsDocumentScopePublic: true
+            NSUbiquitousContainerName: BraidrMobile
+            NSUbiquitousContainerSupportedFolderLevels: Any
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Braidr Project
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - com.braidr.braidr-project
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.braidr.braidr-project
+            UTTypeDescription: Braidr Project
+            UTTypeConformsTo:
+              - public.database
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - braidr
+        UIAppFonts:
+          - Lora-Regular.ttf
+          - Lora-Medium.ttf
+          - Lora-SemiBold.ttf
+          - Lora-Italic.ttf
+    dependencies:
+      - package: GRDB
+        product: GRDB
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.braidr.BraidrMobile
+      SWIFT_VERSION: "5.9"
+      MARKETING_VERSION: "1.0.0"
+      CURRENT_PROJECT_VERSION: "1"
+
+  BraidrMobileTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - BraidrMobileTests
+    dependencies:
+      - target: BraidrMobile
+      - package: GRDB
+        product: GRDB
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.braidr.BraidrMobileTests
+      SWIFT_VERSION: "5.9"
