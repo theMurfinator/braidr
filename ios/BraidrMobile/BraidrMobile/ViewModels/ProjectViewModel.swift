@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 final class ProjectViewModel: ObservableObject {
     @Published var db: BraidrDB?
+    @Published var projectName: String = "Braidr"
     @Published var characters: [BraidrCharacter] = []
     @Published var scenes: [BraidrScene] = []
     @Published var plotPoints: [BraidrPlotPoint] = []
