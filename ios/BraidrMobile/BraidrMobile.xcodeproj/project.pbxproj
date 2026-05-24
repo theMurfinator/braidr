@@ -19,8 +19,10 @@
 		77455B1B3D2263674918328D /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDEEC2073D59EFA777A5D77D /* EditorView.swift */; };
 		7A57215EF3F791D06A7C1E16 /* Lora-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 498854B97FC9106C4BFBFE23 /* Lora-Italic.ttf */; };
 		80AF25DBA83A42631303740C /* BraidrMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D6797CF3A7976F4DE232E4 /* BraidrMobileApp.swift */; };
+		847B86105EB83EED95B30128 /* EditorViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD3EC4E9E6BF81F8A3D6F8DC /* EditorViewModelTests.swift */; };
 		9A2313827D085CC27A76C0AB /* ExportBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C48B73C40FCB86E01EDF94A9 /* ExportBarView.swift */; };
 		9BE5BACA9BB35B25112CE452 /* ProjectViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875E0B6A55D522ED22FDAF6A /* ProjectViewModelTests.swift */; };
+		9E22D95BE183519A3CE71E31 /* InfoSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC758ACC70A98B09D100F32B /* InfoSheetView.swift */; };
 		A8A1B58561FF073001846C9F /* SceneCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F51D1C7EB496F4703D9C49 /* SceneCardView.swift */; };
 		AC418B90F573ED13E65A7081 /* Lora-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 59816AD2664D3BD18E4F85F4 /* Lora-Regular.ttf */; };
 		C3AC57CB34CE0C9A1173DFCD /* Lora-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C495055272F73EC3686A2451 /* Lora-Medium.ttf */; };
@@ -28,6 +30,7 @@
 		D5D3322431AFE7017EC3BBDA /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 87EF3790AC2963374A82DC6C /* GRDB */; };
 		DA4DB32811E564077F249B61 /* AppModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C21F803E7074F82D76464F0 /* AppModels.swift */; };
 		E1966F9F1C6267867692AFB5 /* RailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FBCCD4A8AEC047D7A9FDA9C /* RailsView.swift */; };
+		E9B95C3674A91E242C866FDE /* EditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D60E7AA2D81BA74B1F19BF0 /* EditorViewModel.swift */; };
 		ED3C15A9744765813AD8B63B /* ExportGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5EAF301331A68A2768AE3C /* ExportGenerator.swift */; };
 		EFFCABB30F2FCB040B402B72 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = F5EEA86D67BDC0810990B7FD /* GRDB */; };
 		FC166E1DF5E26DBD1FBF46FF /* ConnectorLinesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC03DE016D2AC49516592EB7 /* ConnectorLinesTests.swift */; };
@@ -51,6 +54,7 @@
 		3440B11C47C0BB417C210FA4 /* BraidrMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BraidrMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B5EAF301331A68A2768AE3C /* ExportGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportGenerator.swift; sourceTree = "<group>"; };
 		498854B97FC9106C4BFBFE23 /* Lora-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-Italic.ttf"; sourceTree = "<group>"; };
+		4D60E7AA2D81BA74B1F19BF0 /* EditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModel.swift; sourceTree = "<group>"; };
 		57EDDC6ADBCA8D95DB8486A0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5900FBD12BBA3F58217984E8 /* AppModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelsTests.swift; sourceTree = "<group>"; };
 		59816AD2664D3BD18E4F85F4 /* Lora-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-Regular.ttf"; sourceTree = "<group>"; };
@@ -68,7 +72,9 @@
 		C495055272F73EC3686A2451 /* Lora-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-Medium.ttf"; sourceTree = "<group>"; };
 		CB3CDEAC6336EFBD83056684 /* BraidrMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BraidrMobile.entitlements; sourceTree = "<group>"; };
 		CB6EFEA2C16A75B380C7D602 /* BraidrMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BraidrMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CD3EC4E9E6BF81F8A3D6F8DC /* EditorViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorViewModelTests.swift; sourceTree = "<group>"; };
 		D6791BF247D433F8CFE6BD2B /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
+		DC758ACC70A98B09D100F32B /* InfoSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoSheetView.swift; sourceTree = "<group>"; };
 		E088BA910E01E1A0684891D7 /* BraidrDBTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrDBTests.swift; sourceTree = "<group>"; };
 		E09E73ABB8F7173FF5352DD3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		E6D6797CF3A7976F4DE232E4 /* BraidrMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrMobileApp.swift; sourceTree = "<group>"; };
@@ -153,6 +159,7 @@
 		308B5E8F3F5FA5B26F81695D /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
+				4D60E7AA2D81BA74B1F19BF0 /* EditorViewModel.swift */,
 				B4E0E292285963CB1985E78A /* ProjectViewModel.swift */,
 			);
 			path = ViewModels;
@@ -165,6 +172,7 @@
 				E088BA910E01E1A0684891D7 /* BraidrDBTests.swift */,
 				8A08C305C42E41D9952C3437 /* BraidrMobileTests.swift */,
 				BC03DE016D2AC49516592EB7 /* ConnectorLinesTests.swift */,
+				CD3EC4E9E6BF81F8A3D6F8DC /* EditorViewModelTests.swift */,
 				875E0B6A55D522ED22FDAF6A /* ProjectViewModelTests.swift */,
 			);
 			path = BraidrMobileTests;
@@ -183,6 +191,7 @@
 			isa = PBXGroup;
 			children = (
 				BDEEC2073D59EFA777A5D77D /* EditorView.swift */,
+				DC758ACC70A98B09D100F32B /* InfoSheetView.swift */,
 			);
 			path = Editor;
 			sourceTree = "<group>";
@@ -307,6 +316,7 @@
 				FF79F30D75972C521248BC7B /* BraidrDBTests.swift in Sources */,
 				5F44E77ED4FFA4BE0EB8DAD1 /* BraidrMobileTests.swift in Sources */,
 				FC166E1DF5E26DBD1FBF46FF /* ConnectorLinesTests.swift in Sources */,
+				847B86105EB83EED95B30128 /* EditorViewModelTests.swift in Sources */,
 				9BE5BACA9BB35B25112CE452 /* ProjectViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -323,8 +333,10 @@
 				2B31B230E358BCA4F9A74783 /* ContentView.swift in Sources */,
 				4F2F9DEBC9928FEDC4EF2A95 /* DocumentPicker.swift in Sources */,
 				77455B1B3D2263674918328D /* EditorView.swift in Sources */,
+				E9B95C3674A91E242C866FDE /* EditorViewModel.swift in Sources */,
 				9A2313827D085CC27A76C0AB /* ExportBarView.swift in Sources */,
 				ED3C15A9744765813AD8B63B /* ExportGenerator.swift in Sources */,
+				9E22D95BE183519A3CE71E31 /* InfoSheetView.swift in Sources */,
 				21AAC95B123442BACFCEBC50 /* ProjectViewModel.swift in Sources */,
 				E1966F9F1C6267867692AFB5 /* RailsView.swift in Sources */,
 				A8A1B58561FF073001846C9F /* SceneCardView.swift in Sources */,
