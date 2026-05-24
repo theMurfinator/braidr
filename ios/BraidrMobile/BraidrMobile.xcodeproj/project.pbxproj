@@ -8,12 +8,16 @@
 
 /* Begin PBXBuildFile section */
 		0A0C5FFCDD484D1E968EE385 /* AppModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5900FBD12BBA3F58217984E8 /* AppModelsTests.swift */; };
+		21AAC95B123442BACFCEBC50 /* ProjectViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E0E292285963CB1985E78A /* ProjectViewModel.swift */; };
 		2B31B230E358BCA4F9A74783 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E09E73ABB8F7173FF5352DD3 /* ContentView.swift */; };
 		2FF17C609BBFF6991E0AE7A9 /* ColorExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64FBE49FA997CABF6AAD851C /* ColorExtension.swift */; };
 		3305AB8968BF13CAA5C9735D /* BraidrDB.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7EA2A4E9682EF6FDF25C23 /* BraidrDB.swift */; };
+		4005A861D38FBA1C0953E60D /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6791BF247D433F8CFE6BD2B /* ShareSheet.swift */; };
+		4F2F9DEBC9928FEDC4EF2A95 /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 881F8FED4C0CAE8327D6C434 /* DocumentPicker.swift */; };
 		5F44E77ED4FFA4BE0EB8DAD1 /* BraidrMobileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A08C305C42E41D9952C3437 /* BraidrMobileTests.swift */; };
 		7A57215EF3F791D06A7C1E16 /* Lora-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 498854B97FC9106C4BFBFE23 /* Lora-Italic.ttf */; };
 		80AF25DBA83A42631303740C /* BraidrMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D6797CF3A7976F4DE232E4 /* BraidrMobileApp.swift */; };
+		9BE5BACA9BB35B25112CE452 /* ProjectViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875E0B6A55D522ED22FDAF6A /* ProjectViewModelTests.swift */; };
 		AC418B90F573ED13E65A7081 /* Lora-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 59816AD2664D3BD18E4F85F4 /* Lora-Regular.ttf */; };
 		C3AC57CB34CE0C9A1173DFCD /* Lora-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C495055272F73EC3686A2451 /* Lora-Medium.ttf */; };
 		CF7E6478D2ADA059BFE70AFA /* Lora-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 1AE52C16E9BBCA78CC1219D9 /* Lora-SemiBold.ttf */; };
@@ -43,10 +47,14 @@
 		59816AD2664D3BD18E4F85F4 /* Lora-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-Regular.ttf"; sourceTree = "<group>"; };
 		5A7EA2A4E9682EF6FDF25C23 /* BraidrDB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrDB.swift; sourceTree = "<group>"; };
 		64FBE49FA997CABF6AAD851C /* ColorExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtension.swift; sourceTree = "<group>"; };
+		875E0B6A55D522ED22FDAF6A /* ProjectViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectViewModelTests.swift; sourceTree = "<group>"; };
+		881F8FED4C0CAE8327D6C434 /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
 		8A08C305C42E41D9952C3437 /* BraidrMobileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrMobileTests.swift; sourceTree = "<group>"; };
+		B4E0E292285963CB1985E78A /* ProjectViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectViewModel.swift; sourceTree = "<group>"; };
 		C495055272F73EC3686A2451 /* Lora-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Lora-Medium.ttf"; sourceTree = "<group>"; };
 		CB3CDEAC6336EFBD83056684 /* BraidrMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BraidrMobile.entitlements; sourceTree = "<group>"; };
 		CB6EFEA2C16A75B380C7D602 /* BraidrMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BraidrMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6791BF247D433F8CFE6BD2B /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		E088BA910E01E1A0684891D7 /* BraidrDBTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrDBTests.swift; sourceTree = "<group>"; };
 		E09E73ABB8F7173FF5352DD3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		E6D6797CF3A7976F4DE232E4 /* BraidrMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BraidrMobileApp.swift; sourceTree = "<group>"; };
@@ -98,6 +106,7 @@
 				13D3B6401D23C7103EEDE077 /* Models */,
 				17F77CE99E84D0434B10C948 /* Resources */,
 				18384D1537A44FBDD0E5178F /* Utils */,
+				308B5E8F3F5FA5B26F81695D /* ViewModels */,
 				1042DC2C2A8767302DED487D /* Views */,
 			);
 			path = BraidrMobile;
@@ -118,8 +127,18 @@
 			isa = PBXGroup;
 			children = (
 				64FBE49FA997CABF6AAD851C /* ColorExtension.swift */,
+				881F8FED4C0CAE8327D6C434 /* DocumentPicker.swift */,
+				D6791BF247D433F8CFE6BD2B /* ShareSheet.swift */,
 			);
 			path = Utils;
+			sourceTree = "<group>";
+		};
+		308B5E8F3F5FA5B26F81695D /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				B4E0E292285963CB1985E78A /* ProjectViewModel.swift */,
+			);
+			path = ViewModels;
 			sourceTree = "<group>";
 		};
 		4718EA5FAE1EFC2795083EC8 /* BraidrMobileTests */ = {
@@ -128,6 +147,7 @@
 				5900FBD12BBA3F58217984E8 /* AppModelsTests.swift */,
 				E088BA910E01E1A0684891D7 /* BraidrDBTests.swift */,
 				8A08C305C42E41D9952C3437 /* BraidrMobileTests.swift */,
+				875E0B6A55D522ED22FDAF6A /* ProjectViewModelTests.swift */,
 			);
 			path = BraidrMobileTests;
 			sourceTree = "<group>";
@@ -249,6 +269,7 @@
 				0A0C5FFCDD484D1E968EE385 /* AppModelsTests.swift in Sources */,
 				FF79F30D75972C521248BC7B /* BraidrDBTests.swift in Sources */,
 				5F44E77ED4FFA4BE0EB8DAD1 /* BraidrMobileTests.swift in Sources */,
+				9BE5BACA9BB35B25112CE452 /* ProjectViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -261,6 +282,9 @@
 				80AF25DBA83A42631303740C /* BraidrMobileApp.swift in Sources */,
 				2FF17C609BBFF6991E0AE7A9 /* ColorExtension.swift in Sources */,
 				2B31B230E358BCA4F9A74783 /* ContentView.swift in Sources */,
+				4F2F9DEBC9928FEDC4EF2A95 /* DocumentPicker.swift in Sources */,
+				21AAC95B123442BACFCEBC50 /* ProjectViewModel.swift in Sources */,
+				4005A861D38FBA1C0953E60D /* ShareSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
