@@ -212,7 +212,7 @@ export function mergeSessionIntoAnalytics(
   checkin?: { energy: number; focus: number; mood: number; custom?: Record<string, number> } | null,
 ): AnalyticsData {
   const minutes = Math.max(1, Math.round(summary.durationMs / 60000));
-  const wordsWritten = Math.max(0, summary.wordsNet); // only count net positive
+  const wordsWritten = summary.wordsNet;
 
   // 1. Update daily aggregates (existing behavior)
   const withDaily = recordSession(analytics, totalProjectWords, wordsWritten, minutes);

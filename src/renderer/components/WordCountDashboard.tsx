@@ -1075,7 +1075,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
                       <tr key={`${session.date}-${i}`}>
                         <td>{dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}</td>
                         <td className="analytics-log-scene">—</td>
-                        <td className="analytics-log-words">+{session.wordsWritten.toLocaleString()}</td>
+                        <td className="analytics-log-words">{session.wordsWritten >= 0 ? '+' : ''}{session.wordsWritten.toLocaleString()}</td>
                         <td className="analytics-log-time">{session.duration < 60 ? `${session.duration}m` : `${Math.round(session.duration / 60 * 10) / 10}h`}</td>
                         <td className="analytics-log-wph">{wph > 0 ? wph.toLocaleString() : '—'}</td>
                       </tr>
