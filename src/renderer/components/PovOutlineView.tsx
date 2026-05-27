@@ -127,8 +127,9 @@ function SectionHeader({
         )}
         <button
           className={`section-synopsis-chevron ${synopsisMode === 'expand' ? 'collapsed' : ''}`}
-          onClick={() => onToggleSynopsisMode(section.id)}
+          onClick={() => !hideScenes && onToggleSynopsisMode(section.id)}
           title={synopsisMode === 'expand' ? 'Show synopses' : 'Hide synopses'}
+          disabled={!!hideScenes}
         >{'▾'}</button>
         {isEditingTitle ? (
           <input

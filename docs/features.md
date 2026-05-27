@@ -15,6 +15,8 @@ The character arc view. One character at a time, scenes in their narrative order
 - **Chapter grouping** — scenes organized under named chapters, drag-drop to assign
 - **POV reorder indicator** — scenes highlighted red when their POV position conflicts with the braided timeline order
 - Filter bar to narrow scenes by tag
+- **Sections toggle** — toolbar button hides section headers entirely
+- **Scenes toggle** — toolbar button hides all scene cards, leaving only section headers and synopses visible (focus mode for synopsis writing)
 
 ### Braided Timeline — List View
 All characters' scenes combined into reading/chronological order. The "meta" view of the whole novel.
