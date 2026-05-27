@@ -13,6 +13,7 @@ interface PovOutlineViewProps {
   scenes: Scene[];
   synopsisModes: Record<string, 'inline' | 'expand'>;
   hideHeaders: boolean;
+  hideScenes?: boolean;
   onSetAside: (sceneId: string) => void;
   onToggleSynopsisMode: (sectionId: string) => void;
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
@@ -34,6 +35,7 @@ interface SectionHeaderProps {
   section: PlotPoint;
   sceneCount: number;
   synopsisMode: 'inline' | 'expand' | undefined;
+  hideScenes?: boolean;
   onToggleSynopsisMode: (sectionId: string) => void;
   onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
   onDeleteSection?: (sectionId: string) => void;
@@ -44,6 +46,7 @@ function SectionHeader({
   section,
   sceneCount,
   synopsisMode,
+  hideScenes,
   onToggleSynopsisMode,
   onSectionChange,
   onDeleteSection,
@@ -109,7 +112,7 @@ function SectionHeader({
     }
   };
 
-  const descVisible = synopsisMode !== 'expand';
+  const descVisible = hideScenes || synopsisMode !== 'expand';
 
   return (
     <div className="pov-outline-section-header-area" data-section-id={section.id}>
@@ -220,6 +223,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     scenes,
     synopsisModes,
     hideHeaders,
+    hideScenes,
     onSetAside,
     onToggleSynopsisMode,
     onSceneChange,
@@ -281,6 +285,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                         section={section}
                         sceneCount={sectionScenes.length}
                         synopsisMode={synopsisModes[section.id]}
+                        hideScenes={hideScenes}
                         onToggleSynopsisMode={onToggleSynopsisMode}
                         onSectionChange={onSectionChange}
                         onDeleteSection={onDeleteSection}
@@ -415,9 +420,11 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
 
                       return (
                         <>
-                          <SortableContext items={orderedSectionIds} strategy={verticalListSortingStrategy}>
-                            {sceneRenderContent}
-                          </SortableContext>
+                          {!hideScenes && (
+                            <SortableContext items={orderedSectionIds} strategy={verticalListSortingStrategy}>
+                              {sceneRenderContent}
+                            </SortableContext>
+                          )}
                         </>
                       );
                     })()}
