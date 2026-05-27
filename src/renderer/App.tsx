@@ -143,6 +143,7 @@ function App() {
   const [showTagManager, setShowTagManager] = useState(false);
   const [showPovColors, setShowPovColors] = useState(true);
   const [hideSectionHeaders, setHideSectionHeaders] = useState<Record<string, boolean>>({});
+  const [hideScenes, setHideScenes] = useState<Record<string, boolean>>({});
   const [sectionSynopsisModes, setSectionSynopsisModes] = useState<Record<string, 'inline' | 'expand'>>({});
   const [previousPlotPointIds, setPreviousPlotPointIds] = useState<Record<string, string>>({});
   const [inlineMetadataFields, setInlineMetadataFields] = useState<string[]>([]);
@@ -3290,6 +3291,7 @@ function App() {
                   onAssignSceneToChapter={handleAssignSceneToChapter}
                   synopsisModes={sectionSynopsisModes}
                   hideHeaders={hideSectionHeaders[tabId] ?? false}
+                  hideScenes={hideScenes[tabId] ?? false}
                   onSetAside={handleSetAside}
                   onToggleSynopsisMode={handleToggleSynopsisMode}
                   onSceneChange={handleSceneChange}
@@ -3731,6 +3733,13 @@ function App() {
                 title={(hideSectionHeaders[activeTab.id] ?? false) ? 'Show Sections' : 'Hide Sections'}
               >
                 Sections
+              </button>
+              <button
+                className={`toolbar-btn ${!(hideScenes[activeTab.id] ?? false) ? 'active' : ''}`}
+                onClick={() => setHideScenes(prev => ({ ...prev, [activeTab.id]: !(prev[activeTab.id] ?? false) }))}
+                title={(hideScenes[activeTab.id] ?? false) ? 'Show Scenes' : 'Hide Scenes'}
+              >
+                Scenes
               </button>
               <div className="toolbar-dropdown-container" ref={fieldsDropdownRef}>
                 <button
