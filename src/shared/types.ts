@@ -321,6 +321,7 @@ export interface BranchInfo {
   description?: string;
   createdAt: string;
   createdFrom: string;
+  legacy?: boolean; // true = old .md-only branch, cannot be used
 }
 
 export interface BranchIndex {
@@ -343,7 +344,12 @@ export interface BranchSceneDiff {
   rightTitle: string;
   leftPosition: number | null;
   rightPosition: number | null;
+  leftSceneNumber: number | null;
+  rightSceneNumber: number | null;
+  leftWordCount: number | null;
+  rightWordCount: number | null;
   changed: boolean;
+  changeType: 'added' | 'removed' | 'modified' | 'unchanged';
 }
 
 // License types
