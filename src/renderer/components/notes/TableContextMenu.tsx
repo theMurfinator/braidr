@@ -99,6 +99,14 @@ export default function TableContextMenu({ editor, x, y, onClose }: TableContext
         Insert Column Right
       </button>
       <div className="table-context-divider" />
+      <button className="table-context-item" onClick={() => run(() => editor.chain().focus().mergeOrSplit().run())}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <rect x="3" y="3" width="8" height="18" rx="1"/><rect x="13" y="3" width="8" height="18" rx="1"/>
+          <path d="M11 12h2M9 10l2 2-2 2M15 10l-2 2 2 2"/>
+        </svg>
+        {editor.can().splitCell() ? 'Split Cell' : 'Merge Cells'}
+      </button>
+      <div className="table-context-divider" />
       <div className="table-context-submenu">
         <div className="table-context-label">Row Color</div>
         <div className="table-context-colors">
