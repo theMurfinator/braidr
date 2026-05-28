@@ -62,7 +62,27 @@ function autoBackupBraidr(braidrPath: string, db: import('./database').BraidrDB)
 
 ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) => {
   try {
-    const db = getDb(braidrPath);
+    const fsMod = require('fs') as typeof import('fs');
+    const pathMod = require('path') as typeof import('path');
+
+    const folderPath = braidrPath.substring(0, braidrPath.lastIndexOf('/'));
+
+    // Check for an active branch and redirect to its .braidr file if it exists
+    let activeBraidrPath = braidrPath;
+    const branchIndexPath = pathMod.join(folderPath, 'branches', 'index.json');
+    if (fsMod.existsSync(branchIndexPath)) {
+      try {
+        const idx = JSON.parse(fsMod.readFileSync(branchIndexPath, 'utf-8'));
+        if (idx.activeBranch) {
+          const candidatePath = pathMod.join(folderPath, 'branches', `${idx.activeBranch}.braidr`);
+          if (fsMod.existsSync(candidatePath)) {
+            activeBraidrPath = candidatePath;
+          }
+        }
+      } catch { /* non-fatal: bad index.json, fall back to main */ }
+    }
+
+    const db = getDb(activeBraidrPath);
 
     // Detect corruption before attempting any reads.
     try {
@@ -367,11 +387,11 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     }));
 
     const projectName = projectRow?.name || braidrPath.split('/').pop()?.replace('.braidr', '') || 'Untitled';
-    const folderPath = braidrPath.substring(0, braidrPath.lastIndexOf('/'));
 
     return {
       success: true,
       data: {
+        activeBraidrPath,
         projectPath: folderPath,
         projectName,
         characters,
