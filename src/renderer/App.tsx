@@ -1850,6 +1850,7 @@ function App() {
       setPreviousPlotPointIds(prev => ({ ...prev, [sceneId]: scene.plotPointId! }));
     }
     scene.plotPointId = null;
+    scene.timelinePosition = null;
 
     const charScenes = projectData.scenes
       .filter(s => s.characterId === selectedCharacterId)
