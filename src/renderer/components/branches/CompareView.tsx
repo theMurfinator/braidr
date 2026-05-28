@@ -28,34 +28,20 @@ type ChangeLabel = 'Benched' | 'Moved' | 'Renamed' | 'Rewritten' | 'New Scene' |
 function getChangeLabel(diff: BranchSceneDiff): ChangeLabel {
   if (diff.changeType === 'added') return 'New Scene';
   if (diff.changeType === 'removed') return 'Deleted';
-  // modified
   if (diff.rightPosition === null) return 'Benched';
-  if (diff.leftPosition === null) return 'Moved'; // was benched in main, now has a position
+  if (diff.leftPosition === null) return 'Moved';
   if (diff.leftTitle !== diff.rightTitle && diff.leftPosition === diff.rightPosition) return 'Renamed';
   return 'Moved';
 }
 
 const LABEL_COLOR: Record<ChangeLabel, string> = {
-  'Benched':    '#ef4444',
-  'Deleted':    '#ef4444',
-  'Moved':      '#f59e0b',
-  'Renamed':    '#3b82f6',
-  'Rewritten':  '#8b5cf6',
-  'New Scene':  '#22c55e',
+  'Benched':   '#ef4444',
+  'Deleted':   '#ef4444',
+  'Moved':     '#f59e0b',
+  'Renamed':   '#3b82f6',
+  'Rewritten': '#8b5cf6',
+  'New Scene': '#22c55e',
 };
-
-function getDeltaText(diff: BranchSceneDiff, leftName: string): string | null {
-  const label = getChangeLabel(diff);
-  if (label === 'New Scene') return 'Not in ' + leftName;
-  if (label === 'Deleted') return `Was #${diff.leftPosition} in ${leftName}`;
-  if (label === 'Benched') return `Was #${diff.leftPosition} in ${leftName}`;
-  if (label === 'Renamed') return `Was "${stripFormatting(diff.leftTitle)}"`;
-  if (label === 'Moved' && diff.leftPosition !== null && diff.rightPosition !== null) {
-    const dir = diff.rightPosition < diff.leftPosition ? '↑' : '↓';
-    return `${dir} Was #${diff.leftPosition} in ${leftName}`;
-  }
-  return null;
-}
 
 export function CompareView({ projectPath, branchIndex, characterColors, onClose, onMerge }: CompareViewProps) {
   const branchNames = branchIndex.branches.filter(b => !b.legacy).map(b => b.name);
@@ -86,7 +72,6 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
       .then(data => {
         setCompareData(data);
         setLoading(false);
-        // Default: accept all mergeable changed scenes
         const ids = new Set(
           data.scenes
             .filter(s => s.changed && s.changeType !== 'added')
@@ -97,19 +82,18 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
       .catch(e => { setError(String(e)); setLoading(false); });
   }, [left, right, projectPath, sameSelected]);
 
-  // Split diffs into narrative sequence and benched/deleted
-  const { narrativeRows, offNarrativeRows } = useMemo(() => {
-    if (!compareData) return { narrativeRows: [], offNarrativeRows: [] };
-    const narrative = compareData.scenes
-      .filter(s => s.rightPosition !== null)
-      .sort((a, b) => (a.rightPosition ?? 0) - (b.rightPosition ?? 0));
-    const off = compareData.scenes
-      .filter(s => s.rightPosition === null && s.changeType !== 'unchanged')
-      .sort((a, b) => (a.leftPosition ?? 999) - (b.leftPosition ?? 999));
-    return { narrativeRows: narrative, offNarrativeRows: off };
+  // Sort rows: all scenes with a position on either side, sorted by the smallest known position
+  const sortedRows = useMemo(() => {
+    if (!compareData) return [];
+    return [...compareData.scenes].sort((a, b) => {
+      const ap = Math.min(a.leftPosition ?? Infinity, a.rightPosition ?? Infinity);
+      const bp = Math.min(b.leftPosition ?? Infinity, b.rightPosition ?? Infinity);
+      if (ap !== bp) return ap - bp;
+      return (a.leftSceneNumber ?? a.rightSceneNumber ?? 999) -
+             (b.leftSceneNumber ?? b.rightSceneNumber ?? 999);
+    });
   }, [compareData]);
 
-  // Summary chip counts
   const chipCounts = useMemo(() => {
     if (!compareData) return {} as Record<ChangeLabel, number>;
     const counts = {} as Record<ChangeLabel, number>;
@@ -124,6 +108,7 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
   const changedCount = compareData ? compareData.scenes.filter(s => s.changed).length : 0;
   const rightIsNotMain = right !== MAIN_VALUE;
   const leftName = compareData?.leftName || 'main';
+  const rightName = compareData?.rightName || right;
 
   function toggleAccept(sceneId: string) {
     setAcceptedIds(prev => {
@@ -131,10 +116,6 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
       next.has(sceneId) ? next.delete(sceneId) : next.add(sceneId);
       return next;
     });
-  }
-
-  function toggleFilter(label: ChangeLabel) {
-    setFilterLabel(prev => prev === label ? null : label);
   }
 
   async function handleSceneClick(sceneId: string, title: string) {
@@ -149,27 +130,23 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
     setDraftLoading(false);
   }
 
-  function shouldShow(diff: BranchSceneDiff): boolean {
+  function shouldShowRow(diff: BranchSceneDiff): boolean {
     if (filterLabel) return diff.changed && getChangeLabel(diff) === filterLabel;
     if (!showAll && !diff.changed) return false;
     return true;
   }
 
-  function handleMerge() {
-    onMerge(right, [...acceptedIds]);
-  }
+  const visibleRows = sortedRows.filter(shouldShowRow);
 
   return (
     <div className="compare-view-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="compare-view">
 
-        {/* Header */}
         <div className="compare-view-header">
           <h2>Compare Branches</h2>
           <button className="compare-view-close" onClick={onClose}>&times;</button>
         </div>
 
-        {/* Branch selectors */}
         <div className="compare-view-selectors">
           <div className="compare-branch-pick">
             <label>Base</label>
@@ -194,10 +171,9 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
 
         {!sameSelected && !loading && compareData && (
           <>
-            {/* Summary chips */}
             <div className="compare-summary-bar">
               {changedCount === 0 ? (
-                <span className="compare-no-changes">No differences</span>
+                <span className="compare-no-changes">No differences between these branches</span>
               ) : (
                 <>
                   {(Object.entries(chipCounts) as [ChangeLabel, number][]).map(([label, count]) => (
@@ -205,7 +181,7 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
                       key={label}
                       className={`compare-chip${filterLabel === label ? ' active' : ''}`}
                       style={{ '--chip-color': LABEL_COLOR[label] } as React.CSSProperties}
-                      onClick={() => toggleFilter(label)}
+                      onClick={() => setFilterLabel(prev => prev === label ? null : label)}
                     >
                       {count} {label}
                     </button>
@@ -220,85 +196,136 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
               )}
             </div>
 
-            {/* Narrative sequence */}
-            <div className="compare-sequence">
+            {/* Two-column header */}
+            <div className="compare-cols-header">
+              <div className="compare-col-label">{leftName}</div>
+              <div className="compare-col-label">{rightName}</div>
+            </div>
 
-              {narrativeRows.filter(shouldShow).map(diff => (
-                <SceneRow
-                  key={diff.sceneId}
-                  diff={diff}
-                  leftName={leftName}
-                  color={characterColors[diff.characterId] || DEFAULT_COLOR}
-                  accepted={acceptedIds.has(diff.sceneId)}
-                  onToggleAccept={() => toggleAccept(diff.sceneId)}
-                  onClick={() => handleSceneClick(diff.sceneId, stripFormatting(diff.rightTitle || diff.leftTitle))}
-                  selected={draftPreview?.sceneId === diff.sceneId}
-                />
-              ))}
+            {/* Two-column rows */}
+            <div className="compare-rows-body">
+              {visibleRows.map(diff => {
+                const label = diff.changed ? getChangeLabel(diff) : null;
+                const borderColor = label ? LABEL_COLOR[label] : DEFAULT_COLOR;
+                const charColor = characterColors[diff.characterId] || DEFAULT_COLOR;
+                const isSelected = draftPreview?.sceneId === diff.sceneId;
+                const isMergeable = diff.changeType !== 'added';
+                const title = stripFormatting(diff.rightTitle || diff.leftTitle);
 
-              {/* Off-narrative (benched/deleted) section */}
-              {offNarrativeRows.length > 0 && !filterLabel && (
-                <div className="compare-off-narrative">
-                  <div className="compare-off-narrative-label">
-                    Removed from narrative on this branch
-                  </div>
-                  {offNarrativeRows.map(diff => (
-                    <SceneRow
-                      key={diff.sceneId}
-                      diff={diff}
-                      leftName={leftName}
-                      color={characterColors[diff.characterId] || DEFAULT_COLOR}
-                      accepted={acceptedIds.has(diff.sceneId)}
-                      onToggleAccept={() => toggleAccept(diff.sceneId)}
-                      onClick={() => handleSceneClick(diff.sceneId, stripFormatting(diff.leftTitle))}
-                      selected={draftPreview?.sceneId === diff.sceneId}
+                return (
+                  <div
+                    key={diff.sceneId}
+                    className={`compare-row${diff.changed ? ' changed' : ' unchanged'}${isSelected ? ' selected' : ''}`}
+                    style={diff.changed ? { '--row-color': borderColor } as React.CSSProperties : undefined}
+                    onClick={() => handleSceneClick(diff.sceneId, title)}
+                  >
+                    {/* Accept checkbox */}
+                    {diff.changed && (
+                      <div className="compare-row-check-col" onClick={e => e.stopPropagation()}>
+                        {isMergeable && (
+                          <input
+                            type="checkbox"
+                            className="compare-scene-check"
+                            checked={acceptedIds.has(diff.sceneId)}
+                            onChange={() => toggleAccept(diff.sceneId)}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Left card (base/main) */}
+                    <SideCard
+                      title={stripFormatting(diff.leftTitle)}
+                      position={diff.leftPosition}
+                      charColor={charColor}
+                      charName={diff.characterName}
+                      wordCount={diff.leftWordCount}
+                      changed={diff.changed}
+                      absent={diff.changeType === 'added'}
+                      label={label && diff.changeType !== 'added' ? label : null}
+                      deltaText={
+                        label === 'Renamed' && diff.rightTitle !== diff.leftTitle
+                          ? `→ "${stripFormatting(diff.rightTitle)}" on ${rightName}`
+                          : label === 'Moved' && diff.leftPosition !== null && diff.rightPosition !== null
+                          ? `→ #${diff.rightPosition} on ${rightName}`
+                          : null
+                      }
                     />
-                  ))}
-                </div>
-              )}
 
-              {/* Draft preview panel */}
-              {draftLoading && <div className="compare-draft-panel compare-draft-loading">Loading draft&hellip;</div>}
-              {draftPreview && !draftLoading && (
-                <div className="compare-draft-panel">
-                  <div className="compare-draft-header">
-                    <span className="compare-draft-title">{draftPreview.title}</span>
-                    <button className="compare-draft-close" onClick={() => setDraftPreview(null)}>&times;</button>
+                    {/* Right card (branch) */}
+                    <SideCard
+                      title={stripFormatting(diff.rightTitle)}
+                      position={diff.rightPosition}
+                      charColor={charColor}
+                      charName={diff.characterName}
+                      wordCount={diff.rightWordCount}
+                      changed={diff.changed}
+                      absent={diff.changeType === 'removed'}
+                      benched={label === 'Benched' || label === 'Deleted'}
+                      label={label && diff.changeType !== 'removed' ? label : null}
+                      deltaText={
+                        label === 'Renamed'
+                          ? `Was "${stripFormatting(diff.leftTitle)}"`
+                          : label === 'Moved' && diff.leftPosition !== null && diff.rightPosition !== null
+                          ? `Was #${diff.leftPosition} in ${leftName}`
+                          : label === 'New Scene'
+                          ? `Not in ${leftName}`
+                          : label === 'Benched'
+                          ? `Was #${diff.leftPosition} in ${leftName}`
+                          : null
+                      }
+                    />
                   </div>
-                  <div className="compare-draft-columns">
-                    <div className="compare-draft-col">
-                      <div className="compare-draft-col-label">{compareData.leftName || 'main'}</div>
-                      {draftPreview.leftDraft
-                        ? <div className="compare-draft-content" dangerouslySetInnerHTML={{ __html: draftPreview.leftDraft }} />
-                        : <div className="compare-draft-empty">No draft written</div>}
-                    </div>
-                    <div className="compare-draft-col">
-                      <div className="compare-draft-col-label">{compareData.rightName || 'main'}</div>
-                      {draftPreview.rightDraft
-                        ? <div className="compare-draft-content" dangerouslySetInnerHTML={{ __html: draftPreview.rightDraft }} />
-                        : <div className="compare-draft-empty">No draft written</div>}
-                    </div>
-                  </div>
+                );
+              })}
+
+              {visibleRows.length === 0 && (
+                <div className="compare-view-empty" style={{ padding: '24px 20px' }}>
+                  {filterLabel ? `No ${filterLabel} changes` : 'No differences between these branches'}
                 </div>
               )}
             </div>
 
-            {/* Footer: merge */}
-            {rightIsNotMain && (
-              <div className="compare-view-footer">
-                <span className="compare-accept-count">
-                  {acceptedIds.size} change{acceptedIds.size !== 1 ? 's' : ''} selected
-                </span>
-                <button
-                  className="compare-merge-btn"
-                  disabled={acceptedIds.size === 0}
-                  onClick={handleMerge}
-                >
-                  Merge {acceptedIds.size} → {left === MAIN_VALUE ? 'main' : left}
-                </button>
+            {/* Draft preview */}
+            {draftLoading && <div className="compare-draft-panel compare-draft-loading">Loading draft&hellip;</div>}
+            {draftPreview && !draftLoading && (
+              <div className="compare-draft-panel">
+                <div className="compare-draft-header">
+                  <span className="compare-draft-title">{draftPreview.title}</span>
+                  <button className="compare-draft-close" onClick={() => setDraftPreview(null)}>&times;</button>
+                </div>
+                <div className="compare-draft-columns">
+                  <div className="compare-draft-col">
+                    <div className="compare-draft-col-label">{compareData.leftName || 'main'}</div>
+                    {draftPreview.leftDraft
+                      ? <div className="compare-draft-content" dangerouslySetInnerHTML={{ __html: draftPreview.leftDraft }} />
+                      : <div className="compare-draft-empty">No draft written</div>}
+                  </div>
+                  <div className="compare-draft-col">
+                    <div className="compare-draft-col-label">{compareData.rightName || 'main'}</div>
+                    {draftPreview.rightDraft
+                      ? <div className="compare-draft-content" dangerouslySetInnerHTML={{ __html: draftPreview.rightDraft }} />
+                      : <div className="compare-draft-empty">No draft written</div>}
+                  </div>
+                </div>
               </div>
             )}
           </>
+        )}
+
+        {rightIsNotMain && !sameSelected && (
+          <div className="compare-view-footer">
+            <span className="compare-accept-count">
+              {acceptedIds.size} change{acceptedIds.size !== 1 ? 's' : ''} selected
+            </span>
+            <button
+              className="compare-merge-btn"
+              disabled={acceptedIds.size === 0}
+              onClick={() => onMerge(right, [...acceptedIds])}
+            >
+              Merge {acceptedIds.size} → {left === MAIN_VALUE ? 'main' : left}
+            </button>
+          </div>
         )}
 
       </div>
@@ -306,68 +333,41 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
   );
 }
 
-/* ── Scene row ───────────────────────────────────────────────────────── */
+/* ── Side card ───────────────────────────────────────────────────────── */
 
-interface SceneRowProps {
-  diff: BranchSceneDiff;
-  leftName: string;
-  color: string;
-  accepted: boolean;
-  onToggleAccept: () => void;
-  onClick: () => void;
-  selected: boolean;
+interface SideCardProps {
+  title: string;
+  position: number | null;
+  charColor: string;
+  charName: string;
+  wordCount: number | null;
+  changed: boolean;
+  absent?: boolean;
+  benched?: boolean;
+  label: string | null;
+  deltaText: string | null;
 }
 
-function SceneRow({ diff, leftName, color, accepted, onToggleAccept, onClick, selected }: SceneRowProps) {
-  const changed = diff.changed;
-  const label = changed ? getChangeLabel(diff) : null;
-  const delta = changed && label ? getDeltaText(diff, leftName) : null;
-  const borderColor = label ? LABEL_COLOR[label] : color;
-  const title = stripFormatting(diff.rightTitle || diff.leftTitle);
-  const position = diff.rightPosition ?? diff.leftPosition;
-  const mergeable = diff.changeType !== 'added' && diff.changeType !== 'removed';
+function SideCard({ title, position, charColor, charName, wordCount, changed, absent, benched, label, deltaText }: SideCardProps) {
+  if (absent) {
+    return (
+      <div className="compare-side-card absent">
+        <span className="compare-side-absent">—</span>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className={`compare-scene-row${changed ? ' changed' : ' unchanged'}${selected ? ' selected' : ''}`}
-      style={{ '--scene-color': borderColor } as React.CSSProperties}
-      onClick={onClick}
-      title={changed ? 'Click to preview draft' : undefined}
-    >
-      {/* Left gutter: accept checkbox (changed) or position dot (unchanged) */}
-      <div className="compare-scene-gutter" onClick={e => { if (changed && mergeable) { e.stopPropagation(); onToggleAccept(); }}}>
-        {changed && mergeable ? (
-          <input
-            type="checkbox"
-            className="compare-scene-check"
-            checked={accepted}
-            onChange={onToggleAccept}
-            onClick={e => e.stopPropagation()}
-          />
-        ) : (
-          <span className="compare-scene-pos-dot">{position ?? '–'}</span>
-        )}
+    <div className={`compare-side-card${changed ? ' changed' : ' unchanged'}${benched ? ' benched' : ''}`}
+         style={{ borderLeftColor: charColor }}>
+      <div className="compare-side-main">
+        <span className="compare-side-pos">{position !== null ? `#${position}` : '—'}</span>
+        <span className="compare-side-char" style={{ color: charColor }}>{charName}</span>
+        <span className="compare-side-title">{title || <em style={{ opacity: 0.5 }}>—</em>}</span>
+        {label && <span className="compare-side-label">{label}</span>}
+        {wordCount !== null && <span className="compare-side-words">{wordCount}w</span>}
       </div>
-
-      {/* Card body */}
-      <div className="compare-scene-body">
-        <div className="compare-scene-main">
-          <span className="compare-scene-char" style={{ color }}>{diff.characterName}</span>
-          {position !== null && !changed && (
-            <span className="compare-scene-pos">#{position}</span>
-          )}
-          <span className="compare-scene-title">{title}</span>
-          {label && (
-            <span className="compare-scene-label" style={{ color: LABEL_COLOR[label] }}>{label}</span>
-          )}
-          {diff.rightWordCount !== null && (
-            <span className="compare-scene-words">{diff.rightWordCount}w</span>
-          )}
-        </div>
-        {delta && (
-          <div className="compare-scene-delta">{delta}</div>
-        )}
-      </div>
+      {deltaText && <div className="compare-side-delta">{deltaText}</div>}
     </div>
   );
 }
