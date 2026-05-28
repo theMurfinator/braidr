@@ -4366,7 +4366,12 @@ function App() {
           branchIndex={branchIndex}
           characterColors={characterColors}
           onClose={() => setShowCompareView(false)}
-          onMerge={(name) => { setShowCompareView(false); setShowMergeDialog(name); }}
+          onMerge={async (name, sceneIds) => {
+            if (!projectData?.projectPath) return;
+            await dataService.mergeBranch(projectData.projectPath, name, sceneIds);
+            setShowCompareView(false);
+            await handleSwitchBranch(null);
+          }}
         />
       )}
 
