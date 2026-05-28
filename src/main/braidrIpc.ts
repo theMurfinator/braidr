@@ -65,7 +65,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     const fsMod = require('fs') as typeof import('fs');
     const pathMod = require('path') as typeof import('path');
 
-    const folderPath = braidrPath.substring(0, braidrPath.lastIndexOf('/'));
+    const folderPath = pathMod.dirname(braidrPath);
 
     // Check for an active branch and redirect to its .braidr file if it exists
     let activeBraidrPath = braidrPath;

@@ -37,7 +37,7 @@ export function MergeDialog({ branchName, compareData, loading, onMerge, onClose
     if (!compareData) return new Set<string>();
     return new Set(
       compareData.scenes
-        .filter(s => s.changed && s.changeType !== 'added')
+        .filter(s => s.changed && s.changeType !== 'added' && s.changeType !== 'removed')
         .map(s => s.sceneId)
     );
   }, [compareData]);
@@ -103,14 +103,18 @@ export function MergeDialog({ branchName, compareData, loading, onMerge, onClose
                   <h3>{characterName}</h3>
                   {scenes.map(scene => {
                     const isChanged = scene.changed;
-                    const isAddedOnly = scene.changeType === 'added';
-                    const isMergeable = isChanged && !isAddedOnly;
+                    const isNotMergeable = scene.changeType === 'added' || scene.changeType === 'removed';
+                    const isMergeable = isChanged && !isNotMergeable;
                     const posChanged = scene.leftPosition !== scene.rightPosition;
                     return (
                       <label
                         key={scene.sceneId}
-                        className={`merge-scene-row ${!isChanged ? 'unchanged' : ''} ${isAddedOnly ? 'added-only' : ''}`}
-                        title={isAddedOnly ? 'New scenes cannot be merged in this version' : undefined}
+                        className={`merge-scene-row ${!isChanged ? 'unchanged' : ''} ${isNotMergeable ? 'not-mergeable' : ''}`}
+                        title={
+                          scene.changeType === 'added' ? 'New scenes cannot be merged in this version' :
+                          scene.changeType === 'removed' ? 'Deletions cannot be merged in this version' :
+                          undefined
+                        }
                       >
                         <input
                           type="checkbox"

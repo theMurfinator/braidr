@@ -183,6 +183,18 @@ export async function compareBranches(
   const rightMap = new Map(rightScenes.map((s: SceneRow) => [s.id, s] as const));
   const allIds = new Set([...leftMap.keys(), ...rightMap.keys()]);
 
+  // Pre-fetch all drafts for efficient lookup
+  const leftDraftMap = new Map<string, string>();
+  const rightDraftMap = new Map<string, string>();
+  for (const s of leftScenes) {
+    const d = leftDb.getDraft(s.id);
+    if (d) leftDraftMap.set(s.id, d.content);
+  }
+  for (const s of rightScenes) {
+    const d = rightDb.getDraft(s.id);
+    if (d) rightDraftMap.set(s.id, d.content);
+  }
+
   const diffs: BranchSceneDiff[] = [];
 
   for (const sceneId of allIds) {
@@ -209,7 +221,8 @@ export async function compareBranches(
     } else if (
       leftTitle !== rightTitle ||
       leftPosition !== rightPosition ||
-      leftSceneNumber !== rightSceneNumber
+      leftSceneNumber !== rightSceneNumber ||
+      (leftDraftMap.get(sceneId) ?? '') !== (rightDraftMap.get(sceneId) ?? '')
     ) {
       changeType = 'modified';
     } else {
