@@ -135,18 +135,25 @@ export function BranchSelector({
           {/* Other branches */}
           {branchIndex.branches.map((branch) => (
             <div className="branch-item-row" key={branch.name}>
-              <button
-                className={`branch-item ${branchIndex.activeBranch === branch.name ? 'active' : ''}`}
-                onClick={() => {
-                  onSwitchBranch(branch.name);
-                  setOpen(false);
-                }}
-              >
-                <span className="branch-item-name">{branch.name}</span>
-                {branch.description && (
-                  <span className="branch-desc">{branch.description}</span>
-                )}
-              </button>
+              {branch.legacy ? (
+                <span className="branch-item branch-item-legacy" title="This branch was created before the SQLite upgrade and must be recreated">
+                  <span className="branch-item-name">{branch.name}</span>
+                  <span className="branch-legacy-tag">legacy</span>
+                </span>
+              ) : (
+                <button
+                  className={`branch-item ${branchIndex.activeBranch === branch.name ? 'active' : ''}`}
+                  onClick={() => {
+                    onSwitchBranch(branch.name);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="branch-item-name">{branch.name}</span>
+                  {branch.description && (
+                    <span className="branch-desc">{branch.description}</span>
+                  )}
+                </button>
+              )}
               {branchIndex.activeBranch !== branch.name && (
                 <button
                   className="branch-delete-btn"
