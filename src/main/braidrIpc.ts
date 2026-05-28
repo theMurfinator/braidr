@@ -433,6 +433,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
 
 ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, (_event, braidrPath: string, payload: {
   positions?: Record<string, number>;
+  clearedPositions?: string[];
   connections?: Record<string, string[]>;
   characterColors?: Record<string, string>;
   wordCounts?: Record<string, number>;
