@@ -35,7 +35,11 @@ export function MergeDialog({ branchName, compareData, loading, onMerge, onClose
 
   const changedIds = useMemo(() => {
     if (!compareData) return new Set<string>();
-    return new Set(compareData.scenes.filter(s => s.changed).map(s => s.sceneId));
+    return new Set(
+      compareData.scenes
+        .filter(s => s.changed && s.changeType !== 'added')
+        .map(s => s.sceneId)
+    );
   }, [compareData]);
 
   const allChangedSelected = changedIds.size > 0 && [...changedIds].every(id => selectedIds.has(id));
@@ -99,24 +103,32 @@ export function MergeDialog({ branchName, compareData, loading, onMerge, onClose
                   <h3>{characterName}</h3>
                   {scenes.map(scene => {
                     const isChanged = scene.changed;
+                    const isAddedOnly = scene.changeType === 'added';
+                    const isMergeable = isChanged && !isAddedOnly;
                     const posChanged = scene.leftPosition !== scene.rightPosition;
                     return (
                       <label
                         key={scene.sceneId}
-                        className={`merge-scene-row ${!isChanged ? 'unchanged' : ''}`}
+                        className={`merge-scene-row ${!isChanged ? 'unchanged' : ''} ${isAddedOnly ? 'added-only' : ''}`}
+                        title={isAddedOnly ? 'New scenes cannot be merged in this version' : undefined}
                       >
                         <input
                           type="checkbox"
                           checked={selectedIds.has(scene.sceneId)}
-                          disabled={!isChanged}
+                          disabled={!isMergeable}
                           onChange={() => toggleScene(scene.sceneId)}
                         />
-                        <span className="merge-scene-number">#{scene.sceneNumber}</span>
+                        <span className="merge-scene-number">
+                          #{scene.sceneNumber}
+                          {scene.changeType === 'added' && <span className="merge-change-badge added">+</span>}
+                          {scene.changeType === 'removed' && <span className="merge-change-badge removed">−</span>}
+                          {scene.changeType === 'modified' && <span className="merge-change-badge modified">~</span>}
+                        </span>
                         {isChanged ? (
                           <span className="merge-scene-titles">
-                            <span className="merge-scene-old">{scene.leftTitle}</span>
+                            <span className="merge-scene-old">{scene.leftTitle || '—'}</span>
                             <span className="merge-scene-arrow">&rarr;</span>
-                            <span className="merge-scene-new">{scene.rightTitle}</span>
+                            <span className="merge-scene-new">{scene.rightTitle || '—'}</span>
                           </span>
                         ) : (
                           <span className="merge-scene-titles">
