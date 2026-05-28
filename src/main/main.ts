@@ -9,7 +9,7 @@ import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata 
 import { getLicenseStatus, activateLicense, deactivateLicense, startTrial, openPurchaseUrl, openBillingPortal, refreshLicenseStatus, getStoredEmail, getApiBase } from './license';
 import { initPostHog, captureEvent, identifyUser, aliasUser, getSessionDurationMs, shutdownPostHog } from './posthog';
 import { saveTimelineToDisk } from './saveTimeline';
-import { listBranches, createBranch, switchBranch, deleteBranch, mergeBranch, compareBranches } from './branches';
+import { listBranches, createBranch, switchBranch, deleteBranch, mergeBranch, compareBranches, getBranchSceneDraft } from './branches';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -1031,6 +1031,14 @@ ipcMain.handle(IPC_CHANNELS.BRANCHES_SAVE_POSITIONS, async (_event, projectPath:
     const posPath = path.join(projectPath, 'branches', branchName, 'positions.json');
     fs.writeFileSync(posPath, JSON.stringify(positions, null, 2), 'utf-8');
     return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRANCHES_GET_SCENE_DRAFT, async (_event, projectPath: string, branchName: string | null, sceneId: string) => {
+  try {
+    return { success: true, data: await getBranchSceneDraft(projectPath, branchName, sceneId) };
   } catch (error) {
     return { success: false, error: String(error) };
   }

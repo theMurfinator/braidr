@@ -51,6 +51,7 @@ const IPC_CHANNELS = {
   BRANCHES_COMPARE: 'branches:compare',
   BRANCHES_READ_POSITIONS: 'branches:read-positions',
   BRANCHES_SAVE_POSITIONS: 'branches:save-positions',
+  BRANCHES_GET_SCENE_DRAFT: 'branches:get-scene-draft',
   LOCK_READ: 'lock:read',
   LOCK_WRITE: 'lock:write',
   LOCK_DELETE: 'lock:delete',
@@ -186,6 +187,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_READ_POSITIONS, projectPath, branchName),
   branchesSavePositions: (projectPath: string, branchName: string, positions: Record<string, number>) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_SAVE_POSITIONS, projectPath, branchName, positions),
+  branchesGetSceneDraft: (projectPath: string, branchName: string | null, sceneId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRANCHES_GET_SCENE_DRAFT, projectPath, branchName, sceneId),
   // Lock
   lockRead: (projectPath: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.LOCK_READ, projectPath),

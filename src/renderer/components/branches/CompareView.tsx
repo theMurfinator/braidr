@@ -73,12 +73,20 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
   const [compareData, setCompareData] = useState<BranchCompareData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftPreview, setDraftPreview] = useState<{
+    sceneId: string;
+    title: string;
+    leftDraft: string;
+    rightDraft: string;
+  } | null>(null);
+  const [draftLoading, setDraftLoading] = useState(false);
 
   const toApi = (v: string) => (v === MAIN_VALUE ? null : v);
   const sameSelected = left === right;
 
   useEffect(() => {
     if (sameSelected) { setCompareData(null); return; }
+    setDraftPreview(null);
     setLoading(true);
     setError(null);
     setCompareData(null);
@@ -94,6 +102,21 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
   const rightScenes = compareData ? buildRailsColumn(compareData.scenes, 'right', characterColors) : [];
 
   const rightIsNotMain = right !== MAIN_VALUE;
+
+  async function handleSceneClick(sceneId: string, title: string) {
+    if (draftPreview?.sceneId === sceneId) {
+      setDraftPreview(null);
+      return;
+    }
+    setDraftLoading(true);
+    setDraftPreview(null);
+    const [leftDraft, rightDraft] = await Promise.all([
+      dataService.getBranchSceneDraft(projectPath, toApi(left), sceneId),
+      dataService.getBranchSceneDraft(projectPath, toApi(right), sceneId),
+    ]);
+    setDraftPreview({ sceneId, title, leftDraft, rightDraft });
+    setDraftLoading(false);
+  }
 
   return (
     <div className="compare-view-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -149,8 +172,10 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
                   {leftScenes.map(scene => (
                     <div
                       key={scene.sceneId}
-                      className={`compare-rails-card ${scene.changeType}`}
-                      style={{ borderLeftColor: scene.color }}
+                      className={`compare-rails-card ${scene.changeType}${draftPreview?.sceneId === scene.sceneId ? ' selected' : ''}`}
+                      style={{ borderLeftColor: scene.color, cursor: 'pointer' }}
+                      onClick={() => handleSceneClick(scene.sceneId, scene.title)}
+                      title="Click to preview draft"
                     >
                       <span className="compare-rails-char">{scene.characterName}</span>
                       <span className="compare-rails-title">{scene.title || <em className="compare-rails-empty">—</em>}</span>
@@ -169,8 +194,10 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
                   {rightScenes.map(scene => (
                     <div
                       key={scene.sceneId}
-                      className={`compare-rails-card ${scene.changeType}`}
-                      style={{ borderLeftColor: scene.color }}
+                      className={`compare-rails-card ${scene.changeType}${draftPreview?.sceneId === scene.sceneId ? ' selected' : ''}`}
+                      style={{ borderLeftColor: scene.color, cursor: 'pointer' }}
+                      onClick={() => handleSceneClick(scene.sceneId, scene.title)}
+                      title="Click to preview draft"
                     >
                       <span className="compare-rails-char">{scene.characterName}</span>
                       <span className="compare-rails-title">{scene.title || <em className="compare-rails-empty">—</em>}</span>
@@ -187,6 +214,48 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
                 </div>
               </div>
             </div>
+
+            {draftLoading && (
+              <div className="compare-draft-panel compare-draft-loading">
+                Loading draft&hellip;
+              </div>
+            )}
+
+            {draftPreview && !draftLoading && (
+              <div className="compare-draft-panel">
+                <div className="compare-draft-header">
+                  <span className="compare-draft-title">{draftPreview.title}</span>
+                  <button
+                    className="compare-draft-close"
+                    onClick={() => setDraftPreview(null)}
+                  >
+                    &times;
+                  </button>
+                </div>
+                <div className="compare-draft-columns">
+                  <div className="compare-draft-col">
+                    <div className="compare-draft-col-label">{compareData!.leftName || 'main'}</div>
+                    {draftPreview.leftDraft
+                      ? <div
+                          className="compare-draft-content"
+                          dangerouslySetInnerHTML={{ __html: draftPreview.leftDraft }}
+                        />
+                      : <div className="compare-draft-empty">No draft written</div>
+                    }
+                  </div>
+                  <div className="compare-draft-col">
+                    <div className="compare-draft-col-label">{compareData!.rightName || 'main'}</div>
+                    {draftPreview.rightDraft
+                      ? <div
+                          className="compare-draft-content"
+                          dangerouslySetInnerHTML={{ __html: draftPreview.rightDraft }}
+                        />
+                      : <div className="compare-draft-empty">No draft written</div>
+                    }
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
 
