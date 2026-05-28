@@ -90,8 +90,12 @@ export async function createBranch(projectPath: string, name: string, descriptio
   }
 
   const sourceLabel = index.activeBranch ?? 'main';
-  const sourcePath = index.activeBranch
+  // When active branch is a legacy .md-only branch, fall back to main file
+  const branchBraidrPath = index.activeBranch
     ? path.join(branchesDir(projectPath), `${index.activeBranch}.braidr`)
+    : null;
+  const sourcePath = (branchBraidrPath && fs.existsSync(branchBraidrPath))
+    ? branchBraidrPath
     : findMainBraidrFile(projectPath);
 
   if (!sourcePath || !fs.existsSync(sourcePath)) {
