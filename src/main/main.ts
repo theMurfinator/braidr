@@ -975,7 +975,7 @@ ipcMain.handle(IPC_CHANNELS.BRANCHES_LIST, async (_event, projectPath: string) =
 
 ipcMain.handle(IPC_CHANNELS.BRANCHES_CREATE, async (_event, projectPath: string, name: string, description?: string) => {
   try {
-    return { success: true, data: createBranch(projectPath, name, description) };
+    return { success: true, data: await createBranch(projectPath, name, description) };
   } catch (error) {
     return { success: false, error: String(error) };
   }
