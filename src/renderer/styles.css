@@ -18627,8 +18627,122 @@ textarea.table-cell-input {
 .compare-view-summary {
   font-size: 12px;
   color: var(--text-secondary);
-  padding: 10px 20px;
+  padding: 8px 20px;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.compare-toggle-btn {
+  font-size: 11px;
+  color: var(--accent, #6366f1);
+  background: none;
+  border: 1px solid var(--accent, #6366f1);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.compare-toggle-btn:hover {
+  background: var(--accent-subtle, rgba(99, 102, 241, 0.08));
+}
+
+/* Paired-row compare layout */
+.compare-paired-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 6px 20px;
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary);
+  z-index: 1;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-paired-col-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.compare-paired-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 20px;
+}
+
+.compare-paired-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.compare-paired-row:hover .compare-paired-card {
+  filter: brightness(0.97);
+}
+
+.compare-paired-row.selected .compare-paired-card {
+  outline: 2px solid var(--accent, #6366f1);
+  outline-offset: -2px;
+}
+
+.compare-paired-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border-left: 4px solid var(--border);
+  background: var(--bg-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.compare-paired-card.unchanged {
+  opacity: 0.35;
+}
+
+.compare-paired-card.modified,
+.compare-paired-card.added,
+.compare-paired-card.removed {
+  background: rgba(99, 102, 241, 0.05);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15);
+}
+
+.compare-paired-card.absent {
+  opacity: 0.4;
+  background: none;
+  border-left-color: var(--border) !important;
+  border-style: dashed;
+}
+
+.compare-paired-pos {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 28px;
+}
+
+.compare-paired-absent {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 /* Rails-style compare columns */
