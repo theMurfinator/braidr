@@ -17,15 +17,22 @@ function stripTags(title: string): string {
   return title.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim();
 }
 
+const CHANGE_LABELS: Record<string, string> = {
+  added: 'Added',
+  removed: 'Removed',
+  modified: 'Changed',
+};
+
 interface RailsScene {
   sceneId: string;
-  position: number;
+  position: number | null;
+  sceneNumber: number | null;
   title: string;
   characterName: string;
   characterId: string;
   color: string;
-  changed: boolean;
-  otherPosition: number | null;
+  changeType: BranchSceneDiff['changeType'];
+  wordCount: number | null;
 }
 
 function buildRailsColumn(
@@ -34,40 +41,50 @@ function buildRailsColumn(
   colors: Record<string, string>,
 ): RailsScene[] {
   return scenes
-    .filter(s => (side === 'left' ? s.leftPosition : s.rightPosition) !== null)
+    .filter(s => {
+      // Always include changed scenes; skip unchanged scenes with no position
+      if (s.changeType !== 'unchanged') return true;
+      const pos = side === 'left' ? s.leftPosition : s.rightPosition;
+      return pos !== null;
+    })
     .map(s => ({
       sceneId: s.sceneId,
-      position: (side === 'left' ? s.leftPosition : s.rightPosition)!,
+      position: side === 'left' ? s.leftPosition : s.rightPosition,
+      sceneNumber: side === 'left' ? s.leftSceneNumber : s.rightSceneNumber,
       title: stripTags(side === 'left' ? s.leftTitle : s.rightTitle),
       characterName: s.characterName,
       characterId: s.characterId,
       color: colors[s.characterId] || DEFAULT_COLOR,
-      changed: s.changed,
-      otherPosition: side === 'left' ? s.rightPosition : s.leftPosition,
+      changeType: s.changeType,
+      wordCount: side === 'left' ? s.leftWordCount : s.rightWordCount,
     }))
-    .sort((a, b) => a.position - b.position);
+    .sort((a, b) => {
+      const ap = a.position ?? Infinity;
+      const bp = b.position ?? Infinity;
+      if (ap !== bp) return ap - bp;
+      return (a.sceneNumber ?? 999) - (b.sceneNumber ?? 999);
+    });
 }
 
 export function CompareView({ projectPath, branchIndex, characterColors, onClose, onMerge }: CompareViewProps) {
-  const branchNames = branchIndex.branches.map(b => b.name);
+  const branchNames = branchIndex.branches.filter(b => !b.legacy).map(b => b.name);
   const [left, setLeft] = useState(MAIN_VALUE);
   const [right, setRight] = useState(branchNames[0] ?? MAIN_VALUE);
   const [compareData, setCompareData] = useState<BranchCompareData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toApi = (v: string) => (v === MAIN_VALUE ? null : v);
   const sameSelected = left === right;
 
   useEffect(() => {
-    if (sameSelected) {
-      setCompareData(null);
-      return;
-    }
+    if (sameSelected) { setCompareData(null); return; }
     setLoading(true);
+    setError(null);
     setCompareData(null);
     dataService.compareBranches(projectPath, toApi(left), toApi(right))
       .then(data => { setCompareData(data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(e => { setError(String(e)); setLoading(false); });
   }, [left, right, projectPath, sameSelected]);
 
   const changedCount = compareData ? compareData.scenes.filter(s => s.changed).length : 0;
@@ -107,15 +124,19 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
         {sameSelected && (
           <div className="compare-view-empty">Select two different branches to compare</div>
         )}
-
         {!sameSelected && loading && (
           <div className="compare-view-empty">Loading comparison&hellip;</div>
+        )}
+        {!sameSelected && !loading && error && (
+          <div className="compare-view-empty compare-view-error">{error}</div>
         )}
 
         {!sameSelected && !loading && compareData && (
           <>
             <div className="compare-view-summary">
-              {changedCount} of {totalCount} scene{totalCount !== 1 ? 's' : ''} differ
+              {changedCount === 0
+                ? `No differences — all ${totalCount} scenes are identical`
+                : `${changedCount} of ${totalCount} scene${totalCount !== 1 ? 's' : ''} differ`}
             </div>
 
             <div className="compare-rails">
@@ -128,12 +149,19 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
                   {leftScenes.map(scene => (
                     <div
                       key={scene.sceneId}
-                      className={`compare-rails-card ${scene.changed ? 'changed' : 'unchanged'}`}
+                      className={`compare-rails-card ${scene.changeType}`}
                       style={{ borderLeftColor: scene.color }}
                     >
                       <span className="compare-rails-char">{scene.characterName}</span>
-                      <span className="compare-rails-title">{scene.title}</span>
-                      <span className="compare-rails-pos">#{scene.position}</span>
+                      <span className="compare-rails-title">{scene.title || <em className="compare-rails-empty">—</em>}</span>
+                      {scene.changeType !== 'unchanged' && (
+                        <span className={`compare-change-badge ${scene.changeType}`}>
+                          {CHANGE_LABELS[scene.changeType] ?? scene.changeType}
+                        </span>
+                      )}
+                      {scene.wordCount !== null && (
+                        <span className="compare-rails-words">{scene.wordCount}w</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -141,12 +169,19 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
                   {rightScenes.map(scene => (
                     <div
                       key={scene.sceneId}
-                      className={`compare-rails-card ${scene.changed ? 'changed' : 'unchanged'}`}
+                      className={`compare-rails-card ${scene.changeType}`}
                       style={{ borderLeftColor: scene.color }}
                     >
                       <span className="compare-rails-char">{scene.characterName}</span>
-                      <span className="compare-rails-title">{scene.title}</span>
-                      <span className="compare-rails-pos">#{scene.position}</span>
+                      <span className="compare-rails-title">{scene.title || <em className="compare-rails-empty">—</em>}</span>
+                      {scene.changeType !== 'unchanged' && (
+                        <span className={`compare-change-badge ${scene.changeType}`}>
+                          {CHANGE_LABELS[scene.changeType] ?? scene.changeType}
+                        </span>
+                      )}
+                      {scene.wordCount !== null && (
+                        <span className="compare-rails-words">{scene.wordCount}w</span>
+                      )}
                     </div>
                   ))}
                 </div>
