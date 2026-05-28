@@ -11,6 +11,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { BranchIndex, BranchInfo, BranchCompareData, BranchSceneDiff } from '../shared/types';
+import type { SceneRow, CharacterRow } from './database';
 
 /* ── internal helpers ───────────────────────────────────────────────── */
 
@@ -50,7 +51,9 @@ export function findMainBraidrFile(projectPath: string): string | null {
   const files = fs.readdirSync(projectPath).filter(f =>
     f.endsWith('.braidr') && fs.statSync(path.join(projectPath, f)).isFile()
   );
-  return files.length > 0 ? path.join(projectPath, files[0]) : null;
+  if (files.length === 0) return null;
+  if (files.length > 1) throw new Error(`Multiple .braidr files found in "${projectPath}": ${files.join(', ')}`);
+  return path.join(projectPath, files[0]);
 }
 
 /**
@@ -81,6 +84,10 @@ export function listBranches(projectPath: string): BranchIndex {
  */
 export async function createBranch(projectPath: string, name: string, description?: string): Promise<BranchIndex> {
   const index = readIndex(projectPath);
+
+  if (index.branches.some(b => b.name === name)) {
+    throw new Error(`Branch "${name}" already exists`);
+  }
 
   const sourceLabel = index.activeBranch ?? 'main';
   const sourcePath = index.activeBranch
@@ -114,6 +121,9 @@ export async function createBranch(projectPath: string, name: string, descriptio
 /** Switch the active branch (pass null to go back to main). */
 export function switchBranch(projectPath: string, name: string | null): BranchIndex {
   const index = readIndex(projectPath);
+  if (name !== null && !index.branches.some(b => b.name === name)) {
+    throw new Error(`Branch "${name}" does not exist`);
+  }
   index.activeBranch = name;
   writeIndex(projectPath, index);
   return index;
@@ -166,21 +176,21 @@ export async function compareBranches(
   const leftScenes = leftDb.getScenes();
   const rightScenes = rightDb.getScenes();
 
-  const leftChars = new Map(leftDb.getCharacters().map((c: any) => [c.id, c.name]));
-  const rightChars = new Map(rightDb.getCharacters().map((c: any) => [c.id, c.name]));
+  const leftChars = new Map(leftDb.getCharacters().map((c: CharacterRow) => [c.id, c.name] as const));
+  const rightChars = new Map(rightDb.getCharacters().map((c: CharacterRow) => [c.id, c.name] as const));
 
-  const leftMap = new Map(leftScenes.map((s: any) => [s.id, s]));
-  const rightMap = new Map(rightScenes.map((s: any) => [s.id, s]));
+  const leftMap = new Map(leftScenes.map((s: SceneRow) => [s.id, s] as const));
+  const rightMap = new Map(rightScenes.map((s: SceneRow) => [s.id, s] as const));
   const allIds = new Set([...leftMap.keys(), ...rightMap.keys()]);
 
   const diffs: BranchSceneDiff[] = [];
 
   for (const sceneId of allIds) {
-    const left = leftMap.get(sceneId) as any;
-    const right = rightMap.get(sceneId) as any;
+    const left = leftMap.get(sceneId);
+    const right = rightMap.get(sceneId);
 
-    const charId = (left ?? right).character_id;
-    const charName = (leftChars.get(charId) ?? rightChars.get(charId) ?? 'Unknown') as string;
+    const charId = (left ?? right)!.character_id;
+    const charName = (leftChars.get(charId) ?? rightChars.get(charId) ?? 'Unknown');
 
     const leftTitle = left?.title ?? '';
     const rightTitle = right?.title ?? '';

@@ -179,6 +179,23 @@ describe('branch operations (SQLite)', () => {
     expect(noah3?.rightTitle).toBe('New scene');
   });
 
+  it('detects scene removed from branch (exists in main but not branch)', async () => {
+    await setupProject(tmp);
+    await createBranch(tmp, 'draft-1');
+
+    // Delete a scene from the branch
+    const mod = await import('../main/database');
+    const branchDb = new mod.BraidrDB(path.join(tmp, 'branches', 'draft-1.braidr'));
+    branchDb.prepare('DELETE FROM scenes WHERE id = ?').run('sally-1');
+
+    const diff = await compareBranches(tmp, null, 'draft-1');
+    const sally1 = diff.scenes.find(s => s.sceneId === 'sally-1');
+    expect(sally1?.changeType).toBe('removed');
+    expect(sally1?.changed).toBe(true);
+    expect(sally1?.leftTitle).toBe('Sally arrives in town');
+    expect(sally1?.rightTitle).toBe('');
+  });
+
   it('marks unchanged scenes correctly', async () => {
     await setupProject(tmp);
     await createBranch(tmp, 'draft-1');
