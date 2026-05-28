@@ -2131,11 +2131,14 @@ function App() {
     connections: Record<string, string[]>,
   ) => {
     const positions: Record<string, number> = {};
+    const clearedPositions: string[] = [];
     const sceneWordCounts: Record<string, number> = {};
 
     for (const scene of scenes) {
       if (scene.timelinePosition !== null) {
         positions[scene.id] = scene.timelinePosition;
+      } else {
+        clearedPositions.push(scene.id);
       }
       if (scene.wordCount !== undefined) {
         sceneWordCounts[scene.id] = scene.wordCount;
@@ -2158,7 +2161,7 @@ function App() {
       }
       // Connections are already keyed by scene.id at runtime — save directly
       await dataService.saveTimeline({
-        positions, connections,
+        positions, clearedPositions, connections,
         characterColors: characterColorsRef.current,
         wordCounts: sceneWordCounts,
         fontSettings: allFontSettingsRef.current.global,

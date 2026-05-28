@@ -149,6 +149,7 @@ export interface TimelineData {
 export type SaveTimelinePayload =
   Omit<TimelineData, 'connections' | 'draftContent' | 'drafts' | 'scratchpad' | 'sceneComments' | 'tableViews'> & {
     connections: Record<string, string[]>;
+    clearedPositions?: string[]; // scene IDs whose timeline_position should be set to null
   };
 
 // ── Task Management ──────────────────────────────────────────────────────────

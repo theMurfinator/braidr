@@ -460,11 +460,17 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, (_event, braidrPath: string, p
 
     db.transaction(() => {
       // Scene positions + word counts
+      const posNow = Date.now();
       if (payload.positions) {
         const updatePos = db.prepare('UPDATE scenes SET timeline_position = ?, updated_at = ? WHERE id = ?');
-        const now = Date.now();
         for (const [sceneId, pos] of Object.entries(payload.positions)) {
-          updatePos.run(pos, now, sceneId);
+          updatePos.run(pos, posNow, sceneId);
+        }
+      }
+      if (payload.clearedPositions?.length) {
+        const clearPos = db.prepare('UPDATE scenes SET timeline_position = NULL, updated_at = ? WHERE id = ?');
+        for (const sceneId of payload.clearedPositions) {
+          clearPos.run(posNow, sceneId);
         }
       }
       if (payload.wordCounts) {
