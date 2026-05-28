@@ -999,7 +999,7 @@ ipcMain.handle(IPC_CHANNELS.BRANCHES_DELETE, async (_event, projectPath: string,
 
 ipcMain.handle(IPC_CHANNELS.BRANCHES_MERGE, async (_event, projectPath: string, branchName: string, sceneIds: string[]) => {
   try {
-    mergeBranch(projectPath, branchName, sceneIds);
+    await mergeBranch(projectPath, branchName, sceneIds);
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -1008,7 +1008,7 @@ ipcMain.handle(IPC_CHANNELS.BRANCHES_MERGE, async (_event, projectPath: string, 
 
 ipcMain.handle(IPC_CHANNELS.BRANCHES_COMPARE, async (_event, projectPath: string, leftBranch: string | null, rightBranch: string | null) => {
   try {
-    return { success: true, data: compareBranches(projectPath, leftBranch, rightBranch) };
+    return { success: true, data: await compareBranches(projectPath, leftBranch, rightBranch) };
   } catch (error) {
     return { success: false, error: String(error) };
   }
