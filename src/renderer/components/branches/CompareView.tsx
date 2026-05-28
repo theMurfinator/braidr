@@ -14,7 +14,13 @@ const MAIN_VALUE = '__main__';
 const DEFAULT_COLOR = '#6b7280';
 
 function stripTags(title: string): string {
-  return title.replace(/#\w+/g, '').replace(/\s+/g, ' ').trim();
+  return title
+    .replace(/==\*\*(.*?)\*\*==/g, '$1')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/==(.*?)==/g, '$1')
+    .replace(/#\w+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 const CHANGE_LABELS: Record<string, string> = {

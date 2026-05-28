@@ -18669,6 +18669,8 @@ textarea.table-cell-input {
 
 .compare-rails-column {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 6px;
