@@ -149,6 +149,7 @@ export interface TimelineData {
 export type SaveTimelinePayload =
   Omit<TimelineData, 'connections' | 'draftContent' | 'drafts' | 'scratchpad' | 'sceneComments' | 'tableViews'> & {
     connections: Record<string, string[]>;
+    clearedPositions?: string[]; // scene IDs whose timeline_position should be set to null
   };
 
 // ── Task Management ──────────────────────────────────────────────────────────
@@ -321,6 +322,7 @@ export interface BranchInfo {
   description?: string;
   createdAt: string;
   createdFrom: string;
+  legacy?: boolean; // true = old .md-only branch, cannot be used
 }
 
 export interface BranchIndex {
@@ -343,7 +345,12 @@ export interface BranchSceneDiff {
   rightTitle: string;
   leftPosition: number | null;
   rightPosition: number | null;
+  leftSceneNumber: number | null;
+  rightSceneNumber: number | null;
+  leftWordCount: number | null;
+  rightWordCount: number | null;
   changed: boolean;
+  changeType: 'added' | 'removed' | 'modified' | 'unchanged';
 }
 
 // License types
@@ -429,6 +436,7 @@ export const IPC_CHANNELS = {
   BRANCHES_COMPARE: 'branches:compare',
   BRANCHES_READ_POSITIONS: 'branches:read-positions',
   BRANCHES_SAVE_POSITIONS: 'branches:save-positions',
+  BRANCHES_GET_SCENE_DRAFT: 'branches:get-scene-draft',
   // Lock
   LOCK_READ: 'lock:read',
   LOCK_WRITE: 'lock:write',

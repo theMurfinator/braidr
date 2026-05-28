@@ -1850,6 +1850,7 @@ function App() {
       setPreviousPlotPointIds(prev => ({ ...prev, [sceneId]: scene.plotPointId! }));
     }
     scene.plotPointId = null;
+    scene.timelinePosition = null;
 
     const charScenes = projectData.scenes
       .filter(s => s.characterId === selectedCharacterId)
@@ -2130,11 +2131,14 @@ function App() {
     connections: Record<string, string[]>,
   ) => {
     const positions: Record<string, number> = {};
+    const clearedPositions: string[] = [];
     const sceneWordCounts: Record<string, number> = {};
 
     for (const scene of scenes) {
       if (scene.timelinePosition !== null) {
         positions[scene.id] = scene.timelinePosition;
+      } else {
+        clearedPositions.push(scene.id);
       }
       if (scene.wordCount !== undefined) {
         sceneWordCounts[scene.id] = scene.wordCount;
@@ -2157,7 +2161,7 @@ function App() {
       }
       // Connections are already keyed by scene.id at runtime — save directly
       await dataService.saveTimeline({
-        positions, connections,
+        positions, clearedPositions, connections,
         characterColors: characterColorsRef.current,
         wordCounts: sceneWordCounts,
         fontSettings: allFontSettingsRef.current.global,
@@ -4362,7 +4366,12 @@ function App() {
           branchIndex={branchIndex}
           characterColors={characterColors}
           onClose={() => setShowCompareView(false)}
-          onMerge={(name) => { setShowCompareView(false); setShowMergeDialog(name); }}
+          onMerge={async (name, sceneIds) => {
+            if (!projectData?.projectPath) return;
+            await dataService.mergeBranch(projectData.projectPath, name, sceneIds);
+            setShowCompareView(false);
+            await handleSwitchBranch(null);
+          }}
         />
       )}
 

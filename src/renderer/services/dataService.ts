@@ -49,6 +49,7 @@ export interface DataService {
   deleteBranch(projectPath: string, name: string): Promise<BranchIndex>;
   mergeBranch(projectPath: string, branchName: string, sceneIds: string[]): Promise<void>;
   compareBranches(projectPath: string, leftBranch: string | null, rightBranch: string | null): Promise<BranchCompareData>;
+  getBranchSceneDraft(projectPath: string, branchName: string | null, sceneId: string): Promise<string>;
   // Lock
   acquireProjectLock(projectPath: string, force?: boolean): Promise<{ acquired: boolean; heldBy?: string }>;
   releaseProjectLock(projectPath: string): Promise<void>;
@@ -73,9 +74,10 @@ class ElectronDataService implements DataService {
   async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }> {
     const formatResult = await window.electronAPI.detectProjectFormat(folderPath);
     if (formatResult?.format === 'braidr' && formatResult.braidrPath) {
-      this.braidrPath = formatResult.braidrPath;
       const result = await window.electronAPI.braidrLoadProject(formatResult.braidrPath);
       if (!result.success) throw new Error(result.error || 'Failed to load .braidr project');
+      // Use the branch file if a branch is active; otherwise fall back to the main file
+      this.braidrPath = (result.data as any).activeBraidrPath ?? formatResult.braidrPath;
       return result.data;
     }
     throw new Error('Not a .braidr project. Please convert your project first.');
@@ -311,6 +313,12 @@ class ElectronDataService implements DataService {
     const result = await window.electronAPI.branchesCompare(projectPath, leftBranch, rightBranch);
     if (!result.success) throw new Error(result.error || 'Failed to compare branches');
     return result.data;
+  }
+
+  async getBranchSceneDraft(projectPath: string, branchName: string | null, sceneId: string): Promise<string> {
+    const result = await window.electronAPI.branchesGetSceneDraft(projectPath, branchName, sceneId);
+    if (!result.success) return '';
+    return result.data ?? '';
   }
 
   private async getDeviceInfo(): Promise<{ deviceId: string; deviceName: string }> {

@@ -62,7 +62,27 @@ function autoBackupBraidr(braidrPath: string, db: import('./database').BraidrDB)
 
 ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) => {
   try {
-    const db = getDb(braidrPath);
+    const fsMod = require('fs') as typeof import('fs');
+    const pathMod = require('path') as typeof import('path');
+
+    const folderPath = pathMod.dirname(braidrPath);
+
+    // Check for an active branch and redirect to its .braidr file if it exists
+    let activeBraidrPath = braidrPath;
+    const branchIndexPath = pathMod.join(folderPath, 'branches', 'index.json');
+    if (fsMod.existsSync(branchIndexPath)) {
+      try {
+        const idx = JSON.parse(fsMod.readFileSync(branchIndexPath, 'utf-8'));
+        if (idx.activeBranch) {
+          const candidatePath = pathMod.join(folderPath, 'branches', `${idx.activeBranch}.braidr`);
+          if (fsMod.existsSync(candidatePath)) {
+            activeBraidrPath = candidatePath;
+          }
+        }
+      } catch { /* non-fatal: bad index.json, fall back to main */ }
+    }
+
+    const db = getDb(activeBraidrPath);
 
     // Detect corruption before attempting any reads.
     try {
@@ -367,11 +387,11 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     }));
 
     const projectName = projectRow?.name || braidrPath.split('/').pop()?.replace('.braidr', '') || 'Untitled';
-    const folderPath = braidrPath.substring(0, braidrPath.lastIndexOf('/'));
 
     return {
       success: true,
       data: {
+        activeBraidrPath,
         projectPath: folderPath,
         projectName,
         characters,
@@ -413,6 +433,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
 
 ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, (_event, braidrPath: string, payload: {
   positions?: Record<string, number>;
+  clearedPositions?: string[];
   connections?: Record<string, string[]>;
   characterColors?: Record<string, string>;
   wordCounts?: Record<string, number>;
@@ -440,11 +461,17 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, (_event, braidrPath: string, p
 
     db.transaction(() => {
       // Scene positions + word counts
+      const posNow = Date.now();
       if (payload.positions) {
         const updatePos = db.prepare('UPDATE scenes SET timeline_position = ?, updated_at = ? WHERE id = ?');
-        const now = Date.now();
         for (const [sceneId, pos] of Object.entries(payload.positions)) {
-          updatePos.run(pos, now, sceneId);
+          updatePos.run(pos, posNow, sceneId);
+        }
+      }
+      if (payload.clearedPositions?.length) {
+        const clearPos = db.prepare('UPDATE scenes SET timeline_position = NULL, updated_at = ? WHERE id = ?');
+        for (const sceneId of payload.clearedPositions) {
+          clearPos.run(posNow, sceneId);
         }
       }
       if (payload.wordCounts) {
