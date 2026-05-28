@@ -233,7 +233,7 @@ export async function compareBranches(
       sceneId,
       characterId: charId,
       characterName: charName,
-      sceneNumber: (left ?? right).scene_number,
+      sceneNumber: (left ?? right)!.scene_number,
       leftTitle,
       rightTitle,
       leftPosition,
