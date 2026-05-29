@@ -300,7 +300,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
       }
     }
 
-    const perDayWords = perDay.map(w => Math.max(0, w));
+    const perDayWords = perDay; // allow negatives — net deletions count
     const totalWords = perDayWords.reduce((a, b) => a + b, 0);
     const todayIdx = days.indexOf(todayStr);
 
@@ -349,6 +349,29 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     return result;
   }, [sceneSessions, tasks, weeklyGoal, weeklyTargetHours]);
 
+  const wordTrendData = useMemo(() => {
+    const now = new Date();
+    const currentSat = getWeekSaturday(now);
+    const result: { weekStart: string; weekLabel: string; totalWords: number; isCurrent: boolean }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const weekSat = new Date(currentSat);
+      weekSat.setDate(currentSat.getDate() - i * 7);
+      const days = getWeekDays(weekSat);
+      let totalWords = 0;
+      for (const ss of sceneSessions) {
+        if (ss.sceneKey === 'manual:checkin') continue;
+        if (days.indexOf(ss.date) >= 0) totalWords += ss.wordsNet;
+      }
+      result.push({
+        weekStart: toLocalDateStr(weekSat),
+        weekLabel: weekSat.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        totalWords,
+        isCurrent: i === 0,
+      });
+    }
+    return result;
+  }, [sceneSessions]);
+
   const maxTrendHours = Math.max(...trendData.map(w => w.totalHours), weeklyTargetHours, 0.1);
   // Chart geometry constants (must match CSS for goal line positioning)
   const TREND_CHART_H = 130;
@@ -373,13 +396,17 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
   // Word goal derived from deadlineGoal
   const wordDailyTarget = deadlineStats?.requiredPerDay || 0;
   const wordWeeklyTarget = wordDailyTarget * 7;
-  const maxWeekWords = Math.max(...wordWeekData.perDayWords, wordDailyTarget, 1);
+  const maxWeekWords = Math.max(...wordWeekData.perDayWords.map(Math.abs), wordDailyTarget, 1);
   const wordWeeklyProgress = wordWeeklyTarget > 0 ? Math.min(wordWeekData.totalWords / wordWeeklyTarget, 1) : 0;
   const wordTargetThroughToday = wordWeekData.isCurrentWeek && wordWeekData.todayIdx >= 0
     ? wordDailyTarget * (wordWeekData.todayIdx + 1)
     : wordWeeklyTarget;
   const wordPace = wordWeekData.totalWords - wordTargetThroughToday;
   const wordOnTrack = wordPace >= 0;
+  const maxWordTrend = Math.max(...wordTrendData.map(w => Math.abs(w.totalWords)), wordWeeklyTarget, 1);
+  const wordTrendGoalLinePx = deadlineGoal?.enabled && wordWeeklyTarget > 0
+    ? TREND_LABEL_H + (Math.min(wordWeeklyTarget, maxWordTrend) / maxWordTrend) * TREND_TRACK_H
+    : null;
   // Chart geometry constants (must match .analytics-weekly-chart min-height and bar group layout)
   const WORD_CHART_H = 140;
   const WORD_LABEL_H = 14; // .analytics-weekly-bar-value min-height
@@ -598,6 +625,49 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
         </div>
       </div>
 
+      {/* 12-Week Hours Trend */}
+      {trendData.some(w => w.totalHours > 0) && (
+        <div className="analytics-trend-wrapper">
+          <div className="analytics-card full">
+            <div className="analytics-card-header">
+              <span className="analytics-card-title">12-Week Hour Trend</span>
+            </div>
+            <div
+              className="analytics-trend-chart"
+              style={{ height: `${TREND_CHART_H}px` }}
+            >
+              {goalLinePx !== null && (
+                <div
+                  className="analytics-trend-goal-line"
+                  style={{ bottom: goalLinePx }}
+                >
+                  <span className="analytics-trend-goal-label">{weeklyTargetHours}h</span>
+                </div>
+              )}
+              {trendData.map(week => {
+                const barHeight = Math.max((week.totalHours / maxTrendHours) * 100, week.totalHours > 0 ? 3 : 0);
+                return (
+                  <div key={week.weekStart} className="analytics-trend-bar-group">
+                    <div className="analytics-trend-bar-value">
+                      {week.totalHours > 0 ? week.totalHours.toFixed(1) : ''}
+                    </div>
+                    <div className="analytics-trend-bar-track">
+                      <div
+                        className={`analytics-trend-bar${week.hitGoal ? ' hit-goal' : ''}${week.isCurrent ? ' current' : ''}${week.totalHours > 0 ? ' has-hours' : ''}`}
+                        style={{ height: `${barHeight}%` }}
+                      />
+                    </div>
+                    <div className={`analytics-trend-bar-label${week.isCurrent ? ' current' : ''}`}>
+                      {week.weekLabel}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Weekly Words Tracker */}
       <div className="analytics-weekly-tracker">
         <div className="analytics-card full">
@@ -707,18 +777,20 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
                 </div>
               )}
               {wordWeekData.perDayWords.map((words, i) => {
-                const barHeight = (words / maxWeekWords) * 100;
+                const barHeight = (Math.abs(words) / maxWeekWords) * 100;
                 const isToday = i === wordWeekData.todayIdx;
                 const isFuture = wordWeekData.isCurrentWeek && wordWeekData.todayIdx >= 0 && i > wordWeekData.todayIdx;
+                const isNegative = words < 0;
+                const absWords = Math.abs(words);
                 return (
                   <div key={wordWeekData.days[i]} className="analytics-weekly-bar-group">
-                    <div className="analytics-weekly-bar-value">
-                      {words > 0 ? (words >= 1000 ? `${(words / 1000).toFixed(1)}k` : words) : ''}
+                    <div className="analytics-weekly-bar-value" style={isNegative ? { color: '#ef4444' } : undefined}>
+                      {words !== 0 ? (absWords >= 1000 ? `${isNegative ? '-' : ''}${(absWords / 1000).toFixed(1)}k` : words) : ''}
                     </div>
                     <div className="analytics-weekly-bar-track">
                       <div
-                        className={`analytics-weekly-bar ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''} ${words > 0 ? 'has-hours' : ''}`}
-                        style={{ height: `${Math.max(barHeight, words > 0 ? 4 : 0)}%` }}
+                        className={`analytics-weekly-bar ${isToday ? 'today' : ''} ${isFuture ? 'future' : ''} ${words !== 0 ? 'has-hours' : ''} ${isNegative ? 'negative' : ''}`}
+                        style={{ height: `${Math.max(barHeight, words !== 0 ? 4 : 0)}%` }}
                       />
                     </div>
                     <div className={`analytics-weekly-bar-label ${isToday ? 'today' : ''}`}>
@@ -732,35 +804,36 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
         </div>
       </div>
 
-      {/* 12-Week Trend */}
-      {trendData.some(w => w.totalHours > 0) && (
+      {/* 12-Week Word Trend */}
+      {wordTrendData.some(w => w.totalWords !== 0) && (
         <div className="analytics-trend-wrapper">
           <div className="analytics-card full">
             <div className="analytics-card-header">
-              <span className="analytics-card-title">12-Week Trend</span>
+              <span className="analytics-card-title">12-Week Word Trend</span>
             </div>
             <div
               className="analytics-trend-chart"
               style={{ height: `${TREND_CHART_H}px` }}
             >
-              {goalLinePx !== null && (
-                <div
-                  className="analytics-trend-goal-line"
-                  style={{ bottom: goalLinePx }}
-                >
-                  <span className="analytics-trend-goal-label">{weeklyTargetHours}h</span>
+              {wordTrendGoalLinePx !== null && (
+                <div className="analytics-trend-goal-line" style={{ bottom: wordTrendGoalLinePx }}>
+                  <span className="analytics-trend-goal-label">
+                    {wordWeeklyTarget >= 1000 ? `${(wordWeeklyTarget / 1000).toFixed(1)}k` : wordWeeklyTarget}/wk
+                  </span>
                 </div>
               )}
-              {trendData.map(week => {
-                const barHeight = Math.max((week.totalHours / maxTrendHours) * 100, week.totalHours > 0 ? 3 : 0);
+              {wordTrendData.map(week => {
+                const barHeight = Math.max((Math.abs(week.totalWords) / maxWordTrend) * 100, week.totalWords !== 0 ? 3 : 0);
+                const isNeg = week.totalWords < 0;
+                const absVal = Math.abs(week.totalWords);
                 return (
                   <div key={week.weekStart} className="analytics-trend-bar-group">
-                    <div className="analytics-trend-bar-value">
-                      {week.totalHours > 0 ? week.totalHours.toFixed(1) : ''}
+                    <div className="analytics-trend-bar-value" style={isNeg ? { color: '#ef4444' } : undefined}>
+                      {week.totalWords !== 0 ? (absVal >= 1000 ? `${isNeg ? '-' : ''}${(absVal / 1000).toFixed(1)}k` : week.totalWords) : ''}
                     </div>
                     <div className="analytics-trend-bar-track">
                       <div
-                        className={`analytics-trend-bar${week.hitGoal ? ' hit-goal' : ''}${week.isCurrent ? ' current' : ''}${week.totalHours > 0 ? ' has-hours' : ''}`}
+                        className={`analytics-trend-bar${week.isCurrent ? ' current' : ''}${week.totalWords !== 0 ? ' has-hours' : ''}${isNeg ? ' negative' : ''}`}
                         style={{ height: `${barHeight}%` }}
                       />
                     </div>

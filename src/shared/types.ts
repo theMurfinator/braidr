@@ -273,6 +273,14 @@ export interface RecentProject {
   characterNames?: string[];
   characterIds?: string[];
   characterColors?: Record<string, string>;
+  weeklyWords?: number;         // net words written this Sat–Fri week
+  weeklyHours?: number;         // hours logged this Sat–Fri week
+  weeklyPerDayWords?: number[];  // [Sat, Sun, Mon, Tue, Wed, Thu, Fri] net words
+  weeklyPerDayHours?: number[];  // [Sat, Sun, Mon, Tue, Wed, Thu, Fri] hours
+  weeklyDayLabels?: string[];    // ['Sat', 'Sun', ...]
+  weeklyTodayIdx?: number;       // index of today (-1 if viewing a past week)
+  weeklyHoursTarget?: number;    // target hours/week (0 = no target)
+  weeklyWordsTarget?: number;    // target words/week (0 = no target)
 }
 
 export type ProjectTemplate = 'blank' | 'three-act' | 'save-the-cat' | 'heros-journey';

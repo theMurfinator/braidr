@@ -3,6 +3,91 @@ import { UpdateBanner } from './UpdateBanner';
 import UpdateModal from './UpdateModal';
 import braidrLogo from '../assets/braidr-logo.png';
 
+function WeeklyMiniWidget({ project }: { project: RecentProject }) {
+  const perDayHours = project.weeklyPerDayHours || [];
+  const perDayWords = project.weeklyPerDayWords || [];
+  const labels = project.weeklyDayLabels || ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  const todayIdx = project.weeklyTodayIdx ?? -1;
+  const hoursTarget = project.weeklyHoursTarget || 0;
+  const wordsTarget = project.weeklyWordsTarget || 0;
+  const totalHours = perDayHours.reduce((a, b) => a + b, 0);
+  const totalWords = perDayWords.reduce((a, b) => a + b, 0);
+  const maxH = Math.max(...perDayHours, hoursTarget / 7, 0.1);
+  const maxW = Math.max(...perDayWords.map(Math.abs), wordsTarget / 7, 1);
+
+  if (perDayHours.length === 0 && perDayWords.length === 0) return null;
+
+  return (
+    <div className="landing-weekly-widgets">
+      <div className="landing-weekly-title">{project.name} — this week</div>
+      <div className="landing-weekly-charts">
+
+        {/* Hours card */}
+        <div className="landing-mini-card">
+          <div className="landing-mini-chart-header">
+            <span className="landing-mini-chart-label">Weekly Hours</span>
+            <span className="landing-mini-chart-total">
+              {totalHours >= 10 ? totalHours.toFixed(0) : totalHours.toFixed(1)}h
+              {hoursTarget > 0 && <span className="landing-mini-chart-target"> / {hoursTarget}h</span>}
+            </span>
+          </div>
+          <div className="landing-mini-bars">
+            {perDayHours.map((h, i) => {
+              const barH = (h / maxH) * 100;
+              const isToday = i === todayIdx;
+              const isFuture = todayIdx >= 0 && i > todayIdx;
+              return (
+                <div key={i} className="landing-mini-bar-group">
+                  <div className="landing-mini-bar-track">
+                    <div
+                      className={`landing-mini-bar hours${isToday ? ' today' : ''}${isFuture ? ' future' : ''}${h > 0 ? ' active' : ''}`}
+                      style={{ height: `${Math.max(barH, h > 0 ? 6 : 0)}%` }}
+                    />
+                  </div>
+                  <div className={`landing-mini-bar-label${isToday ? ' today' : ''}`}>{labels[i]}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Words card */}
+        <div className="landing-mini-card">
+          <div className="landing-mini-chart-header">
+            <span className="landing-mini-chart-label">Weekly Words</span>
+            <span className={`landing-mini-chart-total${totalWords < 0 ? ' negative' : ''}`}>
+              {totalWords >= 0 ? '+' : ''}{Math.abs(totalWords) >= 1000
+                ? `${totalWords < 0 ? '-' : ''}${(Math.abs(totalWords) / 1000).toFixed(1)}k`
+                : totalWords}
+              {wordsTarget > 0 && <span className="landing-mini-chart-target"> / {wordsTarget >= 1000 ? `${(wordsTarget / 1000).toFixed(1)}k` : wordsTarget}</span>}
+            </span>
+          </div>
+          <div className="landing-mini-bars">
+            {perDayWords.map((w, i) => {
+              const barH = (Math.abs(w) / maxW) * 100;
+              const isToday = i === todayIdx;
+              const isFuture = todayIdx >= 0 && i > todayIdx;
+              const isNeg = w < 0;
+              return (
+                <div key={i} className="landing-mini-bar-group">
+                  <div className="landing-mini-bar-track">
+                    <div
+                      className={`landing-mini-bar words${isToday ? ' today' : ''}${isFuture ? ' future' : ''}${w !== 0 ? ' active' : ''}${isNeg ? ' negative' : ''}`}
+                      style={{ height: `${Math.max(barH, w !== 0 ? 6 : 0)}%` }}
+                    />
+                  </div>
+                  <div className={`landing-mini-bar-label${isToday ? ' today' : ''}`}>{labels[i]}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 interface LockConflict {
   projectPath: string;
   projectName?: string;
@@ -59,6 +144,10 @@ export default function LandingScreen({
               <div className="welcome-header">
                 <img src={braidrLogo} alt="Braidr" className="welcome-logo" />
               </div>
+
+              {recentProjects.length > 0 && recentProjects[0].weeklyPerDayHours && (
+                <WeeklyMiniWidget project={recentProjects[0]} />
+              )}
 
               <div className="welcome-grid">
                 <button

@@ -23,7 +23,7 @@ import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
-import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, appendSceneSession, getTodayStr } from './utils/analyticsStore';
+import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, appendSceneSession, getTodayStr, getWeekSaturday, getWeekDays, toLocalDateStr } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import { UpdateBanner } from './components/UpdateBanner';
@@ -1171,6 +1171,29 @@ function App() {
 
     // Add to recent projects with summary stats
     const totalWordCount = data.scenes.reduce((sum: number, s: Scene) => sum + (s.wordCount || 0), 0);
+    const analyticsForRecent = await loadAnalytics(folderPath);
+    const thisWeekSat = getWeekSaturday(new Date());
+    const thisWeekDays = getWeekDays(thisWeekSat);
+    const recentSessions: SceneSession[] = analyticsForRecent.sceneSessions || [];
+    const recentTasks: Task[] = (data as any).tasks || [];
+    const dayLabels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    const perDayWords = new Array(7).fill(0);
+    const perDayMs = new Array(7).fill(0);
+    for (const ss of recentSessions) {
+      if (ss.sceneKey === 'manual:checkin') continue;
+      const idx = thisWeekDays.indexOf(ss.date);
+      if (idx >= 0) { perDayWords[idx] += ss.wordsNet; perDayMs[idx] += ss.durationMs; }
+    }
+    for (const task of recentTasks) {
+      for (const te of task.timeEntries) {
+        const idx = thisWeekDays.indexOf(toLocalDateStr(new Date(te.startedAt)));
+        if (idx >= 0) perDayMs[idx] += te.duration;
+      }
+    }
+    const todayStr = getTodayStr();
+    const weeklyTodayIdx = thisWeekDays.indexOf(todayStr);
+    const weeklyWords = perDayWords.reduce((a: number, b: number) => a + b, 0);
+    const weeklyHours = perDayMs.reduce((a: number, b: number) => a + b, 0) / 3600000;
     await dataService.addRecentProject({
       name,
       path: folderPath,
@@ -1181,6 +1204,17 @@ function App() {
       characterNames: data.characters.map((c: Character) => c.name),
       characterIds: data.characters.map((c: Character) => c.id),
       characterColors: data.characterColors || {},
+      weeklyWords,
+      weeklyHours,
+      weeklyPerDayWords: perDayWords,
+      weeklyPerDayHours: perDayMs.map((ms: number) => ms / 3600000),
+      weeklyDayLabels: dayLabels,
+      weeklyTodayIdx,
+      weeklyHoursTarget: analyticsForRecent.weeklyGoal?.enabled ? analyticsForRecent.weeklyGoal.targetHours : 0,
+      weeklyWordsTarget: analyticsForRecent.deadlineGoal?.enabled && analyticsForRecent.deadlineGoal.targetWords > 0
+        ? Math.ceil((analyticsForRecent.deadlineGoal.targetWords - totalWordCount) /
+            Math.max(1, Math.ceil((new Date(analyticsForRecent.deadlineGoal.deadlineDate + 'T00:00:00').getTime() - new Date().setHours(0,0,0,0)) / 86400000) + 1)) * 7
+        : 0,
     });
 
     // Refresh recent projects list
