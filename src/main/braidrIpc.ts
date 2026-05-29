@@ -965,6 +965,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_NOTES_INDEX, (_event, braidrPath: string
       }
     });
 
+    db.checkpoint();
     return { success: true };
   } catch (error) {
     console.error('[BRAIDR_SAVE_NOTES_INDEX]', error);
@@ -986,6 +987,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_NOTE, (_event, braidrPath: string, noteI
   try {
     const db = getDb(braidrPath);
     db.updateNote(noteId, { content });
+    db.checkpoint();
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -997,6 +999,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_CREATE_NOTE, (_event, braidrPath: string, not
     const db = getDb(braidrPath);
     const order = db.getNotes().filter(n => n.parent_id === parentId).length;
     db.insertNote(noteId, title, '', parentId, order);
+    db.checkpoint();
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -1007,6 +1010,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_DELETE_NOTE, (_event, braidrPath: string, not
   try {
     const db = getDb(braidrPath);
     db.deleteNote(noteId);
+    db.checkpoint();
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
