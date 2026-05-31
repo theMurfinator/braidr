@@ -6,7 +6,7 @@ import type {
   WorldEvent, NotesIndex, NoteMetadata, Chapter, FontSettings,
   AllFontSettings,
 } from '../shared/types';
-import type { BraidrDB, ChapterRow } from './database';
+import type { BraidrDB, ChapterRow, TableViewRow } from './database';
 
 function getDb(braidrPath: string): BraidrDB {
   const { openDatabase } = require('./database') as typeof import('./database');
@@ -1062,6 +1062,29 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_REORDER_CHAPTERS, (_event, braidrPath: string
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
+  }
+});
+
+// ── Table view handlers ───────────────────────────────────────────────────────
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_TABLE_VIEWS, (_event, braidrPath: string) => {
+  try {
+    const db = getDb(braidrPath);
+    const rows = db.getTableViews();
+    return { success: true, data: rows };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TABLE_VIEWS, (_event, braidrPath: string, views: TableViewRow[]) => {
+  try {
+    const db = getDb(braidrPath);
+    db.saveTableViews(views);
+    db.checkpoint();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
   }
 });
 

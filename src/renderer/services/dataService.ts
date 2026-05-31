@@ -1,4 +1,4 @@
-import { Character, Scene, PlotPoint, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload } from '../../shared/types';
+import { Character, Scene, PlotPoint, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload } from '../../shared/types';
 import { CapacitorDataService } from './capacitorDataService';
 import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } from './projectLock';
 
@@ -15,6 +15,8 @@ export interface DataService {
   deleteChapter(chapterId: string): Promise<void>;
   reorderChapters(orderedIds: string[]): Promise<void>;
   assignSceneToChapter(sceneId: string, chapterId: string | null, sceneOrder: number): Promise<void>;
+  loadTableViews(): Promise<TableViewConfig[]>;
+  saveTableViews(views: TableViewConfig[]): Promise<void>;
   getRecentProjects(): Promise<RecentProject[]>;
   addRecentProject(project: RecentProject): Promise<void>;
   selectSaveLocation(): Promise<string | null>;
@@ -131,6 +133,29 @@ class ElectronDataService implements DataService {
     if (!this.braidrPath) throw new Error('No project loaded');
     const result = await window.electronAPI.braidrAssignSceneToChapter(this.braidrPath, sceneId, chapterId, sceneOrder);
     if (!result.success) throw new Error(result.error || 'Failed to assign scene to chapter');
+  }
+
+  async loadTableViews(): Promise<TableViewConfig[]> {
+    if (!this.braidrPath) return [];
+    const result = await window.electronAPI.braidrLoadTableViews(this.braidrPath);
+    if (!result?.success || !result.data) return [];
+    return (result.data as Array<{ id: string; name: string; config_json: string; created_at: number }>).map(row => ({
+      ...JSON.parse(row.config_json),
+      id: row.id,
+      name: row.name,
+      createdAt: row.created_at,
+    }));
+  }
+
+  async saveTableViews(views: TableViewConfig[]): Promise<void> {
+    if (!this.braidrPath) return;
+    const rows = views.map(v => ({
+      id: v.id,
+      name: v.name,
+      config_json: JSON.stringify(v),
+      created_at: v.createdAt,
+    }));
+    await window.electronAPI.braidrSaveTableViews(this.braidrPath, rows);
   }
 
   async getRecentProjects(): Promise<RecentProject[]> {

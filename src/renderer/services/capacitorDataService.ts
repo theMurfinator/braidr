@@ -960,4 +960,6 @@ export class CapacitorDataService implements DataService {
   async deleteChapter(_chapterId: string): Promise<void> {}
   async reorderChapters(_orderedIds: string[]): Promise<void> {}
   async assignSceneToChapter(_sceneId: string, _chapterId: string | null, _sceneOrder: number): Promise<void> {}
+  async loadTableViews(): Promise<import('../../shared/types').TableViewConfig[]> { return []; }
+  async saveTableViews(_views: import('../../shared/types').TableViewConfig[]): Promise<void> {}
 }

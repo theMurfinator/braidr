@@ -122,5 +122,7 @@ interface Window {
     braidrDeleteChapter: (braidrPath: string, chapterId: string) => Promise<any>;
     braidrReorderChapters: (braidrPath: string, orderedIds: string[]) => Promise<any>;
     braidrAssignSceneToChapter: (braidrPath: string, sceneId: string, chapterId: string | null, sceneOrder: number) => Promise<any>;
+    braidrLoadTableViews: (braidrPath: string) => Promise<any>;
+    braidrSaveTableViews: (braidrPath: string, views: unknown[]) => Promise<any>;
   };
 }

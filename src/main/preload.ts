@@ -84,6 +84,9 @@ const IPC_CHANNELS = {
   BRAIDR_DELETE_CHAPTER: 'braidr:delete-chapter',
   BRAIDR_REORDER_CHAPTERS: 'braidr:reorder-chapters',
   BRAIDR_ASSIGN_SCENE_TO_CHAPTER: 'braidr:assign-scene-to-chapter',
+  // Table views
+  BRAIDR_LOAD_TABLE_VIEWS: 'braidr:load-table-views',
+  BRAIDR_SAVE_TABLE_VIEWS: 'braidr:save-table-views',
   // Per-scene content (extracted from timeline.json)
   READ_DRAFT: 'read-draft',
   SAVE_DRAFT: 'save-draft',
@@ -285,6 +288,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_DELETE_NOTE, braidrPath, noteId),
   braidrGetChapters: (braidrPath: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_GET_CHAPTERS, braidrPath),
+  braidrLoadTableViews: (braidrPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_LOAD_TABLE_VIEWS, braidrPath),
+  braidrSaveTableViews: (braidrPath: string, views: unknown[]) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_TABLE_VIEWS, braidrPath, views),
   braidrSaveChapter: (braidrPath: string, chapter: any) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_CHAPTER, braidrPath, chapter),
   braidrDeleteChapter: (braidrPath: string, chapterId: string) =>
