@@ -82,15 +82,25 @@ export interface DraftVersion {
   savedAt: number; // timestamp
 }
 
+export interface FilterRule {
+  id: string;
+  field: string;
+  operator: 'is' | 'is_not' | 'is_blank' | 'is_not_blank' | 'contains';
+  value: string;
+}
+
 export interface TableViewConfig {
   id: string;
   name: string;
+  isDefault?: boolean;
   visibleColumns: string[];
+  columnWidths: Record<string, number>;
+  columnOrder: string[];
   sortField: string;
   sortDirection: 'asc' | 'desc';
-  filterCharacter: string; // 'all' or characterId
-  filterTags: string[]; // array of tag IDs
-  createdAt: number; // timestamp
+  filterRules: FilterRule[];
+  groupBy: 'none' | 'plotPoint' | 'chapter';
+  createdAt: number;
 }
 
 export interface TimelineData {
@@ -479,4 +489,6 @@ export const IPC_CHANNELS = {
   BRAIDR_DELETE_CHAPTER: 'braidr:delete-chapter',
   BRAIDR_REORDER_CHAPTERS: 'braidr:reorder-chapters',
   BRAIDR_ASSIGN_SCENE_TO_CHAPTER: 'braidr:assign-scene-to-chapter',
+  BRAIDR_LOAD_TABLE_VIEWS: 'braidr:load-table-views',
+  BRAIDR_SAVE_TABLE_VIEWS: 'braidr:save-table-views',
 } as const;

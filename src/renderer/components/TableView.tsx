@@ -86,8 +86,7 @@ export default function TableView({
   const [newViewName, setNewViewName] = useState('');
   const [showFilterBuilder, setShowFilterBuilder] = useState(false);
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
-  const [filterCharacter, setFilterCharacter] = useState<string>('all');
-  const [filterTags, setFilterTags] = useState<Set<string>>(new Set());
+
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     const saved = localStorage.getItem('table-visible-columns');
     return saved ? new Set(JSON.parse(saved)) : new Set(['scene', 'character', 'status', 'words', 'plotPoint']);
@@ -357,10 +356,12 @@ export default function TableView({
       id: Date.now().toString(),
       name: newViewName.trim(),
       visibleColumns: Array.from(visibleColumns),
+      columnWidths: {},
+      columnOrder: Array.from(visibleColumns),
       sortField,
       sortDirection,
-      filterCharacter,
-      filterTags: Array.from(filterTags),
+      filterRules: [],
+      groupBy: 'none',
       createdAt: Date.now(),
     };
 
@@ -377,8 +378,6 @@ export default function TableView({
     setVisibleColumns(new Set(view.visibleColumns));
     setSortField(view.sortField as SortField);
     setSortDirection(view.sortDirection);
-    setFilterCharacter(view.filterCharacter);
-    setFilterTags(new Set(view.filterTags));
     setCurrentViewId(viewId);
     setShowViewMenu(false);
   };
