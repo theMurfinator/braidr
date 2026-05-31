@@ -42,6 +42,41 @@ const CREATE_SCHEMA = `
     created_at INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS acts (
+    id TEXT PRIMARY KEY,
+    character_id TEXT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    name TEXT NOT NULL DEFAULT '',
+    starting_state TEXT NOT NULL DEFAULT '',
+    ending_state TEXT NOT NULL DEFAULT '',
+    polarity TEXT NOT NULL DEFAULT '',
+    transformation TEXT NOT NULL DEFAULT '',
+    display_order INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS character_psychology (
+    character_id TEXT PRIMARY KEY REFERENCES characters(id) ON DELETE CASCADE,
+    novel_starting_state TEXT NOT NULL DEFAULT '',
+    novel_ending_state TEXT NOT NULL DEFAULT '',
+    novel_polarity TEXT NOT NULL DEFAULT '',
+    novel_transformation TEXT NOT NULL DEFAULT '',
+    wound TEXT NOT NULL DEFAULT '',
+    lie TEXT NOT NULL DEFAULT '',
+    deepest_fear TEXT NOT NULL DEFAULT '',
+    limiting_belief TEXT NOT NULL DEFAULT '',
+    thorn TEXT NOT NULL DEFAULT '',
+    coping_tool TEXT NOT NULL DEFAULT '',
+    whisper_of_grace TEXT NOT NULL DEFAULT '',
+    surface_want TEXT NOT NULL DEFAULT '',
+    souls_longing TEXT NOT NULL DEFAULT '',
+    bitter_need TEXT NOT NULL DEFAULT '',
+    capital_t_truth TEXT NOT NULL DEFAULT '',
+    arc_summary TEXT NOT NULL DEFAULT '',
+    theme TEXT NOT NULL DEFAULT '',
+    anti_theme TEXT NOT NULL DEFAULT '',
+    final_reader_experience TEXT NOT NULL DEFAULT ''
+  );
+
   CREATE TABLE IF NOT EXISTS scenes (
     id TEXT PRIMARY KEY,
     character_id TEXT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
@@ -360,6 +395,34 @@ export class BraidrDB {
 
     // Drop legacy positional chapters table — no data is migrated
     this.db.exec('DROP TABLE IF EXISTS braided_chapters');
+
+    // Arc fields on plot_points
+    const ppColumns = (
+      this.db.prepare('PRAGMA table_info(plot_points)').all() as { name: string }[]
+    ).map(c => c.name);
+    if (!ppColumns.includes('act_id')) {
+      this.db.exec('ALTER TABLE plot_points ADD COLUMN act_id TEXT REFERENCES acts(id) ON DELETE SET NULL');
+    }
+    if (!ppColumns.includes('starting_state')) {
+      this.db.exec("ALTER TABLE plot_points ADD COLUMN starting_state TEXT NOT NULL DEFAULT ''");
+    }
+    if (!ppColumns.includes('ending_state')) {
+      this.db.exec("ALTER TABLE plot_points ADD COLUMN ending_state TEXT NOT NULL DEFAULT ''");
+    }
+    if (!ppColumns.includes('polarity')) {
+      this.db.exec("ALTER TABLE plot_points ADD COLUMN polarity TEXT NOT NULL DEFAULT ''");
+    }
+    if (!ppColumns.includes('transformation')) {
+      this.db.exec("ALTER TABLE plot_points ADD COLUMN transformation TEXT NOT NULL DEFAULT ''");
+    }
+
+    // Arc fields on scenes
+    if (!sceneColumns.includes('polarity')) {
+      this.db.exec("ALTER TABLE scenes ADD COLUMN polarity TEXT NOT NULL DEFAULT ''");
+    }
+    if (!sceneColumns.includes('transformation')) {
+      this.db.exec("ALTER TABLE scenes ADD COLUMN transformation TEXT NOT NULL DEFAULT ''");
+    }
   }
 
   get path() { return this.filePath; }
@@ -445,12 +508,28 @@ export class BraidrDB {
     return this.db.prepare('SELECT * FROM plot_points ORDER BY display_order').all() as PlotPointRow[];
   }
 
-  insertPlotPoint(id: string, characterId: string, title: string, description: string | null, expectedSceneCount: number | null, displayOrder: number) {
-    this.db.prepare('INSERT INTO plot_points (id, character_id, title, description, expected_scene_count, display_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, characterId, title, description, expectedSceneCount, displayOrder, Date.now());
+  insertPlotPoint(id: string, characterId: string, title: string, description: string | null, expectedSceneCount: number | null, displayOrder: number, actId: string | null = null) {
+    this.db.prepare(`
+      INSERT INTO plot_points (id, character_id, title, description, expected_scene_count, display_order, act_id, starting_state, ending_state, polarity, transformation, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, '', '', '', '', ?)
+    `).run(id, characterId, title, description, expectedSceneCount, displayOrder, actId, Date.now());
   }
 
-  updatePlotPoint(id: string, title: string, description: string | null, expectedSceneCount: number | null, displayOrder: number) {
-    this.db.prepare('UPDATE plot_points SET title = ?, description = ?, expected_scene_count = ?, display_order = ? WHERE id = ?').run(title, description, expectedSceneCount, displayOrder, id);
+  updatePlotPoint(id: string, fields: Partial<{ title: string; description: string | null; expectedSceneCount: number | null; displayOrder: number; actId: string | null; startingState: string; endingState: string; polarity: string; transformation: string }>) {
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    if ('title' in fields)             { updates.push('title = ?');              values.push(fields.title); }
+    if ('description' in fields)       { updates.push('description = ?');        values.push(fields.description); }
+    if ('expectedSceneCount' in fields){ updates.push('expected_scene_count = ?'); values.push(fields.expectedSceneCount); }
+    if ('displayOrder' in fields)      { updates.push('display_order = ?');      values.push(fields.displayOrder); }
+    if ('actId' in fields)             { updates.push('act_id = ?');             values.push(fields.actId); }
+    if ('startingState' in fields)     { updates.push('starting_state = ?');     values.push(fields.startingState); }
+    if ('endingState' in fields)       { updates.push('ending_state = ?');       values.push(fields.endingState); }
+    if ('polarity' in fields)          { updates.push('polarity = ?');           values.push(fields.polarity); }
+    if ('transformation' in fields)    { updates.push('transformation = ?');     values.push(fields.transformation); }
+    if (updates.length === 0) return;
+    values.push(id);
+    this.db.prepare(`UPDATE plot_points SET ${updates.join(', ')} WHERE id = ?`).run(...values);
   }
 
   deletePlotPoint(id: string) {
@@ -669,6 +748,64 @@ export class BraidrDB {
     this.db.prepare('DELETE FROM table_views').run();
     const insert = this.db.prepare('INSERT INTO table_views (id, name, config_json, created_at) VALUES (?, ?, ?, ?)');
     for (const v of views) insert.run(v.id, v.name, v.config_json, v.created_at);
+  }
+
+  // ── Acts ─────────────────────────────────────────────────────────────────────
+
+  getActs(characterId: string): ActRow[] {
+    return this.db.prepare('SELECT * FROM acts WHERE character_id = ? ORDER BY display_order').all(characterId) as ActRow[];
+  }
+
+  getAllActs(): ActRow[] {
+    return this.db.prepare('SELECT * FROM acts ORDER BY character_id, display_order').all() as ActRow[];
+  }
+
+  upsertAct(row: ActRow) {
+    this.db.prepare(`
+      INSERT INTO acts (id, character_id, name, starting_state, ending_state, polarity, transformation, display_order, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name, starting_state = excluded.starting_state,
+        ending_state = excluded.ending_state, polarity = excluded.polarity,
+        transformation = excluded.transformation, display_order = excluded.display_order
+    `).run(row.id, row.character_id, row.name, row.starting_state, row.ending_state, row.polarity, row.transformation, row.display_order, row.created_at);
+  }
+
+  deleteAct(id: string) {
+    this.db.prepare('DELETE FROM acts WHERE id = ?').run(id);
+  }
+
+  reorderActs(characterId: string, orderedIds: string[]) {
+    const update = this.db.prepare('UPDATE acts SET display_order = ? WHERE id = ?');
+    orderedIds.forEach((id, i) => update.run(i, id));
+  }
+
+  // ── Character Psychology ──────────────────────────────────────────────────────
+
+  getCharacterPsychology(characterId: string): CharacterPsychologyRow | undefined {
+    return this.db.prepare('SELECT * FROM character_psychology WHERE character_id = ?').get(characterId) as CharacterPsychologyRow | undefined;
+  }
+
+  upsertCharacterPsychology(row: CharacterPsychologyRow) {
+    this.db.prepare(`
+      INSERT INTO character_psychology (character_id, novel_starting_state, novel_ending_state, novel_polarity, novel_transformation, wound, lie, deepest_fear, limiting_belief, thorn, coping_tool, whisper_of_grace, surface_want, souls_longing, bitter_need, capital_t_truth, arc_summary, theme, anti_theme, final_reader_experience)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(character_id) DO UPDATE SET
+        novel_starting_state = excluded.novel_starting_state, novel_ending_state = excluded.novel_ending_state,
+        novel_polarity = excluded.novel_polarity, novel_transformation = excluded.novel_transformation,
+        wound = excluded.wound, lie = excluded.lie, deepest_fear = excluded.deepest_fear,
+        limiting_belief = excluded.limiting_belief, thorn = excluded.thorn, coping_tool = excluded.coping_tool,
+        whisper_of_grace = excluded.whisper_of_grace, surface_want = excluded.surface_want,
+        souls_longing = excluded.souls_longing, bitter_need = excluded.bitter_need,
+        capital_t_truth = excluded.capital_t_truth, arc_summary = excluded.arc_summary,
+        theme = excluded.theme, anti_theme = excluded.anti_theme,
+        final_reader_experience = excluded.final_reader_experience
+    `).run(
+      row.character_id, row.novel_starting_state, row.novel_ending_state, row.novel_polarity, row.novel_transformation,
+      row.wound, row.lie, row.deepest_fear, row.limiting_belief, row.thorn, row.coping_tool,
+      row.whisper_of_grace, row.surface_want, row.souls_longing, row.bitter_need,
+      row.capital_t_truth, row.arc_summary, row.theme, row.anti_theme, row.final_reader_experience
+    );
   }
 
   // ── Scene Dates ───────────────────────────────────────────────────────────
@@ -957,7 +1094,28 @@ export class BraidrDB {
 
 export interface ProjectRow { id: string; name: string; word_count_goal: number | null; created_at: number; updated_at: number }
 export interface CharacterRow { id: string; name: string; color: string | null; display_order: number; created_at: number }
-export interface PlotPointRow { id: string; character_id: string; title: string; description: string | null; expected_scene_count: number | null; display_order: number; created_at: number }
+export interface PlotPointRow {
+  id: string; character_id: string; title: string; description: string | null;
+  expected_scene_count: number | null; display_order: number; created_at: number;
+  act_id: string | null;
+  starting_state: string; ending_state: string; polarity: string; transformation: string;
+}
+export interface ActRow {
+  id: string; character_id: string; name: string;
+  starting_state: string; ending_state: string; polarity: string; transformation: string;
+  display_order: number; created_at: number;
+}
+
+export interface CharacterPsychologyRow {
+  character_id: string;
+  novel_starting_state: string; novel_ending_state: string;
+  novel_polarity: string; novel_transformation: string;
+  wound: string; lie: string; deepest_fear: string; limiting_belief: string;
+  thorn: string; coping_tool: string; whisper_of_grace: string; surface_want: string;
+  souls_longing: string; bitter_need: string; capital_t_truth: string;
+  arc_summary: string; theme: string; anti_theme: string; final_reader_experience: string;
+}
+
 export interface ChapterRow { id: string; title: string; ord: number; description: string | null }
 export interface SceneRow {
   id: string; character_id: string; plot_point_id: string | null;

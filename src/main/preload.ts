@@ -87,6 +87,14 @@ const IPC_CHANNELS = {
   // Table views
   BRAIDR_LOAD_TABLE_VIEWS: 'braidr:load-table-views',
   BRAIDR_SAVE_TABLE_VIEWS: 'braidr:save-table-views',
+  // Acts
+  BRAIDR_LOAD_ACTS: 'braidr:load-acts',
+  BRAIDR_SAVE_ACT: 'braidr:save-act',
+  BRAIDR_DELETE_ACT: 'braidr:delete-act',
+  BRAIDR_REORDER_ACTS: 'braidr:reorder-acts',
+  // Character psychology
+  BRAIDR_LOAD_CHARACTER_PSYCHOLOGY: 'braidr:load-character-psychology',
+  BRAIDR_SAVE_CHARACTER_PSYCHOLOGY: 'braidr:save-character-psychology',
   // Per-scene content (extracted from timeline.json)
   READ_DRAFT: 'read-draft',
   SAVE_DRAFT: 'save-draft',
@@ -300,4 +308,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_REORDER_CHAPTERS, braidrPath, orderedIds),
   braidrAssignSceneToChapter: (braidrPath: string, sceneId: string, chapterId: string | null, sceneOrder: number) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_ASSIGN_SCENE_TO_CHAPTER, braidrPath, sceneId, chapterId, sceneOrder),
+  braidrLoadActs: (braidrPath: string, characterId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_LOAD_ACTS, braidrPath, characterId),
+  braidrSaveAct: (braidrPath: string, act: unknown) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_ACT, braidrPath, act),
+  braidrDeleteAct: (braidrPath: string, actId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_DELETE_ACT, braidrPath, actId),
+  braidrReorderActs: (braidrPath: string, characterId: string, orderedIds: string[]) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_REORDER_ACTS, braidrPath, characterId, orderedIds),
+  braidrLoadCharacterPsychology: (braidrPath: string, characterId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_LOAD_CHARACTER_PSYCHOLOGY, braidrPath, characterId),
+  braidrSaveCharacterPsychology: (braidrPath: string, row: unknown) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_CHARACTER_PSYCHOLOGY, braidrPath, row),
 });

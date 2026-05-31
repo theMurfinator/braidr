@@ -21,6 +21,9 @@ export interface Scene {
   chapterId: string | null;  // null = not assigned to a chapter
   sceneOrder: number;        // position within the chapter (0-indexed)
   wordCount?: number; // Optional word count for pacing visualization
+  stationId: string | null;
+  polarity: string;
+  transformation: string;
 }
 
 export interface Chapter {
@@ -240,13 +243,54 @@ export interface SceneComment {
   createdAt: number;
 }
 
+export interface Act {
+  id: string;
+  characterId: string;
+  name: string;
+  startingState: string;
+  endingState: string;
+  polarity: string;
+  transformation: string;
+  order: number;
+}
+
+export interface CharacterPsychology {
+  characterId: string;
+  // Novel-level arc
+  novelStartingState: string;
+  novelEndingState: string;
+  novelPolarity: string;
+  novelTransformation: string;
+  // Maass psychological fields
+  wound: string;
+  lie: string;
+  deepestFear: string;
+  limitingBelief: string;
+  thorn: string;
+  copingTool: string;
+  whisperOfGrace: string;
+  surfaceWant: string;
+  soulsLonging: string;
+  bitterNeed: string;
+  capitalTTruth: string;
+  arcSummary: string;
+  theme: string;
+  antiTheme: string;
+  finalReaderExperience: string;
+}
+
 export interface PlotPoint {
   id: string;
   characterId: string;
+  actId: string | null;
   title: string;
   expectedSceneCount: number | null;
   description: string;
   order: number;
+  startingState: string;
+  endingState: string;
+  polarity: string;
+  transformation: string;
 }
 
 export interface Tag {
@@ -491,4 +535,11 @@ export const IPC_CHANNELS = {
   BRAIDR_ASSIGN_SCENE_TO_CHAPTER: 'braidr:assign-scene-to-chapter',
   BRAIDR_LOAD_TABLE_VIEWS: 'braidr:load-table-views',
   BRAIDR_SAVE_TABLE_VIEWS: 'braidr:save-table-views',
+  // Arc Planning
+  BRAIDR_LOAD_ACTS: 'braidr:load-acts',
+  BRAIDR_SAVE_ACT: 'braidr:save-act',
+  BRAIDR_DELETE_ACT: 'braidr:delete-act',
+  BRAIDR_REORDER_ACTS: 'braidr:reorder-acts',
+  BRAIDR_LOAD_CHARACTER_PSYCHOLOGY: 'braidr:load-character-psychology',
+  BRAIDR_SAVE_CHARACTER_PSYCHOLOGY: 'braidr:save-character-psychology',
 } as const;

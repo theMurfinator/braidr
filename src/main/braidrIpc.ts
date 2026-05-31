@@ -6,7 +6,7 @@ import type {
   WorldEvent, NotesIndex, NoteMetadata, Chapter, FontSettings,
   AllFontSettings,
 } from '../shared/types';
-import type { BraidrDB, ChapterRow, TableViewRow } from './database';
+import type { BraidrDB, ChapterRow, TableViewRow, ActRow, CharacterPsychologyRow } from './database';
 
 function getDb(braidrPath: string): BraidrDB {
   const { openDatabase } = require('./database') as typeof import('./database');
@@ -115,10 +115,15 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     const plotPoints: PlotPoint[] = ppRows.map(row => ({
       id: row.id,
       characterId: row.character_id,
+      actId: (row as any).act_id ?? null,
       title: row.title,
       expectedSceneCount: row.expected_scene_count,
       description: row.description || '',
       order: row.display_order,
+      startingState: (row as any).starting_state ?? '',
+      endingState: (row as any).ending_state ?? '',
+      polarity: (row as any).polarity ?? '',
+      transformation: (row as any).transformation ?? '',
     }));
 
     // Tags
@@ -163,6 +168,9 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       wordCount: row.word_count ?? undefined,
       chapterId: row.chapter_id,
       sceneOrder: row.scene_order,
+      stationId: null,
+      polarity: (row as any).polarity ?? '',
+      transformation: (row as any).transformation ?? '',
     }));
 
     // Connections
@@ -420,6 +428,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
         showInlineLabels,
         timelineDates,
         worldEvents,
+        acts: db.getAllActs(),
         _migrated: false,
       },
     };
@@ -764,7 +773,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_CREATE_CHARACTER, (_event, braidrPath: string
         id: sceneId, characterId: charId, sceneNumber: 1,
         title: 'First scene description here', content: 'First scene description here',
         tags: [], timelinePosition: null, isHighlighted: false, notes: [], plotPointId: ppId,
-        chapterId: null, sceneOrder: 0,
+        chapterId: null, sceneOrder: 0, stationId: null, polarity: '', transformation: '',
       } as Scene,
     };
   } catch (error) {
@@ -1102,4 +1111,58 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_ASSIGN_SCENE_TO_CHAPTER, (
   } catch (error) {
     return { success: false, error: String(error) };
   }
+});
+
+// ── Acts ──────────────────────────────────────────────────────────────────────
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_ACTS, (_event, braidrPath: string, characterId: string) => {
+  try {
+    const db = getDb(braidrPath);
+    return { success: true, data: db.getActs(characterId) };
+  } catch (err) { return { success: false, error: String(err) }; }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ACT, (_event, braidrPath: string, act: ActRow) => {
+  try {
+    const db = getDb(braidrPath);
+    db.upsertAct(act);
+    db.checkpoint();
+    return { success: true };
+  } catch (err) { return { success: false, error: String(err) }; }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_DELETE_ACT, (_event, braidrPath: string, actId: string) => {
+  try {
+    const db = getDb(braidrPath);
+    db.deleteAct(actId);
+    db.checkpoint();
+    return { success: true };
+  } catch (err) { return { success: false, error: String(err) }; }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_REORDER_ACTS, (_event, braidrPath: string, characterId: string, orderedIds: string[]) => {
+  try {
+    const db = getDb(braidrPath);
+    db.reorderActs(characterId, orderedIds);
+    db.checkpoint();
+    return { success: true };
+  } catch (err) { return { success: false, error: String(err) }; }
+});
+
+// ── Character Psychology ───────────────────────────────────────────────────────
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_CHARACTER_PSYCHOLOGY, (_event, braidrPath: string, characterId: string) => {
+  try {
+    const db = getDb(braidrPath);
+    return { success: true, data: db.getCharacterPsychology(characterId) ?? null };
+  } catch (err) { return { success: false, error: String(err) }; }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_CHARACTER_PSYCHOLOGY, (_event, braidrPath: string, row: CharacterPsychologyRow) => {
+  try {
+    const db = getDb(braidrPath);
+    db.upsertCharacterPsychology(row);
+    db.checkpoint();
+    return { success: true };
+  } catch (err) { return { success: false, error: String(err) }; }
 });

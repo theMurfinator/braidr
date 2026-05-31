@@ -20479,3 +20479,149 @@ textarea.table-cell-input {
 .table-row.drag-over td {
   border-top: 2px solid var(--accent);
 }
+
+/* ── Arc View ── */
+.arc-view {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg-primary); position: relative;
+  font-family: var(--font-ui);
+}
+
+.arc-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr 1fr 1fr 80px 1fr;
+}
+
+.arc-col-headers {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--bg-primary);
+  border-bottom: 2px solid var(--text-primary);
+  padding: 12px 0 8px;
+  flex-shrink: 0;
+}
+.arc-col-headers.arc-grid > div {
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--text-muted); padding-right: 14px;
+}
+.arc-col-center { text-align: center; }
+
+.arc-scroll { flex: 1; overflow-y: auto; padding-bottom: 80px; }
+
+.arc-row {
+  border-bottom: 1px solid var(--border);
+  transition: background .1s;
+}
+.arc-row.arc-grid > * {
+  padding: 10px 14px 10px 0;
+  display: flex; flex-direction: column;
+  justify-content: flex-start; align-items: flex-start;
+  font-size: 12px; color: var(--text-secondary); line-height: 1.55;
+}
+.arc-row:hover { background: var(--bg-hover); }
+.arc-novel { border-bottom: 2px solid var(--border) !important; }
+
+.arc-name-cell {
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 0; padding-left: 0 !important;
+}
+.arc-toggle {
+  width: 16px; font-size: 9px; color: var(--text-muted); cursor: pointer;
+  flex-shrink: 0; padding-top: 3px; text-align: center; user-select: none;
+  transition: color .1s;
+}
+.arc-toggle:hover { color: var(--accent); }
+
+.arc-name-inner { display: flex; flex-direction: column; gap: 2px; flex: 1; padding: 2px 14px 2px 4px; }
+.arc-name-tag { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 1px; }
+.arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); }
+.arc-novel-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+
+.arc-novel .arc-name-text { font-size: 15px; font-weight: 700; }
+.arc-act .arc-name-text { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.arc-section .arc-name-text { font-size: 13px; font-weight: 600; }
+.arc-scene .arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); }
+
+.arc-cell { font-size: 12px; color: var(--text-secondary); }
+.arc-cell-dim { opacity: .25; }
+.arc-cell-text { font-size: 12px; color: var(--text-muted); }
+.arc-pol-col { justify-content: center !important; align-items: center !important; padding-right: 0 !important; }
+
+.arc-ghost { opacity: .35; cursor: pointer; border-bottom: none; }
+.arc-ghost:hover { opacity: 1; background: var(--bg-hover); }
+.arc-ghost-label { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 10px 14px 10px 4px; }
+
+.arc-editable-display {
+  display: block; min-height: 18px; cursor: text; width: 100%;
+}
+.arc-editable-display:hover { color: var(--text-primary) !important; }
+.arc-editable-input {
+  font-family: var(--font-ui); font-size: 12px; line-height: 1.55;
+  background: transparent; border: none; border-bottom: 1.5px solid var(--accent);
+  outline: none; resize: none; padding: 2px 0; color: var(--text-primary);
+}
+
+.arc-pol-badge {
+  display: inline-block; padding: 3px 9px; border-radius: 5px;
+  font-size: 11px; font-weight: 800; cursor: pointer;
+  border: 1px dashed var(--border);
+}
+.arc-pol-picker {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  z-index: 50; background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.1);
+  padding: 4px; display: flex; flex-direction: column; gap: 2px; min-width: 80px;
+}
+.arc-pol-option {
+  padding: 4px 10px; border-radius: 4px; cursor: pointer;
+  font-size: 11px; font-weight: 800; text-align: center; display: block;
+}
+.arc-pol-option:hover { opacity: .8; }
+
+.arc-hub-btn {
+  position: absolute; bottom: 20px; right: 24px;
+  padding: 8px 16px; background: var(--accent); color: white;
+  border: none; border-radius: 8px; font-size: 12px; font-weight: 600;
+  font-family: var(--font-ui); cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99,102,241,.25);
+}
+.arc-hub-btn:hover { filter: brightness(1.1); }
+
+/* ── Character Hub Panel ── */
+.hub-overlay {
+  position: fixed; inset: 0; z-index: 200; background: transparent;
+}
+.hub-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 360px;
+  background: var(--bg-primary); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0,0,0,.1); z-index: 201;
+}
+.hub-panel-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  font-family: var(--font-ui); font-size: 13px; font-weight: 600;
+  color: var(--text-primary); flex-shrink: 0;
+}
+.hub-char-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.hub-panel-title { flex: 1; }
+.hub-panel-close {
+  background: none; border: none; font-size: 20px; cursor: pointer;
+  color: var(--text-muted); padding: 2px 6px; border-radius: 4px; font-family: inherit;
+}
+.hub-panel-close:hover { background: var(--bg-hover); }
+.hub-panel-body {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 16px;
+  font-family: var(--font-ui);
+}
+.hub-field { display: flex; flex-direction: column; gap: 3px; }
+.hub-field-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.hub-field-sub { font-size: 11px; color: var(--text-muted); line-height: 1.4; margin-bottom: 4px; }
+.hub-field-input {
+  font-family: var(--font-ui); font-size: 13px; line-height: 1.55;
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: 7px; padding: 8px 10px; color: var(--text-primary);
+  resize: none; outline: none; width: 100%; transition: border-color .15s;
+}
+.hub-field-input:focus { border-color: var(--accent); }

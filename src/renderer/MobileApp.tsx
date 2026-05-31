@@ -354,6 +354,9 @@ export function MobileApp() {
       plotPointId,
       chapterId: null,
       sceneOrder: 0,
+      stationId: null,
+      polarity: '',
+      transformation: '',
     };
 
     const newCharScenes = [...charScenes];
