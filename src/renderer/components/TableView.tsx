@@ -22,6 +22,7 @@ interface TableViewProps {
   chapters?: Chapter[];
   onMovePovScene: (sceneId: string, targetIndex: number, targetPlotPointId: string | null) => void;
   onAddSceneForCharacter: (characterId: string) => void;
+  onReorderScenes: (orderedSceneIds: string[]) => void;
 }
 
 type SortField = 'scene' | 'character' | 'status' | 'words' | 'plotPoint' | string;
@@ -62,6 +63,7 @@ export default function TableView({
   chapters,
   onMovePovScene,
   onAddSceneForCharacter,
+  onReorderScenes,
 }: TableViewProps) {
   const [currentViewId, setCurrentViewId] = useState<string | null>(null);
 
@@ -242,6 +244,14 @@ export default function TableView({
   const addSceneMenuRef = useRef<HTMLDivElement>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [showPovPanel, setShowPovPanel] = useState(false);
+  const [dragRowId, setDragRowId] = useState<string | null>(null);
+  const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const offset = showPovPanel ? '320px' : '0px';
+    document.documentElement.style.setProperty('--pov-panel-offset', offset);
+    return () => { document.documentElement.style.setProperty('--pov-panel-offset', '0px'); };
+  }, [showPovPanel]);
 
   // Column resize handlers
   const handleResizeStart = (e: React.MouseEvent, columnId: string) => {
@@ -743,6 +753,7 @@ export default function TableView({
       <div className="table-view-wrapper">
         <table className="table-view-table">
           <colgroup>
+            {groupBy === 'none' && <col style={{ width: 28, minWidth: 28 }} />}
             {orderedColumns
               .filter(col => visibleColumns.has(col.id))
               .map(col => (
@@ -757,6 +768,7 @@ export default function TableView({
           </colgroup>
           <thead>
             <tr>
+              {groupBy === 'none' && <th className="table-drag-handle-cell" />}
               {orderedColumns
                 .filter(col => visibleColumns.has(col.id))
                 .map(col => (
@@ -1050,16 +1062,40 @@ export default function TableView({
               return null;
             };
 
+            const canDrag = groupBy === 'none';
             return (
               <tr
                 key={scene.id}
-                className={`table-row ${povReorderedScenes?.has(scene.id) ? 'pov-reordered' : ''} ${selectedSceneId === scene.id ? 'selected' : ''}`}
+                className={`table-row ${povReorderedScenes?.has(scene.id) ? 'pov-reordered' : ''} ${selectedSceneId === scene.id ? 'selected' : ''} ${dragOverRowId === scene.id && dragRowId !== scene.id ? 'drag-over' : ''} ${dragRowId === scene.id ? 'dragging' : ''}`}
+                draggable={canDrag}
+                onDragStart={canDrag ? (e) => { e.dataTransfer.effectAllowed = 'move'; setDragRowId(scene.id); } : undefined}
+                onDragOver={canDrag ? (e) => { e.preventDefault(); setDragOverRowId(scene.id); } : undefined}
+                onDragLeave={canDrag ? () => setDragOverRowId(null) : undefined}
+                onDrop={canDrag ? (e) => {
+                  e.preventDefault();
+                  if (dragRowId && dragRowId !== scene.id) {
+                    const oldIndex = sortedScenes.findIndex(s => s.id === dragRowId);
+                    const newIndex = sortedScenes.findIndex(s => s.id === scene.id);
+                    if (oldIndex !== -1 && newIndex !== -1) {
+                      const reordered = [...sortedScenes];
+                      const [moved] = reordered.splice(oldIndex, 1);
+                      reordered.splice(newIndex, 0, moved);
+                      onReorderScenes(reordered.map(s => s.id));
+                    }
+                  }
+                  setDragRowId(null);
+                  setDragOverRowId(null);
+                } : undefined}
+                onDragEnd={canDrag ? () => { setDragRowId(null); setDragOverRowId(null); } : undefined}
                 onClick={() => {
                   setSelectedSceneId(scene.id);
                   setShowPovPanel(true);
                   onSceneClick(sceneKey);
                 }}
               >
+                {canDrag && (
+                  <td className="table-drag-handle-cell" onClick={e => e.stopPropagation()}>⠿</td>
+                )}
                 {orderedColumns
                   .filter(col => visibleColumns.has(col.id))
                   .map(col => renderCell(col.id))}

@@ -2629,6 +2629,35 @@ function App() {
     await handleAddSceneToInbox(characterId);
   }, [projectData, handleAddSceneToInbox]);
 
+  const handleReorderScenesFromTable = useCallback((orderedIds: string[]) => {
+    if (!projectData) return;
+    // orderedIds is the visible (possibly filtered) scenes in new order.
+    // Re-insert them into the full scene list at their original position slots,
+    // then assign sequential timelinePositions to everything.
+    const visibleSet = new Set(orderedIds);
+    const allSorted = [...projectData.scenes]
+      .filter(s => s.timelinePosition !== null)
+      .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+
+    // Build new order: walk allSorted, replacing visible scenes with the new order
+    let visibleIdx = 0;
+    const newOrder = allSorted.map(s => {
+      if (visibleSet.has(s.id)) {
+        return projectData.scenes.find(sc => sc.id === orderedIds[visibleIdx++])!;
+      }
+      return s;
+    });
+
+    const updatedScenes = projectData.scenes.map(s => {
+      const pos = newOrder.findIndex(o => o.id === s.id);
+      return pos !== -1 ? { ...s, timelinePosition: pos + 1 } : s;
+    });
+
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+    saveTimelineData(updatedScenes, sceneConnections);
+  }, [projectData, sceneConnections, saveTimelineData]);
+
   const handleInsertSceneOnTimeline = async (characterId: string, plotPointId: string, date: string): Promise<string | null> => {
     if (!projectData) return null;
 
@@ -3435,6 +3464,7 @@ function App() {
                   onTableViewsChange={handleSaveTableViews}
                   onMovePovScene={handleMovePovSceneFromTable}
                   onAddSceneForCharacter={handleAddSceneForCharacterFromTable}
+                  onReorderScenes={handleReorderScenesFromTable}
                   onSceneChange={handleSceneChange}
                 />
                 {listFloatingEditor && (
