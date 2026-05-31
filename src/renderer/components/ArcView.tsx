@@ -112,7 +112,7 @@ export default function ArcView({
   characterColors,
   psychology,
   onSaveAct,
-  onDeleteAct,
+  onDeleteAct: _onDeleteAct,
   onSavePlotPointArcFields,
   onLoadPsychology,
   onSavePsychology,
