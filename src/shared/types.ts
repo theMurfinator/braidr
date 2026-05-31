@@ -21,6 +21,9 @@ export interface Scene {
   chapterId: string | null;  // null = not assigned to a chapter
   sceneOrder: number;        // position within the chapter (0-indexed)
   wordCount?: number; // Optional word count for pacing visualization
+  stationId: string | null;
+  polarity: string;
+  transformation: string;
 }
 
 export interface Chapter {

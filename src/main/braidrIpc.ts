@@ -168,6 +168,9 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       wordCount: row.word_count ?? undefined,
       chapterId: row.chapter_id,
       sceneOrder: row.scene_order,
+      stationId: null,
+      polarity: (row as any).polarity ?? '',
+      transformation: (row as any).transformation ?? '',
     }));
 
     // Connections
@@ -770,7 +773,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_CREATE_CHARACTER, (_event, braidrPath: string
         id: sceneId, characterId: charId, sceneNumber: 1,
         title: 'First scene description here', content: 'First scene description here',
         tags: [], timelinePosition: null, isHighlighted: false, notes: [], plotPointId: ppId,
-        chapterId: null, sceneOrder: 0,
+        chapterId: null, sceneOrder: 0, stationId: null, polarity: '', transformation: '',
       } as Scene,
     };
   } catch (error) {

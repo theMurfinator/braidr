@@ -217,6 +217,9 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
         plotPointId: currentPlotPoint?.id || null,
         chapterId: null,
         sceneOrder: 0,
+        stationId: null,
+        polarity: '',
+        transformation: '',
       };
       continue;
     }

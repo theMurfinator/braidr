@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Character, Act, PlotPoint, Scene, CharacterPsychology } from '../../shared/types';
 import CharacterHubPanel from './CharacterHubPanel';
 
@@ -121,6 +121,12 @@ export default function ArcView({
   const [showHub, setShowHub] = useState(false);
   const hubLoadedRef = useRef(false);
 
+  // Reset hub cache when character changes
+  useEffect(() => {
+    hubLoadedRef.current = false;
+    setShowHub(false);
+  }, [selectedCharacterId]);
+
   const character = characters.find(c => c.id === selectedCharacterId);
   const charColor = characterColors[selectedCharacterId] || '#6366f1';
 
@@ -178,9 +184,9 @@ export default function ArcView({
       <div className="arc-cell arc-cell-dim"></div>
       <div className="arc-cell arc-cell-dim"></div>
       <div className="arc-cell arc-pol-col">
-        <PolarityCell value={(scene as any).polarity || ''} onChange={() => {}} />
+        <PolarityCell value={scene.polarity || ''} onChange={() => {}} />
       </div>
-      <div className="arc-cell"><span className="arc-cell-text">{(scene as any).transformation || ''}</span></div>
+      <div className="arc-cell"><span className="arc-cell-text">{scene.transformation || ''}</span></div>
     </div>
   );
 
