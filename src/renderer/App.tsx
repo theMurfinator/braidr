@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -47,8 +47,9 @@ import BraidedListView from './components/BraidedListView';
 import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
 import { CompareView } from './components/branches/CompareView';
+import ArcView from './components/ArcView';
 
-type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
+type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account' | 'arc';
 type BraidedSubMode = 'list' | 'table' | 'rails';
 
 function App() {
@@ -162,6 +163,8 @@ function App() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const chaptersRef = useRef<Chapter[]>([]);
   const [tableViews, setTableViews] = useState<TableViewConfig[]>([]);
+  const [acts, setActs] = useState<Act[]>([]);
+  const [characterPsychologies, setCharacterPsychologies] = useState<Record<string, CharacterPsychology>>({});
   const [characterColors, setCharacterColors] = useState<Record<string, string>>({});
   const characterColorsRef = useRef<Record<string, string>>({});
   const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
@@ -1166,6 +1169,14 @@ function App() {
     const loadedTableViews = await dataService.loadTableViews();
     setTableViews(loadedTableViews);
 
+    // Load acts for all characters
+    const allActs: Act[] = [];
+    for (const char of data.characters) {
+      const charActs = await dataService.loadActs(char.id);
+      allActs.push(...charActs);
+    }
+    setActs(allActs);
+
     // Select first character by default
     if (data.characters.length > 0) {
       setSelectedCharacterId(data.characters[0].id);
@@ -1631,6 +1642,47 @@ function App() {
     setTableViews(views);
     await dataService.saveTableViews(views);
   }, []);
+
+  // Arc handlers
+  const handleSaveAct = useCallback(async (act: Act) => {
+    setActs(prev => {
+      const idx = prev.findIndex(a => a.id === act.id);
+      return idx >= 0 ? prev.map(a => a.id === act.id ? act : a) : [...prev, act];
+    });
+    await dataService.saveAct(act);
+  }, []);
+
+  const handleDeleteAct = useCallback(async (actId: string) => {
+    setActs(prev => prev.filter(a => a.id !== actId));
+    await dataService.deleteAct(actId);
+  }, []);
+
+  const handleSavePlotPointArcFields = useCallback(async (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'title' | 'description'>>) => {
+    if (!projectData) return;
+    const updatedPlotPoints = projectData.plotPoints.map(pp =>
+      pp.id === plotPointId ? { ...pp, ...fields } : pp
+    );
+    setProjectData({ ...projectData, plotPoints: updatedPlotPoints });
+    const pp = projectData.plotPoints.find(p => p.id === plotPointId);
+    if (pp) {
+      const charPlotPoints = updatedPlotPoints.filter(p => p.characterId === pp.characterId);
+      const charScenes = projectData.scenes.filter(s => s.characterId === pp.characterId);
+      const char = projectData.characters.find(c => c.id === pp.characterId);
+      if (char) await dataService.saveCharacterOutline(char, charPlotPoints, charScenes);
+    }
+  }, [projectData]);
+
+  const handleSaveCharacterPsychology = useCallback(async (psychology: CharacterPsychology) => {
+    setCharacterPsychologies(prev => ({ ...prev, [psychology.characterId]: psychology }));
+    await dataService.saveCharacterPsychology(psychology);
+  }, []);
+
+  const handleLoadCharacterPsychology = useCallback(async (characterId: string): Promise<CharacterPsychology | null> => {
+    if (characterPsychologies[characterId]) return characterPsychologies[characterId];
+    const p = await dataService.loadCharacterPsychology(characterId);
+    if (p) setCharacterPsychologies(prev => ({ ...prev, [characterId]: p }));
+    return p;
+  }, [characterPsychologies]);
 
   // Chapter handlers
   const handleAddChapter = async (title: string) => {
@@ -3222,7 +3274,7 @@ function App() {
     return (
       <div
         className={`main-content main-content--${mode}`}
-        style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account'
+        style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account' || mode === 'arc'
           ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, overflow: 'hidden' }
           : undefined}
       >
@@ -3232,7 +3284,7 @@ function App() {
           <div
             className={`scene-list scene-list--${mode}`}
 
-            style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account'
+            style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account' || mode === 'arc'
               ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, margin: 0, maxWidth: 'none', minHeight: 0 }
               : undefined}
           >
@@ -3373,6 +3425,27 @@ function App() {
                 onTasksChange={handleTasksChange}
                 chapters={chapters}
               />
+            ) : mode === 'arc' ? (
+              // Arc Planning View
+              selectedCharacterId ? (
+                <ArcView
+                  characters={projectData.characters}
+                  selectedCharacterId={selectedCharacterId}
+                  onSelectCharacter={setSelectedCharacterId}
+                  acts={acts.filter(a => a.characterId === selectedCharacterId)}
+                  plotPoints={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
+                  scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
+                  characterColors={characterColors}
+                  psychology={characterPsychologies[selectedCharacterId] ?? null}
+                  onSaveAct={handleSaveAct}
+                  onDeleteAct={handleDeleteAct}
+                  onSavePlotPointArcFields={handleSavePlotPointArcFields}
+                  onLoadPsychology={handleLoadCharacterPsychology}
+                  onSavePsychology={handleSaveCharacterPsychology}
+                />
+              ) : (
+                <div className="loading">Select a character to view arc planning.</div>
+              )
             ) : mode === 'pov' ? (
               // POV View with plot points and table of contents
               <DndContext
@@ -3617,6 +3690,15 @@ function App() {
       <nav className="app-sidebar" aria-label="Main navigation">
         <img src={braidrIcon} alt="Braidr" className="app-sidebar-logo" />
         <button
+          className={`app-sidebar-btn ${viewMode === 'arc' ? 'active' : ''}`}
+          onClick={() => setViewMode('arc')}
+          title="Arc Planning"
+          aria-label="Arc view"
+        >
+          <span className="app-sidebar-icon">◈</span>
+          <span className="app-sidebar-label">Arc</span>
+        </button>
+        <button
           className={`app-sidebar-btn ${viewMode === 'pov' ? 'active' : ''}`}
           onClick={() => setViewMode('pov')}
           title="POV"
@@ -3762,7 +3844,7 @@ function App() {
       {/* Unified Toolbar */}
       <div className="app-toolbar">
         <div className="toolbar-left">
-          {viewMode === 'pov' ? (
+          {(viewMode === 'pov' || viewMode === 'arc') ? (
             <div className="character-selector">
               <select
                 value={selectedCharacterId || ''}

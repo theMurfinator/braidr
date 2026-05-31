@@ -1,5 +1,5 @@
 /** View types that can appear in a tab */
-export type TabViewType = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account';
+export type TabViewType = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account' | 'arc';
 
 /** View-specific parameters that distinguish tabs of the same type */
 export type TabParams =
@@ -10,7 +10,8 @@ export type TabParams =
   | { type: 'tasks' }
   | { type: 'timeline' }
   | { type: 'analytics' }
-  | { type: 'account' };
+  | { type: 'account' }
+  | { type: 'arc' };
 
 export interface Tab {
   id: string;
@@ -69,5 +70,6 @@ export function defaultTabTitle(type: TabViewType): string {
     case 'timeline': return 'Timeline';
     case 'analytics': return 'Analytics';
     case 'account': return 'Account';
+    case 'arc': return 'Arc';
   }
 }
