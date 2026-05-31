@@ -1,14 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Scene, Character, MetadataFieldDef, Tag, TableViewConfig, Chapter } from '../../shared/types';
+import { Scene, Character, MetadataFieldDef, Tag, TableViewConfig, FilterRule, Chapter } from '../../shared/types';
+import TablePovSlideover from './TablePovSlideover';
 
 type FilterOperator = 'is' | 'is_not' | 'is_blank' | 'is_not_blank' | 'contains';
-
-interface FilterRule {
-  id: string;
-  field: string;
-  operator: FilterOperator;
-  value: string;
-}
 
 interface TableViewProps {
   scenes: Scene[];
@@ -26,6 +20,8 @@ interface TableViewProps {
   onSceneChange?: (sceneId: string, content: string, notes: string[]) => void;
   povReorderedScenes?: Set<string>;
   chapters?: Chapter[];
+  onMovePovScene: (sceneId: string, targetIndex: number, targetPlotPointId: string | null) => void;
+  onAddSceneForCharacter: (characterId: string) => void;
 }
 
 type SortField = 'scene' | 'character' | 'status' | 'words' | 'plotPoint' | string;
@@ -54,27 +50,20 @@ export default function TableView({
   metadataFieldDefs,
   sceneMetadata,
   tags: _tags,
-  tableViews: _tableViews,
+  tableViews,
   plotPoints,
   characterColors,
   onSceneClick,
   onMetadataChange,
   onWordCountChange,
-  onTableViewsChange: _onTableViewsChange,
+  onTableViewsChange,
   onSceneChange: _onSceneChange,
   povReorderedScenes,
   chapters,
+  onMovePovScene,
+  onAddSceneForCharacter,
 }: TableViewProps) {
-  // Use localStorage for now instead of props
-  const [savedViews, setSavedViews] = useState<TableViewConfig[]>(() => {
-    const saved = localStorage.getItem('table-saved-views');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [currentViewId, setCurrentViewId] = useState<string | null>(() => {
-    const saved = localStorage.getItem('table-current-view');
-    return saved || null;
-  });
+  const [currentViewId, setCurrentViewId] = useState<string | null>(null);
 
   const [sortField, setSortField] = useState<SortField>('scene');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -87,10 +76,9 @@ export default function TableView({
   const [showFilterBuilder, setShowFilterBuilder] = useState(false);
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
 
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
-    const saved = localStorage.getItem('table-visible-columns');
-    return saved ? new Set(JSON.parse(saved)) : new Set(['scene', 'character', 'status', 'words', 'plotPoint']);
-  });
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
+    new Set(['scene', 'character', 'status', 'words', 'plotPoint'])
+  );
 
   // Column widths and order
   const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
@@ -102,15 +90,9 @@ export default function TableView({
     synopsis: 200,
   };
 
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
-    const saved = localStorage.getItem('table-column-widths');
-    return saved ? { ...DEFAULT_COLUMN_WIDTHS, ...JSON.parse(saved) } : { ...DEFAULT_COLUMN_WIDTHS };
-  });
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({ ...DEFAULT_COLUMN_WIDTHS });
 
-  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
-    const saved = localStorage.getItem('table-column-order');
-    return saved ? JSON.parse(saved) : ['scene', 'character', 'status', 'words', 'plotPoint'];
-  });
+  const [columnOrder, setColumnOrder] = useState<string[]>(['scene', 'character', 'status', 'words', 'plotPoint']);
 
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
@@ -255,33 +237,11 @@ export default function TableView({
     setEditValue('');
   };
 
-  // Persist visible columns
-  useEffect(() => {
-    localStorage.setItem('table-visible-columns', JSON.stringify(Array.from(visibleColumns)));
-  }, [visibleColumns]);
-
-  // Persist saved views
-  useEffect(() => {
-    localStorage.setItem('table-saved-views', JSON.stringify(savedViews));
-  }, [savedViews]);
-
-  // Persist current view
-  useEffect(() => {
-    if (currentViewId) {
-      localStorage.setItem('table-current-view', currentViewId);
-    } else {
-      localStorage.removeItem('table-current-view');
-    }
-  }, [currentViewId]);
-
-  // Persist column widths and order
-  useEffect(() => {
-    localStorage.setItem('table-column-widths', JSON.stringify(columnWidths));
-  }, [columnWidths]);
-
-  useEffect(() => {
-    localStorage.setItem('table-column-order', JSON.stringify(columnOrder));
-  }, [columnOrder]);
+  const [groupBy, setGroupBy] = useState<'none' | 'plotPoint' | 'chapter'>('none');
+  const [showAddSceneMenu, setShowAddSceneMenu] = useState(false);
+  const addSceneMenuRef = useRef<HTMLDivElement>(null);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  const [showPovPanel, setShowPovPanel] = useState(false);
 
   // Column resize handlers
   const handleResizeStart = (e: React.MouseEvent, columnId: string) => {
@@ -349,44 +309,49 @@ export default function TableView({
   };
 
   // View management functions
-  const saveCurrentView = () => {
-    if (!newViewName.trim()) return;
-
-    const newView: TableViewConfig = {
-      id: Date.now().toString(),
-      name: newViewName.trim(),
-      visibleColumns: Array.from(visibleColumns),
-      columnWidths: {},
-      columnOrder: Array.from(visibleColumns),
-      sortField,
-      sortDirection,
-      filterRules: [],
-      groupBy: 'none',
-      createdAt: Date.now(),
-    };
-
-    setSavedViews(prev => [...prev, newView]);
-    setNewViewName('');
-    setShowNewViewDialog(false);
-    setCurrentViewId(newView.id);
-  };
-
   const loadView = (viewId: string) => {
-    const view = savedViews.find(v => v.id === viewId);
+    const view = tableViews.find(v => v.id === viewId);
     if (!view) return;
-
+    setCurrentViewId(viewId);
     setVisibleColumns(new Set(view.visibleColumns));
+    setColumnWidths({ ...DEFAULT_COLUMN_WIDTHS, ...view.columnWidths });
+    setColumnOrder(view.columnOrder.length ? view.columnOrder : ['scene', 'character', 'status', 'words', 'plotPoint']);
     setSortField(view.sortField as SortField);
     setSortDirection(view.sortDirection);
-    setCurrentViewId(viewId);
+    setFilterRules(view.filterRules || []);
+    setGroupBy(view.groupBy || 'none');
     setShowViewMenu(false);
   };
 
+  const saveCurrentView = () => {
+    if (!newViewName.trim()) return;
+    const id = `view-${Date.now()}`;
+    const newView: TableViewConfig = {
+      id,
+      name: newViewName.trim(),
+      isDefault: false,
+      visibleColumns: Array.from(visibleColumns),
+      columnWidths,
+      columnOrder,
+      sortField,
+      sortDirection,
+      filterRules,
+      groupBy,
+      createdAt: Date.now(),
+    };
+    onTableViewsChange([...tableViews, newView]);
+    setCurrentViewId(id);
+    setNewViewName('');
+    setShowNewViewDialog(false);
+  };
+
+  const setDefaultView = (viewId: string) => {
+    onTableViewsChange(tableViews.map(v => ({ ...v, isDefault: v.id === viewId ? !v.isDefault : false })));
+  };
+
   const deleteView = (viewId: string) => {
-    setSavedViews(prev => prev.filter(v => v.id !== viewId));
-    if (currentViewId === viewId) {
-      setCurrentViewId(null);
-    }
+    onTableViewsChange(tableViews.filter(v => v.id !== viewId));
+    if (currentViewId === viewId) setCurrentViewId(null);
   };
 
   const resetToDefault = () => {
@@ -512,105 +477,124 @@ export default function TableView({
     }
   }, [showColumnMenu]);
 
+  // Load default view on first load
+  useEffect(() => {
+    if (tableViews.length === 0) return;
+    const defaultView = tableViews.find(v => v.isDefault);
+    if (defaultView) loadView(defaultView.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableViews.length > 0 ? 'loaded' : 'empty']);
+
   return (
     <div className="table-view">
       {/* Table Controls */}
       <div className="table-view-controls">
         <div className="table-view-controls-left">
-          {/* View Selector */}
-          {currentViewId && savedViews.find(v => v.id === currentViewId) && (
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginRight: '12px' }}>
-              {savedViews.find(v => v.id === currentViewId)?.name}
-            </span>
-          )}
-          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-            {sortedScenes.length} scenes
-          </span>
+          <span className="table-scene-count">{sortedScenes.length} scenes</span>
 
-          {/* Filter Toggle */}
+          <div className="table-view-group-by">
+            <span className="table-control-label">Group by</span>
+            <select
+              className="table-control-select"
+              value={groupBy}
+              onChange={e => setGroupBy(e.target.value as 'none' | 'plotPoint' | 'chapter')}
+            >
+              <option value="none">None</option>
+              <option value="plotPoint">Section</option>
+              <option value="chapter">Chapter</option>
+            </select>
+          </div>
+
           <button
             className={`table-control-btn ${filterRules.length > 0 ? 'active' : ''}`}
             onClick={() => setShowFilterBuilder(!showFilterBuilder)}
           >
             Filter{filterRules.length > 0 ? ` (${filterRules.length})` : ''}
           </button>
-        </div>
-        <div className="table-view-controls-right">
-          {/* View Menu */}
-          <div className="table-view-dropdown">
+
+          <div className="table-view-dropdown" ref={addSceneMenuRef}>
             <button
-              className="table-control-btn"
-              onClick={() => setShowViewMenu(!showViewMenu)}
+              className="table-control-btn table-control-btn-add"
+              onClick={() => setShowAddSceneMenu(!showAddSceneMenu)}
             >
-              Views
+              + Add Scene
             </button>
-            {showViewMenu && (
-              <div className="table-view-dropdown-menu" style={{ minWidth: '220px' }}>
-              {savedViews.map(view => (
-                <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px' }}>
+            {showAddSceneMenu && (
+              <div className="table-view-dropdown-menu">
+                {characters.map(char => (
                   <div
+                    key={char.id}
                     className="table-view-dropdown-item"
-                    style={{ flex: 1, padding: '8px' }}
-                    onClick={() => loadView(view.id)}
+                    onClick={() => {
+                      onAddSceneForCharacter(char.id);
+                      setShowAddSceneMenu(false);
+                    }}
                   >
-                    {view.name}
+                    <span
+                      className="table-char-dot"
+                      style={{ background: characterColors[char.id] || '#9e9e9e' }}
+                    />
+                    {char.name}
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteView(view.id);
-                    }}
-                    style={{
-                      padding: '4px 8px',
-                      fontSize: '11px',
-                      background: 'transparent',
-                      border: '1px solid var(--border)',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      color: 'var(--text-muted)',
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              {savedViews.length > 0 && <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />}
-              <div
-                className="table-view-dropdown-item"
-                onClick={() => {
-                  setShowViewMenu(false);
-                  setShowNewViewDialog(true);
-                }}
-              >
-                + Save Current View
-              </div>
-              <div className="table-view-dropdown-item" onClick={resetToDefault}>
-                Reset to Default
-              </div>
+                ))}
               </div>
             )}
           </div>
+        </div>
 
-          {/* Columns Menu */}
+        <div className="table-view-controls-right">
           <div className="table-view-dropdown" ref={columnMenuRef}>
-            <button
-              className="table-control-btn"
-              onClick={() => setShowColumnMenu(!showColumnMenu)}
-            >
+            <button className="table-control-btn" onClick={() => setShowColumnMenu(!showColumnMenu)}>
               Columns
             </button>
             {showColumnMenu && (
               <div className="table-view-dropdown-menu">
                 {allColumns.map(col => (
-                  <div
-                    key={col.id}
-                    className="table-view-dropdown-item"
-                    onClick={() => toggleColumn(col.id)}
-                  >
+                  <div key={col.id} className="table-view-dropdown-item" onClick={() => toggleColumn(col.id)}>
                     <div className={`table-view-dropdown-checkbox ${visibleColumns.has(col.id) ? 'checked' : ''}`} />
                     <span>{col.label}</span>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          <div className="table-view-dropdown">
+            <button className="table-control-btn" onClick={() => setShowViewMenu(!showViewMenu)}>
+              {currentViewId && tableViews.find(v => v.id === currentViewId)
+                ? tableViews.find(v => v.id === currentViewId)!.name
+                : 'Views'}
+            </button>
+            {showViewMenu && (
+              <div className="table-view-dropdown-menu" style={{ minWidth: '220px' }}>
+                {tableViews.map(view => (
+                  <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px' }}>
+                    <div className="table-view-dropdown-item" style={{ flex: 1, padding: '8px' }} onClick={() => loadView(view.id)}>
+                      {view.isDefault && <span style={{ color: 'var(--accent)', marginRight: 4 }}>★</span>}
+                      {view.name}
+                    </div>
+                    <button
+                      title={view.isDefault ? 'Remove default' : 'Set as default'}
+                      onClick={e => { e.stopPropagation(); setDefaultView(view.id); }}
+                      style={{ padding: '4px 6px', fontSize: '11px', background: view.isDefault ? 'var(--accent)' : 'transparent', color: view.isDefault ? 'white' : 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      ★
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); deleteView(view.id); }}
+                      style={{ padding: '4px 8px', fontSize: '11px', background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-muted)' }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {tableViews.length > 0 && <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />}
+                <div className="table-view-dropdown-item" onClick={() => { setShowViewMenu(false); setShowNewViewDialog(true); }}>
+                  + Save Current View
+                </div>
+                <div className="table-view-dropdown-item" onClick={resetToDefault}>
+                  Reset to Default
+                </div>
               </div>
             )}
           </div>
@@ -1032,7 +1016,15 @@ export default function TableView({
             };
 
             return (
-              <tr key={scene.id} className={`table-row ${povReorderedScenes?.has(scene.id) ? 'pov-reordered' : ''}`} onClick={() => onSceneClick(sceneKey)}>
+              <tr
+                key={scene.id}
+                className={`table-row ${povReorderedScenes?.has(scene.id) ? 'pov-reordered' : ''} ${selectedSceneId === scene.id ? 'selected' : ''}`}
+                onClick={() => {
+                  setSelectedSceneId(scene.id);
+                  setShowPovPanel(true);
+                  onSceneClick(sceneKey);
+                }}
+              >
                 {orderedColumns
                   .filter(col => visibleColumns.has(col.id))
                   .map(col => renderCell(col.id))}
@@ -1040,7 +1032,34 @@ export default function TableView({
             );
             }; // end renderSceneRow
 
-            if (chapters && chapters.length > 0) {
+            if (groupBy === 'plotPoint') {
+              const result: React.JSX.Element[] = [];
+              const groups = new Map<string, { label: string; scenes: Scene[] }>();
+              for (const scene of sortedScenes) {
+                const char = characters.find(c => c.id === scene.characterId);
+                const pp = plotPoints.find(p => p.id === scene.plotPointId);
+                const key = `${scene.characterId}::${scene.plotPointId ?? '__none__'}`;
+                if (!groups.has(key)) {
+                  const charName = char?.name || 'Unknown';
+                  const ppTitle = pp?.title || 'No Section';
+                  groups.set(key, { label: `${charName} — ${ppTitle}`, scenes: [] });
+                }
+                groups.get(key)!.scenes.push(scene);
+              }
+              for (const [key, group] of groups) {
+                result.push(
+                  <tbody key={key} className="chapter-tbody">
+                    <tr className="table-chapter-header">
+                      <td colSpan={100}>{group.label}</td>
+                    </tr>
+                    {group.scenes.map(s => renderSceneRow(s))}
+                  </tbody>
+                );
+              }
+              return result;
+            }
+
+            if (groupBy === 'chapter' && chapters && chapters.length > 0) {
               const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
               const chapterMap = new Map(sortedChapters.map((ch, i) => [ch.id, { chapter: ch, chapterNum: i + 1 }]));
               const processedChapters = new Set<string>();
@@ -1090,6 +1109,25 @@ export default function TableView({
         <div className="table-empty">No scenes in timeline</div>
       )}
       </div>
+      {showPovPanel && selectedSceneId && (() => {
+        const selScene = scenes.find(s => s.id === selectedSceneId);
+        if (!selScene) return null;
+        const charScenes = scenes
+          .filter(s => s.characterId === selScene.characterId)
+          .sort((a, b) => a.sceneNumber - b.sceneNumber);
+        const charPlotPoints = plotPoints.filter(pp => pp.characterId === selScene.characterId);
+        return (
+          <TablePovSlideover
+            characterName={characters.find(c => c.id === selScene.characterId)?.name || 'Unknown'}
+            characterColor={characterColors[selScene.characterId] || '#9e9e9e'}
+            scenes={charScenes}
+            plotPoints={charPlotPoints}
+            selectedSceneId={selectedSceneId}
+            onClose={() => setShowPovPanel(false)}
+            onMove={onMovePovScene}
+          />
+        );
+      })()}
     </div>
   );
 }

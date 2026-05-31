@@ -9827,6 +9827,9 @@ textarea.editor-meta-field-input {
   border-bottom: 1px solid var(--border);
   background: var(--bg-primary);
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .table-view-controls-left {
@@ -9928,6 +9931,43 @@ textarea.editor-meta-field-input {
   color: white;
   font-size: 10px;
   font-weight: 700;
+}
+
+.table-control-label {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.table-control-select {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.table-scene-count {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.table-view-group-by {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.table-char-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 /* Table Container */
