@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, WorldEvent, BranchIndex, BranchCompareData } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -161,6 +161,7 @@ function App() {
   const [sceneConnections, setSceneConnections] = useState<Record<string, string[]>>({});
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const chaptersRef = useRef<Chapter[]>([]);
+  const [tableViews, setTableViews] = useState<TableViewConfig[]>([]);
   const [characterColors, setCharacterColors] = useState<Record<string, string>>({});
   const characterColorsRef = useRef<Record<string, string>>({});
   const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
@@ -1162,6 +1163,9 @@ function App() {
     setWorldEvents(loadedWorldEvents);
     worldEventsRef.current = loadedWorldEvents;
 
+    const loadedTableViews = await dataService.loadTableViews();
+    setTableViews(loadedTableViews);
+
     // Select first character by default
     if (data.characters.length > 0) {
       setSelectedCharacterId(data.characters[0].id);
@@ -1621,6 +1625,12 @@ function App() {
     setSceneConnections(newConnections);
     await saveTimelineData(projectData.scenes, newConnections);
   };
+
+  // Table view handler
+  const handleSaveTableViews = useCallback(async (views: TableViewConfig[]) => {
+    setTableViews(views);
+    await dataService.saveTableViews(views);
+  }, []);
 
   // Chapter handlers
   const handleAddChapter = async (title: string) => {
@@ -2597,6 +2607,28 @@ function App() {
     }
   };
 
+  const handleMovePovSceneFromTable = useCallback((sceneId: string, targetIndex: number, targetPlotPointId: string | null) => {
+    if (!projectData) return;
+    const scene = projectData.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === scene.characterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    const [movedScene] = charScenes.splice(charScenes.findIndex(s => s.id === sceneId), 1);
+    movedScene.plotPointId = targetPlotPointId;
+    charScenes.splice(targetIndex, 0, movedScene);
+    charScenes.forEach((s, idx) => { s.sceneNumber = idx + 1; });
+    const updatedScenes = [...projectData.scenes.filter(s => s.characterId !== scene.characterId), ...charScenes];
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+    saveTimelineData(updatedScenes, sceneConnections);
+  }, [projectData, saveTimelineData, sceneConnections]);
+
+  const handleAddSceneForCharacterFromTable = useCallback(async (characterId: string) => {
+    if (!projectData) return;
+    await handleAddSceneToInbox(characterId);
+  }, [projectData, handleAddSceneToInbox]);
+
   const handleInsertSceneOnTimeline = async (characterId: string, plotPointId: string, date: string): Promise<string | null> => {
     if (!projectData) return null;
 
@@ -3388,7 +3420,7 @@ function App() {
                   metadataFieldDefs={metadataFieldDefs}
                   sceneMetadata={sceneMetadata}
                   tags={projectData.tags}
-                  tableViews={[]}
+                  tableViews={tableViews}
                   plotPoints={projectData.plotPoints}
                   characterColors={characterColors}
                   povReorderedScenes={povReorderedScenes}
@@ -3400,7 +3432,9 @@ function App() {
                   }}
                   onMetadataChange={handleMetadataChange}
                   onWordCountChange={handleWordCountChange}
-                  onTableViewsChange={() => {}}
+                  onTableViewsChange={handleSaveTableViews}
+                  onMovePovScene={handleMovePovSceneFromTable}
+                  onAddSceneForCharacter={handleAddSceneForCharacterFromTable}
                   onSceneChange={handleSceneChange}
                 />
                 {listFloatingEditor && (
@@ -3708,7 +3742,7 @@ function App() {
           ) : (
             <h1>{projectData.projectName || 'Braidr'}</h1>
           )}
-          {(viewMode === 'pov' || (viewMode === 'braided' && braidedSubMode !== 'rails')) && (
+          {(viewMode === 'pov' || (viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table')) && (
             <>
               <div className="toolbar-divider" />
               {viewMode === 'pov' ? (
@@ -3827,7 +3861,7 @@ function App() {
               </div>
             </>
           )}
-          {viewMode === 'braided' && braidedSubMode !== 'rails' && (
+          {viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table' && (
             <>
               <div className="toolbar-divider" />
               <button
@@ -3915,7 +3949,7 @@ function App() {
               {saveStatus === 'saving' ? 'Saving...' : 'Saved'}
             </span>
           )}
-          {viewMode !== 'editor' && viewMode !== 'notes' && projectData.tags.length > 0 && (
+          {viewMode !== 'editor' && viewMode !== 'notes' && !(viewMode === 'braided' && braidedSubMode === 'table') && projectData.tags.length > 0 && (
             <FilterBar
               tags={projectData.tags}
               activeFilters={activeFilters}
