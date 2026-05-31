@@ -286,6 +286,13 @@ const CREATE_SCHEMA = `
     archived_at INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS table_views (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    config_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS branches (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
@@ -652,6 +659,18 @@ export class BraidrDB {
     return this.db.prepare('SELECT * FROM scene_metadata_values').all() as SceneMetadataValueRow[];
   }
 
+  // ── Table Views ───────────────────────────────────────────────────────────
+
+  getTableViews(): TableViewRow[] {
+    return this.db.prepare('SELECT * FROM table_views ORDER BY created_at ASC').all() as TableViewRow[];
+  }
+
+  saveTableViews(views: TableViewRow[]) {
+    this.db.prepare('DELETE FROM table_views').run();
+    const insert = this.db.prepare('INSERT INTO table_views (id, name, config_json, created_at) VALUES (?, ?, ?, ?)');
+    for (const v of views) insert.run(v.id, v.name, v.config_json, v.created_at);
+  }
+
   // ── Scene Dates ───────────────────────────────────────────────────────────
 
   getSceneDate(sceneId: string) {
@@ -966,6 +985,7 @@ export interface ArchivedSceneRow { id: string; character_id: string; original_p
 export interface ArchivedNoteRow { id: string; title: string; content: string; parent_id: string | null; tags: string; archived_at: number }
 export interface BranchRow { id: string; name: string; description: string | null; created_from: string | null; created_at: number; is_active: number }
 export interface BranchSceneSnapshotRow { id: string; branch_id: string; scene_id: string; character_id: string; plot_point_id: string | null; title: string; synopsis: string; draft_content: string | null; scene_number: number; timeline_position: number | null; is_highlighted: number }
+export interface TableViewRow { id: string; name: string; config_json: string; created_at: number }
 
 function randomId() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
