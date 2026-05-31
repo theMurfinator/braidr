@@ -10228,6 +10228,16 @@ tbody + .chapter-tbody tr:first-child td {
   opacity: 0.85;
 }
 
+.table-tag-plain {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
 /* Editable Cells */
 .table-cell-editable {
   cursor: pointer;

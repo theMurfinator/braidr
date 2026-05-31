@@ -950,7 +950,41 @@ export default function TableView({
               const field = metadataFieldDefs.find(f => f.id === columnId);
               if (field) {
                 const value = metadata[field.id];
-                const displayValue = Array.isArray(value) ? value.join(', ') : (value || '—');
+
+                const renderDisplay = () => {
+                  if (field.type === 'multiselect' && Array.isArray(value) && value.length > 0) {
+                    return (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {(value as string[]).map(opt => {
+                          const color = field.optionColors?.[opt];
+                          return color ? (
+                            <span
+                              key={opt}
+                              className="table-status-pill"
+                              style={{ '--status-color': color } as React.CSSProperties}
+                            >
+                              {opt}
+                            </span>
+                          ) : (
+                            <span key={opt} className="table-tag-plain">{opt}</span>
+                          );
+                        })}
+                      </div>
+                    );
+                  }
+                  if (field.type === 'dropdown' && typeof value === 'string' && value) {
+                    const color = field.optionColors?.[value];
+                    return color ? (
+                      <span className="table-status-pill" style={{ '--status-color': color } as React.CSSProperties}>
+                        {value}
+                      </span>
+                    ) : (
+                      <span>{value || '—'}</span>
+                    );
+                  }
+                  const displayValue = Array.isArray(value) ? value.join(', ') : ((value as string) || '—');
+                  return <span>{displayValue}</span>;
+                };
 
                 return (
                   <td key={field.id} className="table-cell" onClick={(e) => e.stopPropagation()}>
@@ -1002,10 +1036,11 @@ export default function TableView({
                         className="table-cell-editable"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleCellEdit(sceneKey, field.id, displayValue.toString());
+                          const displayValue = Array.isArray(value) ? value.join(', ') : ((value as string) || '');
+                          handleCellEdit(sceneKey, field.id, displayValue);
                         }}
                       >
-                        {displayValue}
+                        {renderDisplay()}
                       </span>
                     )}
                   </td>
