@@ -2119,10 +2119,15 @@ function App() {
     const newPlotPoint: PlotPoint = {
       id: Math.random().toString(36).substring(2, 11),
       characterId: selectedCharacterId,
+      actId: null,
       title: 'New Section',
       expectedSceneCount: null,
       description: '',
       order: maxOrder + 1,
+      startingState: '',
+      endingState: '',
+      polarity: '',
+      transformation: '',
     };
 
     const updatedPlotPoints = [...projectData.plotPoints, newPlotPoint];
@@ -2499,6 +2504,7 @@ function App() {
   const handleOpenInEditor = (sceneKey: string) => {
     setEditorInitialSceneKey(sceneKey);
     setViewMode('editor');
+    setListFloatingEditor(null);
   };
 
   const handleInsertSceneAtPosition = async (position: number, characterId: string, plotPointId: string) => {

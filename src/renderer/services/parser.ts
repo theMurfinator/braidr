@@ -161,10 +161,15 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
       currentPlotPoint = {
         id: generateId(),
         characterId: character.id,
+        actId: null,
         title,
         expectedSceneCount: expectedCount,
         description: '',
         order: plotPointOrder++,
+        startingState: '',
+        endingState: '',
+        polarity: '',
+        transformation: '',
       };
       plotPoints.push(currentPlotPoint);
       continue;

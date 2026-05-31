@@ -1,4 +1,4 @@
-import { Character, Scene, PlotPoint, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload } from '../../shared/types';
+import { Character, Scene, PlotPoint, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload, Act, CharacterPsychology } from '../../shared/types';
 import { CapacitorDataService } from './capacitorDataService';
 import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } from './projectLock';
 
@@ -57,6 +57,14 @@ export interface DataService {
   releaseProjectLock(projectPath: string): Promise<void>;
   startLockHeartbeat(projectPath: string, onTakenOver: (byDeviceName: string) => void): void;
   stopLockHeartbeat(): void;
+  // Acts
+  loadActs(characterId: string): Promise<Act[]>;
+  saveAct(act: Act): Promise<void>;
+  deleteAct(actId: string): Promise<void>;
+  reorderActs(characterId: string, orderedIds: string[]): Promise<void>;
+  // Character psychology
+  loadCharacterPsychology(characterId: string): Promise<CharacterPsychology | null>;
+  saveCharacterPsychology(psychology: CharacterPsychology): Promise<void>;
 }
 
 // Local file system implementation (Electron) — SQLite .braidr format only
@@ -392,6 +400,70 @@ class ElectronDataService implements DataService {
 
   stopLockHeartbeat(): void {
     stopHeartbeat();
+  }
+
+  async loadActs(characterId: string): Promise<Act[]> {
+    if (!this.braidrPath) return [];
+    const result = await window.electronAPI.braidrLoadActs(this.braidrPath, characterId);
+    if (!result?.success || !result.data) return [];
+    return (result.data as any[]).map(r => ({
+      id: r.id, characterId: r.character_id, name: r.name,
+      startingState: r.starting_state, endingState: r.ending_state,
+      polarity: r.polarity, transformation: r.transformation, order: r.display_order,
+    }));
+  }
+
+  async saveAct(act: Act): Promise<void> {
+    if (!this.braidrPath) return;
+    await window.electronAPI.braidrSaveAct(this.braidrPath, {
+      id: act.id, character_id: act.characterId, name: act.name,
+      starting_state: act.startingState, ending_state: act.endingState,
+      polarity: act.polarity, transformation: act.transformation,
+      display_order: act.order, created_at: Date.now(),
+    });
+  }
+
+  async deleteAct(actId: string): Promise<void> {
+    if (!this.braidrPath) return;
+    await window.electronAPI.braidrDeleteAct(this.braidrPath, actId);
+  }
+
+  async reorderActs(characterId: string, orderedIds: string[]): Promise<void> {
+    if (!this.braidrPath) return;
+    await window.electronAPI.braidrReorderActs(this.braidrPath, characterId, orderedIds);
+  }
+
+  async loadCharacterPsychology(characterId: string): Promise<CharacterPsychology | null> {
+    if (!this.braidrPath) return null;
+    const result = await window.electronAPI.braidrLoadCharacterPsychology(this.braidrPath, characterId);
+    if (!result?.success || !result.data) return null;
+    const r = result.data as any;
+    return {
+      characterId: r.character_id,
+      novelStartingState: r.novel_starting_state, novelEndingState: r.novel_ending_state,
+      novelPolarity: r.novel_polarity, novelTransformation: r.novel_transformation,
+      wound: r.wound, lie: r.lie, deepestFear: r.deepest_fear,
+      limitingBelief: r.limiting_belief, thorn: r.thorn, copingTool: r.coping_tool,
+      whisperOfGrace: r.whisper_of_grace, surfaceWant: r.surface_want,
+      soulsLonging: r.souls_longing, bitterNeed: r.bitter_need,
+      capitalTTruth: r.capital_t_truth, arcSummary: r.arc_summary,
+      theme: r.theme, antiTheme: r.anti_theme, finalReaderExperience: r.final_reader_experience,
+    };
+  }
+
+  async saveCharacterPsychology(p: CharacterPsychology): Promise<void> {
+    if (!this.braidrPath) return;
+    await window.electronAPI.braidrSaveCharacterPsychology(this.braidrPath, {
+      character_id: p.characterId,
+      novel_starting_state: p.novelStartingState, novel_ending_state: p.novelEndingState,
+      novel_polarity: p.novelPolarity, novel_transformation: p.novelTransformation,
+      wound: p.wound, lie: p.lie, deepest_fear: p.deepestFear,
+      limiting_belief: p.limitingBelief, thorn: p.thorn, coping_tool: p.copingTool,
+      whisper_of_grace: p.whisperOfGrace, surface_want: p.surfaceWant,
+      souls_longing: p.soulsLonging, bitter_need: p.bitterNeed,
+      capital_t_truth: p.capitalTTruth, arc_summary: p.arcSummary,
+      theme: p.theme, anti_theme: p.antiTheme, final_reader_experience: p.finalReaderExperience,
+    });
   }
 }
 

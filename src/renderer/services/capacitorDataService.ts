@@ -469,10 +469,15 @@ export class CapacitorDataService implements DataService {
         {
           id: generateId(),
           characterId: character.id,
+          actId: null,
           title: 'Act 1',
           expectedSceneCount: null,
           description: '',
           order: 0,
+          startingState: '',
+          endingState: '',
+          polarity: '',
+          transformation: '',
         },
       ],
       scenes: [
@@ -962,4 +967,10 @@ export class CapacitorDataService implements DataService {
   async assignSceneToChapter(_sceneId: string, _chapterId: string | null, _sceneOrder: number): Promise<void> {}
   async loadTableViews(): Promise<import('../../shared/types').TableViewConfig[]> { return []; }
   async saveTableViews(_views: import('../../shared/types').TableViewConfig[]): Promise<void> {}
+  async loadActs(_characterId: string): Promise<import('../../shared/types').Act[]> { return []; }
+  async saveAct(_act: import('../../shared/types').Act): Promise<void> {}
+  async deleteAct(_actId: string): Promise<void> {}
+  async reorderActs(_characterId: string, _orderedIds: string[]): Promise<void> {}
+  async loadCharacterPsychology(_characterId: string): Promise<import('../../shared/types').CharacterPsychology | null> { return null; }
+  async saveCharacterPsychology(_psychology: import('../../shared/types').CharacterPsychology): Promise<void> {}
 }
