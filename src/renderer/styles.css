@@ -20561,10 +20561,12 @@ textarea.table-cell-input {
   line-height: 1.3;
 }
 
-/* ── ACT — second level, major structural break ── */
+/* ── ACT — second level, group header ── */
 .arc-act {
-  border-top: 1px solid var(--border) !important;
+  border-top: 2px solid var(--border) !important;
+  background: var(--bg-secondary);
 }
+.arc-act:hover { background: var(--bg-secondary) !important; }
 .arc-act .arc-name-text {
   font-size: 13px;
   font-weight: 700;
@@ -20572,13 +20574,16 @@ textarea.table-cell-input {
   line-height: 1.3;
 }
 .arc-act.arc-grid > * {
-  padding-top: 8px;
-  padding-bottom: 8px;
+  padding-top: 9px;
+  padding-bottom: 9px;
   font-size: 13px;
   color: var(--text-secondary);
 }
 
 /* ── SECTION — third level ── */
+.arc-section {
+  border-left: 2px solid transparent;
+}
 .arc-section .arc-name-text {
   font-size: 13px;
   font-weight: 400;

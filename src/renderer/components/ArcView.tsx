@@ -281,6 +281,7 @@ export default function ArcView({
       <div key={pp.id}>
         <div
           className="arc-row arc-section arc-grid"
+          style={{ borderLeft: `2px solid ${charColor}` }}
           onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, sectionId: pp.id }); }}
         >
           <div className="arc-name-cell" style={{ paddingLeft: 36 }}>
