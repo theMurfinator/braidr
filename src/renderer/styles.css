@@ -20638,6 +20638,7 @@ textarea.table-cell-input {
 .arc-cell { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
 .arc-cell-dim { opacity: .2; }
 .arc-cell-text { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+.arc-synopsis-display { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .arc-act .arc-cell { font-size: 13px; }
 .arc-section .arc-cell { font-size: 13px; }
 .arc-scene .arc-cell { font-size: 12px; color: var(--text-muted); }

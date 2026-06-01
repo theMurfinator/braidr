@@ -266,8 +266,9 @@ export default function ArcView({
             </div>
           </div>
           <div className="arc-cell">
-            <EditableCell value={scene.content || ''} placeholder="Synopsis..."
-              onChange={v => onSaveSceneArcFields(scene.id, { synopsis: v })} multiline />
+            <span className="arc-cell-text arc-synopsis-display">
+              {scene.notes.map(n => n.startsWith('- ') ? n.slice(2) : n).join(' ') || ''}
+            </span>
           </div>
           <div className="arc-cell">
             <EditableCell value={scene.startingState || ''} placeholder="Beginning..."
