@@ -125,6 +125,24 @@ interface ArcViewProps {
   onCreateSection: (actId: string | null) => void;
 }
 
+function ActContextMenu({ x, y, onDelete, onClose }: {
+  x: number; y: number; onDelete: () => void; onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('keydown', keyHandler);
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', keyHandler); };
+  }, [onClose]);
+  return (
+    <div ref={ref} className="arc-context-menu" style={{ left: x, top: y }}>
+      <div className="arc-context-item arc-context-danger" onClick={onDelete}>Delete Act</div>
+    </div>
+  );
+}
+
 function ArcSectionContextMenu({ x, y, sectionId: _sectionId, acts, onMoveToAct, onReturnToBullpen, onDelete, onClose }: {
   x: number; y: number; sectionId: string;
   acts: Act[];
@@ -179,7 +197,7 @@ export default function ArcView({
   characterColors,
   psychology,
   onSaveAct,
-  onDeleteAct: _onDeleteAct,
+  onDeleteAct,
   onSavePlotPointArcFields,
   onSaveSceneArcFields,
   onDeleteSection,
@@ -192,6 +210,7 @@ export default function ArcView({
   const [showHub, setShowHub] = useState(false);
   const hubLoadedRef = useRef(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
+  const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
 
   // Reset hub cache when character changes
   useEffect(() => {
@@ -344,7 +363,8 @@ export default function ArcView({
     const coll = isCollapsed(`act-${act.id}`);
     return (
       <div key={act.id}>
-        <div className="arc-row arc-act arc-grid">
+        <div className="arc-row arc-act arc-grid"
+          onContextMenu={e => { e.preventDefault(); setActContextMenu({ x: e.clientX, y: e.clientY, actId: act.id }); }}>
           <div className="arc-name-cell" style={{ paddingLeft: 32 }}>
             <span className="arc-toggle" onClick={() => toggleCollapsed(`act-${act.id}`)}>
               {coll ? '▶' : '▼'}
@@ -503,6 +523,14 @@ export default function ArcView({
           onReturnToBullpen={() => { onSavePlotPointArcFields(contextMenu.sectionId, { actId: null }); setContextMenu(null); }}
           onDelete={() => { onDeleteSection(contextMenu.sectionId); setContextMenu(null); }}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+      {actContextMenu && (
+        <ActContextMenu
+          x={actContextMenu.x}
+          y={actContextMenu.y}
+          onDelete={() => { onDeleteAct(actContextMenu.actId); setActContextMenu(null); }}
+          onClose={() => setActContextMenu(null)}
         />
       )}
     </div>

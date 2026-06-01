@@ -20482,7 +20482,7 @@ textarea.table-cell-input {
 
 /* ── Arc View ── */
 .main-content:has(.arc-layout) {
-  padding-right: 0;
+  padding: 0;
 }
 .arc-layout {
   display: flex;
@@ -20502,6 +20502,7 @@ textarea.table-cell-input {
   flex: 1; display: flex; flex-direction: column; overflow: hidden;
   background: var(--bg-primary); position: relative;
   font-family: var(--font-ui);
+  padding-left: 16px;
 }
 
 .arc-grid {
@@ -20519,7 +20520,9 @@ textarea.table-cell-input {
 .arc-col-headers.arc-grid > div {
   font-size: 12px; font-weight: 600;
   color: var(--text-muted); padding-right: 14px;
+  border-right: 1px dotted rgba(0,0,0,0.08);
 }
+.arc-col-headers.arc-grid > div:last-child { border-right: none; }
 .arc-col-center { text-align: center; }
 
 .arc-scroll { flex: 1; overflow-y: auto; padding-bottom: 80px; }
@@ -20533,7 +20536,9 @@ textarea.table-cell-input {
   display: flex; flex-direction: column;
   justify-content: center; align-items: flex-start;
   font-size: 13px; color: var(--text-secondary); line-height: 1.4;
+  border-right: 1px dotted rgba(0,0,0,0.08);
 }
+.arc-row.arc-grid > *:last-child { border-right: none; }
 .arc-row:hover { background: var(--bg-hover); }
 
 .arc-name-cell {
