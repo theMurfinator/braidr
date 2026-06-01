@@ -30,22 +30,45 @@ function EditableCell({ value, placeholder, onChange, multiline = false }: {
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = (el: HTMLTextAreaElement) => {
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
 
   if (editing) {
-    const commonProps = {
-      value: draft,
-      onChange: (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => setDraft(e.target.value),
-      onBlur: () => { setEditing(false); if (draft !== value) onChange(draft); },
-      onKeyDown: (e: React.KeyboardEvent) => {
-        if (e.key === 'Escape') { setEditing(false); setDraft(value); }
-        if (e.key === 'Enter' && !e.shiftKey && !multiline) { setEditing(false); if (draft !== value) onChange(draft); }
-      },
-      autoFocus: true,
-      className: 'arc-editable-input',
-    };
-    return multiline
-      ? <textarea {...commonProps as React.TextareaHTMLAttributes<HTMLTextAreaElement>} rows={3} style={{ width: '100%' }} />
-      : <input {...commonProps as React.InputHTMLAttributes<HTMLInputElement>} style={{ width: '100%' }} />;
+    if (multiline) {
+      return (
+        <textarea
+          ref={taRef}
+          value={draft}
+          placeholder={placeholder}
+          className="arc-editable-input"
+          style={{ width: '100%', resize: 'none', overflow: 'hidden', minHeight: '2.4em' }}
+          onChange={e => { setDraft(e.target.value); autoResize(e.target); }}
+          onBlur={() => { setEditing(false); if (draft !== value) onChange(draft); }}
+          onKeyDown={e => { if (e.key === 'Escape') { setEditing(false); setDraft(value); } }}
+          autoFocus
+          onFocus={e => autoResize(e.target)}
+        />
+      );
+    }
+    return (
+      <input
+        value={draft}
+        placeholder={placeholder}
+        className="arc-editable-input"
+        style={{ width: '100%' }}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={() => { setEditing(false); if (draft !== value) onChange(draft); }}
+        onKeyDown={e => {
+          if (e.key === 'Escape') { setEditing(false); setDraft(value); }
+          if (e.key === 'Enter') { setEditing(false); if (draft !== value) onChange(draft); }
+        }}
+        autoFocus
+      />
+    );
   }
 
   return (
