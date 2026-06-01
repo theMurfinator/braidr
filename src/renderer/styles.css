@@ -20529,10 +20529,10 @@ textarea.table-cell-input {
   transition: background .1s;
 }
 .arc-row.arc-grid > * {
-  padding: 12px 16px 12px 0;
+  padding: 10px 16px 10px 0;
   display: flex; flex-direction: column;
   justify-content: flex-start; align-items: flex-start;
-  font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+  font-size: 13px; color: var(--text-secondary); line-height: 1.55;
 }
 .arc-row:hover { background: var(--bg-hover); }
 
@@ -20542,83 +20542,76 @@ textarea.table-cell-input {
   gap: 0; padding-left: 0 !important;
 }
 .arc-toggle {
-  width: 18px; font-size: 9px; color: var(--text-muted); cursor: pointer;
-  flex-shrink: 0; padding-top: 5px; text-align: center; user-select: none;
+  width: 20px; font-size: 9px; color: var(--text-muted); cursor: pointer;
+  flex-shrink: 0; padding-top: 6px; text-align: center; user-select: none;
   transition: color .1s;
 }
 .arc-toggle:hover { color: var(--accent); }
-.arc-name-inner { display: flex; flex-direction: column; gap: 3px; flex: 1; padding: 2px 16px 2px 4px; }
-.arc-name-tag { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 2px; color: var(--text-muted); }
-.arc-name-text { font-size: 14px; font-weight: 400; color: var(--text-secondary); line-height: 1.45; }
-
-/* Novel */
-.arc-novel {
-  border-bottom: 2px solid var(--border) !important;
+.arc-name-inner { display: flex; flex-direction: column; gap: 2px; flex: 1; padding: 2px 16px 2px 4px; }
+.arc-name-tag {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .14em; color: var(--text-muted);
 }
-.arc-novel.arc-grid > * { padding-top: 20px; padding-bottom: 20px; }
+.arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); line-height: 1.4; }
+
+/* ── NOVEL — character title, topmost level ── */
+.arc-novel { border-bottom: 2px solid var(--border) !important; }
+.arc-novel.arc-grid > * { padding-top: 24px; padding-bottom: 24px; }
 .arc-novel-title {
   font-family: var(--font-section-title);
-  font-size: 24px;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+/* ── ACT — second level, major structural break ── */
+.arc-act {
+  border-top: 2px solid var(--border) !important;
+  background: var(--bg-secondary);
+}
+.arc-act .arc-name-tag { color: #7c3aed; }
+.arc-act .arc-name-text {
+  font-family: var(--font-section-title);
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
-
-/* Acts — major section breaks, prominent heading */
-.arc-act {
-  border-top: 3px solid var(--text-primary) !important;
-  background: var(--bg-secondary);
-}
-.arc-act + .arc-act { margin-top: 0; }
-.arc-act .arc-name-tag { color: #7c3aed; letter-spacing: .15em; }
-.arc-act .arc-name-text {
-  font-family: var(--font-section-title);
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-}
 .arc-act.arc-grid > * {
-  padding-top: 18px;
-  padding-bottom: 18px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
+  padding-top: 20px;
+  padding-bottom: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
-/* Sections — clear sub-heading */
-.arc-section {
-  border-left: 3px solid var(--border);
-}
+/* ── SECTION — third level ── */
 .arc-section .arc-name-text {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.35;
+  font-family: var(--font-ui);
 }
 .arc-section.arc-grid > * {
-  padding-top: 14px;
-  padding-bottom: 14px;
+  padding-top: 13px;
+  padding-bottom: 13px;
   font-size: 13px;
-  color: var(--text-secondary);
 }
 
-/* Scenes — subordinate rows */
-.arc-scene {
-  border-left: 3px solid transparent;
-}
+/* ── SCENE — leaf level, clearly subordinate ── */
 .arc-scene .arc-name-text {
   font-size: 13px;
   font-weight: 400;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   font-style: italic;
   line-height: 1.4;
 }
 .arc-scene.arc-grid > * {
-  padding-top: 9px;
-  padding-bottom: 9px;
+  padding-top: 8px;
+  padding-bottom: 8px;
   font-size: 12px;
   color: var(--text-muted);
 }
@@ -20663,6 +20656,9 @@ textarea.table-cell-input {
 .arc-cell { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
 .arc-cell-dim { opacity: .2; }
 .arc-cell-text { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+.arc-act .arc-cell { font-size: 13px; }
+.arc-section .arc-cell { font-size: 13px; }
+.arc-scene .arc-cell { font-size: 12px; color: var(--text-muted); }
 .arc-pol-col { justify-content: center !important; align-items: center !important; padding-right: 0 !important; }
 
 .arc-ghost { opacity: .35; cursor: pointer; border-bottom: none; }
