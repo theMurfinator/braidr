@@ -199,13 +199,6 @@ export default function ArcView({
     setShowHub(false);
   }, [selectedCharacterId]);
 
-  useEffect(() => {
-    if (!contextMenu) return;
-    const handler = () => setContextMenu(null);
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [contextMenu]);
-
   const character = characters.find(c => c.id === selectedCharacterId);
   const charColor = characterColors[selectedCharacterId] || '#6366f1';
 
