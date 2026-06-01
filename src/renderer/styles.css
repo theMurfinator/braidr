@@ -20506,7 +20506,7 @@ textarea.table-cell-input {
 
 .arc-grid {
   display: grid;
-  grid-template-columns: 220px 1fr 1fr 1fr 80px 1fr;
+  grid-template-columns: 220px 1fr 1fr 1fr 1fr 1fr 1fr 80px;
 }
 
 .arc-col-headers {
@@ -20548,10 +20548,7 @@ textarea.table-cell-input {
 }
 .arc-toggle:hover { color: var(--accent); }
 .arc-name-inner { display: flex; flex-direction: column; gap: 2px; flex: 1; padding: 2px 16px 2px 4px; }
-.arc-name-tag {
-  font-size: 9px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: .14em; color: var(--text-muted);
-}
+/* .arc-name-tag removed — label chips no longer used */
 .arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); line-height: 1.4; }
 
 /* ── NOVEL — character title, topmost level ── */
@@ -20571,7 +20568,7 @@ textarea.table-cell-input {
   border-top: 2px solid var(--border) !important;
   background: var(--bg-secondary);
 }
-.arc-act .arc-name-tag { color: #7c3aed; }
+/* .arc-act .arc-name-tag removed — label chips no longer used */
 .arc-act .arc-name-text {
   font-family: var(--font-section-title);
   font-size: 22px;
@@ -20634,24 +20631,7 @@ textarea.table-cell-input {
   cursor: grabbing;
 }
 
-.arc-act-select {
-  font-family: var(--font-ui);
-  font-size: 10px;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  padding: 0 2px;
-  cursor: pointer;
-  opacity: 0.7;
-  max-width: 120px;
-}
-.arc-act-select:hover,
-.arc-act-select:focus {
-  opacity: 1;
-  color: var(--text-primary);
-  outline: none;
-}
+/* .arc-act-select removed — act assignment now via context menu */
 
 .arc-cell { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
 .arc-cell-dim { opacity: .2; }
@@ -20725,6 +20705,44 @@ textarea.table-cell-input {
   box-shadow: 0 2px 8px rgba(99,102,241,.25);
 }
 .arc-hub-btn:hover { filter: brightness(1.1); }
+
+/* ── Arc Section Context Menu ── */
+.arc-context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  padding: 4px 0;
+  min-width: 180px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+.arc-context-item {
+  position: relative;
+  padding: 7px 14px;
+  cursor: pointer;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.arc-context-item:hover { background: var(--bg-hover); }
+.arc-context-danger { color: #dc2626; }
+.arc-context-danger:hover { background: #fee2e2; }
+.arc-context-divider { height: 1px; background: var(--border); margin: 4px 0; }
+.arc-context-submenu {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  padding: 4px 0;
+  min-width: 160px;
+}
 
 /* ── Character Hub Panel ── */
 .hub-overlay {

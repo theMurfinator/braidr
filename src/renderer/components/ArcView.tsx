@@ -116,12 +116,58 @@ interface ArcViewProps {
   psychology: CharacterPsychology | null;
   onSaveAct: (act: Act) => void;
   onDeleteAct: (actId: string) => void;
-  onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'title' | 'description'>>) => void;
+  onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => void;
+  onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }) => void;
+  onDeleteSection: (sectionId: string) => void;
   onLoadPsychology: (characterId: string) => Promise<CharacterPsychology | null>;
   onSavePsychology: (psychology: CharacterPsychology) => void;
   arcActiveId: string | null;
   onCreateSection: (actId: string | null) => void;
-  onCreateScene: (sectionId: string) => void;
+}
+
+function ArcSectionContextMenu({ x, y, sectionId: _sectionId, acts, onMoveToAct, onReturnToBullpen, onDelete, onClose }: {
+  x: number; y: number; sectionId: string;
+  acts: Act[];
+  onMoveToAct: (actId: string) => void;
+  onReturnToBullpen: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const [showActSubmenu, setShowActSubmenu] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('keydown', keyHandler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', keyHandler);
+    };
+  }, [onClose]);
+
+  return (
+    <div ref={ref} className="arc-context-menu" style={{ left: x, top: y }}>
+      <div className="arc-context-item" onMouseEnter={() => setShowActSubmenu(true)} onMouseLeave={() => setShowActSubmenu(false)}>
+        Move to Act &#9658;
+        {showActSubmenu && (
+          <div className="arc-context-submenu">
+            {acts.map(act => (
+              <div key={act.id} className="arc-context-item" onClick={() => onMoveToAct(act.id)}>
+                {act.name || 'Unnamed act'}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="arc-context-item" onClick={onReturnToBullpen}>Return to Bullpen</div>
+      <div className="arc-context-divider" />
+      <div className="arc-context-item arc-context-danger" onClick={onDelete}>Delete</div>
+    </div>
+  );
 }
 
 export default function ArcView({
@@ -135,21 +181,30 @@ export default function ArcView({
   onSaveAct,
   onDeleteAct: _onDeleteAct,
   onSavePlotPointArcFields,
+  onSaveSceneArcFields,
+  onDeleteSection,
   onLoadPsychology,
   onSavePsychology,
   arcActiveId: _arcActiveId,
   onCreateSection,
-  onCreateScene,
 }: ArcViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showHub, setShowHub] = useState(false);
   const hubLoadedRef = useRef(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
 
   // Reset hub cache when character changes
   useEffect(() => {
     hubLoadedRef.current = false;
     setShowHub(false);
   }, [selectedCharacterId]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handler = () => setContextMenu(null);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [contextMenu]);
 
   const character = characters.find(c => c.id === selectedCharacterId);
   const charColor = characterColors[selectedCharacterId] || '#6366f1';
@@ -177,7 +232,6 @@ export default function ArcView({
   };
 
   const sortedActs = [...acts].sort((a, b) => a.order - b.order);
-  const unassignedSections = plotPoints.filter(pp => !pp.actId).sort((a, b) => a.order - b.order);
 
   const stripContent = (s: string) =>
     s.replace(/<[^>]*>/g, '')
@@ -194,18 +248,10 @@ export default function ArcView({
   const renderSceneRow = (scene: Scene, sectionId: string) => (
     <SortableItem key={scene.id} id={scene.id} data={{ type: 'arc-scene', sectionId }}>
       {({ setNodeRef, style, listeners, attributes, isDragging }) => (
-        <div
-          ref={setNodeRef}
-          style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
-          className="arc-row arc-scene arc-grid arc-scene-draggable"
-        >
+        <div ref={setNodeRef} style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
+          className="arc-row arc-scene arc-grid arc-scene-draggable">
           <div className="arc-name-cell" style={{ paddingLeft: 52 }}>
-            <span
-              className="arc-drag-handle"
-              {...attributes}
-              {...listeners}
-              title="Drag to reorder"
-            >⠿</span>
+            <span className="arc-drag-handle" {...attributes} {...listeners} title="Drag to reorder">⠣</span>
             <div className="arc-name-inner">
               <span className="arc-name-text">{sceneTitle(scene)}</span>
             </div>
@@ -213,10 +259,21 @@ export default function ArcView({
           <div className="arc-cell"><span className="arc-cell-text">{sceneSynopsis(scene)}</span></div>
           <div className="arc-cell arc-cell-dim"></div>
           <div className="arc-cell arc-cell-dim"></div>
-          <div className="arc-cell arc-pol-col">
-            <PolarityCell value={scene.polarity || ''} onChange={() => {}} />
+          <div className="arc-cell">
+            <EditableCell value={scene.transformation || ''} placeholder="Turning point..."
+              onChange={v => onSaveSceneArcFields(scene.id, { transformation: v })} multiline />
           </div>
-          <div className="arc-cell"><span className="arc-cell-text">{scene.transformation || ''}</span></div>
+          <div className="arc-cell">
+            <EditableCell value={scene.dilemma || ''} placeholder="Scene dilemma..."
+              onChange={v => onSaveSceneArcFields(scene.id, { dilemma: v })} multiline />
+          </div>
+          <div className="arc-cell">
+            <EditableCell value={scene.propellingAction || ''} placeholder="Propelling action..."
+              onChange={v => onSaveSceneArcFields(scene.id, { propellingAction: v })} multiline />
+          </div>
+          <div className="arc-cell arc-pol-col">
+            <PolarityCell value={scene.polarity || ''} onChange={v => onSaveSceneArcFields(scene.id, { polarity: v })} />
+          </div>
         </div>
       )}
     </SortableItem>
@@ -229,26 +286,15 @@ export default function ArcView({
     const coll = isCollapsed(`sec-${pp.id}`);
     return (
       <div key={pp.id}>
-        <div className="arc-row arc-section arc-grid">
+        <div
+          className="arc-row arc-section arc-grid"
+          onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, sectionId: pp.id }); }}
+        >
           <div className="arc-name-cell" style={{ paddingLeft: 36 }}>
             <span className="arc-toggle" onClick={() => toggleCollapsed(`sec-${pp.id}`)}>
               {coll ? '▶' : '▼'}
             </span>
             <div className="arc-name-inner">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className="arc-name-tag" style={{ color: charColor }}>Section</span>
-                <select
-                  className="arc-act-select"
-                  value={pp.actId || ''}
-                  onChange={e => onSavePlotPointArcFields(pp.id, { actId: e.target.value || null })}
-                  onClick={e => e.stopPropagation()}
-                >
-                  <option value="">— Unassigned —</option>
-                  {sortedActs.map(act => (
-                    <option key={act.id} value={act.id}>{act.name || 'Unnamed act'}</option>
-                  ))}
-                </select>
-              </div>
               <EditableCell value={pp.title} placeholder="Section name..."
                 onChange={v => onSavePlotPointArcFields(pp.id, { title: v })} />
             </div>
@@ -265,12 +311,20 @@ export default function ArcView({
             <EditableCell value={pp.endingState} placeholder="Exiting state..."
               onChange={v => onSavePlotPointArcFields(pp.id, { endingState: v })} multiline />
           </div>
-          <div className="arc-cell arc-pol-col">
-            <PolarityCell value={pp.polarity} onChange={v => onSavePlotPointArcFields(pp.id, { polarity: v })} />
-          </div>
           <div className="arc-cell">
             <EditableCell value={pp.transformation} placeholder="What shifts..."
               onChange={v => onSavePlotPointArcFields(pp.id, { transformation: v })} multiline />
+          </div>
+          <div className="arc-cell">
+            <EditableCell value={pp.dilemma || ''} placeholder="The section's dilemma..."
+              onChange={v => onSavePlotPointArcFields(pp.id, { dilemma: v })} multiline />
+          </div>
+          <div className="arc-cell">
+            <EditableCell value={pp.propellingAction || ''} placeholder="What propels this section..."
+              onChange={v => onSavePlotPointArcFields(pp.id, { propellingAction: v })} multiline />
+          </div>
+          <div className="arc-cell arc-pol-col">
+            <PolarityCell value={pp.polarity} onChange={v => onSavePlotPointArcFields(pp.id, { polarity: v })} />
           </div>
         </div>
         {!coll && (
@@ -278,16 +332,6 @@ export default function ArcView({
             {sectionScenes.map(scene => renderSceneRow(scene, pp.id))}
             {sectionScenes.length === 0 && <EmptySectionDropZone sectionId={pp.id} />}
           </SortableContext>
-        )}
-        {!coll && (
-          <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateScene(pp.id)}>
-            <div className="arc-name-cell" style={{ paddingLeft: 52 }}>
-              <span className="arc-toggle" style={{ visibility: 'hidden' }}>&#xB7;</span>
-              <span className="arc-ghost-label">+ Add scene...</span>
-            </div>
-            <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
-            <div className="arc-cell arc-pol-col"></div><div className="arc-cell"></div>
-          </div>
         )}
       </div>
     );
@@ -306,7 +350,6 @@ export default function ArcView({
               {coll ? '▶' : '▼'}
             </span>
             <div className="arc-name-inner">
-              <span className="arc-name-tag" style={{ color: '#7c3aed' }}>Act</span>
               <EditableCell value={act.name} placeholder="Act name..."
                 onChange={v => onSaveAct({ ...act, name: v })} />
             </div>
@@ -320,12 +363,20 @@ export default function ArcView({
             <EditableCell value={act.endingState} placeholder="Exiting this act..."
               onChange={v => onSaveAct({ ...act, endingState: v })} multiline />
           </div>
-          <div className="arc-cell arc-pol-col">
-            <PolarityCell value={act.polarity} onChange={v => onSaveAct({ ...act, polarity: v })} />
-          </div>
           <div className="arc-cell">
             <EditableCell value={act.transformation} placeholder="What this act accomplishes..."
               onChange={v => onSaveAct({ ...act, transformation: v })} multiline />
+          </div>
+          <div className="arc-cell">
+            <EditableCell value={act.dilemma} placeholder="The act's dilemma..."
+              onChange={v => onSaveAct({ ...act, dilemma: v })} multiline />
+          </div>
+          <div className="arc-cell">
+            <EditableCell value={act.propellingAction || ''} placeholder="What propels this act..."
+              onChange={v => onSaveAct({ ...act, propellingAction: v })} multiline />
+          </div>
+          <div className="arc-cell arc-pol-col">
+            <PolarityCell value={act.polarity} onChange={v => onSaveAct({ ...act, polarity: v })} />
           </div>
         </div>
         {!coll && actSections.map(pp => renderSection(pp))}
@@ -336,7 +387,8 @@ export default function ArcView({
               <span className="arc-ghost-label">+ Add section...</span>
             </div>
             <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
-            <div className="arc-cell arc-pol-col"></div><div className="arc-cell"></div>
+            <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
+            <div className="arc-cell arc-pol-col"></div>
           </div>
         )}
       </div>
@@ -349,11 +401,13 @@ export default function ArcView({
       {/* Column headers */}
       <div className="arc-col-headers arc-grid">
         <div className="arc-col-h"></div>
-        <div className="arc-col-h">Synopsis</div>
-        <div className="arc-col-h">Starting State</div>
-        <div className="arc-col-h">Ending State</div>
-        <div className="arc-col-h arc-col-center">Polarity</div>
-        <div className="arc-col-h">Transformation</div>
+        <div className="arc-col-h">Plot synopsis</div>
+        <div className="arc-col-h">Beginning</div>
+        <div className="arc-col-h">Ending</div>
+        <div className="arc-col-h">Turning point</div>
+        <div className="arc-col-h">Dilemma</div>
+        <div className="arc-col-h">Propelling Action</div>
+        <div className="arc-col-h arc-col-center">Polarity shift</div>
       </div>
 
       {/* Toolbar */}
@@ -377,40 +431,32 @@ export default function ArcView({
               {isCollapsed('novel') ? '▶' : '▼'}
             </span>
             <div className="arc-name-inner">
-              <span className="arc-name-tag" style={{ color: charColor }}>Novel</span>
               <span className="arc-novel-title">{character?.name || '—'}</span>
             </div>
           </div>
           <div className="arc-cell arc-cell-dim"></div>
           <div className="arc-cell">
-            <EditableCell
-              value={psych?.novelStartingState || ''}
-              placeholder="Where does this character begin?"
-              onChange={v => savePsych({ novelStartingState: v })}
-              multiline
-            />
+            <EditableCell value={psych?.novelStartingState || ''} placeholder="Where does this character begin?"
+              onChange={v => savePsych({ novelStartingState: v })} multiline />
           </div>
           <div className="arc-cell">
-            <EditableCell
-              value={psych?.novelEndingState || ''}
-              placeholder="Where does this character end?"
-              onChange={v => savePsych({ novelEndingState: v })}
-              multiline
-            />
+            <EditableCell value={psych?.novelEndingState || ''} placeholder="Where does this character end?"
+              onChange={v => savePsych({ novelEndingState: v })} multiline />
+          </div>
+          <div className="arc-cell">
+            <EditableCell value={psych?.novelTransformation || ''} placeholder="The full arc in one sentence..."
+              onChange={v => savePsych({ novelTransformation: v })} multiline />
+          </div>
+          <div className="arc-cell">
+            <EditableCell value={psych?.novelDilemma || ''} placeholder="The central dilemma..."
+              onChange={v => savePsych({ novelDilemma: v })} multiline />
+          </div>
+          <div className="arc-cell">
+            <EditableCell value={psych?.novelPropellingAction || ''} placeholder="What propels the story..."
+              onChange={v => savePsych({ novelPropellingAction: v })} multiline />
           </div>
           <div className="arc-cell arc-pol-col">
-            <PolarityCell
-              value={psych?.novelPolarity || ''}
-              onChange={v => savePsych({ novelPolarity: v })}
-            />
-          </div>
-          <div className="arc-cell">
-            <EditableCell
-              value={psych?.novelTransformation || ''}
-              placeholder="The full arc in one sentence..."
-              onChange={v => savePsych({ novelTransformation: v })}
-              multiline
-            />
+            <PolarityCell value={psych?.novelPolarity || ''} onChange={v => savePsych({ novelPolarity: v })} />
           </div>
         </div>
 
@@ -418,44 +464,13 @@ export default function ArcView({
           <>
             {sortedActs.map(renderAct)}
 
-            {/* Unassigned sections */}
-            {unassignedSections.length > 0 && (
-              <div>
-                <div className="arc-row arc-act arc-grid" style={{ opacity: .6 }}>
-                  <div className="arc-name-cell" style={{ paddingLeft: 16 }}>
-                    <span className="arc-toggle" onClick={() => toggleCollapsed('unassigned')}>
-                      {isCollapsed('unassigned') ? '▶' : '▼'}
-                    </span>
-                    <div className="arc-name-inner">
-                      <span className="arc-name-tag" style={{ color: '#aaa' }}>Unassigned</span>
-                      <span className="arc-name-text" style={{ color: '#aaa' }}>Sections not assigned to an act</span>
-                    </div>
-                  </div>
-                  <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
-                  <div className="arc-cell arc-pol-col"></div><div className="arc-cell"></div>
-                </div>
-                {!isCollapsed('unassigned') && unassignedSections.map(pp => renderSection(pp))}
-                {!isCollapsed('unassigned') && (
-                  <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(null)}>
-                    <div className="arc-name-cell" style={{ paddingLeft: 36 }}>
-                      <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
-                      <span className="arc-ghost-label">+ Add section...</span>
-                    </div>
-                    <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
-                    <div className="arc-cell arc-pol-col"></div><div className="arc-cell"></div>
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Add act */}
             <div
               className="arc-row arc-ghost arc-grid"
               style={{ cursor: 'pointer' }}
               onClick={() => onSaveAct({
                 id: randomId(), characterId: selectedCharacterId, name: '',
-                startingState: '', endingState: '', polarity: '', transformation: '',
-                dilemma: '', propellingAction: '',
+                startingState: '', endingState: '', polarity: '', transformation: '', dilemma: '', propellingAction: '',
                 order: acts.length,
               })}
             >
@@ -464,7 +479,8 @@ export default function ArcView({
                 <span className="arc-ghost-label">+ Add act...</span>
               </div>
               <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
-              <div className="arc-cell arc-pol-col"></div><div className="arc-cell"></div>
+              <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
+              <div className="arc-cell arc-pol-col"></div>
             </div>
           </>
         )}
@@ -484,6 +500,19 @@ export default function ArcView({
           selectedCharacterId={selectedCharacterId}
           onSave={(p: CharacterPsychology) => onSavePsychology(p)}
           onClose={() => setShowHub(false)}
+        />
+      )}
+
+      {contextMenu && (
+        <ArcSectionContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          sectionId={contextMenu.sectionId}
+          acts={sortedActs}
+          onMoveToAct={(actId) => { onSavePlotPointArcFields(contextMenu.sectionId, { actId }); setContextMenu(null); }}
+          onReturnToBullpen={() => { onSavePlotPointArcFields(contextMenu.sectionId, { actId: null }); setContextMenu(null); }}
+          onDelete={() => { onDeleteSection(contextMenu.sectionId); setContextMenu(null); }}
+          onClose={() => setContextMenu(null)}
         />
       )}
     </div>
