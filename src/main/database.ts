@@ -540,11 +540,11 @@ export class BraidrDB {
     return this.db.prepare('SELECT * FROM plot_points ORDER BY display_order').all() as PlotPointRow[];
   }
 
-  insertPlotPoint(id: string, characterId: string, title: string, description: string | null, expectedSceneCount: number | null, displayOrder: number, actId: string | null = null) {
+  insertPlotPoint(id: string, characterId: string, title: string, description: string | null, expectedSceneCount: number | null, displayOrder: number, actId: string | null = null, startingState = '', endingState = '', polarity = '', transformation = '', dilemma = '', propellingAction = '') {
     this.db.prepare(`
-      INSERT INTO plot_points (id, character_id, title, description, expected_scene_count, display_order, act_id, starting_state, ending_state, polarity, transformation, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, '', '', '', '', ?)
-    `).run(id, characterId, title, description, expectedSceneCount, displayOrder, actId, Date.now());
+      INSERT INTO plot_points (id, character_id, title, description, expected_scene_count, display_order, act_id, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, characterId, title, description, expectedSceneCount, displayOrder, actId, startingState, endingState, polarity, transformation, dilemma, propellingAction, Date.now());
   }
 
   updatePlotPoint(id: string, fields: Partial<{ title: string; description: string | null; expectedSceneCount: number | null; displayOrder: number; actId: string | null; startingState: string; endingState: string; polarity: string; transformation: string; dilemma: string; propellingAction: string }>) {

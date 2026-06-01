@@ -107,7 +107,7 @@ export default function ArcBullpenPanel({
     x: number; y: number; type: 'section' | 'scene'; id: string;
   } | null>(null);
 
-  const { setNodeRef, isOver } = useDroppable({ id: 'arc-bullpen' });
+  const { setNodeRef, isOver } = useDroppable({ id: 'bullpen' });
 
   const handleContextMenu = (e: React.MouseEvent, type: 'section' | 'scene', id: string) => {
     e.preventDefault();

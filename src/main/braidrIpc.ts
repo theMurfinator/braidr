@@ -692,7 +692,12 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_CHARACTER, (_event, braidrPath: string, 
       // Replace plot points for this character
       db.prepare('DELETE FROM plot_points WHERE character_id = ?').run(character.id);
       for (const pp of plotPoints) {
-        db.insertPlotPoint(pp.id, pp.characterId, pp.title, pp.description || null, pp.expectedSceneCount, pp.order);
+        db.insertPlotPoint(
+          pp.id, pp.characterId, pp.title, pp.description || null,
+          pp.expectedSceneCount, pp.order, pp.actId ?? null,
+          pp.startingState, pp.endingState, pp.polarity, pp.transformation,
+          pp.dilemma, pp.propellingAction
+        );
       }
 
       // Get existing scene IDs for this character (to detect deletions)

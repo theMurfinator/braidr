@@ -374,7 +374,7 @@ export default function ArcView({
         </div>
         {!coll && actSections.map(pp => renderSection(pp))}
         {!coll && (
-          <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(act.id)}>
+          <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(null)}>
             <div className="arc-name-cell" style={{ paddingLeft: 36 }}>
               <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
               <span className="arc-ghost-label">+ Add section...</span>
