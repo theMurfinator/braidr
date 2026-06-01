@@ -360,6 +360,16 @@ export default function ArcView({
         <div className="arc-col-h">Transformation</div>
       </div>
 
+      {/* Toolbar */}
+      <div className="arc-toolbar">
+        <button className="arc-toolbar-btn" onClick={() => onSaveAct({
+          id: randomId(), characterId: selectedCharacterId, name: '',
+          startingState: '', endingState: '', polarity: '', transformation: '',
+          order: acts.length,
+        })}>+ Act</button>
+        <button className="arc-toolbar-btn" onClick={() => onCreateSection(null)}>+ Section</button>
+      </div>
+
       <div className="arc-scroll">
         <div style={{ height: 24 }} />
 

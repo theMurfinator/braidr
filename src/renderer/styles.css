@@ -20632,6 +20632,31 @@ textarea.table-cell-input {
 }
 .arc-pol-option:hover { opacity: .8; }
 
+.arc-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.arc-toolbar-btn {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.arc-toolbar-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 .arc-hub-btn {
   position: absolute; bottom: 20px; right: 24px;
   padding: 8px 16px; background: var(--accent); color: white;
