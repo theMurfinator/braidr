@@ -1672,11 +1672,16 @@ function App() {
     }
   }, [projectData]);
 
-  const handleSaveSceneArcFields = useCallback(async (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }) => {
+  const handleSaveSceneArcFields = useCallback(async (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string }) => {
     if (!projectData) return;
+    const { synopsis, ...arcFields } = fields;
     setProjectData({
       ...projectData,
-      scenes: projectData.scenes.map(s => s.id === sceneId ? { ...s, ...fields } : s),
+      scenes: projectData.scenes.map(s => s.id === sceneId ? {
+        ...s,
+        ...arcFields,
+        ...(synopsis !== undefined ? { content: synopsis } : {}),
+      } : s),
     });
     try {
       await dataService.saveSceneArcFields(sceneId, fields);
@@ -2168,7 +2173,7 @@ function App() {
       polarity: '',
       transformation: '',
       dilemma: '',
-      propellingAction: '',
+      propellingAction: '', startingState: '', endingState: '',
     };
 
     const newCharScenes = [...charScenes, newScene];
@@ -2359,7 +2364,7 @@ function App() {
       polarity: '',
       transformation: '',
       dilemma: '',
-      propellingAction: '',
+      propellingAction: '', startingState: '', endingState: '',
     };
     const updatedScenes = [...projectData.scenes, newScene];
     setProjectData({ ...projectData, scenes: updatedScenes });
@@ -2783,7 +2788,7 @@ function App() {
       polarity: '',
       transformation: '',
       dilemma: '',
-      propellingAction: '',
+      propellingAction: '', startingState: '', endingState: '',
     };
 
     // Add new scene to character's scenes
@@ -2851,7 +2856,7 @@ function App() {
       polarity: '',
       transformation: '',
       dilemma: '',
-      propellingAction: '',
+      propellingAction: '', startingState: '', endingState: '',
     };
 
     const updatedScenes = [...projectData.scenes, newScene];
@@ -2949,7 +2954,7 @@ function App() {
       polarity: '',
       transformation: '',
       dilemma: '',
-      propellingAction: '',
+      propellingAction: '', startingState: '', endingState: '',
     };
 
     const newCharScenes = [...charScenes, newScene];
@@ -3223,7 +3228,7 @@ function App() {
       polarity: '',
       transformation: '',
       dilemma: '',
-      propellingAction: '',
+      propellingAction: '', startingState: '', endingState: '',
     };
 
     // Restore draft content if it was preserved
@@ -3360,6 +3365,8 @@ function App() {
       transformation: scene.transformation,
       dilemma: scene.dilemma,
       propellingAction: scene.propellingAction,
+      startingState: scene.startingState,
+      endingState: scene.endingState,
     };
 
     // Insert duplicate after original

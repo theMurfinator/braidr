@@ -117,7 +117,7 @@ interface ArcViewProps {
   onSaveAct: (act: Act) => void;
   onDeleteAct: (actId: string) => void;
   onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => void;
-  onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }) => void;
+  onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string }) => void;
   onDeleteSection: (sectionId: string) => void;
   onLoadPsychology: (characterId: string) => Promise<CharacterPsychology | null>;
   onSavePsychology: (psychology: CharacterPsychology) => void;
@@ -235,23 +235,29 @@ export default function ArcView({
   const sceneTitle = (scene: Scene) =>
     scene.title?.trim() || stripContent(scene.content).slice(0, 80) || 'Untitled';
 
-  const sceneSynopsis = (scene: Scene) =>
-    stripContent(scene.content).slice(0, 150);
-
   const renderSceneRow = (scene: Scene, sectionId: string) => (
     <SortableItem key={scene.id} id={scene.id} data={{ type: 'arc-scene', sectionId }}>
       {({ setNodeRef, style, listeners, attributes, isDragging }) => (
         <div ref={setNodeRef} style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
           className="arc-row arc-scene arc-grid arc-scene-draggable">
-          <div className="arc-name-cell" style={{ paddingLeft: 52 }}>
+          <div className="arc-name-cell" style={{ paddingLeft: 104 }}>
             <span className="arc-drag-handle" {...attributes} {...listeners} title="Drag to reorder">⠣</span>
             <div className="arc-name-inner">
               <span className="arc-name-text">{sceneTitle(scene)}</span>
             </div>
           </div>
-          <div className="arc-cell"><span className="arc-cell-text">{sceneSynopsis(scene)}</span></div>
-          <div className="arc-cell arc-cell-dim"></div>
-          <div className="arc-cell arc-cell-dim"></div>
+          <div className="arc-cell">
+            <EditableCell value={scene.content || ''} placeholder="Synopsis..."
+              onChange={v => onSaveSceneArcFields(scene.id, { synopsis: v })} multiline />
+          </div>
+          <div className="arc-cell">
+            <EditableCell value={scene.startingState || ''} placeholder="Beginning..."
+              onChange={v => onSaveSceneArcFields(scene.id, { startingState: v })} multiline />
+          </div>
+          <div className="arc-cell">
+            <EditableCell value={scene.endingState || ''} placeholder="Ending..."
+              onChange={v => onSaveSceneArcFields(scene.id, { endingState: v })} multiline />
+          </div>
           <div className="arc-cell">
             <EditableCell value={scene.transformation || ''} placeholder="Turning point..."
               onChange={v => onSaveSceneArcFields(scene.id, { transformation: v })} multiline />
@@ -284,7 +290,7 @@ export default function ArcView({
           style={{ borderLeft: `2px solid ${charColor}` }}
           onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, sectionId: pp.id }); }}
         >
-          <div className="arc-name-cell" style={{ paddingLeft: 36 }}>
+          <div className="arc-name-cell" style={{ paddingLeft: 72 }}>
             <span className="arc-toggle" onClick={() => toggleCollapsed(`sec-${pp.id}`)}>
               {coll ? '▶' : '▼'}
             </span>
@@ -339,7 +345,7 @@ export default function ArcView({
     return (
       <div key={act.id}>
         <div className="arc-row arc-act arc-grid">
-          <div className="arc-name-cell" style={{ paddingLeft: 16 }}>
+          <div className="arc-name-cell" style={{ paddingLeft: 32 }}>
             <span className="arc-toggle" onClick={() => toggleCollapsed(`act-${act.id}`)}>
               {coll ? '▶' : '▼'}
             </span>
@@ -376,7 +382,7 @@ export default function ArcView({
         {!coll && actSections.map(pp => renderSection(pp))}
         {!coll && (
           <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(null)}>
-            <div className="arc-name-cell" style={{ paddingLeft: 36 }}>
+            <div className="arc-name-cell" style={{ paddingLeft: 72 }}>
               <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
               <span className="arc-ghost-label">+ Add section...</span>
             </div>
@@ -468,7 +474,7 @@ export default function ArcView({
                 order: acts.length,
               })}
             >
-              <div className="arc-name-cell" style={{ paddingLeft: 16 }}>
+              <div className="arc-name-cell" style={{ paddingLeft: 32 }}>
                 <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
                 <span className="arc-ghost-label">+ Add act...</span>
               </div>

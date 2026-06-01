@@ -500,7 +500,7 @@ export class CapacitorDataService implements DataService {
           polarity: '',
           transformation: '',
           dilemma: '',
-          propellingAction: '',
+          propellingAction: '', startingState: '', endingState: '',
         },
       ],
       rawContent: initialContent,

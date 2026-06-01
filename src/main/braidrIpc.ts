@@ -175,6 +175,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       transformation: (row as any).transformation ?? '',
       dilemma: (row as any).dilemma ?? '',
       propellingAction: (row as any).propelling_action ?? '',
+      startingState: (row as any).starting_state ?? '',
+      endingState: (row as any).ending_state ?? '',
     }));
 
     // Connections
@@ -783,7 +785,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_CREATE_CHARACTER, (_event, braidrPath: string
         title: 'First scene description here', content: 'First scene description here',
         tags: [], timelinePosition: null, isHighlighted: false, notes: [], plotPointId: ppId,
         chapterId: null, sceneOrder: 0, stationId: null, polarity: '', transformation: '',
-        dilemma: '', propellingAction: '',
+        dilemma: '', propellingAction: '', startingState: '', endingState: '',
       } as Scene,
     };
   } catch (error) {
@@ -1141,7 +1143,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ACT, (_event, braidrPath: string, act: A
   } catch (err) { return { success: false, error: String(err) }; }
 });
 
-ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: string, sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }) => {
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: string, sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string }) => {
   try {
     const db = getDb(braidrPath);
     db.updateScene(sceneId, fields);

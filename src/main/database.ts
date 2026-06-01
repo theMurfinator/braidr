@@ -455,6 +455,12 @@ export class BraidrDB {
     if (!sceneColumns.includes('propelling_action')) {
       this.db.exec("ALTER TABLE scenes ADD COLUMN propelling_action TEXT NOT NULL DEFAULT ''");
     }
+    if (!sceneColumns.includes('starting_state')) {
+      this.db.exec("ALTER TABLE scenes ADD COLUMN starting_state TEXT NOT NULL DEFAULT ''");
+    }
+    if (!sceneColumns.includes('ending_state')) {
+      this.db.exec("ALTER TABLE scenes ADD COLUMN ending_state TEXT NOT NULL DEFAULT ''");
+    }
   }
 
   get path() { return this.filePath; }
@@ -598,6 +604,7 @@ export class BraidrDB {
     wordCount: number | null; plotPointId: string | null;
     chapterId: string | null; sceneOrder: number;
     polarity: string; transformation: string; dilemma: string; propellingAction: string;
+    startingState: string; endingState: string;
   }>) {
     const updates: string[] = [];
     const values: unknown[] = [];
@@ -614,6 +621,8 @@ export class BraidrDB {
     if ('transformation' in fields)    { updates.push('transformation = ?');     values.push(fields.transformation); }
     if ('dilemma' in fields)           { updates.push('dilemma = ?');            values.push(fields.dilemma); }
     if ('propellingAction' in fields)  { updates.push('propelling_action = ?');  values.push(fields.propellingAction); }
+    if ('startingState' in fields)     { updates.push('starting_state = ?');     values.push(fields.startingState); }
+    if ('endingState' in fields)       { updates.push('ending_state = ?');       values.push(fields.endingState); }
     if (updates.length === 0) return;
     updates.push('updated_at = ?');
     values.push(Date.now());
@@ -1172,6 +1181,7 @@ export interface SceneRow {
   timeline_position: number | null; is_highlighted: number; word_count: number | null;
   chapter_id: string | null; scene_order: number;
   polarity: string; transformation: string; dilemma: string; propelling_action: string;
+  starting_state: string; ending_state: string;
   created_at: number; updated_at: number
 }
 export interface DraftVersionRow { id: string; scene_id: string; version: number; content: string; saved_at: number }

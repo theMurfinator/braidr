@@ -223,7 +223,7 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
         polarity: '',
         transformation: '',
         dilemma: '',
-        propellingAction: '',
+        propellingAction: '', startingState: '', endingState: '',
       };
       continue;
     }

@@ -26,6 +26,8 @@ export interface Scene {
   transformation: string;
   dilemma: string;
   propellingAction: string;
+  startingState: string;
+  endingState: string;
 }
 
 export interface Chapter {
