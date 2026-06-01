@@ -20614,9 +20614,11 @@ textarea.table-cell-input {
 .arc-section {
   border-left: 2px solid transparent;
 }
-.arc-section .arc-name-text {
+.arc-section .arc-name-text,
+.arc-section .arc-name-inner > .arc-editable-display:first-child,
+.arc-section .arc-name-inner > input:first-child {
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 600;
   color: var(--text-primary);
   line-height: 1.3;
 }

@@ -11,8 +11,9 @@ const POLARITY_COLORS: Record<string, { bg: string; color: string }> = {
   '-/-':   { bg: '#fecaca', color: '#7f1d1d' },
   '+/+':   { bg: '#14532d', color: '#dcfce7' },
   '+/-/+': { bg: '#fef9c3', color: '#854d0e' },
+  '-/+/-': { bg: '#ede9fe', color: '#6d28d9' },
 };
-const POLARITY_OPTIONS = ['+/-', '-/+', '-/-', '+/+', '+/-/+'];
+const POLARITY_OPTIONS = ['+/-', '-/+', '-/-', '+/+', '+/-/+', '-/+/-'];
 
 
 function emptyPsych(characterId: string): CharacterPsychology {
