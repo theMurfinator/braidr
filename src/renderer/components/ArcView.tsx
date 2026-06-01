@@ -7,9 +7,9 @@ import CharacterHubPanel from './CharacterHubPanel';
 
 const POLARITY_COLORS: Record<string, { bg: string; color: string }> = {
   '+/-':   { bg: '#fee2e2', color: '#b91c1c' },
-  '-/+':   { bg: '#ede9fe', color: '#6d28d9' },
+  '-/+':   { bg: '#dcfce7', color: '#15803d' },
   '-/-':   { bg: '#fecaca', color: '#7f1d1d' },
-  '+/+':   { bg: '#d1fae5', color: '#065f46' },
+  '+/+':   { bg: '#14532d', color: '#dcfce7' },
   '+/-/+': { bg: '#fef9c3', color: '#854d0e' },
 };
 const POLARITY_OPTIONS = ['+/-', '-/+', '-/-', '+/+', '+/-/+'];
