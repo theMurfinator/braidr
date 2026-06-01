@@ -203,7 +203,7 @@ export default function ArcView({
           style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
           className="arc-row arc-scene arc-grid arc-scene-draggable"
         >
-          <div className="arc-name-cell" style={{ paddingLeft: 48 }}>
+          <div className="arc-name-cell" style={{ paddingLeft: 60 }}>
             <span
               className="arc-drag-handle"
               {...attributes}
@@ -234,7 +234,7 @@ export default function ArcView({
     return (
       <div key={pp.id}>
         <div className="arc-row arc-section arc-grid">
-          <div className="arc-name-cell" style={{ paddingLeft: 32 }}>
+          <div className="arc-name-cell" style={{ paddingLeft: 44 }}>
             <span className="arc-toggle" onClick={() => toggleCollapsed(`sec-${pp.id}`)}>
               {coll ? '▶' : '▼'}
             </span>
@@ -285,7 +285,7 @@ export default function ArcView({
         )}
         {!coll && (
           <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateScene(pp.id)}>
-            <div className="arc-name-cell" style={{ paddingLeft: 48 }}>
+            <div className="arc-name-cell" style={{ paddingLeft: 60 }}>
               <span className="arc-toggle" style={{ visibility: 'hidden' }}>&#xB7;</span>
               <span className="arc-ghost-label">+ Add scene...</span>
             </div>
@@ -305,7 +305,7 @@ export default function ArcView({
     return (
       <div key={act.id}>
         <div className="arc-row arc-act arc-grid">
-          <div className="arc-name-cell" style={{ paddingLeft: 16 }}>
+          <div className="arc-name-cell" style={{ paddingLeft: 24 }}>
             <span className="arc-toggle" onClick={() => toggleCollapsed(`act-${act.id}`)}>
               {coll ? '▶' : '▼'}
             </span>
@@ -335,7 +335,7 @@ export default function ArcView({
         {!coll && actSections.map(pp => renderSection(pp))}
         {!coll && (
           <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(act.id)}>
-            <div className="arc-name-cell" style={{ paddingLeft: 32 }}>
+            <div className="arc-name-cell" style={{ paddingLeft: 44 }}>
               <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
               <span className="arc-ghost-label">+ Add section...</span>
             </div>
@@ -425,7 +425,7 @@ export default function ArcView({
             {unassignedSections.length > 0 && (
               <div>
                 <div className="arc-row arc-act arc-grid" style={{ opacity: .6 }}>
-                  <div className="arc-name-cell" style={{ paddingLeft: 16 }}>
+                  <div className="arc-name-cell" style={{ paddingLeft: 24 }}>
                     <span className="arc-toggle" onClick={() => toggleCollapsed('unassigned')}>
                       {isCollapsed('unassigned') ? '▶' : '▼'}
                     </span>
@@ -440,7 +440,7 @@ export default function ArcView({
                 {!isCollapsed('unassigned') && unassignedSections.map(pp => renderSection(pp))}
                 {!isCollapsed('unassigned') && (
                   <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(null)}>
-                    <div className="arc-name-cell" style={{ paddingLeft: 32 }}>
+                    <div className="arc-name-cell" style={{ paddingLeft: 44 }}>
                       <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
                       <span className="arc-ghost-label">+ Add section...</span>
                     </div>
@@ -461,7 +461,7 @@ export default function ArcView({
                 order: acts.length,
               })}
             >
-              <div className="arc-name-cell" style={{ paddingLeft: 16 }}>
+              <div className="arc-name-cell" style={{ paddingLeft: 24 }}>
                 <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
                 <span className="arc-ghost-label">+ Add act...</span>
               </div>

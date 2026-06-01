@@ -20549,15 +20549,50 @@ textarea.table-cell-input {
 }
 .arc-toggle:hover { color: var(--accent); }
 
-.arc-name-inner { display: flex; flex-direction: column; gap: 2px; flex: 1; padding: 2px 14px 2px 4px; }
-.arc-name-tag { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 1px; }
+.arc-name-inner { display: flex; flex-direction: column; gap: 3px; flex: 1; padding: 2px 14px 2px 4px; }
+.arc-name-tag { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 1px; color: var(--text-muted); }
 .arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); }
-.arc-novel-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.arc-novel-title {
+  font-family: var(--font-section-title);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
 
-.arc-novel .arc-name-text { font-size: 15px; font-weight: 700; }
-.arc-act .arc-name-text { font-size: 13px; font-weight: 700; color: var(--text-primary); }
-.arc-section .arc-name-text { font-size: 13px; font-weight: 600; }
-.arc-scene .arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); }
+/* Novel level */
+.arc-novel { border-bottom: 2px solid var(--border) !important; padding: 6px 0 !important; }
+
+/* Act level — strong top separator, bigger font */
+.arc-act {
+  border-top: 2px solid var(--border) !important;
+  margin-top: 4px;
+}
+.arc-act .arc-name-tag { color: #7c3aed; }
+.arc-act .arc-name-text {
+  font-family: var(--font-section-title);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.arc-act.arc-grid > * { padding-top: 14px; padding-bottom: 14px; }
+
+/* Section level */
+.arc-section .arc-name-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.arc-section.arc-grid > * { padding-top: 10px; padding-bottom: 10px; }
+
+/* Scene level */
+.arc-scene .arc-name-text {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-style: italic;
+}
 
 .arc-drag-handle {
   width: 16px;
@@ -20596,9 +20631,11 @@ textarea.table-cell-input {
   outline: none;
 }
 
-.arc-cell { font-size: 12px; color: var(--text-secondary); }
+.arc-cell { font-size: 13px; color: var(--text-secondary); }
 .arc-cell-dim { opacity: .25; }
-.arc-cell-text { font-size: 12px; color: var(--text-muted); }
+.arc-cell-text { font-size: 13px; color: var(--text-muted); }
+.arc-act .arc-cell { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.arc-section .arc-cell { font-size: 13px; }
 .arc-pol-col { justify-content: center !important; align-items: center !important; padding-right: 0 !important; }
 
 .arc-ghost { opacity: .35; cursor: pointer; border-bottom: none; }
