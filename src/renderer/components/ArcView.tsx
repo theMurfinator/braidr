@@ -25,8 +25,8 @@ function emptyPsych(characterId: string): CharacterPsychology {
   };
 }
 
-function EditableCell({ value, placeholder, onChange, multiline = false }: {
-  value: string; placeholder: string; onChange: (v: string) => void; multiline?: boolean;
+function EditableCell({ value, placeholder, onChange, multiline = false, className }: {
+  value: string; placeholder: string; onChange: (v: string) => void; multiline?: boolean; className?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -73,7 +73,7 @@ function EditableCell({ value, placeholder, onChange, multiline = false }: {
 
   return (
     <span
-      className="arc-editable-display"
+      className={`arc-editable-display${className ? ` ${className}` : ''}`}
       onClick={() => { setEditing(true); setDraft(value); }}
       style={{ color: value ? 'inherit' : 'var(--text-muted)', fontStyle: value ? 'normal' : 'italic' }}
     >
@@ -295,12 +295,12 @@ export default function ArcView({
             <span className="arc-drag-handle" {...attributes} {...listeners} title="Drag to reorder">⠣</span>
             <div className="arc-name-inner">
               <span className="arc-name-text">{sceneTitle(scene)}</span>
+              {scene.notes.length > 0 && (
+                <span className="arc-section-synopsis arc-editable-display" style={{ fontStyle: 'normal', color: 'var(--text-muted)' }}>
+                  {scene.notes.map(n => n.startsWith('- ') ? n.slice(2) : n).join(' ')}
+                </span>
+              )}
             </div>
-          </div>
-          <div className="arc-cell">
-            <span className="arc-cell-text arc-synopsis-display">
-              {scene.notes.map(n => n.startsWith('- ') ? n.slice(2) : n).join(' ') || ''}
-            </span>
           </div>
           <div className="arc-cell">
             <EditableCell value={scene.startingState || ''} placeholder="Beginning..."
@@ -352,11 +352,11 @@ export default function ArcView({
             <div className="arc-name-inner">
               <EditableCell value={pp.title} placeholder="Section name..."
                 onChange={v => onSavePlotPointArcFields(pp.id, { title: v })} />
+              <EditableCell value={pp.description || ''} placeholder="Synopsis..."
+                onChange={v => onSavePlotPointArcFields(pp.id, { description: v })}
+                multiline
+                className="arc-section-synopsis" />
             </div>
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={pp.description || ''} placeholder="What happens..."
-              onChange={v => onSavePlotPointArcFields(pp.id, { description: v })} multiline />
           </div>
           <div className="arc-cell">
             <EditableCell value={pp.startingState} placeholder="Entering state..."
@@ -411,11 +411,10 @@ export default function ArcView({
             <div className="arc-name-inner">
               <EditableCell value={act.name} placeholder="Act name..."
                 onChange={v => onSaveAct({ ...act, name: v })} />
+              <EditableCell value={act.synopsis || ''} placeholder="Synopsis..."
+                onChange={v => onSaveAct({ ...act, synopsis: v })} multiline
+                className="arc-section-synopsis" />
             </div>
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={act.synopsis || ''} placeholder="What happens in this act..."
-              onChange={v => onSaveAct({ ...act, synopsis: v })} multiline />
           </div>
           <div className="arc-cell">
             <EditableCell value={act.startingState} placeholder="Entering this act..."
@@ -457,7 +456,6 @@ export default function ArcView({
       <div className="arc-scroll">
         <div className="arc-col-headers arc-grid">
           <div className="arc-col-h arc-col-h-freeze"></div>
-          <div className="arc-col-h">Plot synopsis</div>
           <div className="arc-col-h">Beginning</div>
           <div className="arc-col-h">Ending</div>
           <div className="arc-col-h">Turning point</div>
@@ -476,11 +474,10 @@ export default function ArcView({
             </span>
             <div className="arc-name-inner">
               <span className="arc-novel-title">{character?.name || '—'}</span>
+              <EditableCell value={psych?.arcSummary || ''} placeholder="Story synopsis..."
+                onChange={v => savePsych({ arcSummary: v })} multiline
+                className="arc-section-synopsis" />
             </div>
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={psych?.arcSummary || ''} placeholder="The full story synopsis..."
-              onChange={v => savePsych({ arcSummary: v })} multiline />
           </div>
           <div className="arc-cell">
             <EditableCell value={psych?.novelStartingState || ''} placeholder="Where does this character begin?"

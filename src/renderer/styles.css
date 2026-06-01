@@ -20507,7 +20507,7 @@ textarea.table-cell-input {
 
 .arc-grid {
   display: grid;
-  grid-template-columns: 220px repeat(6, minmax(160px, 1fr)) 110px 70px;
+  grid-template-columns: 220px repeat(5, minmax(160px, 1fr)) 110px 70px;
   min-width: max-content;
 }
 
@@ -20563,7 +20563,19 @@ textarea.table-cell-input {
   transition: color .1s;
 }
 .arc-toggle:hover { color: var(--accent); }
-.arc-name-inner { display: flex; flex-direction: column; gap: 2px; flex: 1; padding: 2px 16px 2px 4px; }
+.arc-name-inner { display: flex; flex-direction: column; gap: 3px; flex: 1; padding: 2px 16px 2px 4px; }
+.arc-section-synopsis,
+.arc-section-synopsis.arc-editable-display {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+  font-style: normal !important;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.arc-section-synopsis.arc-editable-display[style*="italic"] {
+  font-style: italic !important;
+}
 /* .arc-name-tag removed — label chips no longer used */
 .arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); line-height: 1.4; }
 
