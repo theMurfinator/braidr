@@ -20540,7 +20540,7 @@ textarea.table-cell-input {
 .arc-row.arc-grid > * {
   padding: 7px 16px 7px 0;
   display: flex; flex-direction: column;
-  justify-content: center; align-items: flex-start;
+  justify-content: flex-start; align-items: flex-start;
   font-size: 13px; color: var(--text-secondary); line-height: 1.4;
   border-right: 1px dotted rgba(0,0,0,0.08);
 }
