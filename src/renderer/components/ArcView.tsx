@@ -38,6 +38,14 @@ function EditableCell({ value, placeholder, onChange, multiline = false, classNa
     el.style.height = `${el.scrollHeight}px`;
   };
 
+  // Resize after render so full content is visible immediately on open
+  useEffect(() => {
+    if (editing && taRef.current) {
+      autoResize(taRef.current);
+      taRef.current.setSelectionRange(taRef.current.value.length, taRef.current.value.length);
+    }
+  }, [editing]);
+
   if (editing) {
     if (multiline) {
       return (
@@ -51,7 +59,6 @@ function EditableCell({ value, placeholder, onChange, multiline = false, classNa
           onBlur={() => { setEditing(false); if (draft !== value) onChange(draft); }}
           onKeyDown={e => { if (e.key === 'Escape') { setEditing(false); setDraft(value); } }}
           autoFocus
-          onFocus={e => autoResize(e.target)}
         />
       );
     }
