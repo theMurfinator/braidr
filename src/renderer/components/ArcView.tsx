@@ -178,22 +178,17 @@ export default function ArcView({
   const sortedActs = [...acts].sort((a, b) => a.order - b.order);
   const unassignedSections = plotPoints.filter(pp => !pp.actId).sort((a, b) => a.order - b.order);
 
-  // Extract plain text from scene content for synopsis display
+  const stripContent = (s: string) =>
+    s.replace(/<[^>]*>/g, '')
+     .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
+     .replace(/#[a-zA-Z0-9_]+/g, '')
+     .trim();
+
   const sceneTitle = (scene: Scene) =>
-    scene.content
-      .replace(/<[^>]*>/g, '')
-      .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
-      .replace(/#[a-zA-Z0-9_]+/g, '')
-      .trim()
-      .slice(0, 80) || 'Untitled';
+    scene.title?.trim() || stripContent(scene.content).slice(0, 80) || 'Untitled';
 
   const sceneSynopsis = (scene: Scene) =>
-    scene.content
-      .replace(/<[^>]*>/g, '')
-      .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
-      .replace(/#[a-zA-Z0-9_]+/g, '')
-      .trim()
-      .slice(0, 120);
+    stripContent(scene.content).slice(0, 150);
 
   const renderSceneRow = (scene: Scene, sectionId: string) => (
     <SortableItem key={scene.id} id={scene.id} data={{ type: 'arc-scene', sectionId }}>
@@ -203,7 +198,7 @@ export default function ArcView({
           style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
           className="arc-row arc-scene arc-grid arc-scene-draggable"
         >
-          <div className="arc-name-cell" style={{ paddingLeft: 60 }}>
+          <div className="arc-name-cell" style={{ paddingLeft: 52 }}>
             <span
               className="arc-drag-handle"
               {...attributes}
@@ -234,7 +229,7 @@ export default function ArcView({
     return (
       <div key={pp.id}>
         <div className="arc-row arc-section arc-grid">
-          <div className="arc-name-cell" style={{ paddingLeft: 44 }}>
+          <div className="arc-name-cell" style={{ paddingLeft: 36 }}>
             <span className="arc-toggle" onClick={() => toggleCollapsed(`sec-${pp.id}`)}>
               {coll ? '▶' : '▼'}
             </span>
@@ -285,7 +280,7 @@ export default function ArcView({
         )}
         {!coll && (
           <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateScene(pp.id)}>
-            <div className="arc-name-cell" style={{ paddingLeft: 60 }}>
+            <div className="arc-name-cell" style={{ paddingLeft: 52 }}>
               <span className="arc-toggle" style={{ visibility: 'hidden' }}>&#xB7;</span>
               <span className="arc-ghost-label">+ Add scene...</span>
             </div>
@@ -305,7 +300,7 @@ export default function ArcView({
     return (
       <div key={act.id}>
         <div className="arc-row arc-act arc-grid">
-          <div className="arc-name-cell" style={{ paddingLeft: 24 }}>
+          <div className="arc-name-cell" style={{ paddingLeft: 16 }}>
             <span className="arc-toggle" onClick={() => toggleCollapsed(`act-${act.id}`)}>
               {coll ? '▶' : '▼'}
             </span>
@@ -335,7 +330,7 @@ export default function ArcView({
         {!coll && actSections.map(pp => renderSection(pp))}
         {!coll && (
           <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(act.id)}>
-            <div className="arc-name-cell" style={{ paddingLeft: 44 }}>
+            <div className="arc-name-cell" style={{ paddingLeft: 36 }}>
               <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
               <span className="arc-ghost-label">+ Add section...</span>
             </div>
@@ -425,7 +420,7 @@ export default function ArcView({
             {unassignedSections.length > 0 && (
               <div>
                 <div className="arc-row arc-act arc-grid" style={{ opacity: .6 }}>
-                  <div className="arc-name-cell" style={{ paddingLeft: 24 }}>
+                  <div className="arc-name-cell" style={{ paddingLeft: 16 }}>
                     <span className="arc-toggle" onClick={() => toggleCollapsed('unassigned')}>
                       {isCollapsed('unassigned') ? '▶' : '▼'}
                     </span>
@@ -440,7 +435,7 @@ export default function ArcView({
                 {!isCollapsed('unassigned') && unassignedSections.map(pp => renderSection(pp))}
                 {!isCollapsed('unassigned') && (
                   <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(null)}>
-                    <div className="arc-name-cell" style={{ paddingLeft: 44 }}>
+                    <div className="arc-name-cell" style={{ paddingLeft: 36 }}>
                       <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
                       <span className="arc-ghost-label">+ Add section...</span>
                     </div>
@@ -461,7 +456,7 @@ export default function ArcView({
                 order: acts.length,
               })}
             >
-              <div className="arc-name-cell" style={{ paddingLeft: 24 }}>
+              <div className="arc-name-cell" style={{ paddingLeft: 16 }}>
                 <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
                 <span className="arc-ghost-label">+ Add act...</span>
               </div>
