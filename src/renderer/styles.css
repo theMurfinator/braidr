@@ -20570,11 +20570,20 @@ textarea.table-cell-input {
   color: var(--text-muted) !important;
   font-style: normal !important;
   line-height: 1.4;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
-.arc-section-synopsis.arc-editable-display[style*="italic"] {
-  font-style: italic !important;
+/* In display mode: clamp to 3 lines so rows stay compact */
+.arc-section-synopsis.arc-editable-display {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Titles in name cells: single line with ellipsis */
+.arc-name-inner > .arc-editable-display:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 /* .arc-name-tag removed — label chips no longer used */
 .arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); line-height: 1.4; }
