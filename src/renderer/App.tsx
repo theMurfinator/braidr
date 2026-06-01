@@ -3544,22 +3544,35 @@ function App() {
                   onDragEnd={handleArcDndEnd}
                   onDragCancel={handleArcDndCancel}
                 >
-                  <ArcView
-                    characters={projectData.characters}
-                    selectedCharacterId={selectedCharacterId}
-                    onSelectCharacter={setSelectedCharacterId}
-                    acts={acts.filter(a => a.characterId === selectedCharacterId)}
-                    plotPoints={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
-                    scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
-                    characterColors={characterColors}
-                    psychology={characterPsychologies[selectedCharacterId] ?? null}
-                    onSaveAct={handleSaveAct}
-                    onDeleteAct={handleDeleteAct}
-                    onSavePlotPointArcFields={handleSavePlotPointArcFields}
-                    onLoadPsychology={handleLoadCharacterPsychology}
-                    onSavePsychology={handleSaveCharacterPsychology}
-                    arcActiveId={arcActiveId}
-                  />
+                  <div className="pov-layout">
+                    <div className="pov-content">
+                      <ArcView
+                        characters={projectData.characters}
+                        selectedCharacterId={selectedCharacterId}
+                        onSelectCharacter={setSelectedCharacterId}
+                        acts={acts.filter(a => a.characterId === selectedCharacterId)}
+                        plotPoints={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
+                        scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
+                        characterColors={characterColors}
+                        psychology={characterPsychologies[selectedCharacterId] ?? null}
+                        onSaveAct={handleSaveAct}
+                        onDeleteAct={handleDeleteAct}
+                        onSavePlotPointArcFields={handleSavePlotPointArcFields}
+                        onLoadPsychology={handleLoadCharacterPsychology}
+                        onSavePsychology={handleSaveCharacterPsychology}
+                        arcActiveId={arcActiveId}
+                      />
+                    </div>
+                    <BullpenPanel
+                      scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId && !s.plotPointId)}
+                      plotPoints={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
+                      getCharacterName={getCharacterName}
+                      onReturnScene={handleReturnFromBullpen}
+                      onSceneChange={handleSceneChange}
+                      previousPlotPointIds={previousPlotPointIds}
+                      onAddScene={handleAddBullpenScene}
+                    />
+                  </div>
                   <DragOverlay>
                     {arcActiveId && (() => {
                       const s = projectData.scenes.find(sc => sc.id === arcActiveId);
