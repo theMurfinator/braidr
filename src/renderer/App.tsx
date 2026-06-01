@@ -1672,7 +1672,7 @@ function App() {
     }
   }, [projectData]);
 
-  const handleSaveSceneArcFields = useCallback(async (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string }) => {
+  const handleSaveSceneArcFields = useCallback(async (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }) => {
     if (!projectData) return;
     const { synopsis, ...arcFields } = fields;
     setProjectData({

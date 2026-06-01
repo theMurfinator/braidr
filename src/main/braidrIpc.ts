@@ -1143,7 +1143,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ACT, (_event, braidrPath: string, act: A
   } catch (err) { return { success: false, error: String(err) }; }
 });
 
-ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: string, sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string }) => {
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: string, sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }) => {
   try {
     const db = getDb(braidrPath);
     db.updateScene(sceneId, fields);

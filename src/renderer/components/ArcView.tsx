@@ -140,7 +140,7 @@ interface ArcViewProps {
   onSaveAct: (act: Act) => void;
   onDeleteAct: (actId: string) => void;
   onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => void;
-  onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string }) => void;
+  onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }) => void;
   onDeleteSection: (sectionId: string) => void;
   onLoadPsychology: (characterId: string) => Promise<CharacterPsychology | null>;
   onSavePsychology: (psychology: CharacterPsychology) => void;
@@ -278,14 +278,8 @@ export default function ArcView({
 
   const fmtWc = (n: number) => n > 0 ? n.toLocaleString() : null;
 
-  const stripContent = (s: string) =>
-    s.replace(/<[^>]*>/g, '')
-     .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
-     .replace(/#[a-zA-Z0-9_]+/g, '')
-     .trim();
 
-  const sceneTitle = (scene: Scene) =>
-    scene.title?.trim() || stripContent(scene.content).slice(0, 80) || 'Untitled';
+
 
   const renderSceneRow = (scene: Scene, sectionId: string) => (
     <SortableItem key={scene.id} id={scene.id} data={{ type: 'arc-scene', sectionId }}>
@@ -295,12 +289,11 @@ export default function ArcView({
           <div className="arc-name-cell" style={{ paddingLeft: 104 }}>
             <span className="arc-drag-handle" {...attributes} {...listeners} title="Drag to reorder">⠣</span>
             <div className="arc-name-inner">
-              <span className="arc-name-text">{sceneTitle(scene)}</span>
-              {scene.notes.length > 0 && (
-                <span className="arc-section-synopsis arc-editable-display" style={{ fontStyle: 'normal', color: 'var(--text-muted)' }}>
-                  {scene.notes.map(n => n.startsWith('- ') ? n.slice(2) : n).join(' ')}
-                </span>
-              )}
+              <EditableCell value={scene.title || ''} placeholder="Scene title..."
+                onChange={v => onSaveSceneArcFields(scene.id, { title: v })} />
+              <EditableCell value={scene.content || ''} placeholder="Synopsis..."
+                onChange={v => onSaveSceneArcFields(scene.id, { synopsis: v })} multiline
+                className="arc-section-synopsis" />
             </div>
           </div>
           <div className="arc-cell">
@@ -312,7 +305,7 @@ export default function ArcView({
               onChange={v => onSaveSceneArcFields(scene.id, { endingState: v })} multiline />
           </div>
           <div className="arc-cell">
-            <EditableCell value={scene.transformation || ''} placeholder="Turning point..."
+            <EditableCell value={scene.transformation || ''} placeholder="What creates the dilemma..."
               onChange={v => onSaveSceneArcFields(scene.id, { transformation: v })} multiline />
           </div>
           <div className="arc-cell">
@@ -368,7 +361,7 @@ export default function ArcView({
               onChange={v => onSavePlotPointArcFields(pp.id, { endingState: v })} multiline />
           </div>
           <div className="arc-cell">
-            <EditableCell value={pp.transformation} placeholder="What shifts..."
+            <EditableCell value={pp.transformation} placeholder="What creates the dilemma..."
               onChange={v => onSavePlotPointArcFields(pp.id, { transformation: v })} multiline />
           </div>
           <div className="arc-cell">
@@ -426,7 +419,7 @@ export default function ArcView({
               onChange={v => onSaveAct({ ...act, endingState: v })} multiline />
           </div>
           <div className="arc-cell">
-            <EditableCell value={act.transformation} placeholder="What this act accomplishes..."
+            <EditableCell value={act.transformation} placeholder="What creates the dilemma..."
               onChange={v => onSaveAct({ ...act, transformation: v })} multiline />
           </div>
           <div className="arc-cell">
@@ -489,7 +482,7 @@ export default function ArcView({
               onChange={v => savePsych({ novelEndingState: v })} multiline />
           </div>
           <div className="arc-cell">
-            <EditableCell value={psych?.novelTransformation || ''} placeholder="The full arc in one sentence..."
+            <EditableCell value={psych?.novelTransformation || ''} placeholder="What creates the dilemma..."
               onChange={v => savePsych({ novelTransformation: v })} multiline />
           </div>
           <div className="arc-cell">

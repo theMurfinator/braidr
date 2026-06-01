@@ -66,7 +66,7 @@ export interface DataService {
   loadCharacterPsychology(characterId: string): Promise<CharacterPsychology | null>;
   saveCharacterPsychology(psychology: CharacterPsychology): Promise<void>;
   // Arc field saves
-  saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string }): Promise<void>;
+  saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }): Promise<void>;
   savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }): Promise<void>;
 }
 
@@ -472,7 +472,7 @@ class ElectronDataService implements DataService {
     });
   }
 
-  async saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string }): Promise<void> {
+  async saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }): Promise<void> {
     if (!this.braidrPath) throw new Error('No project loaded');
     const result = await window.electronAPI.braidrSaveSceneArcFields(this.braidrPath, sceneId, fields) as any;
     if (!result.success) throw new Error(result.error || 'Failed to save scene arc fields');
