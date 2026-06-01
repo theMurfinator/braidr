@@ -410,7 +410,7 @@ class ElectronDataService implements DataService {
     const result = await window.electronAPI.braidrLoadActs(this.braidrPath, characterId);
     if (!result?.success || !result.data) return [];
     return (result.data as any[]).map(r => ({
-      id: r.id, characterId: r.character_id, name: r.name,
+      id: r.id, characterId: r.character_id, name: r.name, synopsis: r.synopsis ?? '',
       startingState: r.starting_state, endingState: r.ending_state,
       polarity: r.polarity, transformation: r.transformation, dilemma: r.dilemma, propellingAction: r.propelling_action, order: r.display_order,
     }));
@@ -419,7 +419,7 @@ class ElectronDataService implements DataService {
   async saveAct(act: Act): Promise<void> {
     if (!this.braidrPath) return;
     await window.electronAPI.braidrSaveAct(this.braidrPath, {
-      id: act.id, character_id: act.characterId, name: act.name,
+      id: act.id, character_id: act.characterId, name: act.name, synopsis: act.synopsis ?? '',
       starting_state: act.startingState, ending_state: act.endingState,
       polarity: act.polarity, transformation: act.transformation,
       dilemma: act.dilemma, propelling_action: act.propellingAction,

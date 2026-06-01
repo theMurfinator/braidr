@@ -20572,7 +20572,9 @@ textarea.table-cell-input {
   background: var(--bg-secondary);
 }
 .arc-act:hover { background: var(--bg-secondary) !important; }
-.arc-act .arc-name-text {
+.arc-act .arc-name-text,
+.arc-act .arc-name-inner .arc-editable-display,
+.arc-act .arc-name-inner input {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);

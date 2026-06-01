@@ -375,7 +375,10 @@ export default function ArcView({
                 onChange={v => onSaveAct({ ...act, name: v })} />
             </div>
           </div>
-          <div className="arc-cell arc-cell-dim"></div>
+          <div className="arc-cell">
+            <EditableCell value={act.synopsis || ''} placeholder="What happens in this act..."
+              onChange={v => onSaveAct({ ...act, synopsis: v })} multiline />
+          </div>
           <div className="arc-cell">
             <EditableCell value={act.startingState} placeholder="Entering this act..."
               onChange={v => onSaveAct({ ...act, startingState: v })} multiline />
@@ -445,7 +448,10 @@ export default function ArcView({
               <span className="arc-novel-title">{character?.name || '—'}</span>
             </div>
           </div>
-          <div className="arc-cell arc-cell-dim"></div>
+          <div className="arc-cell">
+            <EditableCell value={psych?.arcSummary || ''} placeholder="The full story synopsis..."
+              onChange={v => savePsych({ arcSummary: v })} multiline />
+          </div>
           <div className="arc-cell">
             <EditableCell value={psych?.novelStartingState || ''} placeholder="Where does this character begin?"
               onChange={v => savePsych({ novelStartingState: v })} multiline />
@@ -481,7 +487,7 @@ export default function ArcView({
               style={{ cursor: 'pointer' }}
               onClick={() => onSaveAct({
                 id: randomId(), characterId: selectedCharacterId, name: '',
-                startingState: '', endingState: '', polarity: '', transformation: '', dilemma: '', propellingAction: '',
+                synopsis: '', startingState: '', endingState: '', polarity: '', transformation: '', dilemma: '', propellingAction: '',
                 order: acts.length,
               })}
             >

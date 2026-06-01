@@ -251,6 +251,7 @@ export interface Act {
   id: string;
   characterId: string;
   name: string;
+  synopsis: string;
   startingState: string;
   endingState: string;
   polarity: string;

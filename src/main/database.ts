@@ -449,6 +449,12 @@ export class BraidrDB {
     if (!psychColumns.includes('novel_propelling_action')) {
       this.db.exec("ALTER TABLE character_psychology ADD COLUMN novel_propelling_action TEXT NOT NULL DEFAULT ''");
     }
+    const actColumns2 = (
+      this.db.prepare('PRAGMA table_info(acts)').all() as { name: string }[]
+    ).map(c => c.name);
+    if (!actColumns2.includes('synopsis')) {
+      this.db.exec("ALTER TABLE acts ADD COLUMN synopsis TEXT NOT NULL DEFAULT ''");
+    }
     if (!sceneColumns.includes('dilemma')) {
       this.db.exec("ALTER TABLE scenes ADD COLUMN dilemma TEXT NOT NULL DEFAULT ''");
     }
@@ -818,14 +824,14 @@ export class BraidrDB {
 
   upsertAct(row: ActRow) {
     this.db.prepare(`
-      INSERT INTO acts (id, character_id, name, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, display_order, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO acts (id, character_id, name, synopsis, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, display_order, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name, starting_state = excluded.starting_state,
+        name = excluded.name, synopsis = excluded.synopsis, starting_state = excluded.starting_state,
         ending_state = excluded.ending_state, polarity = excluded.polarity,
         transformation = excluded.transformation, dilemma = excluded.dilemma,
         propelling_action = excluded.propelling_action, display_order = excluded.display_order
-    `).run(row.id, row.character_id, row.name, row.starting_state, row.ending_state, row.polarity, row.transformation, row.dilemma, row.propelling_action, row.display_order, row.created_at);
+    `).run(row.id, row.character_id, row.name, row.synopsis, row.starting_state, row.ending_state, row.polarity, row.transformation, row.dilemma, row.propelling_action, row.display_order, row.created_at);
   }
 
   deleteAct(id: string) {
@@ -1159,7 +1165,7 @@ export interface PlotPointRow {
   starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string; propelling_action: string;
 }
 export interface ActRow {
-  id: string; character_id: string; name: string;
+  id: string; character_id: string; name: string; synopsis: string;
   starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string; propelling_action: string;
   display_order: number; created_at: number;
 }

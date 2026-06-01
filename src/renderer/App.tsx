@@ -4330,7 +4330,7 @@ function App() {
               <button className="arc-toolbar-btn" onClick={() => handleSaveAct({
                 id: Math.random().toString(36).substring(2, 11),
                 characterId: selectedCharacterId,
-                name: '', startingState: '', endingState: '', polarity: '',
+                name: '', synopsis: '', startingState: '', endingState: '', polarity: '',
                 transformation: '', dilemma: '', propellingAction: '',
                 order: acts.filter(a => a.characterId === selectedCharacterId).length,
               })}>+ Act</button>
