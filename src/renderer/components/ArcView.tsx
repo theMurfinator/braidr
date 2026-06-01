@@ -1,4 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableItem } from '../dnd';
 import { Character, Act, PlotPoint, Scene, CharacterPsychology } from '../../shared/types';
 import CharacterHubPanel from './CharacterHubPanel';
 
@@ -87,6 +90,20 @@ function PolarityCell({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
+function EmptySectionDropZone({ sectionId }: { sectionId: string }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `section-empty:${sectionId}`,
+    data: { sectionId },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`dnd-section-drop-placeholder ${isOver ? 'is-over' : ''}`}
+      aria-label="Drop scene into this empty section"
+    />
+  );
+}
+
 interface ArcViewProps {
   characters: Character[];
   selectedCharacterId: string;
@@ -101,6 +118,7 @@ interface ArcViewProps {
   onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'title' | 'description'>>) => void;
   onLoadPsychology: (characterId: string) => Promise<CharacterPsychology | null>;
   onSavePsychology: (psychology: CharacterPsychology) => void;
+  arcActiveId: string | null;
 }
 
 export default function ArcView({
@@ -116,6 +134,7 @@ export default function ArcView({
   onSavePlotPointArcFields,
   onLoadPsychology,
   onSavePsychology,
+  arcActiveId: _arcActiveId,
 }: ArcViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showHub, setShowHub] = useState(false);
@@ -172,22 +191,35 @@ export default function ArcView({
       .trim()
       .slice(0, 120);
 
-  const renderSceneRow = (scene: Scene) => (
-    <div key={scene.id} className="arc-row arc-scene arc-grid">
-      <div className="arc-name-cell" style={{ paddingLeft: 48 }}>
-        <span className="arc-toggle" style={{ visibility: 'hidden' }}>&#xB7;</span>
-        <div className="arc-name-inner">
-          <span className="arc-name-text">{sceneTitle(scene)}</span>
+  const renderSceneRow = (scene: Scene, sectionId: string) => (
+    <SortableItem key={scene.id} id={scene.id} data={{ type: 'arc-scene', sectionId }}>
+      {({ setNodeRef, style, listeners, attributes, isDragging }) => (
+        <div
+          ref={setNodeRef}
+          style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
+          className="arc-row arc-scene arc-grid arc-scene-draggable"
+        >
+          <div className="arc-name-cell" style={{ paddingLeft: 48 }}>
+            <span
+              className="arc-drag-handle"
+              {...attributes}
+              {...listeners}
+              title="Drag to reorder"
+            >⠿</span>
+            <div className="arc-name-inner">
+              <span className="arc-name-text">{sceneTitle(scene)}</span>
+            </div>
+          </div>
+          <div className="arc-cell"><span className="arc-cell-text">{sceneSynopsis(scene)}</span></div>
+          <div className="arc-cell arc-cell-dim"></div>
+          <div className="arc-cell arc-cell-dim"></div>
+          <div className="arc-cell arc-pol-col">
+            <PolarityCell value={scene.polarity || ''} onChange={() => {}} />
+          </div>
+          <div className="arc-cell"><span className="arc-cell-text">{scene.transformation || ''}</span></div>
         </div>
-      </div>
-      <div className="arc-cell"><span className="arc-cell-text">{sceneSynopsis(scene)}</span></div>
-      <div className="arc-cell arc-cell-dim"></div>
-      <div className="arc-cell arc-cell-dim"></div>
-      <div className="arc-cell arc-pol-col">
-        <PolarityCell value={scene.polarity || ''} onChange={() => {}} />
-      </div>
-      <div className="arc-cell"><span className="arc-cell-text">{scene.transformation || ''}</span></div>
-    </div>
+      )}
+    </SortableItem>
   );
 
   const renderSection = (pp: PlotPoint) => {
@@ -228,7 +260,12 @@ export default function ArcView({
               onChange={v => onSavePlotPointArcFields(pp.id, { transformation: v })} multiline />
           </div>
         </div>
-        {!coll && sectionScenes.map(renderSceneRow)}
+        {!coll && (
+          <SortableContext items={sectionScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
+            {sectionScenes.map(scene => renderSceneRow(scene, pp.id))}
+            {sectionScenes.length === 0 && <EmptySectionDropZone sectionId={pp.id} />}
+          </SortableContext>
+        )}
         {!coll && (
           <div className="arc-row arc-ghost arc-grid" style={{ paddingLeft: 48 }}>
             <div className="arc-name-cell" style={{ paddingLeft: 48 }}>
