@@ -398,17 +398,7 @@ export default function ArcView({
   return (
     <div className="arc-view">
 
-      {/* Column headers */}
-      {/* Toolbar */}
-      <div className="arc-toolbar">
-        <button className="arc-toolbar-btn" onClick={() => onSaveAct({
-          id: randomId(), characterId: selectedCharacterId, name: '',
-          startingState: '', endingState: '', polarity: '', transformation: '',
-          dilemma: '', propellingAction: '',
-          order: acts.length,
-        })}>+ Act</button>
-        <button className="arc-toolbar-btn" onClick={() => onCreateSection(null)}>+ Section</button>
-      </div>
+
 
       <div className="arc-col-headers arc-grid">
         <div className="arc-col-h"></div>
