@@ -20542,6 +20542,43 @@ textarea.table-cell-input {
 .arc-section .arc-name-text { font-size: 13px; font-weight: 600; }
 .arc-scene .arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); }
 
+.arc-drag-handle {
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  cursor: grab;
+  font-size: 12px;
+  opacity: 0;
+  padding-top: 1px;
+  user-select: none;
+  transition: opacity .1s;
+}
+.arc-scene-draggable:hover .arc-drag-handle {
+  opacity: 1;
+}
+.arc-drag-handle:active {
+  cursor: grabbing;
+}
+
+.arc-act-select {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0 2px;
+  cursor: pointer;
+  opacity: 0.7;
+  max-width: 120px;
+}
+.arc-act-select:hover,
+.arc-act-select:focus {
+  opacity: 1;
+  color: var(--text-primary);
+  outline: none;
+}
+
 .arc-cell { font-size: 12px; color: var(--text-secondary); }
 .arc-cell-dim { opacity: .25; }
 .arc-cell-text { font-size: 12px; color: var(--text-muted); }
