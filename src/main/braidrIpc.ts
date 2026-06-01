@@ -1136,6 +1136,24 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ACT, (_event, braidrPath: string, act: A
   } catch (err) { return { success: false, error: String(err) }; }
 });
 
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: string, sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }) => {
+  try {
+    const db = getDb(braidrPath);
+    db.updateScene(sceneId, fields);
+    db.checkpoint();
+    return { success: true };
+  } catch (err) { return { success: false, error: String(err) }; }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS, (_event, braidrPath: string, plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }) => {
+  try {
+    const db = getDb(braidrPath);
+    db.updatePlotPoint(plotPointId, fields);
+    db.checkpoint();
+    return { success: true };
+  } catch (err) { return { success: false, error: String(err) }; }
+});
+
 ipcMain.handle(IPC_CHANNELS.BRAIDR_DELETE_ACT, (_event, braidrPath: string, actId: string) => {
   try {
     const db = getDb(braidrPath);

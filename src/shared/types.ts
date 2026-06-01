@@ -546,6 +546,8 @@ export const IPC_CHANNELS = {
   // Arc Planning
   BRAIDR_LOAD_ACTS: 'braidr:load-acts',
   BRAIDR_SAVE_ACT: 'braidr:save-act',
+  BRAIDR_SAVE_SCENE_ARC_FIELDS: 'braidr:save-scene-arc-fields',
+  BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS: 'braidr:save-plot-point-arc-fields',
   BRAIDR_DELETE_ACT: 'braidr:delete-act',
   BRAIDR_REORDER_ACTS: 'braidr:reorder-acts',
   BRAIDR_LOAD_CHARACTER_PSYCHOLOGY: 'braidr:load-character-psychology',

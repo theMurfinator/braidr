@@ -65,6 +65,9 @@ export interface DataService {
   // Character psychology
   loadCharacterPsychology(characterId: string): Promise<CharacterPsychology | null>;
   saveCharacterPsychology(psychology: CharacterPsychology): Promise<void>;
+  // Arc field saves
+  saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }): Promise<void>;
+  savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }): Promise<void>;
 }
 
 // Local file system implementation (Electron) — SQLite .braidr format only
@@ -467,6 +470,18 @@ class ElectronDataService implements DataService {
       capital_t_truth: p.capitalTTruth, arc_summary: p.arcSummary,
       theme: p.theme, anti_theme: p.antiTheme, final_reader_experience: p.finalReaderExperience,
     });
+  }
+
+  async saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }): Promise<void> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrSaveSceneArcFields(this.braidrPath, sceneId, fields) as any;
+    if (!result.success) throw new Error(result.error || 'Failed to save scene arc fields');
+  }
+
+  async savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }): Promise<void> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrSavePlotPointArcFields(this.braidrPath, plotPointId, fields) as any;
+    if (!result.success) throw new Error(result.error || 'Failed to save plot point arc fields');
   }
 }
 

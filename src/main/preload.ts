@@ -90,6 +90,8 @@ const IPC_CHANNELS = {
   // Acts
   BRAIDR_LOAD_ACTS: 'braidr:load-acts',
   BRAIDR_SAVE_ACT: 'braidr:save-act',
+  BRAIDR_SAVE_SCENE_ARC_FIELDS: 'braidr:save-scene-arc-fields',
+  BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS: 'braidr:save-plot-point-arc-fields',
   BRAIDR_DELETE_ACT: 'braidr:delete-act',
   BRAIDR_REORDER_ACTS: 'braidr:reorder-acts',
   // Character psychology
@@ -312,6 +314,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_LOAD_ACTS, braidrPath, characterId),
   braidrSaveAct: (braidrPath: string, act: unknown) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_ACT, braidrPath, act),
+  braidrSaveSceneArcFields: (braidrPath: string, sceneId: string, fields: unknown) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, braidrPath, sceneId, fields),
+  braidrSavePlotPointArcFields: (braidrPath: string, plotPointId: string, fields: unknown) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS, braidrPath, plotPointId, fields),
   braidrDeleteAct: (braidrPath: string, actId: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_DELETE_ACT, braidrPath, actId),
   braidrReorderActs: (braidrPath: string, characterId: string, orderedIds: string[]) =>

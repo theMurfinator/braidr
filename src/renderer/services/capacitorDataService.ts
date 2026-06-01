@@ -980,4 +980,6 @@ export class CapacitorDataService implements DataService {
   async reorderActs(_characterId: string, _orderedIds: string[]): Promise<void> {}
   async loadCharacterPsychology(_characterId: string): Promise<import('../../shared/types').CharacterPsychology | null> { return null; }
   async saveCharacterPsychology(_psychology: import('../../shared/types').CharacterPsychology): Promise<void> {}
+  async saveSceneArcFields(_sceneId: string, _fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }): Promise<void> {}
+  async savePlotPointArcFields(_plotPointId: string, _fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }): Promise<void> {}
 }

@@ -130,5 +130,7 @@ interface Window {
     braidrReorderActs: (braidrPath: string, characterId: string, orderedIds: string[]) => Promise<any>;
     braidrLoadCharacterPsychology: (braidrPath: string, characterId: string) => Promise<any>;
     braidrSaveCharacterPsychology: (braidrPath: string, row: unknown) => Promise<any>;
+    braidrSaveSceneArcFields: (braidrPath: string, sceneId: string, fields: unknown) => Promise<unknown>;
+    braidrSavePlotPointArcFields: (braidrPath: string, plotPointId: string, fields: unknown) => Promise<unknown>;
   };
 }
