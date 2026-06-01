@@ -3537,21 +3537,42 @@ function App() {
             ) : mode === 'arc' ? (
               // Arc Planning View
               selectedCharacterId ? (
-                <ArcView
-                  characters={projectData.characters}
-                  selectedCharacterId={selectedCharacterId}
-                  onSelectCharacter={setSelectedCharacterId}
-                  acts={acts.filter(a => a.characterId === selectedCharacterId)}
-                  plotPoints={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
-                  scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
-                  characterColors={characterColors}
-                  psychology={characterPsychologies[selectedCharacterId] ?? null}
-                  onSaveAct={handleSaveAct}
-                  onDeleteAct={handleDeleteAct}
-                  onSavePlotPointArcFields={handleSavePlotPointArcFields}
-                  onLoadPsychology={handleLoadCharacterPsychology}
-                  onSavePsychology={handleSaveCharacterPsychology}
-                />
+                <DndContext
+                  sensors={arcSensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={handleArcDndStart}
+                  onDragEnd={handleArcDndEnd}
+                  onDragCancel={handleArcDndCancel}
+                >
+                  <ArcView
+                    characters={projectData.characters}
+                    selectedCharacterId={selectedCharacterId}
+                    onSelectCharacter={setSelectedCharacterId}
+                    acts={acts.filter(a => a.characterId === selectedCharacterId)}
+                    plotPoints={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
+                    scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
+                    characterColors={characterColors}
+                    psychology={characterPsychologies[selectedCharacterId] ?? null}
+                    onSaveAct={handleSaveAct}
+                    onDeleteAct={handleDeleteAct}
+                    onSavePlotPointArcFields={handleSavePlotPointArcFields}
+                    onLoadPsychology={handleLoadCharacterPsychology}
+                    onSavePsychology={handleSaveCharacterPsychology}
+                    arcActiveId={arcActiveId}
+                  />
+                  <DragOverlay>
+                    {arcActiveId && (() => {
+                      const s = projectData.scenes.find(sc => sc.id === arcActiveId);
+                      const accentColor = characterColors[selectedCharacterId] || '#6366f1';
+                      return s ? (
+                        <DragPreviewCard
+                          title={s.title || s.content.replace(/<[^>]*>/g, '').trim().slice(0, 60) || 'Untitled scene'}
+                          accentColor={accentColor}
+                        />
+                      ) : null;
+                    })()}
+                  </DragOverlay>
+                </DndContext>
               ) : (
                 <div className="loading">Select a character to view arc planning.</div>
               )
