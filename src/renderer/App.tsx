@@ -3678,7 +3678,7 @@ function App() {
                         onLoadPsychology={handleLoadCharacterPsychology}
                         onSavePsychology={handleSaveCharacterPsychology}
                         arcActiveId={arcActiveId}
-                        onCreateSection={handleCreateArcSection}
+
                         onDeleteSection={handleDeletePlotPoint}
                       />
                     </div>

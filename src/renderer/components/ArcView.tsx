@@ -14,7 +14,6 @@ const POLARITY_COLORS: Record<string, { bg: string; color: string }> = {
 };
 const POLARITY_OPTIONS = ['+/-', '-/+', '-/-', '+/+', '+/-/+'];
 
-function randomId() { return Math.random().toString(36).slice(2, 10); }
 
 function emptyPsych(characterId: string): CharacterPsychology {
   return {
@@ -122,7 +121,6 @@ interface ArcViewProps {
   onLoadPsychology: (characterId: string) => Promise<CharacterPsychology | null>;
   onSavePsychology: (psychology: CharacterPsychology) => void;
   arcActiveId: string | null;
-  onCreateSection: (actId: string | null) => void;
 }
 
 function ActContextMenu({ x, y, onDelete, onClose }: {
@@ -204,7 +202,6 @@ export default function ArcView({
   onLoadPsychology,
   onSavePsychology,
   arcActiveId: _arcActiveId,
-  onCreateSection,
 }: ArcViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showHub, setShowHub] = useState(false);
@@ -244,6 +241,18 @@ export default function ArcView({
   };
 
   const sortedActs = [...acts].sort((a, b) => a.order - b.order);
+
+  const sectionWc = (ppId: string) =>
+    scenes.filter(s => s.plotPointId === ppId).reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
+
+  const actWc = (actId: string) => {
+    const ppIds = new Set(plotPoints.filter(pp => pp.actId === actId).map(pp => pp.id));
+    return scenes.filter(s => s.plotPointId && ppIds.has(s.plotPointId)).reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
+  };
+
+  const novelWc = () => scenes.reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
+
+  const fmtWc = (n: number) => n > 0 ? n.toLocaleString() : null;
 
   const stripContent = (s: string) =>
     s.replace(/<[^>]*>/g, '')
@@ -292,6 +301,9 @@ export default function ArcView({
           </div>
           <div className="arc-cell arc-pol-col">
             <PolarityCell value={scene.polarity || ''} onChange={v => onSaveSceneArcFields(scene.id, { polarity: v })} />
+          </div>
+          <div className="arc-cell arc-wc-col">
+            {scene.wordCount ? <span className="arc-wc">{scene.wordCount.toLocaleString()}</span> : null}
           </div>
         </div>
       )}
@@ -345,6 +357,9 @@ export default function ArcView({
           </div>
           <div className="arc-cell arc-pol-col">
             <PolarityCell value={pp.polarity} onChange={v => onSavePlotPointArcFields(pp.id, { polarity: v })} />
+          </div>
+          <div className="arc-cell arc-wc-col">
+            {fmtWc(sectionWc(pp.id)) ? <span className="arc-wc">{fmtWc(sectionWc(pp.id))}</span> : null}
           </div>
         </div>
         {!coll && (
@@ -402,19 +417,11 @@ export default function ArcView({
           <div className="arc-cell arc-pol-col">
             <PolarityCell value={act.polarity} onChange={v => onSaveAct({ ...act, polarity: v })} />
           </div>
+          <div className="arc-cell arc-wc-col">
+            {fmtWc(actWc(act.id)) ? <span className="arc-wc">{fmtWc(actWc(act.id))}</span> : null}
+          </div>
         </div>
         {!coll && actSections.map(pp => renderSection(pp))}
-        {!coll && (
-          <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(null)}>
-            <div className="arc-name-cell" style={{ paddingLeft: 72 }}>
-              <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
-              <span className="arc-ghost-label">+ Add section...</span>
-            </div>
-            <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
-            <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
-            <div className="arc-cell arc-pol-col"></div>
-          </div>
-        )}
       </div>
     );
   };
@@ -424,19 +431,19 @@ export default function ArcView({
 
 
 
-      <div className="arc-col-headers arc-grid">
-        <div className="arc-col-h"></div>
-        <div className="arc-col-h">Plot synopsis</div>
-        <div className="arc-col-h">Beginning</div>
-        <div className="arc-col-h">Ending</div>
-        <div className="arc-col-h">Turning point</div>
-        <div className="arc-col-h">Dilemma</div>
-        <div className="arc-col-h">Propelling Action</div>
-        <div className="arc-col-h arc-col-center">Polarity shift</div>
-      </div>
-
       <div className="arc-scroll">
-        <div style={{ height: 24 }} />
+        <div className="arc-col-headers arc-grid">
+          <div className="arc-col-h arc-col-h-freeze"></div>
+          <div className="arc-col-h">Plot synopsis</div>
+          <div className="arc-col-h">Beginning</div>
+          <div className="arc-col-h">Ending</div>
+          <div className="arc-col-h">Turning point</div>
+          <div className="arc-col-h">Dilemma</div>
+          <div className="arc-col-h">Propelling Action</div>
+          <div className="arc-col-h arc-col-center">Polarity shift</div>
+          <div className="arc-col-h arc-col-center">Words</div>
+        </div>
+
 
         {/* Novel row */}
         <div className="arc-row arc-novel arc-grid">
@@ -475,32 +482,12 @@ export default function ArcView({
           <div className="arc-cell arc-pol-col">
             <PolarityCell value={psych?.novelPolarity || ''} onChange={v => savePsych({ novelPolarity: v })} />
           </div>
+          <div className="arc-cell arc-wc-col">
+            {fmtWc(novelWc()) ? <span className="arc-wc">{fmtWc(novelWc())}</span> : null}
+          </div>
         </div>
 
-        {!isCollapsed('novel') && (
-          <>
-            {sortedActs.map(renderAct)}
-
-            {/* Add act */}
-            <div
-              className="arc-row arc-ghost arc-grid"
-              style={{ cursor: 'pointer' }}
-              onClick={() => onSaveAct({
-                id: randomId(), characterId: selectedCharacterId, name: '',
-                synopsis: '', startingState: '', endingState: '', polarity: '', transformation: '', dilemma: '', propellingAction: '',
-                order: acts.length,
-              })}
-            >
-              <div className="arc-name-cell" style={{ paddingLeft: 32 }}>
-                <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
-                <span className="arc-ghost-label">+ Add act...</span>
-              </div>
-              <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
-              <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
-              <div className="arc-cell arc-pol-col"></div>
-            </div>
-          </>
-        )}
+        {!isCollapsed('novel') && sortedActs.map(renderAct)}
       </div>
 
       {/* Character Hub button */}

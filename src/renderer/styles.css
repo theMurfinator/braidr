@@ -20507,7 +20507,8 @@ textarea.table-cell-input {
 
 .arc-grid {
   display: grid;
-  grid-template-columns: 220px 1fr 1fr 1fr 1fr 1fr 1fr 110px;
+  grid-template-columns: 220px repeat(6, minmax(160px, 1fr)) 110px 70px;
+  min-width: max-content;
 }
 
 .arc-col-headers {
@@ -20515,17 +20516,22 @@ textarea.table-cell-input {
   background: var(--bg-primary);
   border-bottom: 2px solid var(--text-primary);
   padding: 12px 0 8px;
-  flex-shrink: 0;
 }
 .arc-col-headers.arc-grid > div {
   font-size: 12px; font-weight: 600;
   color: var(--text-muted); padding-right: 14px;
   border-right: 1px dotted rgba(0,0,0,0.08);
+  background: var(--bg-primary);
 }
 .arc-col-headers.arc-grid > div:last-child { border-right: none; }
+.arc-col-h-freeze {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+}
 .arc-col-center { text-align: center; }
 
-.arc-scroll { flex: 1; overflow-y: auto; padding-bottom: 80px; }
+.arc-scroll { flex: 1; overflow: auto; padding-bottom: 80px; }
 
 .arc-row {
   border-bottom: 1px solid var(--border);
@@ -20545,7 +20551,12 @@ textarea.table-cell-input {
   flex-direction: row !important;
   align-items: flex-start !important;
   gap: 0; padding-left: 0 !important;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg-primary);
 }
+.arc-act .arc-name-cell { background: var(--bg-secondary); }
 .arc-toggle {
   width: 20px; font-size: 9px; color: var(--text-muted); cursor: pointer;
   flex-shrink: 0; padding-top: 6px; text-align: center; user-select: none;
@@ -20645,6 +20656,8 @@ textarea.table-cell-input {
 .arc-section .arc-cell { font-size: 13px; }
 .arc-scene .arc-cell { font-size: 12px; color: var(--text-muted); }
 .arc-pol-col { justify-content: center !important; align-items: center !important; padding-right: 0 !important; }
+.arc-wc-col { justify-content: flex-end !important; align-items: center !important; padding-right: 12px !important; }
+.arc-wc { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
 .arc-ghost { opacity: .35; cursor: pointer; border-bottom: none; }
 .arc-ghost:hover { opacity: 1; background: var(--bg-hover); }
