@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Simplify the Arc View to a clean spreadsheet-style table with a 7-column layout, remove row-type label chips, add a Dilemma field at every hierarchy level, and introduce an arc-specific bullpen sidebar for staging unplaced sections and scenes.
+**Goal:** Simplify the Arc View to a clean spreadsheet-style table with an 8-column layout, remove row-type label chips, add Dilemma and Propelling Action fields at every hierarchy level, and introduce an arc-specific bullpen sidebar for staging unplaced sections and scenes.
 
-**Architecture:** Data changes (new `dilemma` column on all four arc levels) flow through new direct-update IPC channels rather than the lossy `saveCharacterOutline` path. The ArcBullpenPanel replaces the existing BullpenPanel in the arc layout and holds both unassigned sections and scenes. Section assignment uses a right-click context menu; scenes stay drag-and-drop.
+**Architecture:** Data changes (new `dilemma` and `propellingAction` columns on all four arc levels) flow through new direct-update IPC channels rather than the lossy `saveCharacterOutline` path. The ArcBullpenPanel replaces the existing BullpenPanel in the arc layout and holds both unassigned sections and scenes. Section assignment uses a right-click context menu; scenes stay drag-and-drop.
 
 **Tech Stack:** React, TypeScript, better-sqlite3, dnd-kit, Electron IPC
 
@@ -14,15 +14,15 @@
 
 | Action | File | Responsibility |
 |--------|------|----------------|
-| Modify | `src/main/database.ts` | Add dilemma columns to migrations; extend updateScene/updatePlotPoint/upsertAct/upsertCharacterPsychology; update row types |
-| Modify | `src/shared/types.ts` | Add dilemma to Scene/PlotPoint/Act/CharacterPsychology interfaces; add new IPC channel constants |
+| Modify | `src/main/database.ts` | Add dilemma + propellingAction columns to migrations; extend updateScene/updatePlotPoint/upsertAct/upsertCharacterPsychology; update row types |
+| Modify | `src/shared/types.ts` | Add dilemma + propellingAction to Scene/PlotPoint/Act/CharacterPsychology interfaces; add new IPC channel constants |
 | Modify | `src/main/braidrIpc.ts` | Add BRAIDR_SAVE_SCENE_ARC_FIELDS and BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS handlers |
 | Modify | `src/main/preload.ts` | Expose new IPC channels to renderer |
 | Modify | `src/renderer/services/dataService.ts` | Add saveSceneArcFields and savePlotPointArcFields service methods |
-| Modify | `src/renderer/components/ArcView.tsx` | 7-col grid; remove label chips; rename columns; add dilemma cells; section context menu; new props |
+| Modify | `src/renderer/components/ArcView.tsx` | 8-col grid; remove label chips; rename columns; add dilemma + propellingAction cells; section context menu; new props |
 | Create | `src/renderer/components/ArcBullpenPanel.tsx` | Arc-specific bullpen: sections group + scenes group, context menus, drag for scenes |
 | Modify | `src/renderer/App.tsx` | New handlers; swap BullpenPanel → ArcBullpenPanel; update arc creation handlers |
-| Modify | `src/renderer/styles.css` | 7-col arc grid; remove arc-name-tag styling; arc bullpen CSS |
+| Modify | `src/renderer/styles.css` | 8-col arc grid; remove arc-name-tag styling; arc bullpen CSS |
 
 ---
 
@@ -32,14 +32,17 @@
 - Modify: `src/main/database.ts`
 - Modify: `src/shared/types.ts`
 
-- [ ] **Step 1: Add dilemma migrations to `database.ts`**
+- [ ] **Step 1: Add dilemma + propellingAction migrations to `database.ts`**
 
 In `migrate()` (around line 426, after the existing arc field migrations), add:
 
 ```typescript
-// Dilemma fields
+// Dilemma + Propelling Action fields
 if (!ppColumns.includes('dilemma')) {
   this.db.exec("ALTER TABLE plot_points ADD COLUMN dilemma TEXT NOT NULL DEFAULT ''");
+}
+if (!ppColumns.includes('propelling_action')) {
+  this.db.exec("ALTER TABLE plot_points ADD COLUMN propelling_action TEXT NOT NULL DEFAULT ''");
 }
 const actColumns = (
   this.db.prepare('PRAGMA table_info(acts)').all() as { name: string }[]
@@ -47,14 +50,23 @@ const actColumns = (
 if (!actColumns.includes('dilemma')) {
   this.db.exec("ALTER TABLE acts ADD COLUMN dilemma TEXT NOT NULL DEFAULT ''");
 }
+if (!actColumns.includes('propelling_action')) {
+  this.db.exec("ALTER TABLE acts ADD COLUMN propelling_action TEXT NOT NULL DEFAULT ''");
+}
 const psychColumns = (
   this.db.prepare('PRAGMA table_info(character_psychology)').all() as { name: string }[]
 ).map(c => c.name);
 if (!psychColumns.includes('novel_dilemma')) {
   this.db.exec("ALTER TABLE character_psychology ADD COLUMN novel_dilemma TEXT NOT NULL DEFAULT ''");
 }
+if (!psychColumns.includes('novel_propelling_action')) {
+  this.db.exec("ALTER TABLE character_psychology ADD COLUMN novel_propelling_action TEXT NOT NULL DEFAULT ''");
+}
 if (!sceneColumns.includes('dilemma')) {
   this.db.exec("ALTER TABLE scenes ADD COLUMN dilemma TEXT NOT NULL DEFAULT ''");
+}
+if (!sceneColumns.includes('propelling_action')) {
+  this.db.exec("ALTER TABLE scenes ADD COLUMN propelling_action TEXT NOT NULL DEFAULT ''");
 }
 ```
 
@@ -68,7 +80,7 @@ updateScene(id: string, fields: Partial<{
   timelinePosition: number | null; isHighlighted: boolean;
   wordCount: number | null; plotPointId: string | null;
   chapterId: string | null; sceneOrder: number;
-  polarity: string; transformation: string; dilemma: string;
+  polarity: string; transformation: string; dilemma: string; propellingAction: string;
 }>) {
   const updates: string[] = [];
   const values: unknown[] = [];
@@ -84,6 +96,7 @@ updateScene(id: string, fields: Partial<{
   if ('polarity' in fields)          { updates.push('polarity = ?');           values.push(fields.polarity); }
   if ('transformation' in fields)    { updates.push('transformation = ?');     values.push(fields.transformation); }
   if ('dilemma' in fields)           { updates.push('dilemma = ?');            values.push(fields.dilemma); }
+  if ('propellingAction' in fields)  { updates.push('propelling_action = ?');  values.push(fields.propellingAction); }
   if (updates.length === 0) return;
   updates.push('updated_at = ?');
   values.push(Date.now());
@@ -98,12 +111,13 @@ In `updatePlotPoint` (line 518), add after the `transformation` branch:
 
 ```typescript
 if ('dilemma' in fields)           { updates.push('dilemma = ?');            values.push(fields.dilemma); }
+if ('propellingAction' in fields)  { updates.push('propelling_action = ?');  values.push(fields.propellingAction); }
 ```
 
-Also update the method signature to include `dilemma: string`:
+Also update the method signature to include `dilemma: string` and `propellingAction: string`:
 
 ```typescript
-updatePlotPoint(id: string, fields: Partial<{ title: string; description: string | null; expectedSceneCount: number | null; displayOrder: number; actId: string | null; startingState: string; endingState: string; polarity: string; transformation: string; dilemma: string }>) {
+updatePlotPoint(id: string, fields: Partial<{ title: string; description: string | null; expectedSceneCount: number | null; displayOrder: number; actId: string | null; startingState: string; endingState: string; polarity: string; transformation: string; dilemma: string; propellingAction: string }>) {
 ```
 
 - [ ] **Step 4: Update `upsertAct` to include dilemma**
@@ -113,14 +127,14 @@ Replace the `upsertAct` method (line 763):
 ```typescript
 upsertAct(row: ActRow) {
   this.db.prepare(`
-    INSERT INTO acts (id, character_id, name, starting_state, ending_state, polarity, transformation, dilemma, display_order, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO acts (id, character_id, name, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, display_order, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name, starting_state = excluded.starting_state,
       ending_state = excluded.ending_state, polarity = excluded.polarity,
       transformation = excluded.transformation, dilemma = excluded.dilemma,
-      display_order = excluded.display_order
-  `).run(row.id, row.character_id, row.name, row.starting_state, row.ending_state, row.polarity, row.transformation, row.dilemma, row.display_order, row.created_at);
+      propelling_action = excluded.propelling_action, display_order = excluded.display_order
+  `).run(row.id, row.character_id, row.name, row.starting_state, row.ending_state, row.polarity, row.transformation, row.dilemma, row.propellingAction, row.display_order, row.created_at);
 }
 ```
 
@@ -131,12 +145,12 @@ Replace the INSERT statement in `upsertCharacterPsychology` (line 790):
 ```typescript
 upsertCharacterPsychology(row: CharacterPsychologyRow) {
   this.db.prepare(`
-    INSERT INTO character_psychology (character_id, novel_starting_state, novel_ending_state, novel_polarity, novel_transformation, novel_dilemma, wound, lie, deepest_fear, limiting_belief, thorn, coping_tool, whisper_of_grace, surface_want, souls_longing, bitter_need, capital_t_truth, arc_summary, theme, anti_theme, final_reader_experience)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO character_psychology (character_id, novel_starting_state, novel_ending_state, novel_polarity, novel_transformation, novel_dilemma, novel_propelling_action, wound, lie, deepest_fear, limiting_belief, thorn, coping_tool, whisper_of_grace, surface_want, souls_longing, bitter_need, capital_t_truth, arc_summary, theme, anti_theme, final_reader_experience)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(character_id) DO UPDATE SET
       novel_starting_state = excluded.novel_starting_state, novel_ending_state = excluded.novel_ending_state,
       novel_polarity = excluded.novel_polarity, novel_transformation = excluded.novel_transformation,
-      novel_dilemma = excluded.novel_dilemma,
+      novel_dilemma = excluded.novel_dilemma, novel_propelling_action = excluded.novel_propelling_action,
       wound = excluded.wound, lie = excluded.lie, deepest_fear = excluded.deepest_fear,
       limiting_belief = excluded.limiting_belief, thorn = excluded.thorn, coping_tool = excluded.coping_tool,
       whisper_of_grace = excluded.whisper_of_grace, surface_want = excluded.surface_want,
@@ -145,7 +159,7 @@ upsertCharacterPsychology(row: CharacterPsychologyRow) {
       theme = excluded.theme, anti_theme = excluded.anti_theme,
       final_reader_experience = excluded.final_reader_experience
   `).run(
-    row.character_id, row.novel_starting_state, row.novel_ending_state, row.novel_polarity, row.novel_transformation, row.novel_dilemma,
+    row.character_id, row.novel_starting_state, row.novel_ending_state, row.novel_polarity, row.novel_transformation, row.novel_dilemma, row.novel_propelling_action,
     row.wound, row.lie, row.deepest_fear, row.limiting_belief, row.thorn, row.coping_tool,
     row.whisper_of_grace, row.surface_want, row.souls_longing, row.bitter_need,
     row.capital_t_truth, row.arc_summary, row.theme, row.anti_theme, row.final_reader_experience
@@ -161,7 +175,7 @@ export interface PlotPointRow {
   id: string; character_id: string; title: string; description: string | null;
   expected_scene_count: number | null; display_order: number; created_at: number;
   act_id: string | null;
-  starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string;
+  starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string; propelling_action: string;
 }
 ```
 
@@ -169,7 +183,7 @@ Update `ActRow` (line 1103):
 ```typescript
 export interface ActRow {
   id: string; character_id: string; name: string;
-  starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string;
+  starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string; propelling_action: string;
   display_order: number; created_at: number;
 }
 ```
@@ -179,7 +193,7 @@ Update `CharacterPsychologyRow` (line 1109):
 export interface CharacterPsychologyRow {
   character_id: string;
   novel_starting_state: string; novel_ending_state: string;
-  novel_polarity: string; novel_transformation: string; novel_dilemma: string;
+  novel_polarity: string; novel_transformation: string; novel_dilemma: string; novel_propelling_action: string;
   wound: string; lie: string; deepest_fear: string; limiting_belief: string;
   thorn: string; coping_tool: string; whisper_of_grace: string; surface_want: string;
   souls_longing: string; bitter_need: string; capital_t_truth: string;
@@ -187,48 +201,52 @@ export interface CharacterPsychologyRow {
 }
 ```
 
-Update `SceneRow` (line 1120) — add dilemma, polarity, transformation to the interface:
+Update `SceneRow` (line 1120):
 ```typescript
 export interface SceneRow {
   id: string; character_id: string; plot_point_id: string | null;
   title: string; synopsis: string; scene_number: number;
   timeline_position: number | null; is_highlighted: number; word_count: number | null;
   chapter_id: string | null; scene_order: number;
-  polarity: string; transformation: string; dilemma: string;
+  polarity: string; transformation: string; dilemma: string; propelling_action: string;
   created_at: number; updated_at: number;
 }
 ```
 
 - [ ] **Step 7: Update TypeScript interfaces in `types.ts`**
 
-Add `dilemma: string` to `Scene` interface (after `transformation: string` around line 26):
+Add `dilemma: string` and `propellingAction: string` to `Scene` interface (after `transformation: string` around line 26):
 ```typescript
   polarity: string;
   transformation: string;
   dilemma: string;
+  propellingAction: string;
 ```
 
-Add `dilemma: string` to `PlotPoint` interface (after `transformation: string` around line 293):
+Add `dilemma: string` and `propellingAction: string` to `PlotPoint` interface (after `transformation: string` around line 293):
 ```typescript
   polarity: string;
   transformation: string;
   dilemma: string;
+  propellingAction: string;
 ```
 
-Add `dilemma: string` to `Act` interface (after `transformation: string` around line 253):
+Add `dilemma: string` and `propellingAction: string` to `Act` interface (after `transformation: string` around line 253):
 ```typescript
   polarity: string;
   transformation: string;
   dilemma: string;
+  propellingAction: string;
 ```
 
-Add `novelDilemma: string` to `CharacterPsychology` (after `novelTransformation: string` around line 263):
+Add `novelDilemma: string` and `novelPropellingAction: string` to `CharacterPsychology` (after `novelTransformation: string` around line 263):
 ```typescript
   novelStartingState: string;
   novelEndingState: string;
   novelPolarity: string;
   novelTransformation: string;
   novelDilemma: string;
+  novelPropellingAction: string;
 ```
 
 - [ ] **Step 8: Commit**
@@ -263,7 +281,7 @@ BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS: 'braidr:save-plot-point-arc-fields',
 After the `BRAIDR_SAVE_ACT` handler (line 1132), add:
 
 ```typescript
-ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: string, sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string }) => {
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: string, sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }) => {
   try {
     const db = getDb(braidrPath);
     db.updateScene(sceneId, fields);
@@ -272,7 +290,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: s
   } catch (err) { return { success: false, error: String(err) }; }
 });
 
-ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS, (_event, braidrPath: string, plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; title?: string; description?: string }) => {
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS, (_event, braidrPath: string, plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }) => {
   try {
     const db = getDb(braidrPath);
     db.updatePlotPoint(plotPointId, fields);
@@ -298,13 +316,13 @@ braidrSavePlotPointArcFields: (braidrPath: string, plotPointId: string, fields: 
 In the `ElectronDataService` class, after `saveCharacterPsychology` (find it around line 96), add:
 
 ```typescript
-async saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string }): Promise<void> {
+async saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }): Promise<void> {
   if (!this.braidrPath) throw new Error('No project loaded');
   const result = await window.electronAPI.braidrSaveSceneArcFields(this.braidrPath, sceneId, fields);
   if (!result.success) throw new Error(result.error || 'Failed to save scene arc fields');
 }
 
-async savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; title?: string; description?: string }): Promise<void> {
+async savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }): Promise<void> {
   if (!this.braidrPath) throw new Error('No project loaded');
   const result = await window.electronAPI.braidrSavePlotPointArcFields(this.braidrPath, plotPointId, fields);
   if (!result.success) throw new Error(result.error || 'Failed to save plot point arc fields');
@@ -314,8 +332,8 @@ async savePlotPointArcFields(plotPointId: string, fields: { actId?: string | nul
 Also update the `DataService` interface at the top of the file to declare these two methods:
 
 ```typescript
-saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string }): Promise<void>;
-savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; title?: string; description?: string }): Promise<void>;
+saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }): Promise<void>;
+savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }): Promise<void>;
 ```
 
 - [ ] **Step 5: Add electronAPI typings**
@@ -342,14 +360,14 @@ git commit -m "feat: add direct arc field save IPC channels for scenes and plot 
 - Modify: `src/renderer/components/ArcView.tsx`
 - Modify: `src/renderer/styles.css`
 
-- [ ] **Step 1: Update CSS grid from 6 to 7 columns**
+- [ ] **Step 1: Update CSS grid from 6 to 8 columns**
 
 In `styles.css`, find `.arc-grid` (line 20507) and update:
 
 ```css
 .arc-grid {
   display: grid;
-  grid-template-columns: 220px 1fr 1fr 1fr 1fr 80px 1fr;
+  grid-template-columns: 220px 1fr 1fr 1fr 1fr 1fr 1fr 80px;
 }
 ```
 
@@ -364,12 +382,13 @@ In `ArcView.tsx`, find the column headers block (line 349) and replace:
 ```tsx
 <div className="arc-col-headers arc-grid">
   <div className="arc-col-h"></div>
-  <div className="arc-col-h">Synopsis</div>
+  <div className="arc-col-h">Plot synopsis</div>
   <div className="arc-col-h">Beginning</div>
   <div className="arc-col-h">Ending</div>
-  <div className="arc-col-h">Dilemma</div>
-  <div className="arc-col-h arc-col-center">Polarity shift</div>
   <div className="arc-col-h">Turning point</div>
+  <div className="arc-col-h">Dilemma</div>
+  <div className="arc-col-h">Propelling Action</div>
+  <div className="arc-col-h arc-col-center">Polarity shift</div>
 </div>
 ```
 
@@ -378,8 +397,8 @@ In `ArcView.tsx`, find the column headers block (line 349) and replace:
 Update `ArcViewProps` to add:
 
 ```typescript
-onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string }) => void;
-onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'title' | 'description'>>) => void;
+onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }) => void;
+onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => void;
 onDeleteSection: (sectionId: string) => void;
 ```
 
@@ -392,7 +411,7 @@ Update destructuring in the function signature accordingly.
 ```typescript
 function emptyPsych(characterId: string): CharacterPsychology {
   return {
-    characterId, novelStartingState: '', novelEndingState: '', novelPolarity: '', novelTransformation: '', novelDilemma: '',
+    characterId, novelStartingState: '', novelEndingState: '', novelPolarity: '', novelTransformation: '', novelDilemma: '', novelPropellingAction: '',
     wound: '', lie: '', deepestFear: '', limitingBelief: '', thorn: '', copingTool: '',
     whisperOfGrace: '', surfaceWant: '', soulsLonging: '', bitterNeed: '', capitalTTruth: '',
     arcSummary: '', theme: '', antiTheme: '', finalReaderExperience: '',
@@ -427,15 +446,19 @@ Find the novel row (around line 372) and:
       onChange={v => savePsych({ novelEndingState: v })} multiline />
   </div>
   <div className="arc-cell">
+    <EditableCell value={psych?.novelTransformation || ''} placeholder="The full arc in one sentence..."
+      onChange={v => savePsych({ novelTransformation: v })} multiline />
+  </div>
+  <div className="arc-cell">
     <EditableCell value={psych?.novelDilemma || ''} placeholder="The central dilemma..."
       onChange={v => savePsych({ novelDilemma: v })} multiline />
   </div>
+  <div className="arc-cell">
+    <EditableCell value={psych?.novelPropellingAction || ''} placeholder="What propels the story..."
+      onChange={v => savePsych({ novelPropellingAction: v })} multiline />
+  </div>
   <div className="arc-cell arc-pol-col">
     <PolarityCell value={psych?.novelPolarity || ''} onChange={v => savePsych({ novelPolarity: v })} />
-  </div>
-  <div className="arc-cell">
-    <EditableCell value={psych?.novelTransformation || ''} placeholder="The full arc in one sentence..."
-      onChange={v => savePsych({ novelTransformation: v })} multiline />
   </div>
 </div>
 ```
@@ -475,15 +498,19 @@ Full updated act row grid (7 cells):
       onChange={v => onSaveAct({ ...act, endingState: v })} multiline />
   </div>
   <div className="arc-cell">
+    <EditableCell value={act.transformation} placeholder="What this act accomplishes..."
+      onChange={v => onSaveAct({ ...act, transformation: v })} multiline />
+  </div>
+  <div className="arc-cell">
     <EditableCell value={act.dilemma} placeholder="The act's dilemma..."
       onChange={v => onSaveAct({ ...act, dilemma: v })} multiline />
   </div>
+  <div className="arc-cell">
+    <EditableCell value={act.propellingAction || ''} placeholder="What propels this act..."
+      onChange={v => onSaveAct({ ...act, propellingAction: v })} multiline />
+  </div>
   <div className="arc-cell arc-pol-col">
     <PolarityCell value={act.polarity} onChange={v => onSaveAct({ ...act, polarity: v })} />
-  </div>
-  <div className="arc-cell">
-    <EditableCell value={act.transformation} placeholder="What this act accomplishes..."
-      onChange={v => onSaveAct({ ...act, transformation: v })} multiline />
   </div>
 </div>
 ```
@@ -534,15 +561,19 @@ Replace the section row content (remove `arc-name-tag` span and `arc-act-select`
       onChange={v => onSavePlotPointArcFields(pp.id, { endingState: v })} multiline />
   </div>
   <div className="arc-cell">
+    <EditableCell value={pp.transformation} placeholder="What shifts..."
+      onChange={v => onSavePlotPointArcFields(pp.id, { transformation: v })} multiline />
+  </div>
+  <div className="arc-cell">
     <EditableCell value={pp.dilemma || ''} placeholder="The section's dilemma..."
       onChange={v => onSavePlotPointArcFields(pp.id, { dilemma: v })} multiline />
   </div>
+  <div className="arc-cell">
+    <EditableCell value={pp.propellingAction || ''} placeholder="What propels this section..."
+      onChange={v => onSavePlotPointArcFields(pp.id, { propellingAction: v })} multiline />
+  </div>
   <div className="arc-cell arc-pol-col">
     <PolarityCell value={pp.polarity} onChange={v => onSavePlotPointArcFields(pp.id, { polarity: v })} />
-  </div>
-  <div className="arc-cell">
-    <EditableCell value={pp.transformation} placeholder="What shifts..."
-      onChange={v => onSavePlotPointArcFields(pp.id, { transformation: v })} multiline />
   </div>
 </div>
 ```
@@ -586,15 +617,19 @@ const renderSceneRow = (scene: Scene, sectionId: string) => (
         <div className="arc-cell arc-cell-dim"></div>
         <div className="arc-cell arc-cell-dim"></div>
         <div className="arc-cell">
+          <EditableCell value={scene.transformation || ''} placeholder="Turning point..."
+            onChange={v => onSaveSceneArcFields(scene.id, { transformation: v })} multiline />
+        </div>
+        <div className="arc-cell">
           <EditableCell value={scene.dilemma || ''} placeholder="Scene dilemma..."
             onChange={v => onSaveSceneArcFields(scene.id, { dilemma: v })} multiline />
         </div>
+        <div className="arc-cell">
+          <EditableCell value={scene.propellingAction || ''} placeholder="Propelling action..."
+            onChange={v => onSaveSceneArcFields(scene.id, { propellingAction: v })} multiline />
+        </div>
         <div className="arc-cell arc-pol-col">
           <PolarityCell value={scene.polarity || ''} onChange={v => onSaveSceneArcFields(scene.id, { polarity: v })} />
-        </div>
-        <div className="arc-cell">
-          <EditableCell value={scene.transformation || ''} placeholder="Value shift..."
-            onChange={v => onSaveSceneArcFields(scene.id, { transformation: v })} multiline />
         </div>
       </div>
     )}
@@ -1026,7 +1061,7 @@ import ArcBullpenPanel from './components/ArcBullpenPanel';
 Replace the existing handler (line 1661) with one that calls the new direct service method instead of `saveCharacterOutline`:
 
 ```typescript
-const handleSavePlotPointArcFields = useCallback(async (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'title' | 'description'>>) => {
+const handleSavePlotPointArcFields = useCallback(async (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => {
   if (!projectData) return;
   setProjectData(prev => {
     if (!prev) return prev;
@@ -1048,7 +1083,7 @@ const handleSavePlotPointArcFields = useCallback(async (plotPointId: string, fie
 After `handleSavePlotPointArcFields`, add:
 
 ```typescript
-const handleSaveSceneArcFields = useCallback(async (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string }) => {
+const handleSaveSceneArcFields = useCallback(async (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }) => {
   if (!projectData) return;
   setProjectData(prev => {
     if (!prev) return prev;
@@ -1089,6 +1124,7 @@ const handleCreateArcSection = async () => {
     polarity: '',
     transformation: '',
     dilemma: '',
+    propellingAction: '',
   };
   const updatedPlotPoints = [...projectData.plotPoints, newPlotPoint];
   setProjectData({ ...projectData, plotPoints: updatedPlotPoints });
@@ -1126,6 +1162,7 @@ const handleCreateArcBullpenScene = async () => {
     polarity: '',
     transformation: '',
     dilemma: '',
+    propellingAction: '',
   };
   const updatedScenes = [...projectData.scenes, newScene];
   setProjectData({ ...projectData, scenes: updatedScenes });
@@ -1219,7 +1256,7 @@ Also update the inline act creation in `ArcView.tsx` (the `+ Add act...` ghost r
 ```typescript
 onSaveAct({
   id: randomId(), characterId: selectedCharacterId, name: '',
-  startingState: '', endingState: '', polarity: '', transformation: '', dilemma: '',
+  startingState: '', endingState: '', polarity: '', transformation: '', dilemma: '', propellingAction: '',
   order: acts.length,
 })
 ```

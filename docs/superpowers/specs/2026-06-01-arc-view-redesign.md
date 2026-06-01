@@ -29,16 +29,18 @@ Remove the colored "Novel" / "Act" / "Section" label chips from every row. Hiera
 
 ## Columns (V1 — fixed order)
 
-`[Name] | Synopsis | Beginning | Ending | Dilemma | Polarity shift | Turning point`
+`[Name] | Plot synopsis | Beginning | Ending | Turning point | Dilemma | Propelling Action | Polarity shift`
 
-All 7 columns appear at every level. "Beginning" and "Ending" are blank/disabled on scene rows (scenes don't have starting/ending state). "Dilemma" is editable at all levels.
+All 8 columns appear at every level. "Beginning" and "Ending" are blank/disabled on scene rows. "Dilemma", "Propelling Action", and "Turning point" are editable at all levels.
 
 Column name mapping from current implementation:
+- Synopsis → **Plot synopsis**
 - Starting State → **Beginning**
 - Ending State → **Ending**
-- *(new)* → **Dilemma**
-- Polarity → **Polarity shift**
 - Transformation → **Turning point**
+- *(new)* → **Dilemma**
+- *(new)* → **Propelling Action**
+- Polarity → **Polarity shift**
 
 > **V2:** User-configurable column order and column picker from available scene/section/act metadata fields. Design this when V1 ships — it requires per-character (or per-project) column config stored in the DB and a drag-to-reorder columns UI.
 
@@ -83,23 +85,27 @@ Right-click → context menu:
 ## Data Changes
 
 ### `Scene` type + DB
-Add field: `dilemma: string` (default `''`)
+Add fields: `dilemma: string`, `propellingAction: string` (default `''`)
 - `scenes` table: `ALTER TABLE scenes ADD COLUMN dilemma TEXT NOT NULL DEFAULT ''`
-- IPC: include in `saveSceneArcFields` handler (or extend existing scene save)
+- `scenes` table: `ALTER TABLE scenes ADD COLUMN propelling_action TEXT NOT NULL DEFAULT ''`
+- IPC: include in `saveSceneArcFields` handler
 
 ### `PlotPoint` type + DB
-Add field: `dilemma: string` (default `''`)
+Add fields: `dilemma: string`, `propellingAction: string` (default `''`)
 - `plot_points` table: `ALTER TABLE plot_points ADD COLUMN dilemma TEXT NOT NULL DEFAULT ''`
+- `plot_points` table: `ALTER TABLE plot_points ADD COLUMN propelling_action TEXT NOT NULL DEFAULT ''`
 - IPC: include in `onSavePlotPointArcFields`
 
 ### `Act` type + DB
-Add field: `dilemma: string` (default `''`)
+Add fields: `dilemma: string`, `propellingAction: string` (default `''`)
 - `acts` table: `ALTER TABLE acts ADD COLUMN dilemma TEXT NOT NULL DEFAULT ''`
+- `acts` table: `ALTER TABLE acts ADD COLUMN propelling_action TEXT NOT NULL DEFAULT ''`
 - IPC: include in `onSaveAct`
 
 ### `CharacterPsychology` type + DB
-Add field: `novelDilemma: string` (default `''`)
+Add fields: `novelDilemma: string`, `novelPropellingAction: string` (default `''`)
 - `character_psychology` table: `ALTER TABLE character_psychology ADD COLUMN novel_dilemma TEXT NOT NULL DEFAULT ''`
+- `character_psychology` table: `ALTER TABLE character_psychology ADD COLUMN novel_propelling_action TEXT NOT NULL DEFAULT ''`
 - IPC: include in psychology save handler
 
 ## Out of Scope (V1)
