@@ -106,8 +106,19 @@ export default function ArcBullpenPanel({
   const [contextMenu, setContextMenu] = useState<{
     x: number; y: number; type: 'section' | 'scene'; id: string;
   } | null>(null);
+  const [showNewMenu, setShowNewMenu] = useState(false);
+  const newMenuRef = useRef<HTMLDivElement>(null);
 
   const { setNodeRef, isOver } = useDroppable({ id: 'bullpen' });
+
+  useEffect(() => {
+    if (!showNewMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (newMenuRef.current && !newMenuRef.current.contains(e.target as Node)) setShowNewMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showNewMenu]);
 
   const handleContextMenu = (e: React.MouseEvent, type: 'section' | 'scene', id: string) => {
     e.preventDefault();
@@ -118,6 +129,15 @@ export default function ArcBullpenPanel({
     <div ref={setNodeRef} className={`arc-bullpen-panel ${isOver ? 'drag-over' : ''}`}>
       <div className="arc-bullpen-header">
         <span className="arc-bullpen-title">Bullpen</span>
+        <div className="arc-bullpen-new-wrap" ref={newMenuRef}>
+          <button className="arc-bullpen-new-btn" onClick={() => setShowNewMenu(o => !o)}>+ New</button>
+          {showNewMenu && (
+            <div className="arc-bullpen-new-menu">
+              <div className="arc-bullpen-new-item" onClick={() => { onAddSection(); setShowNewMenu(false); }}>Section</div>
+              <div className="arc-bullpen-new-item" onClick={() => { onAddScene(); setShowNewMenu(false); }}>Scene</div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="arc-bullpen-group">
@@ -134,7 +154,6 @@ export default function ArcBullpenPanel({
             <span className="arc-bullpen-label">{section.title || 'Untitled section'}</span>
           </div>
         ))}
-        <button className="arc-bullpen-add-btn" onClick={onAddSection}>+ Section</button>
       </div>
 
       <div className="arc-bullpen-group">
@@ -149,7 +168,6 @@ export default function ArcBullpenPanel({
             onContextMenu={e => handleContextMenu(e, 'scene', scene.id)}
           />
         ))}
-        <button className="arc-bullpen-add-btn" onClick={onAddScene}>+ Scene</button>
       </div>
 
       {contextMenu && (

@@ -20506,7 +20506,7 @@ textarea.table-cell-input {
 
 .arc-grid {
   display: grid;
-  grid-template-columns: 220px 1fr 1fr 1fr 1fr 1fr 1fr 80px;
+  grid-template-columns: 220px 1fr 1fr 1fr 1fr 1fr 1fr 110px;
 }
 
 .arc-col-headers {
@@ -20517,8 +20517,8 @@ textarea.table-cell-input {
   flex-shrink: 0;
 }
 .arc-col-headers.arc-grid > div {
-  font-size: 10px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: .1em; color: var(--text-muted); padding-right: 14px;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-muted); padding-right: 14px;
 }
 .arc-col-center { text-align: center; }
 
@@ -20743,6 +20743,10 @@ textarea.table-cell-input {
   padding: 4px 0;
   min-width: 160px;
 }
+.arc-bullpen-panel .arc-context-submenu {
+  left: auto;
+  right: 100%;
+}
 
 .arc-bullpen-panel {
   width: 220px;
@@ -20761,6 +20765,9 @@ textarea.table-cell-input {
   padding: 14px 16px 10px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .arc-bullpen-title {
   font-size: 10px;
@@ -20838,6 +20845,44 @@ textarea.table-cell-input {
   border-color: var(--accent);
   color: var(--accent);
 }
+.arc-bullpen-new-wrap {
+  position: relative;
+}
+.arc-bullpen-new-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.arc-bullpen-new-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.arc-bullpen-new-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  min-width: 100px;
+  z-index: 100;
+  padding: 4px 0;
+}
+.arc-bullpen-new-item {
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+}
+.arc-bullpen-new-item:hover { background: var(--bg-hover); }
 
 /* ── Character Hub Panel ── */
 .hub-overlay {
