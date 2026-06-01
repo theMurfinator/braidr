@@ -235,7 +235,20 @@ export default function ArcView({
               {coll ? '▶' : '▼'}
             </span>
             <div className="arc-name-inner">
-              <span className="arc-name-tag" style={{ color: charColor }}>Section</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span className="arc-name-tag" style={{ color: charColor }}>Section</span>
+                <select
+                  className="arc-act-select"
+                  value={pp.actId || ''}
+                  onChange={e => onSavePlotPointArcFields(pp.id, { actId: e.target.value || null })}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <option value="">— Unassigned —</option>
+                  {sortedActs.map(act => (
+                    <option key={act.id} value={act.id}>{act.name || 'Unnamed act'}</option>
+                  ))}
+                </select>
+              </div>
               <EditableCell value={pp.title} placeholder="Section name..."
                 onChange={v => onSavePlotPointArcFields(pp.id, { title: v })} />
             </div>
