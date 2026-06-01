@@ -20804,6 +20804,7 @@ textarea.table-cell-input {
   margin: 0 4px;
 }
 .arc-bullpen-row:hover { background: var(--bg-hover); }
+.arc-bullpen-section { cursor: context-menu; }
 .arc-bullpen-drag {
   color: var(--text-muted);
   cursor: grab;
