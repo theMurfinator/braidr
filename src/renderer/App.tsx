@@ -2155,6 +2155,8 @@ function App() {
       stationId: null,
       polarity: '',
       transformation: '',
+      dilemma: '',
+      propellingAction: '',
     };
 
     const newCharScenes = [...charScenes, newScene];
@@ -2274,6 +2276,8 @@ function App() {
       endingState: '',
       polarity: '',
       transformation: '',
+      dilemma: '',
+      propellingAction: '',
     };
 
     const updatedPlotPoints = [...projectData.plotPoints, newPlotPoint];
@@ -2308,6 +2312,8 @@ function App() {
       endingState: '',
       polarity: '',
       transformation: '',
+      dilemma: '',
+      propellingAction: '',
     };
     const updatedPlotPoints = [...projectData.plotPoints, newPlotPoint];
     setProjectData({ ...projectData, plotPoints: updatedPlotPoints });
@@ -2340,6 +2346,8 @@ function App() {
       stationId: null,
       polarity: '',
       transformation: '',
+      dilemma: '',
+      propellingAction: '',
     };
     const updatedScenes = [...projectData.scenes, newScene];
     setProjectData({ ...projectData, scenes: updatedScenes });
@@ -2746,6 +2754,8 @@ function App() {
       stationId: null,
       polarity: '',
       transformation: '',
+      dilemma: '',
+      propellingAction: '',
     };
 
     // Add new scene to character's scenes
@@ -2812,6 +2822,8 @@ function App() {
       stationId: null,
       polarity: '',
       transformation: '',
+      dilemma: '',
+      propellingAction: '',
     };
 
     const updatedScenes = [...projectData.scenes, newScene];
@@ -2908,6 +2920,8 @@ function App() {
       stationId: null,
       polarity: '',
       transformation: '',
+      dilemma: '',
+      propellingAction: '',
     };
 
     const newCharScenes = [...charScenes, newScene];
@@ -3180,6 +3194,8 @@ function App() {
       stationId: null,
       polarity: '',
       transformation: '',
+      dilemma: '',
+      propellingAction: '',
     };
 
     // Restore draft content if it was preserved
@@ -3314,6 +3330,8 @@ function App() {
       stationId: null,
       polarity: scene.polarity,
       transformation: scene.transformation,
+      dilemma: scene.dilemma,
+      propellingAction: scene.propellingAction,
     };
 
     // Insert duplicate after original

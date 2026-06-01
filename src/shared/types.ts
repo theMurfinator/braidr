@@ -24,6 +24,8 @@ export interface Scene {
   stationId: string | null;
   polarity: string;
   transformation: string;
+  dilemma: string;
+  propellingAction: string;
 }
 
 export interface Chapter {
@@ -251,6 +253,8 @@ export interface Act {
   endingState: string;
   polarity: string;
   transformation: string;
+  dilemma: string;
+  propellingAction: string;
   order: number;
 }
 
@@ -261,6 +265,8 @@ export interface CharacterPsychology {
   novelEndingState: string;
   novelPolarity: string;
   novelTransformation: string;
+  novelDilemma: string;
+  novelPropellingAction: string;
   // Maass psychological fields
   wound: string;
   lie: string;
@@ -291,6 +297,8 @@ export interface PlotPoint {
   endingState: string;
   polarity: string;
   transformation: string;
+  dilemma: string;
+  propellingAction: string;
 }
 
 export interface Tag {

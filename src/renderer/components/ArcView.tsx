@@ -19,6 +19,7 @@ function randomId() { return Math.random().toString(36).slice(2, 10); }
 function emptyPsych(characterId: string): CharacterPsychology {
   return {
     characterId, novelStartingState: '', novelEndingState: '', novelPolarity: '', novelTransformation: '',
+    novelDilemma: '', novelPropellingAction: '',
     wound: '', lie: '', deepestFear: '', limitingBelief: '', thorn: '', copingTool: '',
     whisperOfGrace: '', surfaceWant: '', soulsLonging: '', bitterNeed: '', capitalTTruth: '',
     arcSummary: '', theme: '', antiTheme: '', finalReaderExperience: '',
@@ -360,6 +361,7 @@ export default function ArcView({
         <button className="arc-toolbar-btn" onClick={() => onSaveAct({
           id: randomId(), characterId: selectedCharacterId, name: '',
           startingState: '', endingState: '', polarity: '', transformation: '',
+          dilemma: '', propellingAction: '',
           order: acts.length,
         })}>+ Act</button>
         <button className="arc-toolbar-btn" onClick={() => onCreateSection(null)}>+ Section</button>
@@ -453,6 +455,7 @@ export default function ArcView({
               onClick={() => onSaveAct({
                 id: randomId(), characterId: selectedCharacterId, name: '',
                 startingState: '', endingState: '', polarity: '', transformation: '',
+                dilemma: '', propellingAction: '',
                 order: acts.length,
               })}
             >

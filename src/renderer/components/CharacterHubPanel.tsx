@@ -23,6 +23,7 @@ function emptyPsych(characterId: string): CharacterPsychology {
   return {
     characterId,
     novelStartingState: '', novelEndingState: '', novelPolarity: '', novelTransformation: '',
+    novelDilemma: '', novelPropellingAction: '',
     wound: '', lie: '', deepestFear: '', limitingBelief: '', thorn: '', copingTool: '',
     whisperOfGrace: '', surfaceWant: '', soulsLonging: '', bitterNeed: '', capitalTTruth: '',
     arcSummary: '', theme: '', antiTheme: '', finalReaderExperience: '',

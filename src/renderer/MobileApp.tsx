@@ -357,6 +357,8 @@ export function MobileApp() {
       stationId: null,
       polarity: '',
       transformation: '',
+      dilemma: '',
+      propellingAction: '',
     };
 
     const newCharScenes = [...charScenes];

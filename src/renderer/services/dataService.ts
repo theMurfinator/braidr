@@ -409,7 +409,7 @@ class ElectronDataService implements DataService {
     return (result.data as any[]).map(r => ({
       id: r.id, characterId: r.character_id, name: r.name,
       startingState: r.starting_state, endingState: r.ending_state,
-      polarity: r.polarity, transformation: r.transformation, order: r.display_order,
+      polarity: r.polarity, transformation: r.transformation, dilemma: r.dilemma, propellingAction: r.propelling_action, order: r.display_order,
     }));
   }
 
@@ -419,6 +419,7 @@ class ElectronDataService implements DataService {
       id: act.id, character_id: act.characterId, name: act.name,
       starting_state: act.startingState, ending_state: act.endingState,
       polarity: act.polarity, transformation: act.transformation,
+      dilemma: act.dilemma, propelling_action: act.propellingAction,
       display_order: act.order, created_at: Date.now(),
     });
   }
@@ -442,6 +443,7 @@ class ElectronDataService implements DataService {
       characterId: r.character_id,
       novelStartingState: r.novel_starting_state, novelEndingState: r.novel_ending_state,
       novelPolarity: r.novel_polarity, novelTransformation: r.novel_transformation,
+      novelDilemma: r.novel_dilemma, novelPropellingAction: r.novel_propelling_action,
       wound: r.wound, lie: r.lie, deepestFear: r.deepest_fear,
       limitingBelief: r.limiting_belief, thorn: r.thorn, copingTool: r.coping_tool,
       whisperOfGrace: r.whisper_of_grace, surfaceWant: r.surface_want,
@@ -457,6 +459,7 @@ class ElectronDataService implements DataService {
       character_id: p.characterId,
       novel_starting_state: p.novelStartingState, novel_ending_state: p.novelEndingState,
       novel_polarity: p.novelPolarity, novel_transformation: p.novelTransformation,
+      novel_dilemma: p.novelDilemma, novel_propelling_action: p.novelPropellingAction,
       wound: p.wound, lie: p.lie, deepest_fear: p.deepestFear,
       limiting_belief: p.limitingBelief, thorn: p.thorn, coping_tool: p.copingTool,
       whisper_of_grace: p.whisperOfGrace, surface_want: p.surfaceWant,

@@ -170,6 +170,8 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
         endingState: '',
         polarity: '',
         transformation: '',
+        dilemma: '',
+        propellingAction: '',
       };
       plotPoints.push(currentPlotPoint);
       continue;
@@ -220,6 +222,8 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
         stationId: null,
         polarity: '',
         transformation: '',
+        dilemma: '',
+        propellingAction: '',
       };
       continue;
     }

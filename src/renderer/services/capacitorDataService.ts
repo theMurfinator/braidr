@@ -478,6 +478,8 @@ export class CapacitorDataService implements DataService {
           endingState: '',
           polarity: '',
           transformation: '',
+          dilemma: '',
+          propellingAction: '',
         },
       ],
       scenes: [
@@ -497,6 +499,8 @@ export class CapacitorDataService implements DataService {
           stationId: null,
           polarity: '',
           transformation: '',
+          dilemma: '',
+          propellingAction: '',
         },
       ],
       rawContent: initialContent,
