@@ -20481,6 +20481,23 @@ textarea.table-cell-input {
 }
 
 /* ── Arc View ── */
+.main-content:has(.arc-layout) {
+  padding-right: 0;
+}
+.arc-layout {
+  display: flex;
+  gap: 0;
+  max-width: none;
+  height: 100%;
+}
+.arc-main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .arc-view {
   flex: 1; display: flex; flex-direction: column; overflow: hidden;
   background: var(--bg-primary); position: relative;

@@ -2290,6 +2290,69 @@ function App() {
     }
   };
 
+  const handleCreateArcSection = async (actId: string | null) => {
+    if (!projectData || !selectedCharacterId) return;
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === selectedCharacterId);
+    const maxOrder = charPlotPoints.length > 0 ? Math.max(...charPlotPoints.map(p => p.order)) : -1;
+    const newPlotPoint: PlotPoint = {
+      id: Math.random().toString(36).substring(2, 11),
+      characterId: selectedCharacterId,
+      actId,
+      title: 'New Section',
+      expectedSceneCount: null,
+      description: '',
+      order: maxOrder + 1,
+      startingState: '',
+      endingState: '',
+      polarity: '',
+      transformation: '',
+    };
+    const updatedPlotPoints = [...projectData.plotPoints, newPlotPoint];
+    setProjectData({ ...projectData, plotPoints: updatedPlotPoints });
+    const charScenes = projectData.scenes.filter(s => s.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, updatedPlotPoints.filter(p => p.characterId === character.id), charScenes);
+    } catch {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
+    }
+  };
+
+  const handleCreateArcScene = async (sectionId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+    const charScenes = projectData.scenes.filter(s => s.characterId === selectedCharacterId).sort((a, b) => a.sceneNumber - b.sceneNumber);
+    const newScene: Scene = {
+      id: Math.random().toString(36).substring(2, 11),
+      characterId: selectedCharacterId,
+      sceneNumber: charScenes.length + 1,
+      title: 'New scene',
+      content: 'New scene',
+      tags: [character.name.toLowerCase().replace(/\s+/g, '_')],
+      timelinePosition: null,
+      isHighlighted: false,
+      notes: [],
+      plotPointId: sectionId,
+      chapterId: null,
+      sceneOrder: 0,
+      stationId: null,
+      polarity: '',
+      transformation: '',
+    };
+    const updatedScenes = [...projectData.scenes, newScene];
+    setProjectData({ ...projectData, scenes: updatedScenes });
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    const finalCharScenes = updatedScenes.filter(s => s.characterId === selectedCharacterId).sort((a, b) => a.sceneNumber - b.sceneNumber);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, finalCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections);
+    } catch {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
+    }
+  };
+
   const handleDeletePlotPoint = async (plotPointId: string) => {
     if (!projectData) return;
 
@@ -3544,8 +3607,8 @@ function App() {
                   onDragEnd={handleArcDndEnd}
                   onDragCancel={handleArcDndCancel}
                 >
-                  <div className="pov-layout">
-                    <div className="pov-content">
+                  <div className="arc-layout">
+                    <div className="arc-main-content">
                       <ArcView
                         characters={projectData.characters}
                         selectedCharacterId={selectedCharacterId}
@@ -3561,6 +3624,8 @@ function App() {
                         onLoadPsychology={handleLoadCharacterPsychology}
                         onSavePsychology={handleSaveCharacterPsychology}
                         arcActiveId={arcActiveId}
+                        onCreateSection={handleCreateArcSection}
+                        onCreateScene={handleCreateArcScene}
                       />
                     </div>
                     <BullpenPanel

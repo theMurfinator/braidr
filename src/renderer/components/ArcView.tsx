@@ -119,6 +119,8 @@ interface ArcViewProps {
   onLoadPsychology: (characterId: string) => Promise<CharacterPsychology | null>;
   onSavePsychology: (psychology: CharacterPsychology) => void;
   arcActiveId: string | null;
+  onCreateSection: (actId: string | null) => void;
+  onCreateScene: (sectionId: string) => void;
 }
 
 export default function ArcView({
@@ -135,6 +137,8 @@ export default function ArcView({
   onLoadPsychology,
   onSavePsychology,
   arcActiveId: _arcActiveId,
+  onCreateSection,
+  onCreateScene,
 }: ArcViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showHub, setShowHub] = useState(false);
@@ -280,7 +284,7 @@ export default function ArcView({
           </SortableContext>
         )}
         {!coll && (
-          <div className="arc-row arc-ghost arc-grid" style={{ paddingLeft: 48 }}>
+          <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateScene(pp.id)}>
             <div className="arc-name-cell" style={{ paddingLeft: 48 }}>
               <span className="arc-toggle" style={{ visibility: 'hidden' }}>&#xB7;</span>
               <span className="arc-ghost-label">+ Add scene...</span>
@@ -330,7 +334,7 @@ export default function ArcView({
         </div>
         {!coll && actSections.map(pp => renderSection(pp))}
         {!coll && (
-          <div className="arc-row arc-ghost arc-grid">
+          <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(act.id)}>
             <div className="arc-name-cell" style={{ paddingLeft: 32 }}>
               <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
               <span className="arc-ghost-label">+ Add section...</span>
@@ -424,6 +428,16 @@ export default function ArcView({
                   <div className="arc-cell arc-pol-col"></div><div className="arc-cell"></div>
                 </div>
                 {!isCollapsed('unassigned') && unassignedSections.map(pp => renderSection(pp))}
+                {!isCollapsed('unassigned') && (
+                  <div className="arc-row arc-ghost arc-grid" style={{ cursor: 'pointer' }} onClick={() => onCreateSection(null)}>
+                    <div className="arc-name-cell" style={{ paddingLeft: 32 }}>
+                      <span className="arc-toggle" style={{ visibility: 'hidden' }}>+</span>
+                      <span className="arc-ghost-label">+ Add section...</span>
+                    </div>
+                    <div className="arc-cell"></div><div className="arc-cell"></div><div className="arc-cell"></div>
+                    <div className="arc-cell arc-pol-col"></div><div className="arc-cell"></div>
+                  </div>
+                )}
               </div>
             )}
 
