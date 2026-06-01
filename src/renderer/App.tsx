@@ -28,7 +28,6 @@ import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import { UpdateBanner } from './components/UpdateBanner';
 import UpdateModal from './components/UpdateModal';
-import TourOverlay from './components/TourOverlay';
 import braidrIcon from './assets/braidr-icon.png';
 import { track } from './utils/posthogTracker';
 import LandingScreen from './components/LandingScreen';
@@ -172,6 +171,9 @@ function App() {
   const draggedPovSceneRef = useRef<Scene | null>(null);
   const [povActiveId, setPovActiveId] = useState<string | null>(null);
   const povSensors = useSortableSensors();
+  const draggedArcSceneRef = useRef<Scene | null>(null);
+  const [arcActiveId, setArcActiveId] = useState<string | null>(null);
+  const arcSensors = useSortableSensors();
   const [showCharacterManager, setShowCharacterManager] = useState(false);
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [allFontSettings, setAllFontSettings] = useState<AllFontSettings>({ global: {} });
@@ -218,7 +220,6 @@ function App() {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [showTour, setShowTour] = useState(() => localStorage.getItem('braidr-tour-version') !== '1');
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null);
   const [wordCountGoal, setWordCountGoal] = useState(0);
@@ -1931,6 +1932,96 @@ function App() {
 
   const handlePovDndCancel = (_e: DragCancelEvent) => {
     setPovActiveId(null);
+  };
+
+  const handleArcDndStart = (e: DragStartEvent) => {
+    setArcActiveId(String(e.active.id));
+  };
+
+  const handleArcDndCancel = () => {
+    setArcActiveId(null);
+  };
+
+  const handleArcSceneDrop = async (targetSceneNumber: number, targetPlotPointId: string) => {
+    const scene = draggedArcSceneRef.current;
+    if (!projectData || !scene || !selectedCharacterId) return;
+
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+
+    const charScenes = projectData.scenes
+      .filter(s => s.characterId === selectedCharacterId)
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+
+    const draggedIndex = charScenes.findIndex(s => s.id === scene.id);
+    if (draggedIndex === -1) return;
+
+    let targetIndex = charScenes.findIndex(s => s.sceneNumber >= targetSceneNumber);
+    if (targetIndex === -1) targetIndex = charScenes.length;
+    if (draggedIndex < targetIndex) targetIndex -= 1;
+
+    const [movedScene] = charScenes.splice(draggedIndex, 1);
+    movedScene.plotPointId = targetPlotPointId;
+    targetIndex = Math.max(0, Math.min(targetIndex, charScenes.length));
+    charScenes.splice(targetIndex, 0, movedScene);
+    charScenes.forEach((s, idx) => { s.sceneNumber = idx + 1; });
+
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
+    const updatedScenes = [...otherScenes, ...charScenes];
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+      await saveTimelineData(updatedScenes, sceneConnections);
+    } catch {
+      addToast('Couldn\'t save your changes — check that the project folder still exists');
+    }
+  };
+
+  const handleArcDndEnd = (e: DragEndEvent) => {
+    setArcActiveId(null);
+    const { active, over } = e;
+    if (!over || !projectData || !selectedCharacterId) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (activeId === overId) return;
+
+    const activeScene = projectData.scenes.find(s => s.id === activeId);
+    if (!activeScene) return;
+
+    if (overId === 'bullpen') {
+      if (activeScene.plotPointId) handleSetAside(activeId);
+      return;
+    }
+
+    let targetSectionId: string | null = null;
+    let targetSceneNumber = 1;
+
+    if (overId.startsWith('section-empty:')) {
+      targetSectionId = overId.slice('section-empty:'.length);
+      targetSceneNumber = 1;
+    } else {
+      const overType = (over.data.current as Record<string, unknown> | undefined)?.type;
+      if (overType === 'arc-scene') {
+        const overScene = projectData.scenes.find(s => s.id === overId);
+        if (!overScene?.plotPointId) return;
+        targetSectionId = overScene.plotPointId;
+        const sectionScenes = projectData.scenes
+          .filter(s => s.plotPointId === targetSectionId)
+          .sort((a, b) => a.sceneNumber - b.sceneNumber);
+        const activeIdx = sectionScenes.findIndex(s => s.id === activeId);
+        const overIdx = sectionScenes.findIndex(s => s.id === overId);
+        const dropsAfter = activeIdx < 0 || (activeIdx >= 0 && overIdx >= 0 && activeIdx < overIdx);
+        targetSceneNumber = dropsAfter ? overScene.sceneNumber + 1 : overScene.sceneNumber;
+      }
+    }
+
+    if (!targetSectionId) return;
+    draggedArcSceneRef.current = activeScene;
+    handleArcSceneDrop(targetSceneNumber, targetSectionId);
+    draggedArcSceneRef.current = null;
   };
 
   const handleSetAside = async (sceneId: string) => {
@@ -4319,15 +4410,6 @@ function App() {
                   </svg>
                   Switch Project
                 </button>
-                <div className="settings-dropdown-divider" />
-                <button onClick={() => { setShowTour(true); setShowSettingsMenu(false); }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                  Take a Tour
-                </button>
                 <button onClick={() => { setShowFeedbackModal(true); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -4633,16 +4715,6 @@ function App() {
         <UpdateModal onClose={() => setShowUpdateModal(false)} />
       )}
 
-      {/* App Tour */}
-      {showTour && (
-        <TourOverlay
-          onComplete={() => {
-            setShowTour(false);
-            localStorage.setItem('braidr-tour-version', '1');
-          }}
-          setViewMode={setViewMode}
-        />
-      )}
     </div>
     </PaneProvider>
   );
