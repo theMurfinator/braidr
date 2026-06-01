@@ -20529,10 +20529,10 @@ textarea.table-cell-input {
   transition: background .1s;
 }
 .arc-row.arc-grid > * {
-  padding: 10px 16px 10px 0;
+  padding: 7px 16px 7px 0;
   display: flex; flex-direction: column;
-  justify-content: flex-start; align-items: flex-start;
-  font-size: 13px; color: var(--text-secondary); line-height: 1.55;
+  justify-content: center; align-items: flex-start;
+  font-size: 13px; color: var(--text-secondary); line-height: 1.4;
 }
 .arc-row:hover { background: var(--bg-hover); }
 
@@ -20552,49 +20552,42 @@ textarea.table-cell-input {
 .arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); line-height: 1.4; }
 
 /* ── NOVEL — character title, topmost level ── */
-.arc-novel { border-bottom: 2px solid var(--border) !important; }
-.arc-novel.arc-grid > * { padding-top: 24px; padding-bottom: 24px; }
+.arc-novel { border-bottom: 1px solid var(--border) !important; }
+.arc-novel.arc-grid > * { padding-top: 9px; padding-bottom: 9px; }
 .arc-novel-title {
-  font-family: var(--font-section-title);
-  font-size: 32px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  line-height: 1.3;
 }
 
 /* ── ACT — second level, major structural break ── */
 .arc-act {
-  border-top: 2px solid var(--border) !important;
-  background: var(--bg-secondary);
+  border-top: 1px solid var(--border) !important;
 }
-/* .arc-act .arc-name-tag removed — label chips no longer used */
 .arc-act .arc-name-text {
-  font-family: var(--font-section-title);
-  font-size: 22px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  line-height: 1.3;
 }
 .arc-act.arc-grid > * {
-  padding-top: 20px;
-  padding-bottom: 20px;
+  padding-top: 8px;
+  padding-bottom: 8px;
   font-size: 13px;
   color: var(--text-secondary);
 }
 
 /* ── SECTION — third level ── */
 .arc-section .arc-name-text {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 400;
   color: var(--text-primary);
-  line-height: 1.35;
-  font-family: var(--font-ui);
+  line-height: 1.3;
 }
 .arc-section.arc-grid > * {
-  padding-top: 13px;
-  padding-bottom: 13px;
+  padding-top: 7px;
+  padding-bottom: 7px;
   font-size: 13px;
 }
 
@@ -20602,15 +20595,14 @@ textarea.table-cell-input {
 .arc-scene .arc-name-text {
   font-size: 13px;
   font-weight: 400;
-  color: var(--text-muted);
-  font-style: italic;
-  line-height: 1.4;
+  color: var(--text-secondary);
+  line-height: 1.3;
 }
 .arc-scene.arc-grid > * {
-  padding-top: 8px;
-  padding-bottom: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .arc-drag-handle {
