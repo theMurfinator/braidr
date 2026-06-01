@@ -240,6 +240,12 @@ export default function ArcView({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
 
+  const cleanContent = (s: string) =>
+    s.replace(/<[^>]*>/g, '')
+     .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
+     .replace(/#[a-zA-Z0-9_]+/g, '')
+     .trim();
+
   // Reset hub cache when character changes
   useEffect(() => {
     hubLoadedRef.current = false;
@@ -298,7 +304,7 @@ export default function ArcView({
             <div className="arc-name-inner">
               <EditableCell value={scene.title || ''} placeholder="Scene title..."
                 onChange={v => onSaveSceneArcFields(scene.id, { title: v })} />
-              <EditableCell value={scene.content || ''} placeholder="Synopsis..."
+              <EditableCell value={cleanContent(scene.content || '')} placeholder="Synopsis..."
                 onChange={v => onSaveSceneArcFields(scene.id, { synopsis: v })} multiline
                 className="arc-section-synopsis" />
             </div>

@@ -20578,12 +20578,18 @@ textarea.table-cell-input {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* Clip name cell content so titles never overflow into data columns */
+.arc-name-inner {
+  overflow: hidden;
+  min-width: 0;
+}
 /* Titles in name cells: single line with ellipsis */
 .arc-name-inner > .arc-editable-display:first-child {
+  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+  width: 100%;
 }
 /* .arc-name-tag removed — label chips no longer used */
 .arc-name-text { font-size: 13px; font-weight: 400; color: var(--text-secondary); line-height: 1.4; }
