@@ -392,17 +392,6 @@ export default function ArcView({
     <div className="arc-view">
 
       {/* Column headers */}
-      <div className="arc-col-headers arc-grid">
-        <div className="arc-col-h"></div>
-        <div className="arc-col-h">Plot synopsis</div>
-        <div className="arc-col-h">Beginning</div>
-        <div className="arc-col-h">Ending</div>
-        <div className="arc-col-h">Turning point</div>
-        <div className="arc-col-h">Dilemma</div>
-        <div className="arc-col-h">Propelling Action</div>
-        <div className="arc-col-h arc-col-center">Polarity shift</div>
-      </div>
-
       {/* Toolbar */}
       <div className="arc-toolbar">
         <button className="arc-toolbar-btn" onClick={() => onSaveAct({
@@ -412,6 +401,17 @@ export default function ArcView({
           order: acts.length,
         })}>+ Act</button>
         <button className="arc-toolbar-btn" onClick={() => onCreateSection(null)}>+ Section</button>
+      </div>
+
+      <div className="arc-col-headers arc-grid">
+        <div className="arc-col-h"></div>
+        <div className="arc-col-h">Plot synopsis</div>
+        <div className="arc-col-h">Beginning</div>
+        <div className="arc-col-h">Ending</div>
+        <div className="arc-col-h">Turning point</div>
+        <div className="arc-col-h">Dilemma</div>
+        <div className="arc-col-h">Propelling Action</div>
+        <div className="arc-col-h arc-col-center">Polarity shift</div>
       </div>
 
       <div className="arc-scroll">
