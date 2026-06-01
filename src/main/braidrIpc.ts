@@ -124,6 +124,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       endingState: (row as any).ending_state ?? '',
       polarity: (row as any).polarity ?? '',
       transformation: (row as any).transformation ?? '',
+      dilemma: (row as any).dilemma ?? '',
+      propellingAction: (row as any).propelling_action ?? '',
     }));
 
     // Tags
@@ -171,6 +173,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       stationId: null,
       polarity: (row as any).polarity ?? '',
       transformation: (row as any).transformation ?? '',
+      dilemma: (row as any).dilemma ?? '',
+      propellingAction: (row as any).propelling_action ?? '',
     }));
 
     // Connections
@@ -774,6 +778,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_CREATE_CHARACTER, (_event, braidrPath: string
         title: 'First scene description here', content: 'First scene description here',
         tags: [], timelinePosition: null, isHighlighted: false, notes: [], plotPointId: ppId,
         chapterId: null, sceneOrder: 0, stationId: null, polarity: '', transformation: '',
+        dilemma: '', propellingAction: '',
       } as Scene,
     };
   } catch (error) {
