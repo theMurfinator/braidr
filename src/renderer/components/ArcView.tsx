@@ -279,8 +279,9 @@ export default function ArcView({
             <div className="arc-name-inner">
               <EditableCell className="arc-scene-title" value={scene.title || ''} placeholder="Scene title..."
                 onChange={v => onSaveSceneArcFields(scene.id, { title: v })} />
-              <EditableCell className="arc-scene-synopsis" value={scene.synopsis || ''} placeholder="Synopsis..."
-                onChange={v => onSaveSceneArcFields(scene.id, { synopsis: v })} multiline />
+              {(scene.notes ?? []).join('\n').trim() !== '' && (
+                <span className="arc-scene-synopsis">{(scene.notes ?? []).join('\n').trim()}</span>
+              )}
             </div>
           </div>
           <div className="arc-cell">
