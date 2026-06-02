@@ -484,7 +484,11 @@ export class BraidrDB {
   }
 
   checkpoint() {
-    this.db.pragma('wal_checkpoint(FULL)');
+    // TRUNCATE (not FULL) empties the -wal file to zero bytes after checkpointing,
+    // so cloud sync (iCloud/Dropbox) only ever sees a consistent main file with an
+    // empty WAL — preventing the inconsistent-sidecar corruption that occurs when a
+    // non-empty -wal is synced out of step with the main .braidr file.
+    this.db.pragma('wal_checkpoint(TRUNCATE)');
   }
 
   backup(destPath: string): Promise<unknown> {

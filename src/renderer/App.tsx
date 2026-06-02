@@ -933,6 +933,11 @@ function App() {
     try {
     const data = await dataService.loadProject(folderPath);
 
+    // Self-healed from a corrupted file — let the user know they may be slightly behind.
+    if ((data as { recoveredFromBackup?: string | null }).recoveredFromBackup) {
+      addToast('Your project file was corrupted and was automatically restored from the most recent healthy backup.');
+    }
+
     // If legacy keys were migrated to stable IDs, persist the changes immediately
     if (data._migrated) {
       console.log('Migrating to stable scene IDs — saving .md files and timeline data');
