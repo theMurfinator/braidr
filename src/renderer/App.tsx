@@ -48,6 +48,7 @@ import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
 import { CompareView } from './components/branches/CompareView';
 import ArcView from './components/ArcView';
+import CharacterHubPanel from './components/CharacterHubPanel';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account' | 'arc';
 type BraidedSubMode = 'list' | 'table' | 'rails';
@@ -1672,7 +1673,7 @@ function App() {
     }
   }, [projectData]);
 
-  const handleSaveSceneArcFields = useCallback(async (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string }) => {
+  const handleSaveSceneArcFields = useCallback(async (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }) => {
     if (!projectData) return;
     const { synopsis, ...arcFields } = fields;
     setProjectData({
@@ -1701,6 +1702,22 @@ function App() {
     if (p) setCharacterPsychologies(prev => ({ ...prev, [characterId]: p }));
     return p;
   }, [characterPsychologies]);
+
+  // Character Hub panel (opened from the arc bullpen)
+  const [showArcHub, setShowArcHub] = useState(false);
+  const arcHubLoadedRef = useRef(false);
+  const openArcHub = useCallback(async () => {
+    if (!selectedCharacterId) return;
+    if (!arcHubLoadedRef.current) {
+      await handleLoadCharacterPsychology(selectedCharacterId);
+      arcHubLoadedRef.current = true;
+    }
+    setShowArcHub(true);
+  }, [selectedCharacterId, handleLoadCharacterPsychology]);
+  useEffect(() => {
+    arcHubLoadedRef.current = false;
+    setShowArcHub(false);
+  }, [selectedCharacterId]);
 
   // Chapter handlers
   const handleAddChapter = async (title: string) => {
@@ -3675,10 +3692,9 @@ function App() {
                         onDeleteAct={handleDeleteAct}
                         onSavePlotPointArcFields={handleSavePlotPointArcFields}
                         onSaveSceneArcFields={handleSaveSceneArcFields}
-                        onLoadPsychology={handleLoadCharacterPsychology}
                         onSavePsychology={handleSaveCharacterPsychology}
                         arcActiveId={arcActiveId}
-                        onCreateSection={handleCreateArcSection}
+
                         onDeleteSection={handleDeletePlotPoint}
                       />
                     </div>
@@ -3693,7 +3709,18 @@ function App() {
                       onDeleteScene={(sceneId) => handleArchiveScene(sceneId)}
                       onAddSection={handleCreateArcSection}
                       onAddScene={handleCreateArcBullpenScene}
+                      onOpenCharacterHub={openArcHub}
                     />
+                    {showArcHub && (
+                      <CharacterHubPanel
+                        characterName={projectData.characters.find(c => c.id === selectedCharacterId)?.name || ''}
+                        characterColor={characterColors[selectedCharacterId] || '#6366f1'}
+                        psychology={characterPsychologies[selectedCharacterId] ?? null}
+                        selectedCharacterId={selectedCharacterId}
+                        onSave={handleSaveCharacterPsychology}
+                        onClose={() => setShowArcHub(false)}
+                      />
+                    )}
                   </div>
                   <DragOverlay>
                     {arcActiveId && (() => {
@@ -4330,7 +4357,7 @@ function App() {
               <button className="arc-toolbar-btn" onClick={() => handleSaveAct({
                 id: Math.random().toString(36).substring(2, 11),
                 characterId: selectedCharacterId,
-                name: '', startingState: '', endingState: '', polarity: '',
+                name: '', synopsis: '', startingState: '', endingState: '', polarity: '',
                 transformation: '', dilemma: '', propellingAction: '',
                 order: acts.filter(a => a.characterId === selectedCharacterId).length,
               })}>+ Act</button>
