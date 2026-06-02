@@ -3,7 +3,6 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '../dnd';
 import { Character, Act, PlotPoint, Scene, CharacterPsychology } from '../../shared/types';
-import CharacterHubPanel from './CharacterHubPanel';
 
 const POLARITY_COLORS: Record<string, { bg: string; color: string }> = {
   '+/-':   { bg: '#fee2e2', color: '#b91c1c' },
@@ -149,7 +148,6 @@ interface ArcViewProps {
   onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => void;
   onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }) => void;
   onDeleteSection: (sectionId: string) => void;
-  onLoadPsychology: (characterId: string) => Promise<CharacterPsychology | null>;
   onSavePsychology: (psychology: CharacterPsychology) => void;
   arcActiveId: string | null;
 }
@@ -230,22 +228,12 @@ export default function ArcView({
   onSavePlotPointArcFields,
   onSaveSceneArcFields,
   onDeleteSection,
-  onLoadPsychology,
   onSavePsychology,
   arcActiveId: _arcActiveId,
 }: ArcViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [showHub, setShowHub] = useState(false);
-  const hubLoadedRef = useRef(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
-
-
-  // Reset hub cache when character changes
-  useEffect(() => {
-    hubLoadedRef.current = false;
-    setShowHub(false);
-  }, [selectedCharacterId]);
 
   const character = characters.find(c => c.id === selectedCharacterId);
   const charColor = characterColors[selectedCharacterId] || '#6366f1';
@@ -257,14 +245,6 @@ export default function ArcView({
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  };
-
-  const openHub = async () => {
-    if (!hubLoadedRef.current) {
-      await onLoadPsychology(selectedCharacterId);
-      hubLoadedRef.current = true;
-    }
-    setShowHub(true);
   };
 
   const psych = psychology;
@@ -297,8 +277,10 @@ export default function ArcView({
           <div className="arc-name-cell" style={{ paddingLeft: 104 }}>
             <span className="arc-drag-handle" {...attributes} {...listeners} title="Drag to reorder">⠣</span>
             <div className="arc-name-inner">
-              <EditableCell value={scene.title || ''} placeholder="Scene title..."
+              <EditableCell className="arc-scene-title" value={scene.title || ''} placeholder="Scene title..."
                 onChange={v => onSaveSceneArcFields(scene.id, { title: v })} />
+              <EditableCell className="arc-scene-synopsis" value={scene.synopsis || ''} placeholder="Synopsis..."
+                onChange={v => onSaveSceneArcFields(scene.id, { synopsis: v })} multiline />
             </div>
           </div>
           <div className="arc-cell">
@@ -498,23 +480,6 @@ export default function ArcView({
 
         {!isCollapsed('novel') && sortedActs.map(renderAct)}
       </div>
-
-      {/* Character Hub button */}
-      <button className="arc-hub-btn" onClick={openHub}>
-        Character Hub
-      </button>
-
-      {/* Character Hub panel */}
-      {showHub && (
-        <CharacterHubPanel
-          characterName={character?.name || ''}
-          characterColor={charColor}
-          psychology={psych}
-          selectedCharacterId={selectedCharacterId}
-          onSave={(p: CharacterPsychology) => onSavePsychology(p)}
-          onClose={() => setShowHub(false)}
-        />
-      )}
 
       {contextMenu && (
         <ArcSectionContextMenu

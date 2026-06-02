@@ -89,6 +89,7 @@ interface ArcBullpenPanelProps {
   onDeleteScene: (sceneId: string) => void;
   onAddSection: () => void;
   onAddScene: () => void;
+  onOpenCharacterHub: () => void;
 }
 
 export default function ArcBullpenPanel({
@@ -102,6 +103,7 @@ export default function ArcBullpenPanel({
   onDeleteScene,
   onAddSection,
   onAddScene,
+  onOpenCharacterHub,
 }: ArcBullpenPanelProps) {
   const [contextMenu, setContextMenu] = useState<{
     x: number; y: number; type: 'section' | 'scene'; id: string;
@@ -168,6 +170,10 @@ export default function ArcBullpenPanel({
             onContextMenu={e => handleContextMenu(e, 'scene', scene.id)}
           />
         ))}
+      </div>
+
+      <div className="arc-bullpen-footer">
+        <button className="arc-bullpen-hub-btn" onClick={onOpenCharacterHub}>Character Hub</button>
       </div>
 
       {contextMenu && (

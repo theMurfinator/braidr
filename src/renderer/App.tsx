@@ -48,6 +48,7 @@ import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
 import { CompareView } from './components/branches/CompareView';
 import ArcView from './components/ArcView';
+import CharacterHubPanel from './components/CharacterHubPanel';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account' | 'arc';
 type BraidedSubMode = 'list' | 'table' | 'rails';
@@ -1701,6 +1702,22 @@ function App() {
     if (p) setCharacterPsychologies(prev => ({ ...prev, [characterId]: p }));
     return p;
   }, [characterPsychologies]);
+
+  // Character Hub panel (opened from the arc bullpen)
+  const [showArcHub, setShowArcHub] = useState(false);
+  const arcHubLoadedRef = useRef(false);
+  const openArcHub = useCallback(async () => {
+    if (!selectedCharacterId) return;
+    if (!arcHubLoadedRef.current) {
+      await handleLoadCharacterPsychology(selectedCharacterId);
+      arcHubLoadedRef.current = true;
+    }
+    setShowArcHub(true);
+  }, [selectedCharacterId, handleLoadCharacterPsychology]);
+  useEffect(() => {
+    arcHubLoadedRef.current = false;
+    setShowArcHub(false);
+  }, [selectedCharacterId]);
 
   // Chapter handlers
   const handleAddChapter = async (title: string) => {
@@ -3675,7 +3692,6 @@ function App() {
                         onDeleteAct={handleDeleteAct}
                         onSavePlotPointArcFields={handleSavePlotPointArcFields}
                         onSaveSceneArcFields={handleSaveSceneArcFields}
-                        onLoadPsychology={handleLoadCharacterPsychology}
                         onSavePsychology={handleSaveCharacterPsychology}
                         arcActiveId={arcActiveId}
 
@@ -3693,7 +3709,18 @@ function App() {
                       onDeleteScene={(sceneId) => handleArchiveScene(sceneId)}
                       onAddSection={handleCreateArcSection}
                       onAddScene={handleCreateArcBullpenScene}
+                      onOpenCharacterHub={openArcHub}
                     />
+                    {showArcHub && (
+                      <CharacterHubPanel
+                        characterName={projectData.characters.find(c => c.id === selectedCharacterId)?.name || ''}
+                        characterColor={characterColors[selectedCharacterId] || '#6366f1'}
+                        psychology={characterPsychologies[selectedCharacterId] ?? null}
+                        selectedCharacterId={selectedCharacterId}
+                        onSave={handleSaveCharacterPsychology}
+                        onClose={() => setShowArcHub(false)}
+                      />
+                    )}
                   </div>
                   <DragOverlay>
                     {arcActiveId && (() => {
