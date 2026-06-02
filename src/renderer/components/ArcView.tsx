@@ -147,6 +147,7 @@ interface ArcViewProps {
   onDeleteAct: (actId: string) => void;
   onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => void;
   onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }) => void;
+  onSaveSceneNotes: (sceneId: string, notes: string[]) => void;
   onDeleteSection: (sectionId: string) => void;
   onSavePsychology: (psychology: CharacterPsychology) => void;
   arcActiveId: string | null;
@@ -227,6 +228,7 @@ export default function ArcView({
   onDeleteAct,
   onSavePlotPointArcFields,
   onSaveSceneArcFields,
+  onSaveSceneNotes,
   onDeleteSection,
   onSavePsychology,
   arcActiveId: _arcActiveId,
@@ -279,9 +281,8 @@ export default function ArcView({
             <div className="arc-name-inner">
               <EditableCell className="arc-scene-title" value={scene.title || ''} placeholder="Scene title..."
                 onChange={v => onSaveSceneArcFields(scene.id, { title: v })} />
-              {(scene.notes ?? []).join('\n').trim() !== '' && (
-                <span className="arc-scene-synopsis">{(scene.notes ?? []).join('\n').trim()}</span>
-              )}
+              <EditableCell className="arc-scene-synopsis" value={(scene.notes ?? []).join('\n')} placeholder="Add synopsis..."
+                onChange={v => onSaveSceneNotes(scene.id, v.trim() ? v.split('\n') : [])} multiline />
             </div>
           </div>
           <div className="arc-cell">

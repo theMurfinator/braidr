@@ -1696,6 +1696,27 @@ function App() {
     }
   }, [projectData]);
 
+  // Save the scene synopsis (stored as scene.notes) from the arc view, without
+  // touching title/content. Persists via the bulk outline save (replaceSceneNotes).
+  const handleSaveSceneNotes = useCallback(async (sceneId: string, notes: string[]) => {
+    if (!projectData) return;
+    const updatedScenes = projectData.scenes.map(s => s.id === sceneId ? { ...s, notes } : s);
+    setProjectData({ ...projectData, scenes: updatedScenes });
+    const scene = updatedScenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    const character = projectData.characters.find(c => c.id === scene.characterId);
+    if (!character) return;
+    try {
+      await dataService.saveCharacterOutline(
+        character,
+        projectData.plotPoints.filter(p => p.characterId === character.id),
+        updatedScenes.filter(s => s.characterId === character.id),
+      );
+    } catch {
+      addToast('Could not save synopsis');
+    }
+  }, [projectData]);
+
   const handleSaveCharacterPsychology = useCallback(async (psychology: CharacterPsychology) => {
     setCharacterPsychologies(prev => ({ ...prev, [psychology.characterId]: psychology }));
     await dataService.saveCharacterPsychology(psychology);
@@ -3697,6 +3718,7 @@ function App() {
                         onDeleteAct={handleDeleteAct}
                         onSavePlotPointArcFields={handleSavePlotPointArcFields}
                         onSaveSceneArcFields={handleSaveSceneArcFields}
+                        onSaveSceneNotes={handleSaveSceneNotes}
                         onSavePsychology={handleSaveCharacterPsychology}
                         arcActiveId={arcActiveId}
 
