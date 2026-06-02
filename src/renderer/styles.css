@@ -20509,6 +20509,9 @@ textarea.table-cell-input {
   display: grid;
   grid-template-columns: 240px repeat(5, 200px) 120px 80px;
   width: max-content;
+  /* Every grid (header + all rows) reserves the same 2px left edge so the
+     section rows' colored accent border can't shift their columns right. */
+  border-left: 2px solid transparent;
 }
 
 .arc-col-headers {
