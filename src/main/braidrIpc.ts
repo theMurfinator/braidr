@@ -58,6 +58,63 @@ function autoBackupBraidr(braidrPath: string, db: import('./database').BraidrDB)
     });
 }
 
+/**
+ * Attempts to recover a corrupted .braidr file by restoring the newest healthy
+ * backup. The corrupt file is quarantined (renamed .corrupt-<ts>) rather than
+ * deleted, and its -wal/-shm sidecars are removed. Returns the reopened db and
+ * the backup filename it restored from, or null if no healthy backup was found.
+ */
+function attemptBraidrRecovery(
+  activeBraidrPath: string
+): { db: BraidrDB; recoveredFrom: string } | null {
+  const fs = require('fs') as typeof import('fs');
+  const pathMod = require('path') as typeof import('path');
+  const { app } = require('electron') as typeof import('electron');
+  const Database = require('better-sqlite3') as typeof import('better-sqlite3');
+  const { closeDatabase, openDatabase } = require('./database') as typeof import('./database');
+
+  // Release the corrupt connection so the file can be replaced.
+  try { closeDatabase(activeBraidrPath); } catch { /* ignore */ }
+
+  const projectName = pathMod.basename(activeBraidrPath, '.braidr');
+  const backupDir = pathMod.join(app.getPath('userData'), 'backups', projectName);
+  if (!fs.existsSync(backupDir)) return null;
+
+  // ISO-timestamped names sort lexicographically, so reverse() = newest first.
+  const candidates = fs.readdirSync(backupDir)
+    .filter((f: string) => f.endsWith('.braidr'))
+    .sort()
+    .reverse();
+
+  for (const name of candidates) {
+    const candidatePath = pathMod.join(backupDir, name);
+    let healthy = false;
+    try {
+      const test = new Database(candidatePath, { readonly: true });
+      healthy = test.pragma('quick_check', { simple: true }) === 'ok';
+      test.close();
+    } catch { healthy = false; }
+    if (!healthy) continue;
+
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    try {
+      for (const suffix of ['', '-wal', '-shm']) {
+        const p = activeBraidrPath + suffix;
+        if (!fs.existsSync(p)) continue;
+        if (suffix === '') fs.renameSync(p, `${activeBraidrPath}.corrupt-${ts}`);
+        else fs.unlinkSync(p);
+      }
+      fs.copyFileSync(candidatePath, activeBraidrPath);
+    } catch (err) {
+      console.error('[braidr recovery] failed to restore backup:', err);
+      return null;
+    }
+    console.warn(`[braidr recovery] restored "${activeBraidrPath}" from backup "${name}"`);
+    return { db: openDatabase(activeBraidrPath), recoveredFrom: name };
+  }
+  return null;
+}
+
 // ── Load project ─────────────────────────────────────────────────────────────
 
 ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) => {
@@ -82,24 +139,29 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       } catch { /* non-fatal: bad index.json, fall back to main */ }
     }
 
-    const db = getDb(activeBraidrPath);
+    let db = getDb(activeBraidrPath);
+    let recoveredFromBackup: string | null = null;
 
     // Detect corruption before attempting any reads.
+    let healthy = false;
     try {
       const checkResult = (db.prepare('PRAGMA quick_check').all() as { quick_check: string }[]);
-      if (checkResult[0]?.quick_check !== 'ok') {
+      healthy = checkResult[0]?.quick_check === 'ok';
+    } catch { healthy = false; }
+
+    if (!healthy) {
+      // Self-heal: restore the newest healthy backup instead of dead-ending.
+      const recovery = attemptBraidrRecovery(activeBraidrPath);
+      if (recovery) {
+        db = recovery.db;
+        recoveredFromBackup = recovery.recoveredFrom;
+      } else {
         const { app } = require('electron') as typeof import('electron');
         const pathMod = require('path') as typeof import('path');
         const projectName = pathMod.basename(braidrPath, '.braidr');
         const backupDir = pathMod.join(app.getPath('userData'), 'backups', projectName);
         return { success: false, error: `Your project file is corrupted. Please restore a backup from: ${backupDir}` };
       }
-    } catch {
-      const { app } = require('electron') as typeof import('electron');
-      const pathMod = require('path') as typeof import('path');
-      const projectName = pathMod.basename(braidrPath, '.braidr');
-      const backupDir = pathMod.join(app.getPath('userData'), 'backups', projectName);
-      return { success: false, error: `Your project file is corrupted. Please restore a backup from: ${backupDir}` };
     }
 
     // Characters
@@ -406,6 +468,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       success: true,
       data: {
         activeBraidrPath,
+        recoveredFromBackup,
         projectPath: folderPath,
         projectName,
         characters,
