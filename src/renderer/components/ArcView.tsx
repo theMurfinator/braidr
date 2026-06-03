@@ -141,6 +141,7 @@ interface ArcViewProps {
   acts: Act[];
   plotPoints: PlotPoint[];
   scenes: Scene[];
+  draftContent: Record<string, string>;
   characterColors: Record<string, string>;
   psychology: CharacterPsychology | null;
   onSaveAct: (act: Act) => void;
@@ -222,6 +223,7 @@ export default function ArcView({
   acts,
   plotPoints,
   scenes,
+  draftContent,
   characterColors,
   psychology,
   onSaveAct,
@@ -238,6 +240,15 @@ export default function ArcView({
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
   const [hideActs, setHideActs] = useState(false);
   const [hideSections, setHideSections] = useState(false);
+  const [previewSceneId, setPreviewSceneId] = useState<string | null>(null);
+
+  // Close the scene preview drawer on Escape
+  useEffect(() => {
+    if (!previewSceneId) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewSceneId(null); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [previewSceneId]);
 
   const character = characters.find(c => c.id === selectedCharacterId);
   const charColor = characterColors[selectedCharacterId] || '#6366f1';
@@ -286,6 +297,13 @@ export default function ArcView({
               <EditableCell className="arc-scene-synopsis" value={(scene.notes ?? []).join('\n')} placeholder="Add synopsis..."
                 onChange={v => onSaveSceneNotes(scene.id, v.trim() ? v.split('\n') : [])} multiline />
             </div>
+            <button
+              className={`arc-preview-btn${previewSceneId === scene.id ? ' active' : ''}`}
+              title="Preview scene text"
+              onClick={() => setPreviewSceneId(id => id === scene.id ? null : scene.id)}
+            >
+              Preview
+            </button>
           </div>
           <div className="arc-cell">
             <EditableCell value={scene.startingState || ''} placeholder="Beginning..."
@@ -433,7 +451,7 @@ export default function ArcView({
   };
 
   return (
-    <div className="arc-view">
+    <div className="arc-view" style={{ position: 'relative' }}>
       <div className="arc-toolbar">
         <button
           className={`arc-toggle-btn${hideActs ? ' active' : ''}`}
@@ -525,6 +543,21 @@ export default function ArcView({
           onClose={() => setActContextMenu(null)}
         />
       )}
+      {previewSceneId && (() => {
+        const previewScene = scenes.find(s => s.id === previewSceneId);
+        const html = draftContent[previewSceneId] || '';
+        return (
+          <div className="arc-preview-panel">
+            <div className="arc-preview-header">
+              <span className="arc-preview-title">{previewScene?.title || 'Untitled scene'}</span>
+              <button className="arc-preview-close" title="Close preview (Esc)" onClick={() => setPreviewSceneId(null)}>×</button>
+            </div>
+            {html.trim()
+              ? <div className="arc-preview-content" dangerouslySetInnerHTML={{ __html: html }} />
+              : <div className="arc-preview-empty">No written text yet for this scene.</div>}
+          </div>
+        );
+      })()}
     </div>
   );
 }

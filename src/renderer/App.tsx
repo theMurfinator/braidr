@@ -3712,6 +3712,7 @@ function App() {
                         acts={acts.filter(a => a.characterId === selectedCharacterId)}
                         plotPoints={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
                         scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
+                        draftContent={draftContent}
                         characterColors={characterColors}
                         psychology={characterPsychologies[selectedCharacterId] ?? null}
                         onSaveAct={handleSaveAct}
