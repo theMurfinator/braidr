@@ -574,59 +574,21 @@ function importData(db: BraidrDB, folderPath: string, warnings: string[]) {
     try {
       const branchIndex = JSON.parse(fs.readFileSync(branchIndexPath, 'utf-8'));
       const branchInfos: any[] = branchIndex.branches ?? [];
-
-      // Always ensure 'main' branch exists
-      const hasMain = branchInfos.some((b: any) => b.name === 'main');
-      if (!hasMain) {
-        db.insertBranch(randomId(), 'main', null, null);
-      }
-
+      const main = db.ensureMainBranch();
+      db.saveSnapshot(main.id, db.serializeBranchedTables());
       for (const b of branchInfos) {
-        const branchId = randomId();
-        db.insertBranch(branchId, b.name, b.description ?? null, null);
-
-        // Snapshot .md files from the branch folder
-        const branchDir = path.join(folderPath, 'branches', b.name);
-        if (!fs.existsSync(branchDir)) continue;
-        const branchMdFiles = fs.readdirSync(branchDir).filter(f => f.endsWith('.md') && !f.startsWith('CLAUDE'));
-
-        for (const fname of branchMdFiles) {
-          const fc = fs.readFileSync(path.join(branchDir, fname), 'utf-8');
-          const pc = parseOutlineMd(fc, fname);
-          for (const scene of pc.scenes) {
-            const oldKey = `${pc.id}:${scene.sceneNumber}`;
-            const branchPosFile = path.join(branchDir, 'positions.json');
-            const branchPositions: Record<string, number> = fs.existsSync(branchPosFile)
-              ? JSON.parse(fs.readFileSync(branchPosFile, 'utf-8'))
-              : {};
-            db.insertBranchSnapshot({
-              id: randomId(),
-              branch_id: branchId,
-              scene_id: sceneKeyToId.get(oldKey) ?? scene.id,
-              character_id: pc.id,
-              plot_point_id: scene.plotPointId,
-              title: scene.title,
-              synopsis: scene.synopsis,
-              draft_content: null,
-              scene_number: scene.sceneNumber,
-              timeline_position: branchPositions[oldKey] ?? null,
-              is_highlighted: scene.isHighlighted ? 1 : 0,
-            });
-          }
-        }
+        if (b.name === 'main' || db.getBranchByName(b.name)) continue;
+        const id = randomId();
+        db.insertBranchRow(id, b.name, b.description ?? null, main.id);
+        // Legacy markdown-folder branch content is not reconstructed; start as a copy of main.
+        db.saveSnapshot(id, db.serializeBranchedTables());
       }
-
-      const activeBranch = branchIndex.activeBranch;
-      if (activeBranch) {
-        const branchRows = db.getBranches();
-        const active = branchRows.find(r => r.name === activeBranch);
-        if (active) db.setActiveBranch(active.id);
-      }
+      db.setActiveBranchRow(main.id);
+      if (branchInfos.length) warnings.push('Legacy branches were carried forward as copies of main; their divergent content was not migrated.');
     } catch (e) {
       warnings.push(`Could not import branches: ${e}`);
     }
   } else {
-    // No branch index — just create main
-    db.insertBranch(randomId(), 'main', null, null);
+    db.ensureMainBranch();
   }
 }
