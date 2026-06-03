@@ -54,3 +54,31 @@ describe('serialize/restore branched tables', () => {
     db.close();
   });
 });
+
+describe('branch model methods', () => {
+  let tmp: string;
+  beforeEach(() => { tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'braidr-bm-')); });
+  afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }); });
+
+  it('ensureMainBranch creates exactly one active main row, idempotently', async () => {
+    const mod = await import('../main/database');
+    const db = new mod.BraidrDB(path.join(tmp, 'p.braidr'));
+    const main1 = db.ensureMainBranch();
+    const main2 = db.ensureMainBranch();
+    expect(main1.id).toBe(main2.id);
+    expect(main1.name).toBe('main');
+    expect(main1.is_active).toBe(1);
+    const rows = db.listBranchRows();
+    expect(rows.filter(r => r.name === 'main')).toHaveLength(1);
+    db.close();
+  });
+
+  it('saveSnapshot then getSnapshot returns the stored document', async () => {
+    const mod = await import('../main/database');
+    const db = new mod.BraidrDB(path.join(tmp, 'p.braidr'));
+    const main = db.ensureMainBranch();
+    db.saveSnapshot(main.id, '{"formatVersion":1,"tables":{}}');
+    expect(db.getSnapshot(main.id)).toBe('{"formatVersion":1,"tables":{}}');
+    db.close();
+  });
+});

@@ -1165,27 +1165,63 @@ export class BraidrDB {
     this.db.prepare('INSERT INTO archived_notes (id, title, content, parent_id, tags, archived_at) VALUES (?, ?, ?, ?, ?, ?)').run(row.id, row.title, row.content, row.parent_id, row.tags, row.archived_at);
   }
 
-  // ── Branches ──────────────────────────────────────────────────────────────
+  // ── Branches (in-file model) ───────────────────────────────────────────────
 
-  getBranches() {
+  ensureMainBranch(): BranchRow {
+    let main = this.db.prepare("SELECT * FROM branches WHERE name = 'main'").get() as BranchRow | undefined;
+    if (!main) {
+      const id = randomId();
+      const anyActive = this.db.prepare('SELECT 1 FROM branches WHERE is_active = 1').get();
+      this.db
+        .prepare('INSERT INTO branches (id, name, description, created_from, created_at, is_active) VALUES (?, ?, NULL, NULL, ?, ?)')
+        .run(id, 'main', Date.now(), anyActive ? 0 : 1);
+      main = this.db.prepare('SELECT * FROM branches WHERE id = ?').get(id) as BranchRow;
+    }
+    return main;
+  }
+
+  listBranchRows(): BranchRow[] {
     return this.db.prepare('SELECT * FROM branches ORDER BY created_at').all() as BranchRow[];
   }
 
-  getActiveBranch() {
+  getActiveBranchRow(): BranchRow | undefined {
     return this.db.prepare('SELECT * FROM branches WHERE is_active = 1').get() as BranchRow | undefined;
   }
 
-  insertBranch(id: string, name: string, description: string | null, createdFrom: string | null) {
-    this.db.prepare('INSERT INTO branches (id, name, description, created_from, created_at, is_active) VALUES (?, ?, ?, ?, ?, 0)').run(id, name, description, createdFrom, Date.now());
+  getBranchByName(name: string): BranchRow | undefined {
+    return this.db.prepare('SELECT * FROM branches WHERE name = ?').get(name) as BranchRow | undefined;
   }
 
-  setActiveBranch(id: string | null) {
-    this.db.prepare('UPDATE branches SET is_active = 0').run();
-    if (id) this.db.prepare('UPDATE branches SET is_active = 1 WHERE id = ?').run(id);
+  setActiveBranchRow(id: string): void {
+    const tx = this.db.transaction(() => {
+      this.db.prepare('UPDATE branches SET is_active = 0').run();
+      this.db.prepare('UPDATE branches SET is_active = 1 WHERE id = ?').run(id);
+    });
+    tx();
   }
 
-  deleteBranch(id: string) {
+  insertBranchRow(id: string, name: string, description: string | null, createdFrom: string | null): void {
+    this.db
+      .prepare('INSERT INTO branches (id, name, description, created_from, created_at, is_active) VALUES (?, ?, ?, ?, ?, 0)')
+      .run(id, name, description, createdFrom, Date.now());
+  }
+
+  deleteBranchRow(id: string): void {
+    // branch_snapshots / branch_positions cascade via FK
     this.db.prepare('DELETE FROM branches WHERE id = ?').run(id);
+  }
+
+  saveSnapshot(branchId: string, data: string): void {
+    this.db
+      .prepare(`INSERT INTO branch_snapshots (branch_id, format_version, updated_at, data)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(branch_id) DO UPDATE SET format_version = excluded.format_version, updated_at = excluded.updated_at, data = excluded.data`)
+      .run(branchId, 1, Date.now(), data);
+  }
+
+  getSnapshot(branchId: string): string | null {
+    const row = this.db.prepare('SELECT data FROM branch_snapshots WHERE branch_id = ?').get(branchId) as { data: string } | undefined;
+    return row?.data ?? null;
   }
 
 }
