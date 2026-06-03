@@ -509,7 +509,10 @@ export class BraidrDB {
    * tasks.scene_id). foreign_keys must be toggled outside the transaction.
    */
   restoreBranchedTables(json: string): void {
-    const snap = JSON.parse(json) as { tables: Record<string, Record<string, unknown>[]> };
+    const snap = JSON.parse(json) as { formatVersion?: number; tables: Record<string, Record<string, unknown>[]> };
+    if (snap.formatVersion !== undefined && snap.formatVersion !== SNAPSHOT_FORMAT_VERSION) {
+      throw new Error(`Unsupported branch snapshot format version ${snap.formatVersion} (expected ${SNAPSHOT_FORMAT_VERSION})`);
+    }
     this.db.pragma('foreign_keys = OFF');
     const run = this.db.transaction(() => {
       for (const t of [...BRANCHED_TABLES].reverse()) {

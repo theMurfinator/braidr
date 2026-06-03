@@ -1,8 +1,12 @@
 /**
  * Story tables that are versioned per branch. Order is parents-before-children
  * for readability; the swap disables FK enforcement so insert order is not
- * load-bearing. Shared tables (tasks, notes, writing_sessions, tags, *_field_defs,
- * table_views, project, settings) are intentionally excluded.
+ * load-bearing. Shared tables are intentionally excluded: tasks (+ task_*), notes
+ * (+ note_*), writing_sessions, tags, metadata_field_defs, task_field_defs,
+ * table_views, project, settings. Branched junction tables (scene_tags,
+ * scene_metadata_values, world_event_note_links) reference these shared parents;
+ * that is fine because the swap runs with foreign_keys OFF. braided_chapters is
+ * vestigial (dropped in migrate()) and so is excluded.
  */
 export const BRANCHED_TABLES: readonly string[] = [
   'characters',
