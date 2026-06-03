@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
+import { BRANCHED_TABLES, SNAPSHOT_FORMAT_VERSION } from './branchTables';
 
 const SCHEMA_VERSION = 1;
 
@@ -490,6 +491,47 @@ export class BraidrDB {
     // empty WAL — preventing the inconsistent-sidecar corruption that occurs when a
     // non-empty -wal is synced out of step with the main .braidr file.
     this.db.pragma('wal_checkpoint(TRUNCATE)');
+  }
+
+  /** Serialize all branched (story) tables into a versioned JSON document. */
+  serializeBranchedTables(): string {
+    const tables: Record<string, unknown[]> = {};
+    for (const t of BRANCHED_TABLES) {
+      tables[t] = this.db.prepare(`SELECT * FROM ${t}`).all();
+    }
+    return JSON.stringify({ formatVersion: SNAPSHOT_FORMAT_VERSION, tables });
+  }
+
+  /**
+   * Replace all branched-table rows with the contents of a snapshot document.
+   * Runs with foreign_keys OFF so deleting branched parents does NOT cascade
+   * into shared tables (writing_sessions, task_character_links, note_scene_links,
+   * tasks.scene_id). foreign_keys must be toggled outside the transaction.
+   */
+  restoreBranchedTables(json: string): void {
+    const snap = JSON.parse(json) as { tables: Record<string, Record<string, unknown>[]> };
+    this.db.pragma('foreign_keys = OFF');
+    const run = this.db.transaction(() => {
+      for (const t of [...BRANCHED_TABLES].reverse()) {
+        this.db.prepare(`DELETE FROM ${t}`).run();
+      }
+      for (const t of BRANCHED_TABLES) {
+        const rows = snap.tables[t] ?? [];
+        for (const row of rows) {
+          const cols = Object.keys(row);
+          if (cols.length === 0) continue;
+          const placeholders = cols.map(() => '?').join(', ');
+          this.db
+            .prepare(`INSERT INTO ${t} (${cols.join(', ')}) VALUES (${placeholders})`)
+            .run(...cols.map(c => row[c] as never));
+        }
+      }
+    });
+    try {
+      run();
+    } finally {
+      this.db.pragma('foreign_keys = ON');
+    }
   }
 
   backup(destPath: string): Promise<unknown> {
