@@ -918,9 +918,35 @@ git commit -m "feat(branches): migrate on load, drop redirect, DB-backed positio
 - Modify: `src/main/importer.ts:581-630` (it writes the dropped `branch_scene_snapshots` table)
 - Modify: `docs/features.md`
 
-- [ ] **Step 1: Fix the importer's branch writes**
+- [ ] **Step 1: Fix the importer's branch writes** *(CONFIRMED CRITICAL — Task 1 code review flagged `importer.ts:602` calling the removed `insertBranchSnapshot`; this step resolves it now that Tasks 1 & 3 have changed the branch API.)*
 
-`importer.ts` currently calls `db.insertBranch(...)`, `db.insertBranchSnapshot(...)`, `db.getBranches()`, `db.setActiveBranch(...)` (removed in Tasks 1/3). Replace those calls with the new API: insert a `main` row via `db.ensureMainBranch()`, and for each legacy branch use `db.insertBranchRow(id, name, desc, mainId)` + `db.saveSnapshot(id, db.serializeBranchedTables())` after loading that branch's data, then `db.setActiveBranchRow(activeId)`. If the importer's per-branch data is not readily available as live tables at that point, insert the branch rows only and let the first load populate snapshots; at minimum the file MUST compile and not reference removed methods.
+`importer.ts` (branch block ~573-631) currently calls the removed/changed methods `db.insertBranch(...)`, `db.insertBranchSnapshot(...)`, `db.getBranches()`, `db.setActiveBranch(...)`. The old block converted legacy **markdown-folder** branches (`branches/<name>/*.md`) into the retired per-scene `branch_scene_snapshots` table — that table no longer exists, and the new model snapshots whole story tables, not parsed `.md` scenes. Since legacy md-folder branch *content* cannot be faithfully reconstructed into the new snapshot format here, port the block to the new API and carry legacy branches forward as copies of `main` (their existence is preserved; divergent md content is not). Replace the branch block (the `if (fs.existsSync(branchIndexPath)) { ... } else { ... }` region, ~570-631) with:
+
+```ts
+    try {
+      const branchIndex = JSON.parse(fs.readFileSync(branchIndexPath, 'utf-8'));
+      const branchInfos: any[] = branchIndex.branches ?? [];
+      const main = db.ensureMainBranch();
+      db.saveSnapshot(main.id, db.serializeBranchedTables());
+      for (const b of branchInfos) {
+        if (b.name === 'main' || db.getBranchByName(b.name)) continue;
+        const id = randomId();
+        db.insertBranchRow(id, b.name, b.description ?? null, main.id);
+        // Legacy markdown-folder branch content is not reconstructed; start as a copy of main.
+        db.saveSnapshot(id, db.serializeBranchedTables());
+      }
+      db.setActiveBranchRow(main.id);
+      if (branchInfos.length) warnings.push('Legacy branches were carried forward as copies of main; their divergent content was not migrated.');
+    } catch (e) {
+      warnings.push(`Could not import branches: ${e}`);
+    }
+  } else {
+    db.ensureMainBranch();
+  }
+}
+```
+
+Confirm `randomId`, `warnings`, `branchIndexPath`, and `db` are all in scope at this location (they are in the current block). Grep the whole file afterward for `insertBranch`, `insertBranchSnapshot`, `getBranches`, `setActiveBranch` to ensure no removed-method references remain anywhere in `importer.ts`.
 
 - [ ] **Step 2: Typecheck**
 
