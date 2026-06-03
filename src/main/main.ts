@@ -1016,11 +1016,13 @@ ipcMain.handle(IPC_CHANNELS.BRANCHES_COMPARE, async (_event, projectPath: string
 
 ipcMain.handle(IPC_CHANNELS.BRANCHES_READ_POSITIONS, async (_event, projectPath: string, branchName: string) => {
   try {
-    const posPath = path.join(projectPath, 'branches', branchName, 'positions.json');
-    if (fs.existsSync(posPath)) {
-      return { success: true, data: JSON.parse(fs.readFileSync(posPath, 'utf-8')) };
-    }
-    return { success: true, data: {} };
+    const { openDatabase } = require('./database') as typeof import('./database');
+    const { findMainBraidrFile } = require('./branches') as typeof import('./branches');
+    const d = openDatabase(findMainBraidrFile(projectPath));
+    const branch = (branchName && branchName !== 'main') ? d.getBranchByName(branchName) : d.ensureMainBranch();
+    if (!branch) return { success: true, data: {} };
+    const row = d.prepare('SELECT positions_json FROM branch_positions WHERE branch_id = ?').get(branch.id) as { positions_json: string } | undefined;
+    return { success: true, data: row ? JSON.parse(row.positions_json) : {} };
   } catch (error) {
     return { success: false, error: String(error) };
   }
@@ -1028,8 +1030,14 @@ ipcMain.handle(IPC_CHANNELS.BRANCHES_READ_POSITIONS, async (_event, projectPath:
 
 ipcMain.handle(IPC_CHANNELS.BRANCHES_SAVE_POSITIONS, async (_event, projectPath: string, branchName: string, positions: Record<string, number>) => {
   try {
-    const posPath = path.join(projectPath, 'branches', branchName, 'positions.json');
-    fs.writeFileSync(posPath, JSON.stringify(positions, null, 2), 'utf-8');
+    const { openDatabase } = require('./database') as typeof import('./database');
+    const { findMainBraidrFile } = require('./branches') as typeof import('./branches');
+    const d = openDatabase(findMainBraidrFile(projectPath));
+    const branch = (branchName && branchName !== 'main') ? d.getBranchByName(branchName) : d.ensureMainBranch();
+    if (!branch) return { success: true };
+    d.prepare(`INSERT INTO branch_positions (branch_id, positions_json) VALUES (?, ?)
+               ON CONFLICT(branch_id) DO UPDATE SET positions_json = excluded.positions_json`).run(branch.id, JSON.stringify(positions));
+    d.checkpoint();
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };

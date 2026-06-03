@@ -124,20 +124,14 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
 
     const folderPath = pathMod.dirname(braidrPath);
 
-    // Check for an active branch and redirect to its .braidr file if it exists
-    let activeBraidrPath = braidrPath;
-    const branchIndexPath = pathMod.join(folderPath, 'branches', 'index.json');
-    if (fsMod.existsSync(branchIndexPath)) {
-      try {
-        const idx = JSON.parse(fsMod.readFileSync(branchIndexPath, 'utf-8'));
-        if (idx.activeBranch) {
-          const candidatePath = pathMod.join(folderPath, 'branches', `${idx.activeBranch}.braidr`);
-          if (fsMod.existsSync(candidatePath)) {
-            activeBraidrPath = candidatePath;
-          }
-        }
-      } catch { /* non-fatal: bad index.json, fall back to main */ }
-    }
+    // Migrate any legacy filesystem branches into this .braidr (idempotent no-op otherwise).
+    try {
+      const { migrateFilesystemBranches } = require('./branchMigration') as typeof import('./branchMigration');
+      migrateFilesystemBranches(folderPath);
+    } catch (e) { console.error('[BRAIDR_LOAD_PROJECT] branch migration failed (non-fatal)', e); }
+
+    // The active branch now lives in the main file's live tables — no redirect.
+    const activeBraidrPath = braidrPath;
 
     let db = getDb(activeBraidrPath);
     let recoveredFromBackup: string | null = null;
