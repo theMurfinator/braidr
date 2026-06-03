@@ -138,11 +138,12 @@ License and subscription management.
 - Shown in Table view columns and scene detail panel
 
 ### Draft Branches
-- Create named branches (snapshots of the timeline)
+- Create named branches to explore alternate plot/character directions
 - Switch between branches
 - **Compare view** — diff two branches scene-by-scene
 - **Merge dialog** — selectively merge changed scenes back
 - **Lock** — device-level lock to prevent concurrent edits across machines
+- **Storage** — branches live *inside* the single `.braidr` file (each branch is a serialized snapshot in the database), so they sync across machines whenever the file does. Branched content is the story (scenes, drafts, characters, plot points, arcs, timeline); tasks, notes, and writing-session/analytics data are shared across all branches. Legacy filesystem branches (an old `branches/` folder) are migrated into the file automatically on first open, with the old folder preserved as a dated `branches.migrated-<timestamp>/` backup.
 
 ### Search
 - Full-text search overlay across scene titles and content (Cmd+K)
