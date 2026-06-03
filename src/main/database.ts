@@ -337,18 +337,16 @@ const CREATE_SCHEMA = `
     is_active INTEGER NOT NULL DEFAULT 0
   );
 
-  CREATE TABLE IF NOT EXISTS branch_scene_snapshots (
-    id TEXT PRIMARY KEY,
-    branch_id TEXT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
-    scene_id TEXT NOT NULL,
-    character_id TEXT NOT NULL,
-    plot_point_id TEXT,
-    title TEXT NOT NULL DEFAULT '',
-    synopsis TEXT NOT NULL DEFAULT '',
-    draft_content TEXT,
-    scene_number INTEGER NOT NULL DEFAULT 0,
-    timeline_position INTEGER,
-    is_highlighted INTEGER NOT NULL DEFAULT 0
+  CREATE TABLE IF NOT EXISTS branch_snapshots (
+    branch_id TEXT PRIMARY KEY REFERENCES branches(id) ON DELETE CASCADE,
+    format_version INTEGER NOT NULL DEFAULT 1,
+    updated_at INTEGER NOT NULL,
+    data TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS branch_positions (
+    branch_id TEXT PRIMARY KEY REFERENCES branches(id) ON DELETE CASCADE,
+    positions_json TEXT NOT NULL DEFAULT '{}'
   );
 `;
 
@@ -395,6 +393,9 @@ export class BraidrDB {
 
     // Drop legacy positional chapters table — no data is migrated
     this.db.exec('DROP TABLE IF EXISTS braided_chapters');
+
+    // Retire the unused scene-only branch snapshot table (superseded by branch_snapshots)
+    this.db.exec('DROP TABLE IF EXISTS branch_scene_snapshots');
 
     // Arc fields on plot_points
     const ppColumns = (
@@ -1142,20 +1143,6 @@ export class BraidrDB {
     this.db.prepare('DELETE FROM branches WHERE id = ?').run(id);
   }
 
-  getBranchSnapshots(branchId: string) {
-    return this.db.prepare('SELECT * FROM branch_scene_snapshots WHERE branch_id = ?').all(branchId) as BranchSceneSnapshotRow[];
-  }
-
-  insertBranchSnapshot(row: BranchSceneSnapshotRow) {
-    this.db.prepare(`
-      INSERT INTO branch_scene_snapshots (id, branch_id, scene_id, character_id, plot_point_id, title, synopsis, draft_content, scene_number, timeline_position, is_highlighted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(row.id, row.branch_id, row.scene_id, row.character_id, row.plot_point_id, row.title, row.synopsis, row.draft_content, row.scene_number, row.timeline_position, row.is_highlighted);
-  }
-
-  clearBranchSnapshots(branchId: string) {
-    this.db.prepare('DELETE FROM branch_scene_snapshots WHERE branch_id = ?').run(branchId);
-  }
 }
 
 // ── Row types ─────────────────────────────────────────────────────────────────
@@ -1212,7 +1199,6 @@ export interface WritingSessionRow { id: string; scene_id: string | null; charac
 export interface ArchivedSceneRow { id: string; character_id: string; original_plot_point_id: string | null; original_scene_number: number; title: string; synopsis: string; draft_content: string | null; tags: string; notes: string; is_highlighted: number; word_count: number | null; archived_at: number }
 export interface ArchivedNoteRow { id: string; title: string; content: string; parent_id: string | null; tags: string; archived_at: number }
 export interface BranchRow { id: string; name: string; description: string | null; created_from: string | null; created_at: number; is_active: number }
-export interface BranchSceneSnapshotRow { id: string; branch_id: string; scene_id: string; character_id: string; plot_point_id: string | null; title: string; synopsis: string; draft_content: string | null; scene_number: number; timeline_position: number | null; is_highlighted: number }
 export interface TableViewRow { id: string; name: string; config_json: string; created_at: number }
 
 function randomId() {
