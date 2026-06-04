@@ -142,6 +142,8 @@ interface ArcViewProps {
   plotPoints: PlotPoint[];
   scenes: Scene[];
   draftContent: Record<string, string>;
+  previewSceneId: string | null;
+  onSetPreviewScene: React.Dispatch<React.SetStateAction<string | null>>;
   characterColors: Record<string, string>;
   psychology: CharacterPsychology | null;
   onSaveAct: (act: Act) => void;
@@ -224,6 +226,8 @@ export default function ArcView({
   plotPoints,
   scenes,
   draftContent,
+  previewSceneId,
+  onSetPreviewScene: setPreviewSceneId,
   characterColors,
   psychology,
   onSaveAct,
@@ -240,7 +244,6 @@ export default function ArcView({
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
   const [hideActs, setHideActs] = useState(false);
   const [hideSections, setHideSections] = useState(false);
-  const [previewSceneId, setPreviewSceneId] = useState<string | null>(null);
 
   // Close the scene preview drawer on Escape
   useEffect(() => {
@@ -308,7 +311,7 @@ export default function ArcView({
         <div ref={setNodeRef} style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
           className="arc-row arc-scene arc-grid arc-scene-draggable">
           <div className="arc-name-cell" style={{ paddingLeft: 104 }}>
-            <span className="arc-drag-handle" {...attributes} {...listeners} title="Drag to reorder">⠣</span>
+            <span className="arc-drag-handle" {...attributes} {...listeners} title="Drag to reorder">⠿</span>
             <div className="arc-name-inner">
               <EditableCell className="arc-scene-title" value={scene.title || ''} placeholder="Scene title..."
                 onChange={v => onSaveSceneArcFields(scene.id, { title: v })} />

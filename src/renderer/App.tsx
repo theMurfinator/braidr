@@ -208,6 +208,7 @@ function App() {
   });
   const [draftContent, setDraftContent] = useState<Record<string, string>>({});
   const draftContentRef = useRef<Record<string, string>>({});
+  const [arcPreviewSceneId, setArcPreviewSceneId] = useState<string | null>(null);
   const [scratchpadContent, setScratchpadContent] = useState<Record<string, string>>({});
   const scratchpadContentRef = useRef<Record<string, string>>({});
   const [sceneComments, setSceneComments] = useState<Record<string, SceneComment[]>>({});
@@ -3754,6 +3755,8 @@ function App() {
                         plotPoints={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
                         scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
                         draftContent={draftContent}
+                        previewSceneId={arcPreviewSceneId}
+                        onSetPreviewScene={setArcPreviewSceneId}
                         characterColors={characterColors}
                         psychology={characterPsychologies[selectedCharacterId] ?? null}
                         onSaveAct={handleSaveAct}
@@ -3772,6 +3775,9 @@ function App() {
                       sections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
                       bullpenSections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId && pp.inBullpen)}
                       bullpenScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId && !s.plotPointId)}
+                      scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
+                      previewSceneId={arcPreviewSceneId}
+                      onPreviewScene={setArcPreviewSceneId}
                       onAssignSectionToAct={(sectionId, actId) => handleSavePlotPointArcFields(sectionId, { actId, inBullpen: false })}
                       onDeleteSection={handleDeletePlotPoint}
                       onAssignSceneToSection={handleAssignSceneToSection}
@@ -3853,6 +3859,8 @@ function App() {
                   onSceneChange={handleSceneChange}
                   previousPlotPointIds={previousPlotPointIds}
                   onAddScene={handleAddBullpenScene}
+                  bullpenSections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId && pp.inBullpen)}
+                  sectionScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId && s.plotPointId !== null && projectData.plotPoints.find(p => p.id === s.plotPointId)?.inBullpen)}
                 />
               </div>
               <DragOverlay>

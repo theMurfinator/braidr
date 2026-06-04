@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { Act, PlotPoint, Scene } from '../../shared/types';
+import { useResizableWidth } from '../utils/useResizableWidth';
 
 function ArcBullpenContextMenu({ x, y, type, acts, sections, onAssignToAct, onAssignToSection, onDelete, onClose }: {
   x: number; y: number;
@@ -60,20 +61,23 @@ function ArcBullpenContextMenu({ x, y, type, acts, sections, onAssignToAct, onAs
   );
 }
 
-function DraggableArcScene({ scene, onContextMenu }: {
+function DraggableArcScene({ scene, onContextMenu, nested, onClick, active }: {
   scene: Scene;
   onContextMenu: (e: React.MouseEvent) => void;
+  nested?: boolean;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: scene.id });
   return (
     <div
       ref={setNodeRef}
-      className="arc-bullpen-row"
+      className={`arc-bullpen-row${nested ? ' arc-bullpen-row-nested' : ''}${active ? ' active' : ''}`}
       style={{ opacity: isDragging ? 0.3 : 1 }}
       onContextMenu={onContextMenu}
     >
       <span className="arc-bullpen-drag" {...attributes} {...listeners}>⠿</span>
-      <span className="arc-bullpen-label">{scene.title || 'Untitled scene'}</span>
+      <span className="arc-bullpen-label arc-bullpen-clickable" onClick={onClick}>{scene.title || 'Untitled scene'}</span>
     </div>
   );
 }
@@ -83,6 +87,9 @@ interface ArcBullpenPanelProps {
   sections: PlotPoint[];
   bullpenSections: PlotPoint[];
   bullpenScenes: Scene[];
+  scenes: Scene[]; // all scenes for the character (used to nest set-aside sections' scenes)
+  previewSceneId?: string | null;
+  onPreviewScene?: (sceneId: string | null) => void;
   onAssignSectionToAct: (sectionId: string, actId: string) => void;
   onDeleteSection: (sectionId: string) => void;
   onAssignSceneToSection: (sceneId: string, sectionId: string) => void;
@@ -97,6 +104,9 @@ export default function ArcBullpenPanel({
   sections,
   bullpenSections,
   bullpenScenes,
+  scenes,
+  previewSceneId,
+  onPreviewScene,
   onAssignSectionToAct,
   onDeleteSection,
   onAssignSceneToSection,
@@ -109,7 +119,16 @@ export default function ArcBullpenPanel({
     x: number; y: number; type: 'section' | 'scene'; id: string;
   } | null>(null);
   const [showNewMenu, setShowNewMenu] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('bullpen-collapsed') === '1');
+  const setPanelCollapsed = (v: boolean) => { setCollapsed(v); localStorage.setItem('bullpen-collapsed', v ? '1' : '0'); };
+  const { width, onPointerDown } = useResizableWidth('bullpen-width', 220, { min: 180, max: 640 });
   const newMenuRef = useRef<HTMLDivElement>(null);
+  const toggleSection = (id: string) => setCollapsedSections(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const { setNodeRef, isOver } = useDroppable({ id: 'bullpen' });
 
@@ -127,10 +146,23 @@ export default function ArcBullpenPanel({
     setContextMenu({ x: e.clientX, y: e.clientY, type, id });
   };
 
+  if (collapsed) {
+    return (
+      <div ref={setNodeRef} className={`arc-bullpen-panel collapsed ${isOver ? 'drag-over' : ''}`}>
+        <button className="bullpen-expand-btn" onClick={() => setPanelCollapsed(false)} title="Show bullpen">
+          <span className="bullpen-expand-chev">«</span>
+          <span className="bullpen-expand-label">Bullpen</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div ref={setNodeRef} className={`arc-bullpen-panel ${isOver ? 'drag-over' : ''}`}>
+    <div ref={setNodeRef} className={`arc-bullpen-panel ${isOver ? 'drag-over' : ''}`} style={{ width, minWidth: width }}>
+      <div className="bullpen-resize-handle" onPointerDown={onPointerDown} title="Drag to resize" />
       <div className="arc-bullpen-header">
         <span className="arc-bullpen-title">Bullpen</span>
+        <button className="bullpen-collapse-btn" onClick={() => setPanelCollapsed(true)} title="Hide bullpen">»</button>
         <div className="arc-bullpen-new-wrap" ref={newMenuRef}>
           <button className="arc-bullpen-new-btn" onClick={() => setShowNewMenu(o => !o)}>+ New</button>
           {showNewMenu && (
@@ -147,15 +179,39 @@ export default function ArcBullpenPanel({
           Sections
           <span className="arc-bullpen-count">{bullpenSections.length}</span>
         </div>
-        {bullpenSections.map(section => (
-          <div
-            key={section.id}
-            className="arc-bullpen-row arc-bullpen-section"
-            onContextMenu={e => handleContextMenu(e, 'section', section.id)}
-          >
-            <span className="arc-bullpen-label">{section.title || 'Untitled section'}</span>
-          </div>
-        ))}
+        {bullpenSections.map(section => {
+          const secScenes = scenes
+            .filter(s => s.plotPointId === section.id)
+            .sort((a, b) => a.sceneNumber - b.sceneNumber);
+          const expanded = !collapsedSections.has(section.id);
+          return (
+            <div key={section.id} className="arc-bullpen-section-group">
+              <div
+                className="arc-bullpen-row arc-bullpen-section"
+                onContextMenu={e => handleContextMenu(e, 'section', section.id)}
+              >
+                <span
+                  className="arc-bullpen-sec-toggle"
+                  onClick={() => secScenes.length && toggleSection(section.id)}
+                >
+                  {secScenes.length ? (expanded ? '▾' : '▸') : ''}
+                </span>
+                <span className="arc-bullpen-label">{section.title || 'Untitled section'}</span>
+                {secScenes.length > 0 && <span className="arc-bullpen-count">{secScenes.length}</span>}
+              </div>
+              {expanded && secScenes.map(scene => (
+                <DraggableArcScene
+                  key={scene.id}
+                  scene={scene}
+                  onContextMenu={e => handleContextMenu(e, 'scene', scene.id)}
+                  nested
+                  active={previewSceneId === scene.id}
+                  onClick={() => onPreviewScene?.(previewSceneId === scene.id ? null : scene.id)}
+                />
+              ))}
+            </div>
+          );
+        })}
       </div>
 
       <div className="arc-bullpen-group">
@@ -168,6 +224,8 @@ export default function ArcBullpenPanel({
             key={scene.id}
             scene={scene}
             onContextMenu={e => handleContextMenu(e, 'scene', scene.id)}
+            active={previewSceneId === scene.id}
+            onClick={() => onPreviewScene?.(previewSceneId === scene.id ? null : scene.id)}
           />
         ))}
       </div>
