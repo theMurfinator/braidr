@@ -23,6 +23,7 @@ import SearchOverlay from './components/SearchOverlay';
 import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
+import { indexPlotPoints, isSceneInPlay, isScenePlaced, enforceBraidingInvariant } from '../shared/placement';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
 import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, appendSceneSession, getTodayStr, getWeekSaturday, getWeekDays, toLocalDateStr } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
@@ -816,8 +817,11 @@ function App() {
       scenes = projectData.scenes.filter(s => s.characterId === selectedCharacterId);
       scenes.sort((a, b) => a.sceneNumber - b.sceneNumber);
     } else {
-      // Braided view: only braided scenes (timelinePosition !== null)
-      scenes = projectData.scenes.filter(s => s.timelinePosition !== null);
+      // Braided view: only scenes that are braided AND still placed. The
+      // isScenePlaced guard defends the rails against stale timelinePositions
+      // (e.g. a section set aside or an act deleted by older builds).
+      const ppIndex = indexPlotPoints(projectData.plotPoints);
+      scenes = projectData.scenes.filter(s => s.timelinePosition !== null && isScenePlaced(s, ppIndex));
       scenes.sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
     }
 
@@ -864,7 +868,7 @@ function App() {
   const displayedPlotPoints = useMemo(() => {
     if (!projectData || !selectedCharacterId || viewMode !== 'pov') return [];
     return projectData.plotPoints
-      .filter(p => p.characterId === selectedCharacterId)
+      .filter(p => p.characterId === selectedCharacterId && !p.inBullpen)
       .sort((a, b) => a.order - b.order);
   }, [projectData, selectedCharacterId, viewMode]);
 
@@ -1670,19 +1674,45 @@ function App() {
   const handleDeleteAct = useCallback(async (actId: string) => {
     setActs(prev => prev.filter(a => a.id !== actId));
     await dataService.deleteAct(actId);
-  }, []);
+    if (!projectData) return;
+    // Sections in the deleted act fall back to the Unassigned tray (still in
+    // play, still shown in POV). Without an act their scenes are no longer
+    // placed, so unbraid them and persist both changes.
+    const affected = projectData.plotPoints.filter(pp => pp.actId === actId);
+    if (affected.length === 0) return;
+    const updatedPlotPoints = projectData.plotPoints.map(pp => pp.actId === actId ? { ...pp, actId: null } : pp);
+    const updatedScenes = enforceBraidingInvariant(projectData.scenes, updatedPlotPoints);
+    setProjectData({ ...projectData, plotPoints: updatedPlotPoints, scenes: updatedScenes });
+    try {
+      for (const pp of affected) await dataService.savePlotPointArcFields(pp.id, { actId: null });
+      if (updatedScenes !== projectData.scenes) await saveTimelineData(updatedScenes, sceneConnections);
+    } catch {
+      addToast('Couldn’t save your changes — check that the project folder still exists');
+    }
+  }, [projectData]);
 
   const handleSavePlotPointArcFields = useCallback(async (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => {
     if (!projectData) return;
-    setProjectData({
-      ...projectData,
-      plotPoints: projectData.plotPoints.map(pp => pp.id === plotPointId ? { ...pp, ...fields } : pp),
-    });
+    const updatedPlotPoints = projectData.plotPoints.map(pp => pp.id === plotPointId ? { ...pp, ...fields } : pp);
+    // Changing a section's act or bullpen state can un-place its scenes; enforce
+    // the invariant (bullpen ⇒ not braided) so they leave the rails in step.
+    const affectsPlacement = 'inBullpen' in fields || 'actId' in fields;
+    const updatedScenes = affectsPlacement
+      ? enforceBraidingInvariant(projectData.scenes, updatedPlotPoints)
+      : projectData.scenes;
+    setProjectData({ ...projectData, plotPoints: updatedPlotPoints, scenes: updatedScenes });
     try {
       await dataService.savePlotPointArcFields(plotPointId, fields);
+      if (updatedScenes !== projectData.scenes) {
+        await saveTimelineData(updatedScenes, sceneConnections);
+      }
     } catch {
       addToast('Could not save section changes');
     }
+    // saveTimelineData/sceneConnections are intentionally not in deps: this
+    // callback is recreated whenever projectData changes (every edit), so they
+    // are captured fresh, and listing the later-declared saveTimelineData here
+    // would trip a temporal-dead-zone error at render.
   }, [projectData]);
 
   const handleSaveSceneArcFields = useCallback(async (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }) => {
@@ -2452,9 +2482,10 @@ function App() {
     const plotPoint = projectData.plotPoints.find(p => p.id === plotPointId);
     if (!plotPoint) return;
 
-    // Unassign scenes from this section (set plotPointId to null so they float)
+    // Unassign scenes from this section (set plotPointId to null so they float).
+    // Loose scenes can't be braided, so drop them from the rails too.
     const updatedScenes = projectData.scenes.map(s =>
-      s.plotPointId === plotPointId ? { ...s, plotPointId: null } : s
+      s.plotPointId === plotPointId ? { ...s, plotPointId: null, timelinePosition: null } : s
     );
 
     // Remove the plot point
@@ -2470,6 +2501,7 @@ function App() {
       const charPlotPoints = updatedPlotPoints.filter(p => p.characterId === character.id);
       try {
         await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+        await saveTimelineData(updatedScenes, sceneConnections);
       } catch (err) {
         addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
       }
@@ -3738,9 +3770,9 @@ function App() {
                     <ArcBullpenPanel
                       acts={acts.filter(a => a.characterId === selectedCharacterId)}
                       sections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
-                      bullpenSections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId && !pp.actId)}
+                      bullpenSections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId && pp.inBullpen)}
                       bullpenScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId && !s.plotPointId)}
-                      onAssignSectionToAct={(sectionId, actId) => handleSavePlotPointArcFields(sectionId, { actId })}
+                      onAssignSectionToAct={(sectionId, actId) => handleSavePlotPointArcFields(sectionId, { actId, inBullpen: false })}
                       onDeleteSection={handleDeletePlotPoint}
                       onAssignSceneToSection={handleAssignSceneToSection}
                       onDeleteScene={(sceneId) => handleArchiveScene(sceneId)}
@@ -3793,7 +3825,7 @@ function App() {
                 )}
                 <PovOutlineView
                   sections={displayedPlotPoints}
-                  scenes={displayedScenes.filter(s => s.plotPointId !== null)}
+                  scenes={displayedScenes.filter(s => isSceneInPlay(s, indexPlotPoints(projectData.plotPoints)))}
                   chapters={chapters}
                   onAssignSceneToChapter={handleAssignSceneToChapter}
                   synopsisModes={sectionSynopsisModes}
