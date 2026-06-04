@@ -72,7 +72,7 @@ function DraggableArcScene({ scene, onContextMenu }: {
       style={{ opacity: isDragging ? 0.3 : 1 }}
       onContextMenu={onContextMenu}
     >
-      <span className="arc-bullpen-drag" {...attributes} {...listeners}>⠷</span>
+      <span className="arc-bullpen-drag" {...attributes} {...listeners}>⠿</span>
       <span className="arc-bullpen-label">{scene.title || 'Untitled scene'}</span>
     </div>
   );
