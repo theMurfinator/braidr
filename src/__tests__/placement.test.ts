@@ -32,28 +32,20 @@ describe('placement predicates', () => {
     expect(isScenePlaced(s, byId)).toBe(false);
   });
 
-  it('a scene in an in-play section filed into an act is in play AND placed', () => {
-    const sec = makeSection({ id: 'p1', actId: 'act1', inBullpen: false });
+  it('a scene in a section filed into an act is in play AND placed', () => {
+    const sec = makeSection({ id: 'p1', actId: 'act1' });
     const byId = indexPlotPoints([sec]);
     const s = makeScene({ plotPointId: 'p1' });
     expect(isSceneInPlay(s, byId)).toBe(true);
     expect(isScenePlaced(s, byId)).toBe(true);
   });
 
-  it('a scene in an in-play section with no act is in play but NOT placed', () => {
-    const sec = makeSection({ id: 'p1', actId: null, inBullpen: false });
+  it('a scene in a section with no act is in the bullpen (not in play, not placed)', () => {
+    const sec = makeSection({ id: 'p1', actId: null });
     const byId = indexPlotPoints([sec]);
     const s = makeScene({ plotPointId: 'p1' });
-    expect(isSceneInPlay(s, byId)).toBe(true);   // visible in POV
-    expect(isScenePlaced(s, byId)).toBe(false);  // not yet braidable
-  });
-
-  it('a scene in a set-aside (bullpen) section is neither in play nor placed', () => {
-    const sec = makeSection({ id: 'p1', actId: 'act1', inBullpen: true });
-    const byId = indexPlotPoints([sec]);
-    const s = makeScene({ plotPointId: 'p1' });
-    expect(isSceneInPlay(s, byId)).toBe(false);
-    expect(isScenePlaced(s, byId)).toBe(false);
+    expect(isSceneInPlay(s, byId)).toBe(false);   // hidden from POV
+    expect(isScenePlaced(s, byId)).toBe(false);   // not braidable
   });
 
   it('a scene pointing at a missing section is treated as bullpen', () => {
@@ -65,15 +57,15 @@ describe('placement predicates', () => {
 });
 
 describe('enforceBraidingInvariant (option-2 bug regression)', () => {
-  it('unbraids a braided scene when its section is set aside to the bullpen', () => {
-    const sec = makeSection({ id: 'p1', actId: 'act1', inBullpen: true });
+  it('unbraids a braided scene when its section is moved to the bullpen (act cleared)', () => {
+    const sec = makeSection({ id: 'p1', actId: null });
     const scenes = [makeScene({ id: 's1', plotPointId: 'p1', timelinePosition: 3 })];
     const [out] = enforceBraidingInvariant(scenes, [sec]);
     expect(out.timelinePosition).toBeNull();
   });
 
   it('unbraids a braided scene when its act is deleted (section loses its act)', () => {
-    const sec = makeSection({ id: 'p1', actId: null, inBullpen: false });
+    const sec = makeSection({ id: 'p1', actId: null });
     const scenes = [makeScene({ id: 's1', plotPointId: 'p1', timelinePosition: 5 })];
     const [out] = enforceBraidingInvariant(scenes, [sec]);
     expect(out.timelinePosition).toBeNull();

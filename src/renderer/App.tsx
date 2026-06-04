@@ -869,7 +869,7 @@ function App() {
   const displayedPlotPoints = useMemo(() => {
     if (!projectData || !selectedCharacterId || viewMode !== 'pov') return [];
     return projectData.plotPoints
-      .filter(p => p.characterId === selectedCharacterId && !p.inBullpen)
+      .filter(p => p.characterId === selectedCharacterId && p.actId !== null)
       .sort((a, b) => a.order - b.order);
   }, [projectData, selectedCharacterId, viewMode]);
 
@@ -1697,7 +1697,7 @@ function App() {
     const updatedPlotPoints = projectData.plotPoints.map(pp => pp.id === plotPointId ? { ...pp, ...fields } : pp);
     // Changing a section's act or bullpen state can un-place its scenes; enforce
     // the invariant (bullpen ⇒ not braided) so they leave the rails in step.
-    const affectsPlacement = 'inBullpen' in fields || 'actId' in fields;
+    const affectsPlacement = 'actId' in fields;
     const updatedScenes = affectsPlacement
       ? enforceBraidingInvariant(projectData.scenes, updatedPlotPoints)
       : projectData.scenes;
@@ -3773,12 +3773,12 @@ function App() {
                     <ArcBullpenPanel
                       acts={acts.filter(a => a.characterId === selectedCharacterId)}
                       sections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
-                      bullpenSections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId && pp.inBullpen)}
+                      bullpenSections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId && pp.actId === null)}
                       bullpenScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId && !s.plotPointId)}
                       scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
                       previewSceneId={arcPreviewSceneId}
                       onPreviewScene={setArcPreviewSceneId}
-                      onAssignSectionToAct={(sectionId, actId) => handleSavePlotPointArcFields(sectionId, { actId, inBullpen: false })}
+                      onAssignSectionToAct={(sectionId, actId) => handleSavePlotPointArcFields(sectionId, { actId })}
                       onDeleteSection={handleDeletePlotPoint}
                       onAssignSceneToSection={handleAssignSceneToSection}
                       onDeleteScene={(sceneId) => handleArchiveScene(sceneId)}
@@ -3859,8 +3859,8 @@ function App() {
                   onSceneChange={handleSceneChange}
                   previousPlotPointIds={previousPlotPointIds}
                   onAddScene={handleAddBullpenScene}
-                  bullpenSections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId && pp.inBullpen)}
-                  sectionScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId && s.plotPointId !== null && projectData.plotPoints.find(p => p.id === s.plotPointId)?.inBullpen)}
+                  bullpenSections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId && pp.actId === null)}
+                  sectionScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId && s.plotPointId !== null && projectData.plotPoints.find(p => p.id === s.plotPointId)?.actId === null)}
                 />
               </div>
               <DragOverlay>

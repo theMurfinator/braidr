@@ -271,12 +271,6 @@ export default function ArcView({
   };
 
   const sortedActs = [...acts].sort((a, b) => a.order - b.order);
-  // In-play sections not yet filed into an act. They show in POV already; this
-  // tray keeps them visible and draggable into acts here in the arc.
-  const unassignedSections = plotPoints
-    .filter(pp => !pp.inBullpen && pp.actId === null)
-    .sort((a, b) => a.order - b.order);
-
   // "Collapse all" targets every act and every section (plot point under an act).
   // The novel row is left expanded so collapsing reveals the act outline.
   const collapsibleIds = [
@@ -294,7 +288,7 @@ export default function ArcView({
     scenes.filter(s => s.plotPointId === ppId).reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
 
   const actWc = (actId: string) => {
-    const ppIds = new Set(plotPoints.filter(pp => pp.actId === actId && !pp.inBullpen).map(pp => pp.id));
+    const ppIds = new Set(plotPoints.filter(pp => pp.actId === actId).map(pp => pp.id));
     return scenes.filter(s => s.plotPointId && ppIds.has(s.plotPointId)).reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
   };
 
@@ -420,7 +414,7 @@ export default function ArcView({
 
   const renderAct = (act: Act) => {
     const actSections = plotPoints
-      .filter(pp => pp.actId === act.id && !pp.inBullpen)
+      .filter(pp => pp.actId === act.id)
       .sort((a, b) => a.order - b.order);
     const coll = !hideActs && isCollapsed(`act-${act.id}`);
     const showSections = hideActs || !coll;
@@ -550,13 +544,6 @@ export default function ArcView({
         </div>
 
         {!isCollapsed('novel') && sortedActs.map(renderAct)}
-
-        {unassignedSections.length > 0 && (
-          <div className="arc-unassigned-group">
-            <div className="arc-unassigned-label">Unassigned sections</div>
-            {unassignedSections.map(pp => renderSection(pp))}
-          </div>
-        )}
       </div>
 
       {contextMenu && (
@@ -566,7 +553,7 @@ export default function ArcView({
           sectionId={contextMenu.sectionId}
           acts={sortedActs}
           onMoveToAct={(actId) => { onSavePlotPointArcFields(contextMenu.sectionId, { actId }); setContextMenu(null); }}
-          onReturnToBullpen={() => { onSavePlotPointArcFields(contextMenu.sectionId, { inBullpen: true }); setContextMenu(null); }}
+          onReturnToBullpen={() => { onSavePlotPointArcFields(contextMenu.sectionId, { actId: null }); setContextMenu(null); }}
           onDelete={() => { onDeleteSection(contextMenu.sectionId); setContextMenu(null); }}
           onClose={() => setContextMenu(null)}
         />

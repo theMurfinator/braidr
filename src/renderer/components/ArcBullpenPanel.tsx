@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { Act, PlotPoint, Scene } from '../../shared/types';
 import { useResizableWidth } from '../utils/useResizableWidth';
+import { cleanSceneTitle } from '../utils/sceneTitle';
 
 function ArcBullpenContextMenu({ x, y, type, acts, sections, onAssignToAct, onAssignToSection, onDelete, onClose }: {
   x: number; y: number;
@@ -77,7 +78,7 @@ function DraggableArcScene({ scene, onContextMenu, nested, onClick, active }: {
       onContextMenu={onContextMenu}
     >
       <span className="arc-bullpen-drag" {...attributes} {...listeners}>⠿</span>
-      <span className="arc-bullpen-label arc-bullpen-clickable" onClick={onClick}>{scene.title || 'Untitled scene'}</span>
+      <span className="arc-bullpen-label arc-bullpen-clickable" onClick={onClick}>{cleanSceneTitle(scene.title) || 'Untitled scene'}</span>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { Scene, PlotPoint } from '../../shared/types';
 import { useResizableWidth } from '../utils/useResizableWidth';
+import { cleanSceneTitle } from '../utils/sceneTitle';
 import OutlineSceneRow from './OutlineSceneRow';
 import SectionPickerDropdown from './SectionPickerDropdown';
 
@@ -101,7 +102,7 @@ function BullpenPanel({
                   {secScenes.length > 0 && <span className="bullpen-count">{secScenes.length}</span>}
                 </div>
                 {expanded && secScenes.map(s => (
-                  <div key={s.id} className="bullpen-section-scene">{s.title || 'Untitled scene'}</div>
+                  <div key={s.id} className="bullpen-section-scene">{cleanSceneTitle(s.title) || 'Untitled scene'}</div>
                 ))}
               </div>
             );

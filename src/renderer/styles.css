@@ -21031,18 +21031,6 @@ textarea.table-cell-input {
   align-items: center;
   gap: 6px;
 }
-.arc-unassigned-group {
-  margin-top: 12px;
-  border-top: 1px dashed var(--border-color, #ccc);
-}
-.arc-unassigned-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: var(--text-muted);
-  padding: 10px 0 6px 32px;
-}
 .arc-bullpen-count {
   background: var(--bg-hover);
   color: var(--text-muted);
