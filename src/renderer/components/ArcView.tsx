@@ -146,7 +146,7 @@ interface ArcViewProps {
   psychology: CharacterPsychology | null;
   onSaveAct: (act: Act) => void;
   onDeleteAct: (actId: string) => void;
-  onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => void;
+  onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => void;
   onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }) => void;
   onSaveSceneNotes: (sceneId: string, notes: string[]) => void;
   onDeleteSection: (sectionId: string) => void;

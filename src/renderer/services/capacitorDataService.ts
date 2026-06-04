@@ -470,6 +470,7 @@ export class CapacitorDataService implements DataService {
           id: generateId(),
           characterId: character.id,
           actId: null,
+          inBullpen: false,
           title: 'Act 1',
           expectedSceneCount: null,
           description: '',

@@ -162,6 +162,7 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
         id: generateId(),
         characterId: character.id,
         actId: null,
+        inBullpen: false,
         title,
         expectedSceneCount: expectedCount,
         description: '',

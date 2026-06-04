@@ -1672,7 +1672,7 @@ function App() {
     await dataService.deleteAct(actId);
   }, []);
 
-  const handleSavePlotPointArcFields = useCallback(async (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => {
+  const handleSavePlotPointArcFields = useCallback(async (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => {
     if (!projectData) return;
     setProjectData({
       ...projectData,
@@ -2335,6 +2335,7 @@ function App() {
       id: Math.random().toString(36).substring(2, 11),
       characterId: selectedCharacterId,
       actId: null,
+      inBullpen: false,
       title: 'New Section',
       expectedSceneCount: null,
       description: '',
@@ -2371,6 +2372,7 @@ function App() {
       id: Math.random().toString(36).substring(2, 11),
       characterId: selectedCharacterId,
       actId: null,
+      inBullpen: false,
       title: 'New Section',
       expectedSceneCount: null,
       description: '',

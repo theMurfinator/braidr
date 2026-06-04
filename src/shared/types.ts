@@ -292,6 +292,7 @@ export interface PlotPoint {
   id: string;
   characterId: string;
   actId: string | null;
+  inBullpen: boolean; // true = deliberately set aside (hidden from POV, scenes unbraided)
   title: string;
   expectedSceneCount: number | null;
   description: string;

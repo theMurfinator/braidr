@@ -173,6 +173,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       id: row.id,
       characterId: row.character_id,
       actId: (row as any).act_id ?? null,
+      inBullpen: !!(row as any).in_bullpen,
       title: row.title,
       expectedSceneCount: row.expected_scene_count,
       description: row.description || '',
@@ -538,7 +539,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_CHARACTER, (_event, braidrPath: string, 
           pp.id, pp.characterId, pp.title, pp.description || null,
           pp.expectedSceneCount, pp.order, pp.actId ?? null,
           pp.startingState, pp.endingState, pp.polarity, pp.transformation,
-          pp.dilemma, pp.propellingAction
+          pp.dilemma, pp.propellingAction, pp.inBullpen ?? false
         );
       }
 
@@ -992,7 +993,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: s
   } catch (err) { return { success: false, error: String(err) }; }
 });
 
-ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS, (_event, braidrPath: string, plotPointId: string, fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }) => {
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS, (_event, braidrPath: string, plotPointId: string, fields: { actId?: string | null; inBullpen?: boolean; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }) => {
   try {
     const db = getDb(braidrPath);
     db.updatePlotPoint(plotPointId, fields);
