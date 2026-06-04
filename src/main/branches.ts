@@ -11,6 +11,13 @@ import type { BranchIndex, BranchInfo, BranchCompareData, BranchSceneDiff } from
 import { openDatabase, type BraidrDB, type SceneRow } from './database';
 
 export function findMainBraidrFile(projectPath: string): string {
+  // Accept a direct .braidr FILE path. recent-projects stores the file path, and
+  // loadProjectFromPath forwards it here; readdirSync on a file throws ENOTDIR,
+  // which previously aborted the entire project load (tasks/acts/metadata/branches
+  // all silently failed to populate). Mirror detectProjectFormat's file handling.
+  if (projectPath.endsWith('.braidr') && fs.existsSync(projectPath) && fs.statSync(projectPath).isFile()) {
+    return projectPath;
+  }
   const files = fs.readdirSync(projectPath).filter(f =>
     f.endsWith('.braidr') && fs.statSync(path.join(projectPath, f)).isFile()
   );
