@@ -241,7 +241,7 @@ export default function ArcBullpenPanel({
           y={contextMenu.y}
           type={contextMenu.type}
           acts={acts}
-          sections={sections.filter(s => s.actId !== null)}
+          sections={sections.filter(s => !s.inBullpen)}
           onAssignToAct={actId => { onAssignSectionToAct(contextMenu.id, actId); setContextMenu(null); }}
           onAssignToSection={sectionId => { onAssignSceneToSection(contextMenu.id, sectionId); setContextMenu(null); }}
           onDelete={() => {
