@@ -20963,7 +20963,10 @@ textarea.table-cell-input {
 .arc-bullpen-drag {
   color: var(--text-muted);
   cursor: grab;
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
 }
 .arc-bullpen-drag:active { cursor: grabbing; }

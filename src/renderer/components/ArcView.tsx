@@ -269,6 +269,19 @@ export default function ArcView({
 
   const sortedActs = [...acts].sort((a, b) => a.order - b.order);
 
+  // "Collapse all" targets every act and every section (plot point under an act).
+  // The novel row is left expanded so collapsing reveals the act outline.
+  const collapsibleIds = [
+    ...sortedActs.map(a => `act-${a.id}`),
+    ...plotPoints.filter(pp => pp.actId).map(pp => `sec-${pp.id}`),
+  ];
+  const allCollapsed = collapsibleIds.length > 0 && collapsibleIds.every(id => collapsed.has(id));
+  const toggleCollapseAll = () => {
+    // Expand-all clears everything (incl. the novel row); collapse-all collapses
+    // acts + sections while leaving the novel row open.
+    setCollapsed(prev => (allCollapsed ? new Set() : new Set([...prev, ...collapsibleIds])));
+  };
+
   const sectionWc = (ppId: string) =>
     scenes.filter(s => s.plotPointId === ppId).reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
 
@@ -466,6 +479,14 @@ export default function ArcView({
           title={hideSections ? 'Show sections' : 'Hide sections'}
         >
           {hideSections ? 'Show Sections' : 'Hide Sections'}
+        </button>
+        <button
+          className="arc-toggle-btn"
+          onClick={toggleCollapseAll}
+          disabled={collapsibleIds.length === 0}
+          title={allCollapsed ? 'Expand all acts and sections' : 'Collapse all acts and sections'}
+        >
+          {allCollapsed ? 'Expand All' : 'Collapse All'}
         </button>
       </div>
 
