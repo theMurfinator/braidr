@@ -291,7 +291,7 @@ export default function ArcView({
     scenes.filter(s => s.plotPointId === ppId).reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
 
   const actWc = (actId: string) => {
-    const ppIds = new Set(plotPoints.filter(pp => pp.actId === actId).map(pp => pp.id));
+    const ppIds = new Set(plotPoints.filter(pp => pp.actId === actId && !pp.inBullpen).map(pp => pp.id));
     return scenes.filter(s => s.plotPointId && ppIds.has(s.plotPointId)).reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
   };
 
@@ -417,7 +417,7 @@ export default function ArcView({
 
   const renderAct = (act: Act) => {
     const actSections = plotPoints
-      .filter(pp => pp.actId === act.id)
+      .filter(pp => pp.actId === act.id && !pp.inBullpen)
       .sort((a, b) => a.order - b.order);
     const coll = !hideActs && isCollapsed(`act-${act.id}`);
     const showSections = hideActs || !coll;
