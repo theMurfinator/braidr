@@ -1069,9 +1069,16 @@ function App() {
       total_words: data.scenes.reduce((sum: number, s: Scene) => sum + (s.wordCount || 0), 0),
     });
 
-    // Load branch index
-    const brIndex = await dataService.listBranches(folderPath);
-    setBranchIndex(brIndex);
+    // Load branch index. Never let a branch-subsystem failure abort the rest of
+    // the project load — tasks/acts/metadata are loaded below and must survive a
+    // branch error (a 2026-06-03 bug aborted the whole load here, leaving the UI
+    // with scenes but no tasks/acts/metadata/branches).
+    try {
+      const brIndex = await dataService.listBranches(folderPath);
+      setBranchIndex(brIndex);
+    } catch (e) {
+      console.error('Failed to load branch index (non-fatal):', e);
+    }
 
     // Load editor data
     const loadedDraft = data.draftContent || {};

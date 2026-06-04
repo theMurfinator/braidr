@@ -27,6 +27,21 @@ describe('in-file branch operations', () => {
     expect(idx.activeBranch).toBeNull();
   });
 
+  // Regression (2026-06-03): recent-projects stores the .braidr FILE path, which
+  // loadProjectFromPath forwards to listBranches. readdirSync on a file threw
+  // ENOTDIR, which aborted the entire project load (UI showed scenes but no
+  // tasks/acts/metadata/branches). listBranches must accept a file path too.
+  it('accepts a direct .braidr FILE path, not just the project directory', async () => {
+    await setupProject(tmp);
+    const filePath = path.join(tmp, 'test-project.braidr');
+    await createBranch(tmp, 'alt', 'an alt take');
+    expect(() => listBranches(filePath)).not.toThrow();
+    const viaFile = listBranches(filePath);
+    const viaDir = listBranches(tmp);
+    expect(viaFile).toEqual(viaDir);
+    expect(viaFile.activeBranch).toBe('alt');
+  });
+
   it('create makes a branch active and round-trips edits across switch', async () => {
     await setupProject(tmp);
     await createBranch(tmp, 'alt', 'an alt take');
