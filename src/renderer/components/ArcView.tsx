@@ -414,7 +414,7 @@ export default function ArcView({
 
   const renderAct = (act: Act) => {
     const actSections = plotPoints
-      .filter(pp => pp.actId === act.id)
+      .filter(pp => pp.actId === act.id && !pp.inBullpen)
       .sort((a, b) => a.order - b.order);
     const coll = !hideActs && isCollapsed(`act-${act.id}`);
     const showSections = hideActs || !coll;
@@ -552,8 +552,8 @@ export default function ArcView({
           y={contextMenu.y}
           sectionId={contextMenu.sectionId}
           acts={sortedActs}
-          onMoveToAct={(actId) => { onSavePlotPointArcFields(contextMenu.sectionId, { actId }); setContextMenu(null); }}
-          onReturnToBullpen={() => { onSavePlotPointArcFields(contextMenu.sectionId, { actId: null }); setContextMenu(null); }}
+          onMoveToAct={(actId) => { onSavePlotPointArcFields(contextMenu.sectionId, { actId, inBullpen: false }); setContextMenu(null); }}
+          onReturnToBullpen={() => { onSavePlotPointArcFields(contextMenu.sectionId, { inBullpen: true }); setContextMenu(null); }}
           onDelete={() => { onDeleteSection(contextMenu.sectionId); setContextMenu(null); }}
           onClose={() => setContextMenu(null)}
         />
