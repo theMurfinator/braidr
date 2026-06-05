@@ -17,7 +17,7 @@ interface PovOutlineViewProps {
   onSetAside: (sceneId: string) => void;
   onToggleSynopsisMode: (sectionId: string) => void;
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
-  onOpenInEditor?: (sceneId: string) => void;
+  onPreview?: (sceneId: string) => void;
   onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
   onDeleteSection?: (sectionId: string) => void;
   getCharacterName?: (characterId: string) => string;
@@ -228,7 +228,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     onSetAside,
     onToggleSynopsisMode,
     onSceneChange,
-    onOpenInEditor,
+    onPreview,
     onSectionChange,
     onDeleteSection,
     getCharacterName,
@@ -340,7 +340,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                                       synopsisVisible={synopsisModes[section.id] !== 'expand'}
                                       onSceneChange={onSceneChange}
                                       onSetAside={onSetAside}
-                                      onOpenInEditor={onOpenInEditor}
+                                      onPreview={onPreview}
                                       expandMode={synopsisModes[section.id] === 'expand'}
                                     />
                                   </div>
@@ -367,7 +367,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                                           synopsisVisible={synopsisModes[section.id] !== 'expand'}
                                           onSceneChange={onSceneChange}
                                           onSetAside={onSetAside}
-                                          onOpenInEditor={onOpenInEditor}
+                                          onPreview={onPreview}
                                           expandMode={synopsisModes[section.id] === 'expand'}
                                         />
                                       </div>
@@ -405,7 +405,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                                       synopsisVisible={synopsisModes[section.id] !== 'expand'}
                                       onSceneChange={onSceneChange}
                                       onSetAside={onSetAside}
-                                      onOpenInEditor={onOpenInEditor}
+                                      onPreview={onPreview}
                                       expandMode={synopsisModes[section.id] === 'expand'}
                                     />
                                   </div>

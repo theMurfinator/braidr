@@ -12,6 +12,7 @@ interface OutlineSceneRowProps {
   onDragStart?: (scene: Scene) => void;
   /** Required when `onDragStart` is provided. */
   onDragEnd?: () => void;
+  onPreview?: (sceneId: string) => void;
   onOpenInEditor?: (sceneId: string) => void;
   expandMode: boolean;
   isDragging?: boolean;
@@ -27,6 +28,7 @@ function OutlineSceneRow({
   onSetAside,
   onDragStart,
   onDragEnd,
+  onPreview,
   onOpenInEditor,
   expandMode,
   isDragging,
@@ -160,14 +162,21 @@ function OutlineSceneRow({
           </span>
         )}
         <span className="outline-scene-hover-actions">
-          {onOpenInEditor && (
+          {onPreview ? (
+            <button
+              className="outline-scene-action-btn"
+              onClick={(e) => { e.stopPropagation(); onPreview(scene.id); }}
+            >
+              Preview
+            </button>
+          ) : onOpenInEditor ? (
             <button
               className="outline-scene-action-btn"
               onClick={(e) => { e.stopPropagation(); onOpenInEditor(scene.id); }}
             >
               Open
             </button>
-          )}
+          ) : null}
           {onSetAside && (
             <button
               className="outline-scene-action-btn"

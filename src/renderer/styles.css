@@ -20798,7 +20798,8 @@ textarea.table-cell-input {
   color: var(--accent);
   line-height: 1.3;
 }
-.arc-scene .arc-name-inner > .arc-scene-synopsis {
+.arc-scene .arc-name-inner > .arc-scene-synopsis,
+.arc-section .arc-name-inner > .arc-scene-synopsis {
   display: block;
   white-space: pre-wrap;
   overflow: visible;
@@ -20876,9 +20877,20 @@ textarea.table-cell-input {
   display: flex;
   flex-direction: column;
   background: var(--bg-primary); /* opaque white — --bg-card is undefined (was see-through) */
-  border-left: 1px solid var(--border);
+  border-left: 2px solid var(--text-muted);
   box-shadow: -6px 0 20px rgba(0, 0, 0, 0.10);
   z-index: 30;
+}
+/* POV variant: identical look to the Arc panel above — only the positioning
+   differs (a sticky right column inside the scrolling pov-layout instead of an
+   absolute overlay). Border + shadow are inherited from .arc-preview-panel. */
+.arc-preview-panel--sticky {
+  position: sticky;
+  top: 0;
+  right: auto;
+  bottom: auto;
+  flex-shrink: 0;
+  height: calc(100vh - 120px);
 }
 .arc-preview-header {
   display: flex;

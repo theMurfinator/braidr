@@ -49,6 +49,7 @@ import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
 import { CompareView } from './components/branches/CompareView';
 import ArcView from './components/ArcView';
+import ScenePreviewPanel from './components/ScenePreviewPanel';
 import CharacterHubPanel from './components/CharacterHubPanel';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account' | 'arc';
@@ -209,6 +210,7 @@ function App() {
   const [draftContent, setDraftContent] = useState<Record<string, string>>({});
   const draftContentRef = useRef<Record<string, string>>({});
   const [arcPreviewSceneId, setArcPreviewSceneId] = useState<string | null>(null);
+  const [povPreviewSceneId, setPovPreviewSceneId] = useState<string | null>(null);
   const [scratchpadContent, setScratchpadContent] = useState<Record<string, string>>({});
   const scratchpadContentRef = useRef<Record<string, string>>({});
   const [sceneComments, setSceneComments] = useState<Record<string, SceneComment[]>>({});
@@ -3868,7 +3870,7 @@ function App() {
                   onSetAside={handleSetAside}
                   onToggleSynopsisMode={handleToggleSynopsisMode}
                   onSceneChange={handleSceneChange}
-                  onOpenInEditor={handleOpenInEditor}
+                  onPreview={setPovPreviewSceneId}
                   onSectionChange={handlePlotPointChange}
                   onDeleteSection={handleDeletePlotPoint}
                   getCharacterName={getCharacterName}
@@ -3878,6 +3880,16 @@ function App() {
                   + Add Section
                 </button>
                 </div>
+
+                <ScenePreviewPanel
+                  variant="sticky"
+                  sceneId={povPreviewSceneId}
+                  title={projectData.scenes.find(s => s.id === povPreviewSceneId)?.title || ''}
+                  draftContent={draftContent}
+                  onDraftChange={handleDraftChange}
+                  onGoToScene={handleOpenInEditor}
+                  onClose={() => setPovPreviewSceneId(null)}
+                />
 
                 <BullpenPanel
                   scenes={displayedScenes.filter(s => !s.plotPointId)}
@@ -4328,6 +4340,7 @@ function App() {
               >
                 Scenes
               </button>
+              {viewMode !== 'pov' && (
               <div className="toolbar-dropdown-container" ref={fieldsDropdownRef}>
                 <button
                   className={`toolbar-btn ${inlineMetadataFields.length > 0 ? 'active' : ''}`}
@@ -4374,6 +4387,7 @@ function App() {
                   </div>
                 )}
               </div>
+              )}
             </>
           )}
           {viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table' && (
@@ -4477,7 +4491,7 @@ function App() {
               {saveStatus === 'saving' ? 'Saving...' : 'Saved'}
             </span>
           )}
-          {viewMode !== 'editor' && viewMode !== 'notes' && !(viewMode === 'braided' && braidedSubMode === 'table') && projectData.tags.length > 0 && (
+          {viewMode !== 'editor' && viewMode !== 'notes' && viewMode !== 'pov' && !(viewMode === 'braided' && braidedSubMode === 'table') && projectData.tags.length > 0 && (
             <FilterBar
               tags={projectData.tags}
               activeFilters={activeFilters}

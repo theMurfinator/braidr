@@ -1,12 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
-import Heading from '@tiptap/extension-heading';
-import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import { SortableItem } from '../dnd';
+import ScenePreviewPanel from './ScenePreviewPanel';
 import { Character, Act, PlotPoint, Scene, CharacterPsychology } from '../../shared/types';
 
 // ── Arc column model ─────────────────────────────────────────────────────────
@@ -24,7 +20,9 @@ interface ArcColumn {
   field: string;   // entity field (non-novel name); the novel row uses 'novel' + Capitalized
   center?: boolean;
 }
-const ARC_NAME_COL_WIDTH = 240; // pinned first column
+const ARC_NAME_COL_WIDTH = 240; // pinned first column (default width)
+const ARC_NAME_COL_ID = '__name__'; // reserved width key for the pinned name column
+const ARC_NAME_MIN_WIDTH = 140;
 const ARC_COLUMNS: ArcColumn[] = [
   { id: 'beginning',    label: 'Beginning',         width: 200, kind: 'text',     field: 'startingState' },
   { id: 'ending',       label: 'Ending',            width: 200, kind: 'text',     field: 'endingState' },
@@ -71,6 +69,28 @@ function saveArcColPref(order: string[], hidden: Set<string>, widths: Record<str
 }
 const arcCapitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+// Arc view layout state (hide-acts/sections toggles + which acts/sections are
+// collapsed) persists so the view reopens exactly as you left it.
+const ARC_VIEW_LS_KEY = 'braidr.arcView.v1';
+interface ArcViewPref { hideActs: boolean; hideSections: boolean; collapsed: string[]; }
+function loadArcViewPref(): ArcViewPref {
+  try {
+    const raw = localStorage.getItem(ARC_VIEW_LS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as Partial<ArcViewPref>;
+      return {
+        hideActs: !!p.hideActs,
+        hideSections: !!p.hideSections,
+        collapsed: Array.isArray(p.collapsed) ? p.collapsed.filter(x => typeof x === 'string') : [],
+      };
+    }
+  } catch { /* ignore corrupt prefs */ }
+  return { hideActs: false, hideSections: false, collapsed: [] };
+}
+function saveArcViewPref(pref: ArcViewPref) {
+  try { localStorage.setItem(ARC_VIEW_LS_KEY, JSON.stringify(pref)); } catch { /* ignore */ }
+}
+
 const POLARITY_COLORS: Record<string, { bg: string; color: string }> = {
   '+/-':   { bg: '#fee2e2', color: '#b91c1c' },
   '-/+':   { bg: '#dcfce7', color: '#15803d' },
@@ -112,6 +132,20 @@ function EditableCell({ value, placeholder, onChange, multiline = false, classNa
     }
   }, [editing]);
 
+  const commit = () => { setEditing(false); if (draft !== value) onChange(draft); };
+  // Tab / Shift+Tab moves to the next / previous editable cell (spreadsheet-style).
+  // Cells are found in DOM order via the shared `arc-nav-cell` class, which is
+  // row-major — so it skips the polarity picker and read-only word-count cell.
+  const handleTab = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Tab') return;
+    e.preventDefault();
+    const cells = Array.from(document.querySelectorAll<HTMLElement>('.arc-nav-cell'));
+    const idx = cells.indexOf(e.currentTarget as HTMLElement);
+    const target = cells[e.shiftKey ? idx - 1 : idx + 1];
+    commit();
+    if (target) requestAnimationFrame(() => target.focus());
+  };
+
   if (editing) {
     if (multiline) {
       return (
@@ -119,11 +153,11 @@ function EditableCell({ value, placeholder, onChange, multiline = false, classNa
           ref={taRef}
           value={draft}
           placeholder={placeholder}
-          className="arc-editable-input"
+          className="arc-editable-input arc-nav-cell"
           style={{ width: '100%', resize: 'none', overflow: 'hidden', minHeight: '2.4em' }}
           onChange={e => { setDraft(e.target.value); autoResize(e.target); }}
           onBlur={() => { setEditing(false); if (draft !== value) onChange(draft); }}
-          onKeyDown={e => { if (e.key === 'Escape') { setEditing(false); setDraft(value); } }}
+          onKeyDown={e => { if (e.key === 'Escape') { setEditing(false); setDraft(value); } handleTab(e); }}
           autoFocus
         />
       );
@@ -132,13 +166,14 @@ function EditableCell({ value, placeholder, onChange, multiline = false, classNa
       <input
         value={draft}
         placeholder={placeholder}
-        className="arc-editable-input"
+        className="arc-editable-input arc-nav-cell"
         style={{ width: '100%' }}
         onChange={e => setDraft(e.target.value)}
         onBlur={() => { setEditing(false); if (draft !== value) onChange(draft); }}
         onKeyDown={e => {
           if (e.key === 'Escape') { setEditing(false); setDraft(value); }
           if (e.key === 'Enter') { setEditing(false); if (draft !== value) onChange(draft); }
+          handleTab(e);
         }}
         autoFocus
       />
@@ -147,8 +182,10 @@ function EditableCell({ value, placeholder, onChange, multiline = false, classNa
 
   return (
     <span
-      className={`arc-editable-display${className ? ` ${className}` : ''}`}
+      className={`arc-editable-display arc-nav-cell${className ? ` ${className}` : ''}`}
+      tabIndex={-1}
       onClick={() => { setEditing(true); setDraft(value); }}
+      onFocus={() => { if (!editing) { setEditing(true); setDraft(value); } }}
       style={{ color: value ? 'inherit' : 'var(--text-muted)', fontStyle: value ? 'normal' : 'italic' }}
     >
       {value || placeholder}
@@ -310,60 +347,6 @@ function SceneContextMenu({ x, y, onSendToBullpen, onClose }: {
 // Inline editable scene-text editor for the Arc preview panel.
 // Mirrors EditorView's draft editor (same extensions + 800ms debounced auto-save)
 // so edits here write back to the exact same draft the full editor uses.
-function ArcScenePreviewEditor({ sceneId, draftContent, onDraftChange }: {
-  sceneId: string;
-  draftContent: Record<string, string>;
-  onDraftChange: (sceneKey: string, html: string) => void;
-}) {
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingRef = useRef<{ key: string; html: string } | null>(null);
-  const settingContentRef = useRef(false);
-  const sceneIdRef = useRef(sceneId);
-  sceneIdRef.current = sceneId;
-
-  const editor = useEditor({
-    editorProps: { attributes: { spellcheck: 'true' } },
-    extensions: [
-      StarterKit,
-      Heading.configure({ levels: [2, 3] }),
-      HorizontalRule,
-      Placeholder.configure({ placeholder: 'Write this scene…' }),
-    ],
-    content: draftContent[sceneId] || '',
-    onUpdate: ({ editor }) => {
-      if (settingContentRef.current) return;
-      pendingRef.current = { key: sceneIdRef.current, html: editor.getHTML() };
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        if (pendingRef.current) {
-          onDraftChange(pendingRef.current.key, pendingRef.current.html);
-          pendingRef.current = null;
-        }
-      }, 800);
-    },
-  });
-
-  // Flush any pending save and load the new scene's content when the
-  // selected scene changes (or when the panel unmounts).
-  useEffect(() => {
-    if (editor) {
-      settingContentRef.current = true;
-      editor.commands.setContent(draftContent[sceneId] || '');
-      settingContentRef.current = false;
-    }
-    return () => {
-      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
-      if (pendingRef.current) {
-        onDraftChange(pendingRef.current.key, pendingRef.current.html);
-        pendingRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sceneId, editor]);
-
-  return <EditorContent editor={editor} className="arc-preview-content arc-preview-editor" />;
-}
-
 export default function ArcView({
   characters,
   selectedCharacterId,
@@ -387,12 +370,12 @@ export default function ArcView({
   onSavePsychology,
   arcActiveId: _arcActiveId,
 }: ArcViewProps) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadArcViewPref().collapsed));
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
   const [sceneContextMenu, setSceneContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
-  const [hideActs, setHideActs] = useState(false);
-  const [hideSections, setHideSections] = useState(false);
+  const [hideActs, setHideActs] = useState(() => loadArcViewPref().hideActs);
+  const [hideSections, setHideSections] = useState(() => loadArcViewPref().hideSections);
   const [columnOrder, setColumnOrder] = useState<string[]>(() => loadArcColPref().order);
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => new Set(loadArcColPref().hidden));
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => loadArcColPref().widths);
@@ -404,6 +387,9 @@ export default function ArcView({
 
   // Persist column layout (view preference — local to this device, all projects)
   useEffect(() => { saveArcColPref(columnOrder, hiddenCols, columnWidths); }, [columnOrder, hiddenCols, columnWidths]);
+  // Persist hide-acts/sections toggles + collapsed acts/sections, so the view
+  // reopens exactly as it was left.
+  useEffect(() => { saveArcViewPref({ hideActs, hideSections, collapsed: [...collapsed] }); }, [hideActs, hideSections, collapsed]);
   useEffect(() => {
     if (!showColMenu) return;
     const handler = (e: MouseEvent) => { if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setShowColMenu(false); };
@@ -412,14 +398,6 @@ export default function ArcView({
     document.addEventListener('keydown', key);
     return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', key); };
   }, [showColMenu]);
-
-  // Close the scene preview drawer on Escape
-  useEffect(() => {
-    if (!previewSceneId) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreviewSceneId(null); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [previewSceneId]);
 
   const character = characters.find(c => c.id === selectedCharacterId);
   const charColor = characterColors[selectedCharacterId] || '#6366f1';
@@ -469,7 +447,8 @@ export default function ArcView({
     .map(id => ARC_COL_BY_ID[id])
     .filter((c): c is ArcColumn => !!c && !hiddenCols.has(c.id));
   const colWidth = (col: ArcColumn) => columnWidths[col.id] ?? col.width;
-  const arcGridCols = `${ARC_NAME_COL_WIDTH}px ${visibleColumns.map(c => `${colWidth(c)}px`).join(' ')}`;
+  const nameColWidth = columnWidths[ARC_NAME_COL_ID] ?? ARC_NAME_COL_WIDTH;
+  const arcGridCols = `${nameColWidth}px ${visibleColumns.map(c => `${colWidth(c)}px`).join(' ')}`;
 
   const moveColumn = (fromId: string, toId: string) => {
     if (fromId === toId) return;
@@ -494,17 +473,18 @@ export default function ArcView({
   });
   const resetColumns = () => { setColumnOrder([...ARC_COL_IDS]); setHiddenCols(new Set()); setColumnWidths({}); };
 
-  // Drag the right edge of a header to resize that column. Uses document-level
-  // listeners so the drag keeps tracking even if the pointer leaves the handle.
-  const onColResizeStart = (e: React.MouseEvent, col: ArcColumn) => {
+  // Drag the right edge of a header to resize that column (works for the pinned
+  // name column too). Uses document-level listeners so the drag keeps tracking
+  // even if the pointer leaves the handle.
+  const onColResizeStart = (e: React.MouseEvent, id: string, startW: number, minW = ARC_MIN_COL_WIDTH) => {
     e.preventDefault();
     e.stopPropagation();
-    resizeRef.current = { id: col.id, startX: e.clientX, startW: colWidth(col) };
-    setResizingColId(col.id);
+    resizeRef.current = { id, startX: e.clientX, startW };
+    setResizingColId(id);
     const onMove = (ev: MouseEvent) => {
       const r = resizeRef.current;
       if (!r) return;
-      const w = Math.max(ARC_MIN_COL_WIDTH, Math.round(r.startW + (ev.clientX - r.startX)));
+      const w = Math.max(minW, Math.round(r.startW + (ev.clientX - r.startX)));
       setColumnWidths(prev => ({ ...prev, [r.id]: w }));
     };
     const onUp = () => {
@@ -558,7 +538,7 @@ export default function ArcView({
       <span className="arc-col-h-label">{col.label}</span>
       <span
         className="arc-col-resize"
-        onMouseDown={e => onColResizeStart(e, col)}
+        onMouseDown={e => onColResizeStart(e, col.id, colWidth(col))}
         onClick={e => e.stopPropagation()}
         title="Drag to resize column"
       />
@@ -712,7 +692,13 @@ export default function ArcView({
 
       <div className="arc-scroll">
         <div className="arc-col-headers arc-grid">
-          <div className="arc-col-h arc-col-h-freeze"></div>
+          <div className={`arc-col-h arc-col-h-freeze${resizingColId === ARC_NAME_COL_ID ? ' arc-col-resizing' : ''}`}>
+            <span
+              className="arc-col-resize"
+              onMouseDown={e => onColResizeStart(e, ARC_NAME_COL_ID, nameColWidth, ARC_NAME_MIN_WIDTH)}
+              title="Drag to resize the name column"
+            />
+          </div>
           {renderArcHeaderCells()}
         </div>
 
@@ -761,32 +747,14 @@ export default function ArcView({
           onClose={() => setSceneContextMenu(null)}
         />
       )}
-      {previewSceneId && (() => {
-        const previewScene = scenes.find(s => s.id === previewSceneId);
-        return (
-          <div className="arc-preview-panel">
-            <div className="arc-preview-header">
-              <span className="arc-preview-title">{previewScene?.title || 'Untitled scene'}</span>
-              <div className="arc-preview-header-actions">
-                <button
-                  className="arc-preview-goto"
-                  title="Open this scene in the full editor"
-                  onClick={() => onGoToScene(previewSceneId)}
-                >
-                  Go to Scene →
-                </button>
-                <button className="arc-preview-close" title="Close preview (Esc)" onClick={() => setPreviewSceneId(null)}>×</button>
-              </div>
-            </div>
-            <ArcScenePreviewEditor
-              key={previewSceneId}
-              sceneId={previewSceneId}
-              draftContent={draftContent}
-              onDraftChange={onDraftChange}
-            />
-          </div>
-        );
-      })()}
+      <ScenePreviewPanel
+        sceneId={previewSceneId}
+        title={scenes.find(s => s.id === previewSceneId)?.title || ''}
+        draftContent={draftContent}
+        onDraftChange={onDraftChange}
+        onGoToScene={onGoToScene}
+        onClose={() => setPreviewSceneId(null)}
+      />
     </div>
   );
 }
