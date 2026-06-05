@@ -296,6 +296,7 @@ export interface PlotPoint {
   title: string;
   expectedSceneCount: number | null;
   description: string;
+  synopsis: string;
   order: number;
   startingState: string;
   endingState: string;

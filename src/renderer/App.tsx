@@ -1692,7 +1692,7 @@ function App() {
     }
   }, [projectData]);
 
-  const handleSavePlotPointArcFields = useCallback(async (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => {
+  const handleSavePlotPointArcFields = useCallback(async (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description' | 'synopsis'>>) => {
     if (!projectData) return;
     const updatedPlotPoints = projectData.plotPoints.map(pp => pp.id === plotPointId ? { ...pp, ...fields } : pp);
     // Setting a section aside (inBullpen) un-places its scenes; enforce the
@@ -2371,6 +2371,7 @@ function App() {
       title: 'New Section',
       expectedSceneCount: null,
       description: '',
+      synopsis: '',
       order: maxOrder + 1,
       startingState: '',
       endingState: '',
@@ -2408,6 +2409,7 @@ function App() {
       title: 'New Section',
       expectedSceneCount: null,
       description: '',
+      synopsis: '',
       order: maxOrder + 1,
       startingState: '',
       endingState: '',
@@ -2475,6 +2477,28 @@ function App() {
       }
     } catch {
       addToast('Could not assign scene');
+    }
+  };
+
+  // Send a scene to the bullpen from the arc view: clear its section assignment
+  // and unbraid it (loose scenes can't be braided), mirroring handleDeletePlotPoint.
+  const handleSendSceneToBullpen = async (sceneId: string) => {
+    if (!projectData) return;
+    const scene = projectData.scenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    if (!scene.plotPointId && scene.timelinePosition === null) return; // already loose
+    const updatedScenes = projectData.scenes.map(s =>
+      s.id === sceneId ? { ...s, plotPointId: null, timelinePosition: null } : s
+    );
+    setProjectData({ ...projectData, scenes: updatedScenes });
+    try {
+      const character = projectData.characters.find(c => c.id === scene.characterId);
+      const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === scene.characterId);
+      if (character) {
+        await dataService.saveCharacterOutline(character, charPlotPoints, updatedScenes.filter(s => s.characterId === scene.characterId));
+      }
+    } catch {
+      addToast('Could not send scene to bullpen');
     }
   };
 
@@ -3756,6 +3780,8 @@ function App() {
                         plotPoints={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId)}
                         scenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId)}
                         draftContent={draftContent}
+                        onDraftChange={handleDraftChange}
+                        onGoToScene={handleOpenInEditor}
                         previewSceneId={arcPreviewSceneId}
                         onSetPreviewScene={setArcPreviewSceneId}
                         characterColors={characterColors}
@@ -3765,6 +3791,7 @@ function App() {
                         onSavePlotPointArcFields={handleSavePlotPointArcFields}
                         onSaveSceneArcFields={handleSaveSceneArcFields}
                         onSaveSceneNotes={handleSaveSceneNotes}
+                        onSendSceneToBullpen={handleSendSceneToBullpen}
                         onSavePsychology={handleSaveCharacterPsychology}
                         arcActiveId={arcActiveId}
 

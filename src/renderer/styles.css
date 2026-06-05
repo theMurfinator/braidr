@@ -20823,6 +20823,30 @@ textarea.table-cell-input {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.arc-preview-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.arc-preview-goto {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .1s, border-color .1s, color .1s;
+}
+.arc-preview-goto:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
 .arc-preview-close {
   flex-shrink: 0;
   border: none;
@@ -20849,6 +20873,26 @@ textarea.table-cell-input {
 .arc-preview-content h1,
 .arc-preview-content h2,
 .arc-preview-content h3 { font-family: var(--font-section-title); }
+/* Editable variant: the EditorContent wrapper scrolls, the inner ProseMirror holds the text */
+.arc-preview-editor { padding: 0; }
+.arc-preview-editor .ProseMirror {
+  min-height: 100%;
+  padding: 20px;
+  outline: none;
+}
+.arc-preview-editor .ProseMirror p { margin: 0 0 1em; }
+.arc-preview-editor .ProseMirror p:last-child { margin-bottom: 0; }
+.arc-preview-editor .ProseMirror h1,
+.arc-preview-editor .ProseMirror h2,
+.arc-preview-editor .ProseMirror h3 { font-family: var(--font-section-title); }
+.arc-preview-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--text-muted);
+  font-style: italic;
+}
 .arc-preview-empty {
   padding: 24px 18px;
   color: var(--text-muted);

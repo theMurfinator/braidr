@@ -474,6 +474,7 @@ export class CapacitorDataService implements DataService {
           title: 'Act 1',
           expectedSceneCount: null,
           description: '',
+          synopsis: '',
           order: 0,
           startingState: '',
           endingState: '',

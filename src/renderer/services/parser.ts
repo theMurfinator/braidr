@@ -166,6 +166,7 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
         title,
         expectedSceneCount: expectedCount,
         description: '',
+        synopsis: '',
         order: plotPointOrder++,
         startingState: '',
         endingState: '',

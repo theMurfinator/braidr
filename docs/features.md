@@ -18,6 +18,17 @@ The character arc view. One character at a time, scenes in their narrative order
 - **Sections toggle** — toolbar button hides section headers entirely
 - **Scenes toggle** — toolbar button hides all scene cards, leaving only section headers and synopses visible (focus mode for synopsis writing)
 
+### Arc View
+The character-arc planning view. An outline-table for one character, organized Novel → Acts → Sections → Scenes, with columns for beginning/ending state, transformation, dilemma, propelling action, and polarity.
+
+- Inline-editable cells at every level (act, section, scene)
+- **Section synopsis** — each plot point section has its own synopsis field (separate from the scene-level synopsis), edited under the section title
+- **Scene preview panel** — click a scene's Preview button to open a right-side panel showing the scene's draft text. The text is **editable inline** with auto-save (same draft the Editor View uses), and a **Go to Scene** button at the top jumps to that scene in the full Editor View
+- **Right-click a scene → Send to Bullpen** — removes the scene from its section and unbraids it (loose scenes can't be braided)
+- **Right-click a section** — move to act, return to bullpen, or delete
+- Acts/Sections toggles and collapsible groups
+- Companion **Bullpen panel** for parking sections and scenes that aren't yet placed
+
 ### Braided Timeline — List View
 All characters' scenes combined into reading/chronological order. The "meta" view of the whole novel.
 

@@ -38,6 +38,7 @@ const CREATE_SCHEMA = `
     character_id TEXT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
+    synopsis TEXT NOT NULL DEFAULT '',
     expected_scene_count INTEGER,
     display_order INTEGER NOT NULL DEFAULT 0,
     in_bullpen INTEGER NOT NULL DEFAULT 0,
@@ -437,6 +438,9 @@ export class BraidrDB {
     if (!ppColumns.includes('propelling_action')) {
       this.db.exec("ALTER TABLE plot_points ADD COLUMN propelling_action TEXT NOT NULL DEFAULT ''");
     }
+    if (!ppColumns.includes('synopsis')) {
+      this.db.exec("ALTER TABLE plot_points ADD COLUMN synopsis TEXT NOT NULL DEFAULT ''");
+    }
     const actColumns = (
       this.db.prepare('PRAGMA table_info(acts)').all() as { name: string }[]
     ).map(c => c.name);
@@ -606,18 +610,19 @@ export class BraidrDB {
     return this.db.prepare('SELECT * FROM plot_points ORDER BY display_order').all() as PlotPointRow[];
   }
 
-  insertPlotPoint(id: string, characterId: string, title: string, description: string | null, expectedSceneCount: number | null, displayOrder: number, actId: string | null = null, startingState = '', endingState = '', polarity = '', transformation = '', dilemma = '', propellingAction = '', inBullpen = false) {
+  insertPlotPoint(id: string, characterId: string, title: string, description: string | null, expectedSceneCount: number | null, displayOrder: number, actId: string | null = null, startingState = '', endingState = '', polarity = '', transformation = '', dilemma = '', propellingAction = '', inBullpen = false, synopsis = '') {
     this.db.prepare(`
-      INSERT INTO plot_points (id, character_id, title, description, expected_scene_count, display_order, act_id, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, in_bullpen, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, characterId, title, description, expectedSceneCount, displayOrder, actId, startingState, endingState, polarity, transformation, dilemma, propellingAction, inBullpen ? 1 : 0, Date.now());
+      INSERT INTO plot_points (id, character_id, title, description, expected_scene_count, display_order, act_id, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, in_bullpen, synopsis, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, characterId, title, description, expectedSceneCount, displayOrder, actId, startingState, endingState, polarity, transformation, dilemma, propellingAction, inBullpen ? 1 : 0, synopsis, Date.now());
   }
 
-  updatePlotPoint(id: string, fields: Partial<{ title: string; description: string | null; expectedSceneCount: number | null; displayOrder: number; actId: string | null; startingState: string; endingState: string; polarity: string; transformation: string; dilemma: string; propellingAction: string; inBullpen: boolean }>) {
+  updatePlotPoint(id: string, fields: Partial<{ title: string; description: string | null; synopsis: string; expectedSceneCount: number | null; displayOrder: number; actId: string | null; startingState: string; endingState: string; polarity: string; transformation: string; dilemma: string; propellingAction: string; inBullpen: boolean }>) {
     const updates: string[] = [];
     const values: unknown[] = [];
     if ('title' in fields)             { updates.push('title = ?');              values.push(fields.title); }
     if ('description' in fields)       { updates.push('description = ?');        values.push(fields.description); }
+    if ('synopsis' in fields)          { updates.push('synopsis = ?');           values.push(fields.synopsis); }
     if ('expectedSceneCount' in fields){ updates.push('expected_scene_count = ?'); values.push(fields.expectedSceneCount); }
     if ('displayOrder' in fields)      { updates.push('display_order = ?');      values.push(fields.displayOrder); }
     if ('actId' in fields)             { updates.push('act_id = ?');             values.push(fields.actId); }
@@ -1236,7 +1241,7 @@ export class BraidrDB {
 export interface ProjectRow { id: string; name: string; word_count_goal: number | null; created_at: number; updated_at: number }
 export interface CharacterRow { id: string; name: string; color: string | null; display_order: number; created_at: number }
 export interface PlotPointRow {
-  id: string; character_id: string; title: string; description: string | null;
+  id: string; character_id: string; title: string; description: string | null; synopsis: string;
   expected_scene_count: number | null; display_order: number; created_at: number;
   act_id: string | null; in_bullpen: number;
   starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string; propelling_action: string;

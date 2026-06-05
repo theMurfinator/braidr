@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import Heading from '@tiptap/extension-heading';
+import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import { SortableItem } from '../dnd';
 import { Character, Act, PlotPoint, Scene, CharacterPsychology } from '../../shared/types';
 
@@ -142,15 +147,18 @@ interface ArcViewProps {
   plotPoints: PlotPoint[];
   scenes: Scene[];
   draftContent: Record<string, string>;
+  onDraftChange: (sceneKey: string, html: string) => void;
+  onGoToScene: (sceneKey: string) => void;
   previewSceneId: string | null;
   onSetPreviewScene: React.Dispatch<React.SetStateAction<string | null>>;
   characterColors: Record<string, string>;
   psychology: CharacterPsychology | null;
   onSaveAct: (act: Act) => void;
   onDeleteAct: (actId: string) => void;
-  onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description'>>) => void;
+  onSavePlotPointArcFields: (plotPointId: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description' | 'synopsis'>>) => void;
   onSaveSceneArcFields: (sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }) => void;
   onSaveSceneNotes: (sceneId: string, notes: string[]) => void;
+  onSendSceneToBullpen: (sceneId: string) => void;
   onDeleteSection: (sectionId: string) => void;
   onSavePsychology: (psychology: CharacterPsychology) => void;
   arcActiveId: string | null;
@@ -219,6 +227,81 @@ function ArcSectionContextMenu({ x, y, sectionId: _sectionId, acts, onMoveToAct,
   );
 }
 
+function SceneContextMenu({ x, y, onSendToBullpen, onClose }: {
+  x: number; y: number; onSendToBullpen: () => void; onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('keydown', keyHandler);
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', keyHandler); };
+  }, [onClose]);
+  return (
+    <div ref={ref} className="arc-context-menu" style={{ left: x, top: y }}>
+      <div className="arc-context-item" onClick={onSendToBullpen}>Send to Bullpen</div>
+    </div>
+  );
+}
+
+// Inline editable scene-text editor for the Arc preview panel.
+// Mirrors EditorView's draft editor (same extensions + 800ms debounced auto-save)
+// so edits here write back to the exact same draft the full editor uses.
+function ArcScenePreviewEditor({ sceneId, draftContent, onDraftChange }: {
+  sceneId: string;
+  draftContent: Record<string, string>;
+  onDraftChange: (sceneKey: string, html: string) => void;
+}) {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRef = useRef<{ key: string; html: string } | null>(null);
+  const settingContentRef = useRef(false);
+  const sceneIdRef = useRef(sceneId);
+  sceneIdRef.current = sceneId;
+
+  const editor = useEditor({
+    editorProps: { attributes: { spellcheck: 'true' } },
+    extensions: [
+      StarterKit,
+      Heading.configure({ levels: [2, 3] }),
+      HorizontalRule,
+      Placeholder.configure({ placeholder: 'Write this scene…' }),
+    ],
+    content: draftContent[sceneId] || '',
+    onUpdate: ({ editor }) => {
+      if (settingContentRef.current) return;
+      pendingRef.current = { key: sceneIdRef.current, html: editor.getHTML() };
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        if (pendingRef.current) {
+          onDraftChange(pendingRef.current.key, pendingRef.current.html);
+          pendingRef.current = null;
+        }
+      }, 800);
+    },
+  });
+
+  // Flush any pending save and load the new scene's content when the
+  // selected scene changes (or when the panel unmounts).
+  useEffect(() => {
+    if (editor) {
+      settingContentRef.current = true;
+      editor.commands.setContent(draftContent[sceneId] || '');
+      settingContentRef.current = false;
+    }
+    return () => {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+      if (pendingRef.current) {
+        onDraftChange(pendingRef.current.key, pendingRef.current.html);
+        pendingRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sceneId, editor]);
+
+  return <EditorContent editor={editor} className="arc-preview-content arc-preview-editor" />;
+}
+
 export default function ArcView({
   characters,
   selectedCharacterId,
@@ -226,6 +309,8 @@ export default function ArcView({
   plotPoints,
   scenes,
   draftContent,
+  onDraftChange,
+  onGoToScene,
   previewSceneId,
   onSetPreviewScene: setPreviewSceneId,
   characterColors,
@@ -235,6 +320,7 @@ export default function ArcView({
   onSavePlotPointArcFields,
   onSaveSceneArcFields,
   onSaveSceneNotes,
+  onSendSceneToBullpen,
   onDeleteSection,
   onSavePsychology,
   arcActiveId: _arcActiveId,
@@ -242,6 +328,7 @@ export default function ArcView({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
+  const [sceneContextMenu, setSceneContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
   const [hideActs, setHideActs] = useState(false);
   const [hideSections, setHideSections] = useState(false);
 
@@ -303,7 +390,8 @@ export default function ArcView({
     <SortableItem key={scene.id} id={scene.id} data={{ type: 'arc-scene', sectionId }}>
       {({ setNodeRef, style, listeners, attributes, isDragging }) => (
         <div ref={setNodeRef} style={{ ...style, opacity: isDragging ? 0.3 : 1 }}
-          className="arc-row arc-scene arc-grid arc-scene-draggable">
+          className="arc-row arc-scene arc-grid arc-scene-draggable"
+          onContextMenu={e => { e.preventDefault(); setSceneContextMenu({ x: e.clientX, y: e.clientY, sceneId: scene.id }); }}>
           <div className="arc-name-cell" style={{ paddingLeft: 104 }}>
             <span className="arc-drag-handle" {...attributes} {...listeners} title="Drag to reorder">⠿</span>
             <div className="arc-name-inner">
@@ -372,6 +460,8 @@ export default function ArcView({
               <div className="arc-name-inner">
                 <EditableCell value={pp.title} placeholder="Section name..."
                   onChange={v => onSavePlotPointArcFields(pp.id, { title: v })} />
+                <EditableCell className="arc-scene-synopsis" value={pp.synopsis || ''} placeholder="Add synopsis..."
+                  onChange={v => onSavePlotPointArcFields(pp.id, { synopsis: v })} multiline />
               </div>
             </div>
             <div className="arc-cell">
@@ -566,18 +656,37 @@ export default function ArcView({
           onClose={() => setActContextMenu(null)}
         />
       )}
+      {sceneContextMenu && (
+        <SceneContextMenu
+          x={sceneContextMenu.x}
+          y={sceneContextMenu.y}
+          onSendToBullpen={() => { onSendSceneToBullpen(sceneContextMenu.sceneId); setSceneContextMenu(null); }}
+          onClose={() => setSceneContextMenu(null)}
+        />
+      )}
       {previewSceneId && (() => {
         const previewScene = scenes.find(s => s.id === previewSceneId);
-        const html = draftContent[previewSceneId] || '';
         return (
           <div className="arc-preview-panel">
             <div className="arc-preview-header">
               <span className="arc-preview-title">{previewScene?.title || 'Untitled scene'}</span>
-              <button className="arc-preview-close" title="Close preview (Esc)" onClick={() => setPreviewSceneId(null)}>×</button>
+              <div className="arc-preview-header-actions">
+                <button
+                  className="arc-preview-goto"
+                  title="Open this scene in the full editor"
+                  onClick={() => onGoToScene(previewSceneId)}
+                >
+                  Go to Scene →
+                </button>
+                <button className="arc-preview-close" title="Close preview (Esc)" onClick={() => setPreviewSceneId(null)}>×</button>
+              </div>
             </div>
-            {html.trim()
-              ? <div className="arc-preview-content" dangerouslySetInnerHTML={{ __html: html }} />
-              : <div className="arc-preview-empty">No written text yet for this scene.</div>}
+            <ArcScenePreviewEditor
+              key={previewSceneId}
+              sceneId={previewSceneId}
+              draftContent={draftContent}
+              onDraftChange={onDraftChange}
+            />
           </div>
         );
       })()}

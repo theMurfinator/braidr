@@ -67,7 +67,7 @@ export interface DataService {
   saveCharacterPsychology(psychology: CharacterPsychology): Promise<void>;
   // Arc field saves
   saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }): Promise<void>;
-  savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; inBullpen?: boolean; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }): Promise<void>;
+  savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; inBullpen?: boolean; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string; synopsis?: string }): Promise<void>;
 }
 
 // Local file system implementation (Electron) — SQLite .braidr format only
@@ -478,7 +478,7 @@ class ElectronDataService implements DataService {
     if (!result.success) throw new Error(result.error || 'Failed to save scene arc fields');
   }
 
-  async savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; inBullpen?: boolean; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }): Promise<void> {
+  async savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; inBullpen?: boolean; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string; synopsis?: string }): Promise<void> {
     if (!this.braidrPath) throw new Error('No project loaded');
     const result = await window.electronAPI.braidrSavePlotPointArcFields(this.braidrPath, plotPointId, fields) as any;
     if (!result.success) throw new Error(result.error || 'Failed to save plot point arc fields');
