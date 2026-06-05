@@ -9,6 +9,68 @@ import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import { SortableItem } from '../dnd';
 import { Character, Act, PlotPoint, Scene, CharacterPsychology } from '../../shared/types';
 
+// ── Arc column model ─────────────────────────────────────────────────────────
+// The arc table's content columns (everything right of the pinned Name column).
+// Order + visibility are user-configurable and persisted to localStorage so the
+// same column list drives the header, every row, AND the grid template — which
+// keeps them aligned by construction.
+type ArcRowKind = 'novel' | 'act' | 'section' | 'scene';
+type ArcColKind = 'text' | 'polarity' | 'words';
+interface ArcColumn {
+  id: string;
+  label: string;
+  width: number;   // px width of this column's grid track
+  kind: ArcColKind;
+  field: string;   // entity field (non-novel name); the novel row uses 'novel' + Capitalized
+  center?: boolean;
+}
+const ARC_NAME_COL_WIDTH = 240; // pinned first column
+const ARC_COLUMNS: ArcColumn[] = [
+  { id: 'beginning',    label: 'Beginning',         width: 200, kind: 'text',     field: 'startingState' },
+  { id: 'ending',       label: 'Ending',            width: 200, kind: 'text',     field: 'endingState' },
+  { id: 'turningPoint', label: 'Turning point',     width: 200, kind: 'text',     field: 'transformation' },
+  { id: 'dilemma',      label: 'Dilemma',           width: 200, kind: 'text',     field: 'dilemma' },
+  { id: 'propelling',   label: 'Propelling Action', width: 200, kind: 'text',     field: 'propellingAction' },
+  { id: 'polarity',     label: 'Polarity shift',    width: 120, kind: 'polarity', field: 'polarity', center: true },
+  { id: 'words',        label: 'Words',             width: 80,  kind: 'words',    field: '', center: true },
+];
+const ARC_COL_BY_ID: Record<string, ArcColumn> = Object.fromEntries(ARC_COLUMNS.map(c => [c.id, c]));
+const ARC_COL_IDS = ARC_COLUMNS.map(c => c.id);
+
+// Per-row-type placeholders, preserving the original wording per column.
+const ARC_PLACEHOLDERS: Record<ArcRowKind, Record<string, string>> = {
+  novel:   { beginning: 'Where does this character begin?', ending: 'Where does this character end?', turningPoint: 'What creates the dilemma...', dilemma: 'The central dilemma...', propelling: 'What propels the story...' },
+  act:     { beginning: 'Entering this act...', ending: 'Exiting this act...', turningPoint: 'What creates the dilemma...', dilemma: "The act's dilemma...", propelling: 'What propels this act...' },
+  section: { beginning: 'Entering state...', ending: 'Exiting state...', turningPoint: 'What creates the dilemma...', dilemma: "The section's dilemma...", propelling: 'What propels this section...' },
+  scene:   { beginning: 'Beginning...', ending: 'Ending...', turningPoint: 'What creates the dilemma...', dilemma: 'Scene dilemma...', propelling: 'Propelling action...' },
+};
+
+const ARC_COLS_LS_KEY = 'braidr.arcColumns.v1';
+const ARC_MIN_COL_WIDTH = 80;
+interface ArcColPref { order: string[]; hidden: string[]; widths: Record<string, number>; }
+function loadArcColPref(): ArcColPref {
+  try {
+    const raw = localStorage.getItem(ARC_COLS_LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<ArcColPref>;
+      const known = new Set(ARC_COL_IDS);
+      const order = (parsed.order ?? []).filter(id => known.has(id));
+      for (const id of ARC_COL_IDS) if (!order.includes(id)) order.push(id); // append columns added since
+      const hidden = (parsed.hidden ?? []).filter(id => known.has(id));
+      const widths: Record<string, number> = {};
+      for (const [id, w] of Object.entries(parsed.widths ?? {})) {
+        if (known.has(id) && typeof w === 'number' && isFinite(w)) widths[id] = Math.max(ARC_MIN_COL_WIDTH, Math.round(w));
+      }
+      return { order, hidden, widths };
+    }
+  } catch { /* ignore corrupt prefs */ }
+  return { order: [...ARC_COL_IDS], hidden: [], widths: {} };
+}
+function saveArcColPref(order: string[], hidden: Set<string>, widths: Record<string, number>) {
+  try { localStorage.setItem(ARC_COLS_LS_KEY, JSON.stringify({ order, hidden: [...hidden], widths })); } catch { /* ignore */ }
+}
+const arcCapitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 const POLARITY_COLORS: Record<string, { bg: string; color: string }> = {
   '+/-':   { bg: '#fee2e2', color: '#b91c1c' },
   '-/+':   { bg: '#dcfce7', color: '#15803d' },
@@ -331,6 +393,25 @@ export default function ArcView({
   const [sceneContextMenu, setSceneContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
   const [hideActs, setHideActs] = useState(false);
   const [hideSections, setHideSections] = useState(false);
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => loadArcColPref().order);
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => new Set(loadArcColPref().hidden));
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => loadArcColPref().widths);
+  const [dragColId, setDragColId] = useState<string | null>(null);
+  const [resizingColId, setResizingColId] = useState<string | null>(null);
+  const resizeRef = useRef<{ id: string; startX: number; startW: number } | null>(null);
+  const [showColMenu, setShowColMenu] = useState(false);
+  const colMenuRef = useRef<HTMLDivElement>(null);
+
+  // Persist column layout (view preference — local to this device, all projects)
+  useEffect(() => { saveArcColPref(columnOrder, hiddenCols, columnWidths); }, [columnOrder, hiddenCols, columnWidths]);
+  useEffect(() => {
+    if (!showColMenu) return;
+    const handler = (e: MouseEvent) => { if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setShowColMenu(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowColMenu(false); };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', key); };
+  }, [showColMenu]);
 
   // Close the scene preview drawer on Escape
   useEffect(() => {
@@ -383,6 +464,107 @@ export default function ArcView({
 
   const fmtWc = (n: number) => n > 0 ? n.toLocaleString() : null;
 
+  // Visible columns in user order; drives header, rows, and the grid template.
+  const visibleColumns = columnOrder
+    .map(id => ARC_COL_BY_ID[id])
+    .filter((c): c is ArcColumn => !!c && !hiddenCols.has(c.id));
+  const colWidth = (col: ArcColumn) => columnWidths[col.id] ?? col.width;
+  const arcGridCols = `${ARC_NAME_COL_WIDTH}px ${visibleColumns.map(c => `${colWidth(c)}px`).join(' ')}`;
+
+  const moveColumn = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    setColumnOrder(prev => {
+      const fromIdx = prev.indexOf(fromId);
+      const toIdx = prev.indexOf(toId);
+      if (fromIdx < 0 || toIdx < 0) return prev;
+      const arr = prev.filter(id => id !== fromId);
+      const targetIdx = arr.indexOf(toId);
+      // Dragging rightward drops the column AFTER the target; leftward drops it
+      // BEFORE — so dropping on a header lands the column in that header's slot
+      // in both directions (and the far edges are reachable).
+      const insertAt = fromIdx < toIdx ? targetIdx + 1 : targetIdx;
+      arr.splice(insertAt, 0, fromId);
+      return arr;
+    });
+  };
+  const toggleColumn = (id: string) => setHiddenCols(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const resetColumns = () => { setColumnOrder([...ARC_COL_IDS]); setHiddenCols(new Set()); setColumnWidths({}); };
+
+  // Drag the right edge of a header to resize that column. Uses document-level
+  // listeners so the drag keeps tracking even if the pointer leaves the handle.
+  const onColResizeStart = (e: React.MouseEvent, col: ArcColumn) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = { id: col.id, startX: e.clientX, startW: colWidth(col) };
+    setResizingColId(col.id);
+    const onMove = (ev: MouseEvent) => {
+      const r = resizeRef.current;
+      if (!r) return;
+      const w = Math.max(ARC_MIN_COL_WIDTH, Math.round(r.startW + (ev.clientX - r.startX)));
+      setColumnWidths(prev => ({ ...prev, [r.id]: w }));
+    };
+    const onUp = () => {
+      resizeRef.current = null;
+      setResizingColId(null);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  // Render the content cells (everything right of the Name column) for one row.
+  const renderArcCells = (kind: ArcRowKind, entity: any) => visibleColumns.map(col => {
+    if (col.kind === 'words') {
+      const wc = kind === 'novel' ? novelWc()
+        : kind === 'act' ? actWc(entity.id)
+        : kind === 'section' ? sectionWc(entity.id)
+        : (entity.wordCount ?? 0);
+      return <div key={col.id} className="arc-cell arc-wc-col">{fmtWc(wc) ? <span className="arc-wc">{fmtWc(wc)}</span> : null}</div>;
+    }
+    const fieldName = kind === 'novel' ? `novel${arcCapitalize(col.field)}` : col.field;
+    const value = (entity[fieldName] ?? '') as string;
+    const onChange = (v: string) => {
+      if (kind === 'scene') onSaveSceneArcFields(entity.id, { [col.field]: v } as any);
+      else if (kind === 'section') onSavePlotPointArcFields(entity.id, { [col.field]: v } as any);
+      else if (kind === 'act') onSaveAct({ ...entity, [col.field]: v });
+      else savePsych({ [fieldName]: v } as any);
+    };
+    if (col.kind === 'polarity') {
+      return <div key={col.id} className="arc-cell arc-pol-col"><PolarityCell value={value} onChange={onChange} /></div>;
+    }
+    return (
+      <div key={col.id} className="arc-cell">
+        <EditableCell value={value} placeholder={ARC_PLACEHOLDERS[kind][col.id] || ''} onChange={onChange} multiline />
+      </div>
+    );
+  });
+
+  // Draggable column headers (native DnD — self-contained, no dnd-kit context here).
+  const renderArcHeaderCells = () => visibleColumns.map(col => (
+    <div key={col.id}
+      className={`arc-col-h${col.center ? ' arc-col-center' : ''}${dragColId === col.id ? ' arc-col-dragging' : ''}${resizingColId === col.id ? ' arc-col-resizing' : ''}`}
+      draggable={resizingColId === null}
+      onDragStart={() => setDragColId(col.id)}
+      onDragEnd={() => setDragColId(null)}
+      onDragOver={e => { e.preventDefault(); }}
+      onDrop={e => { e.preventDefault(); if (dragColId) moveColumn(dragColId, col.id); setDragColId(null); }}
+      title="Drag to reorder column"
+    >
+      <span className="arc-col-h-label">{col.label}</span>
+      <span
+        className="arc-col-resize"
+        onMouseDown={e => onColResizeStart(e, col)}
+        onClick={e => e.stopPropagation()}
+        title="Drag to resize column"
+      />
+    </div>
+  ));
+
 
 
 
@@ -408,32 +590,7 @@ export default function ArcView({
               Preview
             </button>
           </div>
-          <div className="arc-cell">
-            <EditableCell value={scene.startingState || ''} placeholder="Beginning..."
-              onChange={v => onSaveSceneArcFields(scene.id, { startingState: v })} multiline />
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={scene.endingState || ''} placeholder="Ending..."
-              onChange={v => onSaveSceneArcFields(scene.id, { endingState: v })} multiline />
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={scene.transformation || ''} placeholder="What creates the dilemma..."
-              onChange={v => onSaveSceneArcFields(scene.id, { transformation: v })} multiline />
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={scene.dilemma || ''} placeholder="Scene dilemma..."
-              onChange={v => onSaveSceneArcFields(scene.id, { dilemma: v })} multiline />
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={scene.propellingAction || ''} placeholder="Propelling action..."
-              onChange={v => onSaveSceneArcFields(scene.id, { propellingAction: v })} multiline />
-          </div>
-          <div className="arc-cell arc-pol-col">
-            <PolarityCell value={scene.polarity || ''} onChange={v => onSaveSceneArcFields(scene.id, { polarity: v })} />
-          </div>
-          <div className="arc-cell arc-wc-col">
-            {scene.wordCount ? <span className="arc-wc">{scene.wordCount.toLocaleString()}</span> : null}
-          </div>
+          {renderArcCells('scene', scene)}
         </div>
       )}
     </SortableItem>
@@ -464,32 +621,7 @@ export default function ArcView({
                   onChange={v => onSavePlotPointArcFields(pp.id, { synopsis: v })} multiline />
               </div>
             </div>
-            <div className="arc-cell">
-              <EditableCell value={pp.startingState} placeholder="Entering state..."
-                onChange={v => onSavePlotPointArcFields(pp.id, { startingState: v })} multiline />
-            </div>
-            <div className="arc-cell">
-              <EditableCell value={pp.endingState} placeholder="Exiting state..."
-                onChange={v => onSavePlotPointArcFields(pp.id, { endingState: v })} multiline />
-            </div>
-            <div className="arc-cell">
-              <EditableCell value={pp.transformation} placeholder="What creates the dilemma..."
-                onChange={v => onSavePlotPointArcFields(pp.id, { transformation: v })} multiline />
-            </div>
-            <div className="arc-cell">
-              <EditableCell value={pp.dilemma || ''} placeholder="The section's dilemma..."
-                onChange={v => onSavePlotPointArcFields(pp.id, { dilemma: v })} multiline />
-            </div>
-            <div className="arc-cell">
-              <EditableCell value={pp.propellingAction || ''} placeholder="What propels this section..."
-                onChange={v => onSavePlotPointArcFields(pp.id, { propellingAction: v })} multiline />
-            </div>
-            <div className="arc-cell arc-pol-col">
-              <PolarityCell value={pp.polarity} onChange={v => onSavePlotPointArcFields(pp.id, { polarity: v })} />
-            </div>
-            <div className="arc-cell arc-wc-col">
-              {fmtWc(sectionWc(pp.id)) ? <span className="arc-wc">{fmtWc(sectionWc(pp.id))}</span> : null}
-            </div>
+            {renderArcCells('section', pp)}
           </div>
         )}
         {showScenes && (
@@ -522,32 +654,7 @@ export default function ArcView({
                   onChange={v => onSaveAct({ ...act, name: v })} />
               </div>
             </div>
-            <div className="arc-cell">
-              <EditableCell value={act.startingState} placeholder="Entering this act..."
-                onChange={v => onSaveAct({ ...act, startingState: v })} multiline />
-            </div>
-            <div className="arc-cell">
-              <EditableCell value={act.endingState} placeholder="Exiting this act..."
-                onChange={v => onSaveAct({ ...act, endingState: v })} multiline />
-            </div>
-            <div className="arc-cell">
-              <EditableCell value={act.transformation} placeholder="What creates the dilemma..."
-                onChange={v => onSaveAct({ ...act, transformation: v })} multiline />
-            </div>
-            <div className="arc-cell">
-              <EditableCell value={act.dilemma} placeholder="The act's dilemma..."
-                onChange={v => onSaveAct({ ...act, dilemma: v })} multiline />
-            </div>
-            <div className="arc-cell">
-              <EditableCell value={act.propellingAction || ''} placeholder="What propels this act..."
-                onChange={v => onSaveAct({ ...act, propellingAction: v })} multiline />
-            </div>
-            <div className="arc-cell arc-pol-col">
-              <PolarityCell value={act.polarity} onChange={v => onSaveAct({ ...act, polarity: v })} />
-            </div>
-            <div className="arc-cell arc-wc-col">
-              {fmtWc(actWc(act.id)) ? <span className="arc-wc">{fmtWc(actWc(act.id))}</span> : null}
-            </div>
+            {renderArcCells('act', act)}
           </div>
         )}
         {showSections && actSections.map(pp => renderSection(pp))}
@@ -556,7 +663,7 @@ export default function ArcView({
   };
 
   return (
-    <div className="arc-view" style={{ position: 'relative' }}>
+    <div className="arc-view" style={{ position: 'relative', ['--arc-grid-cols' as any]: arcGridCols }}>
       <div className="arc-toolbar">
         <button
           className={`arc-toggle-btn${hideActs ? ' active' : ''}`}
@@ -580,18 +687,33 @@ export default function ArcView({
         >
           {allCollapsed ? 'Expand All' : 'Collapse All'}
         </button>
+        <div className="arc-col-menu-wrap" ref={colMenuRef}>
+          <button
+            className={`arc-toggle-btn${hiddenCols.size > 0 ? ' active' : ''}`}
+            onClick={() => setShowColMenu(v => !v)}
+            title="Show, hide, or reorder columns (drag a header to reorder)"
+          >
+            Columns ▾
+          </button>
+          {showColMenu && (
+            <div className="arc-col-menu">
+              {ARC_COL_IDS.map(id => (
+                <label key={id} className="arc-col-menu-item">
+                  <input type="checkbox" checked={!hiddenCols.has(id)} onChange={() => toggleColumn(id)} />
+                  <span>{ARC_COL_BY_ID[id].label}</span>
+                </label>
+              ))}
+              <div className="arc-col-menu-divider" />
+              <button className="arc-col-menu-reset" onClick={resetColumns}>Reset columns</button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="arc-scroll">
         <div className="arc-col-headers arc-grid">
           <div className="arc-col-h arc-col-h-freeze"></div>
-          <div className="arc-col-h">Beginning</div>
-          <div className="arc-col-h">Ending</div>
-          <div className="arc-col-h">Turning point</div>
-          <div className="arc-col-h">Dilemma</div>
-          <div className="arc-col-h">Propelling Action</div>
-          <div className="arc-col-h arc-col-center">Polarity shift</div>
-          <div className="arc-col-h arc-col-center">Words</div>
+          {renderArcHeaderCells()}
         </div>
 
 
@@ -605,32 +727,7 @@ export default function ArcView({
               <span className="arc-novel-title">{character?.name || '—'}</span>
             </div>
           </div>
-          <div className="arc-cell">
-            <EditableCell value={psych?.novelStartingState || ''} placeholder="Where does this character begin?"
-              onChange={v => savePsych({ novelStartingState: v })} multiline />
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={psych?.novelEndingState || ''} placeholder="Where does this character end?"
-              onChange={v => savePsych({ novelEndingState: v })} multiline />
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={psych?.novelTransformation || ''} placeholder="What creates the dilemma..."
-              onChange={v => savePsych({ novelTransformation: v })} multiline />
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={psych?.novelDilemma || ''} placeholder="The central dilemma..."
-              onChange={v => savePsych({ novelDilemma: v })} multiline />
-          </div>
-          <div className="arc-cell">
-            <EditableCell value={psych?.novelPropellingAction || ''} placeholder="What propels the story..."
-              onChange={v => savePsych({ novelPropellingAction: v })} multiline />
-          </div>
-          <div className="arc-cell arc-pol-col">
-            <PolarityCell value={psych?.novelPolarity || ''} onChange={v => savePsych({ novelPolarity: v })} />
-          </div>
-          <div className="arc-cell arc-wc-col">
-            {fmtWc(novelWc()) ? <span className="arc-wc">{fmtWc(novelWc())}</span> : null}
-          </div>
+          {renderArcCells('novel', psych ?? {})}
         </div>
 
         {!isCollapsed('novel') && sortedActs.map(renderAct)}

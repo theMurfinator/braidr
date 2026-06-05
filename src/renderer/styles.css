@@ -20589,7 +20589,9 @@ textarea.table-cell-input {
 
 .arc-grid {
   display: grid;
-  grid-template-columns: 240px repeat(5, 200px) 120px 80px;
+  /* Driven by the visible column list (set on .arc-view) so header + rows + grid
+     always match; falls back to the default layout if the var is unset. */
+  grid-template-columns: var(--arc-grid-cols, 240px repeat(5, 200px) 120px 80px);
   width: max-content;
   /* Every grid (header + all rows) reserves the same 2px left edge so the
      section rows' colored accent border can't shift their columns right. */
@@ -20615,6 +20617,78 @@ textarea.table-cell-input {
   z-index: 20;
 }
 .arc-col-center { text-align: center; }
+
+/* Draggable column headers + reorder feedback */
+.arc-col-h[draggable="true"] { cursor: grab; user-select: none; }
+.arc-col-h[draggable="true"]:active { cursor: grabbing; }
+.arc-col-h.arc-col-dragging { opacity: .4; }
+.arc-col-h.arc-col-resizing { cursor: col-resize; }
+
+/* Column resize handle (right edge of each header; excludes the pinned name col) */
+.arc-col-h:not(.arc-col-h-freeze) { position: relative; }
+.arc-col-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+}
+.arc-col-resize::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  right: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background .1s;
+}
+.arc-col-h:hover .arc-col-resize::after { background: var(--border); }
+.arc-col-resize:hover::after,
+.arc-col-h.arc-col-resizing .arc-col-resize::after { background: var(--border-focus); }
+
+/* Columns show/hide dropdown */
+.arc-col-menu-wrap { position: relative; display: inline-flex; }
+.arc-col-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  min-width: 184px;
+  padding: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+.arc-col-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.arc-col-menu-item:hover { background: var(--bg-hover); }
+.arc-col-menu-item input { cursor: pointer; }
+.arc-col-menu-divider { height: 1px; background: var(--border); margin: 6px 4px; }
+.arc-col-menu-reset {
+  width: 100%;
+  text-align: left;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.arc-col-menu-reset:hover { background: var(--bg-hover); color: var(--text-primary); }
 
 .arc-scroll { flex: 1; overflow: auto; padding-bottom: 80px; }
 
