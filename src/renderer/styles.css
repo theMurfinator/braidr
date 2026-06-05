@@ -4886,6 +4886,23 @@ textarea.scene-metadata-field-input {
   height: 100%;
 }
 
+/* Mirrors .arc-main-content / .arc-scroll: a flex:1 relative wrapper with its
+   own internal scroll, so the scene preview can be an absolute overlay flush to
+   the bullpen (taking no layout space — no gap) exactly like the Arc view. */
+.pov-main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.pov-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 80px 0 80px 64px;
+}
+
 .pov-content {
   flex: 1;
   min-width: 0;
@@ -20880,17 +20897,6 @@ textarea.table-cell-input {
   border-left: 2px solid var(--text-muted);
   box-shadow: -6px 0 20px rgba(0, 0, 0, 0.10);
   z-index: 30;
-}
-/* POV variant: identical look to the Arc panel above — only the positioning
-   differs (a sticky right column inside the scrolling pov-layout instead of an
-   absolute overlay). Border + shadow are inherited from .arc-preview-panel. */
-.arc-preview-panel--sticky {
-  position: sticky;
-  top: 0;
-  right: auto;
-  bottom: auto;
-  flex-shrink: 0;
-  height: calc(100vh - 120px);
 }
 .arc-preview-header {
   display: flex;

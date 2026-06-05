@@ -3611,7 +3611,7 @@ function App() {
     return (
       <div
         className={`main-content main-content--${mode}`}
-        style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account' || mode === 'arc'
+        style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account' || mode === 'arc' || mode === 'pov'
           ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, overflow: 'hidden' }
           : undefined}
       >
@@ -3853,6 +3853,8 @@ function App() {
                 onDragCancel={handlePovDndCancel}
               >
               <div className={`pov-layout ${isConnecting ? 'is-connecting' : ''}`}>
+                <div className="pov-main-content">
+                <div className="pov-scroll">
                 <div className="pov-content">
                 {isConnecting && (
                   <div className="connecting-banner">
@@ -3880,9 +3882,10 @@ function App() {
                   + Add Section
                 </button>
                 </div>
+                </div>
 
                 <ScenePreviewPanel
-                  variant="sticky"
+                  variant="overlay"
                   sceneId={povPreviewSceneId}
                   title={projectData.scenes.find(s => s.id === povPreviewSceneId)?.title || ''}
                   draftContent={draftContent}
@@ -3890,6 +3893,7 @@ function App() {
                   onGoToScene={handleOpenInEditor}
                   onClose={() => setPovPreviewSceneId(null)}
                 />
+                </div>
 
                 <BullpenPanel
                   scenes={displayedScenes.filter(s => !s.plotPointId)}
