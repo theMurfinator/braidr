@@ -597,8 +597,8 @@ export default function ArcView({
               <div className="arc-name-inner">
                 <EditableCell value={pp.title} placeholder="Section name..."
                   onChange={v => onSavePlotPointArcFields(pp.id, { title: v })} />
-                <EditableCell className="arc-scene-synopsis" value={pp.synopsis || ''} placeholder="Add synopsis..."
-                  onChange={v => onSavePlotPointArcFields(pp.id, { synopsis: v })} multiline />
+                <EditableCell className="arc-scene-synopsis" value={pp.description || ''} placeholder="Add synopsis..."
+                  onChange={v => onSavePlotPointArcFields(pp.id, { description: v })} multiline />
               </div>
             </div>
             {renderArcCells('section', pp)}
