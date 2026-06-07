@@ -57,7 +57,11 @@ function loadArcColPref(): ArcColPref {
       const hidden = (parsed.hidden ?? []).filter(id => known.has(id));
       const widths: Record<string, number> = {};
       for (const [id, w] of Object.entries(parsed.widths ?? {})) {
-        if (known.has(id) && typeof w === 'number' && isFinite(w)) widths[id] = Math.max(ARC_MIN_COL_WIDTH, Math.round(w));
+        // The pinned Name column persists under a reserved key that isn't in
+        // ARC_COL_IDS, so allow it through the filter explicitly.
+        if ((known.has(id) || id === ARC_NAME_COL_ID) && typeof w === 'number' && isFinite(w)) {
+          widths[id] = Math.max(ARC_MIN_COL_WIDTH, Math.round(w));
+        }
       }
       return { order, hidden, widths };
     }
