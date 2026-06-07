@@ -83,6 +83,18 @@ export interface MetadataFieldDef {
   order: number;
 }
 
+// Custom field definitions for the Arc level (shared across acts + sections).
+// Parallel to MetadataFieldDef but adds 'number' and 'rating' and ratingMax.
+export interface ArcFieldDef {
+  id: string;
+  label: string;
+  type: 'text' | 'dropdown' | 'multiselect' | 'number' | 'rating';
+  options?: string[];                     // dropdown / multiselect
+  optionColors?: Record<string, string>;  // per-option hex colors
+  ratingMax?: number;                     // rating only (default 5)
+  order: number;
+}
+
 export interface DraftVersion {
   version: number;
   content: string;
@@ -131,6 +143,10 @@ export interface TimelineData {
   metadataFieldDefs?: MetadataFieldDef[];
   // Per-scene metadata values keyed by "characterId:sceneNumber"
   sceneMetadata?: Record<string, Record<string, string | string[]>>;
+  // Arc-level custom field definitions (project-wide, shared by acts + sections)
+  arcFieldDefs?: ArcFieldDef[];
+  // Per-entity arc field values keyed by "act:<id>" | "section:<id>" -> fieldId -> value
+  arcFieldValues?: Record<string, Record<string, string | string[]>>;
   // Saved draft versions keyed by "characterId:sceneNumber"
   drafts?: Record<string, DraftVersion[]>;
   // Scratchpad content keyed by "characterId:sceneNumber"
@@ -554,6 +570,8 @@ export const IPC_CHANNELS = {
   BRAIDR_SAVE_ACT: 'braidr:save-act',
   BRAIDR_SAVE_SCENE_ARC_FIELDS: 'braidr:save-scene-arc-fields',
   BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS: 'braidr:save-plot-point-arc-fields',
+  BRAIDR_SAVE_ARC_FIELD_DEFS: 'braidr:save-arc-field-defs',
+  BRAIDR_SAVE_ARC_FIELD_VALUES: 'braidr:save-arc-field-values',
   BRAIDR_DELETE_ACT: 'braidr:delete-act',
   BRAIDR_REORDER_ACTS: 'braidr:reorder-acts',
   BRAIDR_LOAD_CHARACTER_PSYCHOLOGY: 'braidr:load-character-psychology',

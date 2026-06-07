@@ -1279,6 +1279,8 @@ export interface SceneConnectionRow { id: string; source_scene_id: string; targe
 export interface TagRow { id: string; name: string; category: string }
 export interface MetadataFieldDefRow { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; display_order: number }
 export interface SceneMetadataValueRow { scene_id: string; field_def_id: string; value: string }
+export interface ArcFieldDefRow { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; rating_max: number | null; display_order: number }
+export interface ArcFieldValueRow { entity_type: string; entity_id: string; field_def_id: string; value: string }
 export interface SceneDateRow { scene_id: string; date: string; end_date: string | null }
 export interface NoteRow { id: string; title: string; content: string; parent_id: string | null; display_order: number; created_at: number; updated_at: number }
 export interface WorldEventRow { id: string; title: string; date: string; end_date: string | null; description: string; created_at: number; updated_at: number }
