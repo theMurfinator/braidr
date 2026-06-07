@@ -300,6 +300,7 @@ const CREATE_SCHEMA = `
     display_order INTEGER NOT NULL DEFAULT 0
   );
 
+  -- entity_type valid values: 'act' | 'section' (open for future extension)
   CREATE TABLE IF NOT EXISTS arc_field_values (
     entity_type TEXT NOT NULL,
     entity_id TEXT NOT NULL,
@@ -884,9 +885,11 @@ export class BraidrDB {
   }
 
   replaceArcFieldDefs(defs: ArcFieldDefRow[]) {
-    this.db.prepare('DELETE FROM arc_field_defs').run();
     const insert = this.db.prepare('INSERT INTO arc_field_defs (id, label, field_type, options, option_colors, rating_max, display_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    for (const d of defs) insert.run(d.id, d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order);
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM arc_field_defs').run();
+      for (const d of defs) insert.run(d.id, d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order);
+    })();
   }
 
   getArcFieldValues(entityType: string, entityId: string) {
@@ -894,9 +897,11 @@ export class BraidrDB {
   }
 
   replaceArcFieldValues(entityType: string, entityId: string, values: { field_def_id: string; value: string }[]) {
-    this.db.prepare('DELETE FROM arc_field_values WHERE entity_type = ? AND entity_id = ?').run(entityType, entityId);
     const insert = this.db.prepare('INSERT INTO arc_field_values (entity_type, entity_id, field_def_id, value) VALUES (?, ?, ?, ?)');
-    for (const v of values) insert.run(entityType, entityId, v.field_def_id, v.value);
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM arc_field_values WHERE entity_type = ? AND entity_id = ?').run(entityType, entityId);
+      for (const v of values) insert.run(entityType, entityId, v.field_def_id, v.value);
+    })();
   }
 
   getAllArcFieldValues() {

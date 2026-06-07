@@ -32,9 +32,20 @@ describe('arc field defs + values', () => {
     // Re-save s1 only; a1 untouched
     db.replaceArcFieldValues('section', 's1', [{ field_def_id: 'f1', value: '"sorrow"' }]);
     const all = db.getAllArcFieldValues();
-    const byKey = Object.fromEntries(all.map(r => [`${r.entity_type}:${r.entity_id}`, r.value]));
-    expect(byKey['section:s1']).toBe('"sorrow"');
-    expect(byKey['act:a1']).toBe('"hope"');
+    const byKey = Object.fromEntries(all.map(r => [`${r.entity_type}:${r.entity_id}:${r.field_def_id}`, r.value]));
+    expect(byKey['section:s1:f1']).toBe('"sorrow"');
+    expect(byKey['act:a1:f1']).toBe('"hope"');
+  });
+
+  it('getArcFieldValues returns only the requested entity', async () => {
+    const db = await freshDb(dir);
+    db.replaceArcFieldDefs([{ id: 'f1', label: 'Theme', field_type: 'text', options: null, option_colors: null, rating_max: null, display_order: 0 }]);
+    db.replaceArcFieldValues('section', 's1', [{ field_def_id: 'f1', value: '"grief"' }]);
+    db.replaceArcFieldValues('section', 's2', [{ field_def_id: 'f1', value: '"hope"' }]);
+    const rows = db.getArcFieldValues('section', 's1');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].entity_id).toBe('s1');
+    expect(rows[0].value).toBe('"grief"');
   });
 
   it('deleting a field def cascades its values', async () => {

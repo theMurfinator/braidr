@@ -146,6 +146,7 @@ export interface TimelineData {
   // Arc-level custom field definitions (project-wide, shared by acts + sections)
   arcFieldDefs?: ArcFieldDef[];
   // Per-entity arc field values keyed by "act:<id>" | "section:<id>" -> fieldId -> value
+  // The composite key maps to the DB's separate entity_type / entity_id columns (split on save, joined on load)
   arcFieldValues?: Record<string, Record<string, string | string[]>>;
   // Saved draft versions keyed by "characterId:sceneNumber"
   drafts?: Record<string, DraftVersion[]>;
