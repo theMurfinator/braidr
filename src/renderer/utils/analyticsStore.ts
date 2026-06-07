@@ -56,6 +56,17 @@ export interface Milestone {
   achievedDate?: string;
 }
 
+/**
+ * Per-day snapshot of the total manuscript word count.
+ * `baseline` = total at the start of the day (carried over from the prior
+ * day's `latest`); `latest` = most recent observed total that day.
+ * Words written that day = latest - baseline (may be negative for deletions).
+ */
+export interface DailyManuscript {
+  baseline: number;
+  latest: number;
+}
+
 export interface AnalyticsData {
   sessions: WritingSession[];
   sceneSessions: SceneSession[];
@@ -67,6 +78,8 @@ export interface AnalyticsData {
   longestStreak: number;
   lastWritingDate: string | null;
   customCheckinCategories?: CustomCheckinCategory[];
+  /** Daily total-manuscript snapshots, keyed by YYYY-MM-DD. */
+  dailyManuscript?: Record<string, DailyManuscript>;
 }
 
 const DEFAULT_ANALYTICS: AnalyticsData = {
@@ -111,6 +124,61 @@ export async function saveAnalytics(projectPath: string, data: AnalyticsData): P
   } catch (err) {
     console.error('Failed to save analytics:', err);
   }
+}
+
+/**
+ * Record/update today's manuscript snapshot.
+ *
+ * - If the date already has an entry, only `latest` is updated (baseline is fixed
+ *   for the life of the day).
+ * - If it's a new day, the baseline carries over from the most recent prior day's
+ *   `latest`. When there is no prior history, the baseline is seeded so that
+ *   today's already-counted words (`seedWordsToday`) are preserved:
+ *   baseline = currentTotal - seedWordsToday.
+ */
+export function recordManuscriptSnapshot(
+  analytics: AnalyticsData,
+  date: string,
+  currentTotal: number,
+  opts?: { seedWordsToday?: number },
+): AnalyticsData {
+  const dm: Record<string, DailyManuscript> = { ...(analytics.dailyManuscript || {}) };
+
+  if (dm[date]) {
+    dm[date] = { baseline: dm[date].baseline, latest: currentTotal };
+  } else {
+    // Most recent prior day's ending total becomes today's starting baseline.
+    const priorDates = Object.keys(dm).filter(d => d < date).sort();
+    const priorLatest = priorDates.length > 0 ? dm[priorDates[priorDates.length - 1]].latest : undefined;
+    const baseline = priorLatest !== undefined
+      ? priorLatest
+      : currentTotal - (opts?.seedWordsToday ?? 0);
+    dm[date] = { baseline, latest: currentTotal };
+  }
+
+  return { ...analytics, dailyManuscript: dm };
+}
+
+/**
+ * Net manuscript words for a day from its snapshot (latest - baseline).
+ * Returns 0 when there is no snapshot for that day.
+ */
+export function getWordsForDay(analytics: AnalyticsData, date: string): number {
+  const e = analytics.dailyManuscript?.[date];
+  return e ? e.latest - e.baseline : 0;
+}
+
+/**
+ * Shallow-merge a partial change onto an analytics object.
+ * Used to keep separate in-memory copies (App's authoritative ref and the
+ * dashboard) in sync when only a few config fields change, without one writer
+ * clobbering the other's data (e.g. sceneSessions). See Bug 2.
+ */
+export function applyAnalyticsPatch(
+  analytics: AnalyticsData,
+  patch: Partial<AnalyticsData>,
+): AnalyticsData {
+  return { ...analytics, ...patch };
 }
 
 /**

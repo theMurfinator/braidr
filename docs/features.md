@@ -103,6 +103,7 @@ A visual timeline canvas.
 Writing session data and productivity trends.
 
 - Session history from check-ins (energy, focus, mood over time)
+- **Daily word counts** are the *manuscript difference* for the day: each day stores the total manuscript word count, and "words written" = today's total − the day's starting baseline (which carries over from the prior day's ending total). This counts every change (including deletions, shown as negative) regardless of how time was tracked, rather than summing individual editing-session deltas. Days from before this model existed fall back to the older session-based totals.
 - **Weekly Words** — full-width bar chart of daily word counts (Sat–Fri week), configured with manuscript target length + deadline date; auto-calculates required words/day and words/week, shows pace vs. on-track status
 - **Weekly Hours** — full-width bar chart of daily writing time with configurable weekly target
 - **12-week trend** — rolling chart of output by week

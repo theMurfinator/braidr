@@ -25,7 +25,7 @@ import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { indexPlotPoints, isSceneInPlay, isScenePlaced, enforceBraidingInvariant } from '../shared/placement';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
-import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, appendSceneSession, getTodayStr, getWeekSaturday, getWeekDays, toLocalDateStr } from './utils/analyticsStore';
+import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, appendSceneSession, getTodayStr, getWeekSaturday, getWeekDays, toLocalDateStr, recordManuscriptSnapshot, applyAnalyticsPatch } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import { UpdateBanner } from './components/UpdateBanner';
@@ -630,6 +630,40 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [undoProjectData, redoProjectData, paneLayout, paneDispatch]);
 
+  // Total manuscript word count, computed live across all scene drafts.
+  const computeTotalManuscriptWords = useCallback(() => {
+    let total = 0;
+    for (const html of Object.values(draftContentRef.current)) {
+      if (html && html !== '<p></p>') {
+        const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        if (text) total += text.split(/\s+/).length;
+      }
+    }
+    return total;
+  }, []);
+
+  // Seed/refresh today's manuscript snapshot once drafts + analytics are loaded.
+  // Establishes today's baseline (carried over from prior days, or seeded from
+  // words already counted today on first run) so the dashboard can show the real
+  // manuscript difference for the day. Runs once per project load.
+  const manuscriptSeededRef = useRef<string | null>(null);
+  const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
+  useEffect(() => {
+    if (!projectData?.projectPath || !analyticsLoaded || !analyticsRef.current) return;
+    if (Object.keys(draftContentRef.current).length === 0) return;
+    if (manuscriptSeededRef.current === projectData.projectPath) return;
+    manuscriptSeededRef.current = projectData.projectPath;
+
+    const today = getTodayStr();
+    const total = computeTotalManuscriptWords();
+    const todaySessionWords = (analyticsRef.current.sceneSessions || [])
+      .filter(s => s.date === today && s.sceneKey !== 'manual:checkin')
+      .reduce((sum, s) => sum + s.wordsNet, 0);
+    const updated = recordManuscriptSnapshot(analyticsRef.current, today, total, { seedWordsToday: todaySessionWords });
+    analyticsRef.current = updated;
+    saveAnalytics(projectData.projectPath, updated);
+  }, [projectData?.projectPath, analyticsLoaded, draftContent, computeTotalManuscriptWords]);
+
   // Initialize session tracker when project loads
   useEffect(() => {
     if (!projectData) return;
@@ -639,26 +673,22 @@ function App() {
     sessionTrackerRef.current = tracker;
 
     // Load analytics data for the project
+    setAnalyticsLoaded(false);
     loadAnalytics(projectData.projectPath).then(data => {
       analyticsRef.current = data;
       setSceneSessions(data.sceneSessions || []);
+      setAnalyticsLoaded(true);
     });
 
     // When a session ends, merge it into analytics and persist (no auto-pop check-in)
     tracker.setOnSessionEnd((summary) => {
       if (!analyticsRef.current || !projectData) return;
 
-      // Calculate total project words from draftContent
-      let totalWords = 0;
-      for (const html of Object.values(draftContentRef.current)) {
-        if (html && html !== '<p></p>') {
-          const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
-          if (text) totalWords += text.split(/\s+/).length;
-        }
-      }
+      const totalWords = computeTotalManuscriptWords();
 
       // Always save immediately — check-in is manual only
-      const updated = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords, null);
+      const merged = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords, null);
+      const updated = recordManuscriptSnapshot(merged, getTodayStr(), totalWords);
       analyticsRef.current = updated;
       setSceneSessions(updated.sceneSessions || []);
       saveAnalytics(projectData.projectPath, updated);
@@ -681,9 +711,10 @@ function App() {
     const summary = pendingSessionRef.current;
     if (!summary || !analyticsRef.current || !projectData) return;
 
-    const updated = mergeSessionIntoAnalytics(
+    const merged = mergeSessionIntoAnalytics(
       analyticsRef.current, summary, pendingTotalWordsRef.current, checkin
     );
+    const updated = recordManuscriptSnapshot(merged, getTodayStr(), pendingTotalWordsRef.current);
     analyticsRef.current = updated;
     setSceneSessions(updated.sceneSessions || []);
     saveAnalytics(projectData.projectPath, updated);
@@ -705,9 +736,10 @@ function App() {
     const summary = pendingSessionRef.current;
     if (!summary || !analyticsRef.current || !projectData) return;
 
-    const updated = mergeSessionIntoAnalytics(
+    const merged = mergeSessionIntoAnalytics(
       analyticsRef.current, summary, pendingTotalWordsRef.current, null
     );
+    const updated = recordManuscriptSnapshot(merged, getTodayStr(), pendingTotalWordsRef.current);
     analyticsRef.current = updated;
     setSceneSessions(updated.sceneSessions || []);
     saveAnalytics(projectData.projectPath, updated);
@@ -3646,6 +3678,15 @@ function App() {
                 wordCountGoal={wordCountGoal}
                 projectPath={projectData.projectPath}
                 onGoalChange={handleWordCountGoalChange}
+                onAnalyticsChange={(patch) => {
+                  // Keep App's authoritative analytics copy in sync with goal
+                  // edits made in the dashboard, then persist from that copy so a
+                  // later session/timer save can't revert the change. See Bug 2.
+                  if (!analyticsRef.current || !projectData) return;
+                  const updated = applyAnalyticsPatch(analyticsRef.current, patch);
+                  analyticsRef.current = updated;
+                  saveAnalytics(projectData.projectPath, updated);
+                }}
                 sceneSessions={sceneSessions}
                 customCheckinCategories={analyticsRef.current?.customCheckinCategories}
                 tasks={tasks}

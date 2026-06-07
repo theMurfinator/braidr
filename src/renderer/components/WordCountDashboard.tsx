@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Scene, Character, PlotPoint, MetadataFieldDef, Task } from '../../shared/types';
-import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getRecentDays, getTodayStr, toLocalDateStr, getCheckinAverages, getWeekSaturday, getWeekDays, formatWeekLabel } from '../utils/analyticsStore';
+import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getTodayStr, toLocalDateStr, getCheckinAverages, getWeekSaturday, getWeekDays, formatWeekLabel, applyAnalyticsPatch } from '../utils/analyticsStore';
 import { track } from '../utils/posthogTracker';
 
 interface WordCountDashboardProps {
@@ -14,6 +14,8 @@ interface WordCountDashboardProps {
   wordCountGoal: number;
   projectPath: string;
   onGoalChange: (goal: number) => void;
+  /** Propagate config changes (goals) to App's authoritative analytics copy. */
+  onAnalyticsChange?: (patch: Partial<AnalyticsData>) => void;
   onClose?: () => void; // optional — unused when inline
   sceneSessions?: SceneSession[];
   customCheckinCategories?: CustomCheckinCategory[];
@@ -28,7 +30,7 @@ function countWords(html: string): number {
 }
 
 
-export default function WordCountDashboard({ scenes, characters, plotPoints: _plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, sceneSessions = [], customCheckinCategories = [], tasks = [] }: WordCountDashboardProps) {
+export default function WordCountDashboard({ scenes, characters, plotPoints: _plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, onAnalyticsChange, sceneSessions = [], customCheckinCategories = [], tasks = [] }: WordCountDashboardProps) {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -96,6 +98,34 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     return { totalWords, perCharacter, perPlotPoint, perStatus, draftedScenes, longestScene, avgWords };
   }, [scenes, draftContent, sceneMetadata]);
 
+  const todayStr = getTodayStr();
+
+  // Words written on a given day = manuscript total difference (latest - baseline)
+  // from that day's snapshot. Today uses the live current total so it updates as
+  // you type. Days with no snapshot (pre-feature history) fall back to the old
+  // session-based totals so existing data still renders.
+  const wordsForDate = useCallback((date: string): number => {
+    const dm = analytics?.dailyManuscript?.[date];
+    if (dm) {
+      return date === todayStr ? stats.totalWords - dm.baseline : dm.latest - dm.baseline;
+    }
+    if (sceneSessions.length > 0) {
+      return sceneSessions
+        .filter(s => s.sceneKey !== 'manual:checkin' && s.date === date)
+        .reduce((sum, s) => sum + s.wordsNet, 0);
+    }
+    const sess = analytics?.sessions.find(s => s.date === date);
+    return sess?.wordsWritten || 0;
+  }, [analytics, sceneSessions, stats.totalWords, todayStr]);
+
+  // Persist a config patch (goal change). Route through App's authoritative copy
+  // when available so a later session/timer save can't revert it (Bug 2);
+  // fall back to writing the whole object directly otherwise.
+  const persistPatch = useCallback((patch: Partial<AnalyticsData>, updated: AnalyticsData) => {
+    if (onAnalyticsChange) onAnalyticsChange(patch);
+    else if (projectPath) saveAnalytics(projectPath, updated);
+  }, [onAnalyticsChange, projectPath]);
+
   // Reload analytics periodically so dashboard reflects session tracker writes
   useEffect(() => {
     if (!projectPath) return;
@@ -107,9 +137,19 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
 
   const goalProgress = wordCountGoal > 0 ? Math.min(stats.totalWords / wordCountGoal, 1) : 0;
 
-  // Activity data
-  const recentDays = analytics ? getRecentDays(analytics.sessions, 30) : [];
-  const maxDayWords = Math.max(...recentDays.map(d => d.words), 1);
+  // Activity data — last 30 days of manuscript-difference word counts
+  const recentDays = useMemo(() => {
+    const result: { date: string; words: number }[] = [];
+    const today = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = toLocalDateStr(d);
+      result.push({ date: dateStr, words: wordsForDate(dateStr) });
+    }
+    return result;
+  }, [wordsForDate]);
+  const maxDayWords = Math.max(...recentDays.map(d => Math.abs(d.words)), 1);
   // Calendar heatmap data
   const calendarData = useMemo(() => {
     if (!analytics) return [];
@@ -130,14 +170,14 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
       const isFuture = new Date(dateStr) > today;
       cells.push({
         day: d,
-        words: session?.wordsWritten || 0,
+        words: wordsForDate(dateStr),
         duration: session?.duration || 0,
         isToday: dateStr === todayStr,
         isFuture,
       });
     }
     return cells;
-  }, [analytics, calendarMonth]);
+  }, [analytics, calendarMonth, wordsForDate, todayStr]);
 
   const calendarMonthLabel = new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -153,11 +193,14 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
   const monthlyWords = useMemo(() => {
     if (!analytics) return 0;
     const { year, month } = calendarMonth;
-    const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
-    return analytics.sessions
-      .filter(s => s.date.startsWith(prefix))
-      .reduce((sum, s) => sum + s.wordsWritten, 0);
-  }, [analytics, calendarMonth]);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let sum = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      sum += wordsForDate(dateStr);
+    }
+    return sum;
+  }, [analytics, calendarMonth, wordsForDate]);
 
   const monthlySessionCount = useMemo(() => {
     if (!analytics) return 0;
@@ -199,12 +242,10 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     const date = deadlineDateInput;
     if (!isNaN(target) && target > 0 && date) {
       track('goal_set', { type: 'deadline' });
-      const updated = {
-        ...analytics,
-        deadlineGoal: { enabled: true, targetWords: target, deadlineDate: date },
-      };
+      const patch = { deadlineGoal: { enabled: true, targetWords: target, deadlineDate: date } };
+      const updated = applyAnalyticsPatch(analytics, patch);
       setAnalytics(updated);
-      saveAnalytics(projectPath, updated);
+      persistPatch(patch, updated);
       onGoalChange(target);
     }
     setEditingDeadline(false);
@@ -212,12 +253,10 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
 
   const handleDeadlineClear = () => {
     if (!analytics || !projectPath) return;
-    const updated = {
-      ...analytics,
-      deadlineGoal: { enabled: false, targetWords: 0, deadlineDate: '' },
-    };
+    const patch = { deadlineGoal: { enabled: false, targetWords: 0, deadlineDate: '' } };
+    const updated = applyAnalyticsPatch(analytics, patch);
     setAnalytics(updated);
-    saveAnalytics(projectPath, updated);
+    persistPatch(patch, updated);
     setEditingDeadline(false);
   };
 
@@ -286,26 +325,13 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     const isCurrentWeek = wordWeekOffset === 0;
     const dayLabels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
-    const perDay: number[] = new Array(7).fill(0);
-    if (sceneSessions.length > 0) {
-      for (const ss of sceneSessions) {
-        if (ss.sceneKey === 'manual:checkin') continue;
-        const idx = days.indexOf(ss.date);
-        if (idx >= 0) perDay[idx] += ss.wordsNet;
-      }
-    } else if (analytics) {
-      for (const session of analytics.sessions) {
-        const idx = days.indexOf(session.date);
-        if (idx >= 0) perDay[idx] += session.wordsWritten;
-      }
-    }
-
-    const perDayWords = perDay; // allow negatives — net deletions count
+    // Per-day manuscript-difference word counts (allows negatives — deletions count)
+    const perDayWords = days.map(d => wordsForDate(d));
     const totalWords = perDayWords.reduce((a, b) => a + b, 0);
     const todayIdx = days.indexOf(todayStr);
 
     return { days, dayLabels, perDayWords, totalWords, todayIdx, isCurrentWeek, label: formatWeekLabel(viewedSat) };
-  }, [wordWeekOffset, sceneSessions, analytics]);
+  }, [wordWeekOffset, wordsForDate]);
 
   const weeklyGoal = analytics?.weeklyGoal;
   const weeklyTargetHours = weeklyGoal?.enabled ? weeklyGoal.targetHours : 0;
@@ -357,11 +383,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
       const weekSat = new Date(currentSat);
       weekSat.setDate(currentSat.getDate() - i * 7);
       const days = getWeekDays(weekSat);
-      let totalWords = 0;
-      for (const ss of sceneSessions) {
-        if (ss.sceneKey === 'manual:checkin') continue;
-        if (days.indexOf(ss.date) >= 0) totalWords += ss.wordsNet;
-      }
+      const totalWords = days.reduce((sum, d) => sum + wordsForDate(d), 0);
       result.push({
         weekStart: toLocalDateStr(weekSat),
         weekLabel: weekSat.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -370,7 +392,7 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
       });
     }
     return result;
-  }, [sceneSessions]);
+  }, [wordsForDate]);
 
   const maxTrendHours = Math.max(...trendData.map(w => w.totalHours), weeklyTargetHours, 0.1);
   // Chart geometry constants (must match CSS for goal line positioning)
@@ -435,12 +457,10 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     const parsed = parseFloat(weeklyGoalInput);
     if (!isNaN(parsed) && parsed > 0) {
       track('goal_set', { type: 'weekly' });
-      const updated = {
-        ...analytics,
-        weeklyGoal: { enabled: true, targetHours: parsed },
-      };
+      const patch = { weeklyGoal: { enabled: true, targetHours: parsed } };
+      const updated = applyAnalyticsPatch(analytics, patch);
       setAnalytics(updated);
-      saveAnalytics(projectPath, updated);
+      persistPatch(patch, updated);
     }
     setEditingWeeklyGoal(false);
   };
