@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../shared/types';
 import type {
-  Character, Scene, PlotPoint, Tag, ArchivedScene, MetadataFieldDef,
+  Character, Scene, PlotPoint, Tag, ArchivedScene, MetadataFieldDef, ArcFieldDef,
   DraftVersion, SceneComment, Task, TaskFieldDef, TaskViewConfig,
   WorldEvent, NotesIndex, NoteMetadata, Chapter, FontSettings,
   AllFontSettings,
@@ -313,6 +313,29 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       }
     }
 
+    // Arc field defs
+    const arcDefRows = db.getArcFieldDefs();
+    const arcFieldDefs: ArcFieldDef[] = arcDefRows.map(row => ({
+      id: row.id,
+      label: row.label,
+      type: row.field_type as ArcFieldDef['type'],
+      options: row.options ? (() => { try { return JSON.parse(row.options!); } catch { return undefined; } })() : undefined,
+      optionColors: row.option_colors ? (() => { try { return JSON.parse(row.option_colors!); } catch { return undefined; } })() : undefined,
+      ratingMax: row.rating_max ?? undefined,
+      order: row.display_order,
+    }));
+
+    // Arc field values (bulk) -> keyed by "<entity_type>:<entity_id>"
+    const arcValueRows = db.getAllArcFieldValues();
+    const arcFieldValues: Record<string, Record<string, string | string[]>> = {};
+    for (const row of arcValueRows) {
+      try {
+        (arcFieldValues[`${row.entity_type}:${row.entity_id}`] ??= {})[row.field_def_id] = JSON.parse(row.value);
+      } catch {
+        // Malformed arc value -- skip rather than crash
+      }
+    }
+
     // Draft versions (bulk)
     const dvRows = db.prepare(
       'SELECT * FROM scene_draft_versions ORDER BY scene_id, version DESC'
@@ -481,6 +504,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
         draftContent,
         metadataFieldDefs,
         sceneMetadata,
+        arcFieldDefs,
+        arcFieldValues,
         drafts,
         wordCountGoal,
         scratchpad,
@@ -1001,6 +1026,37 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS, (_event, braidrPa
     db.checkpoint();
     return { success: true };
   } catch (err) { return { success: false, error: String(err) }; }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ARC_FIELD_DEFS, (_event, braidrPath: string, defs: ArcFieldDef[]) => {
+  try {
+    const db = getDb(braidrPath);
+    db.replaceArcFieldDefs(defs.map(d => ({
+      id: d.id,
+      label: d.label,
+      field_type: d.type,
+      options: d.options ? JSON.stringify(d.options) : null,
+      option_colors: d.optionColors ? JSON.stringify(d.optionColors) : null,
+      rating_max: d.ratingMax ?? null,
+      display_order: d.order,
+    })));
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ARC_FIELD_VALUES, (_event, braidrPath: string, entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => {
+  try {
+    const db = getDb(braidrPath);
+    db.replaceArcFieldValues(entityType, entityId, Object.entries(values).map(([field_def_id, value]) => ({
+      field_def_id,
+      value: JSON.stringify(value),
+    })));
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
 });
 
 ipcMain.handle(IPC_CHANNELS.BRAIDR_DELETE_ACT, (_event, braidrPath: string, actId: string) => {
