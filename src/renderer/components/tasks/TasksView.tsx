@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Task, TaskFilter, TaskFieldDef, TaskViewConfig, Tag, Character, Scene, TimeEntry } from '../../../shared/types';
 import TaskTable, { BUILTIN_COLUMNS } from './TaskTable';
 import TaskToolbar from './TaskToolbar';
@@ -212,6 +212,24 @@ export default function TasksView({
     }
   };
 
+  // Toggle a view as the default (the one auto-loaded when Tasks opens). Only
+  // one view can be default, so setting one clears the flag on all others.
+  const handleSetDefaultView = (viewId: string) => {
+    onTaskViewsChange(
+      taskViews.map(v => ({ ...v, isDefault: v.id === viewId ? !v.isDefault : false }))
+    );
+  };
+
+  // Load the default view on first render (mirrors the Table view). Keyed on
+  // loaded/empty so it fires once views become available and never fights a
+  // later manual switch back to "All Tasks".
+  useEffect(() => {
+    if (taskViews.length === 0) return;
+    const defaultView = taskViews.find(v => v.isDefault);
+    if (defaultView) handleViewSelect(defaultView.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskViews.length > 0 ? 'loaded' : 'empty']);
+
   // Detect whether the current config differs from the saved view
   const viewHasChanges = useMemo(() => {
     if (!activeViewId) return false;
@@ -248,6 +266,7 @@ export default function TasksView({
         onViewSave={handleViewSave}
         onViewSaveAs={handleViewSaveAs}
         onViewDelete={handleViewDelete}
+        onSetDefaultView={handleSetDefaultView}
         visibleColumns={visibleColumns}
         onVisibleColumnsChange={handleVisibleColumnsChange}
         viewHasChanges={viewHasChanges}

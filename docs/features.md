@@ -92,6 +92,7 @@ A lightweight task tracker built into the project.
 - Task timer — track time per task
 - Task field manager — define custom column types (text, select, date, etc.)
 - Filter bar
+- **Saved views** — save the current grouping, sort, filters, and columns as a named view. Star (★) one view as the **default**, and it loads automatically whenever you open the Tasks view (mirrors the spreadsheet/Table view)
 
 ### Timeline View
 A visual timeline canvas.

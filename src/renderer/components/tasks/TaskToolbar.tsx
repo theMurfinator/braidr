@@ -19,6 +19,7 @@ interface TaskToolbarProps {
   onViewSave: () => void;
   onViewSaveAs: (name: string) => void;
   onViewDelete: (viewId: string) => void;
+  onSetDefaultView: (viewId: string) => void;
   visibleColumns: string[];
   onVisibleColumnsChange: (columns: string[]) => void;
   viewHasChanges: boolean;
@@ -49,6 +50,7 @@ export default function TaskToolbar({
   onViewSave,
   onViewSaveAs,
   onViewDelete,
+  onSetDefaultView,
   visibleColumns,
   onVisibleColumnsChange,
   viewHasChanges,
@@ -182,7 +184,17 @@ export default function TaskToolbar({
                 className={`tasks-view-option${activeViewId === view.id ? ' active' : ''}`}
                 onClick={() => { onViewSelect(view.id); setViewOpen(false); }}
               >
-                <span>{view.name}</span>
+                <span style={{ flex: 1 }}>{view.name}</span>
+                <span
+                  className={`tasks-view-option-star${view.isDefault ? ' is-default' : ''}`}
+                  title={view.isDefault ? 'Remove as default' : 'Set as default (opens automatically)'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSetDefaultView(view.id);
+                  }}
+                >
+                  {view.isDefault ? '★' : '☆'}
+                </span>
                 <span
                   className="tasks-view-option-delete"
                   onClick={(e) => {

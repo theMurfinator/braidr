@@ -212,6 +212,7 @@ export interface TaskFieldDef {
 export interface TaskViewConfig {
   id: string;
   name: string;
+  isDefault?: boolean;
   groupBy?: string;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
