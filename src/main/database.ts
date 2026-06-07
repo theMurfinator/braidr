@@ -290,6 +290,24 @@ const CREATE_SCHEMA = `
     PRIMARY KEY (task_id, field_def_id)
   );
 
+  CREATE TABLE IF NOT EXISTS arc_field_defs (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    field_type TEXT NOT NULL DEFAULT 'text',
+    options TEXT,
+    option_colors TEXT,
+    rating_max INTEGER,
+    display_order INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS arc_field_values (
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    field_def_id TEXT NOT NULL REFERENCES arc_field_defs(id) ON DELETE CASCADE,
+    value TEXT NOT NULL DEFAULT '""',
+    PRIMARY KEY (entity_type, entity_id, field_def_id)
+  );
+
   CREATE TABLE IF NOT EXISTS writing_sessions (
     id TEXT PRIMARY KEY,
     scene_id TEXT REFERENCES scenes(id) ON DELETE SET NULL,
@@ -858,6 +876,31 @@ export class BraidrDB {
 
   getAllSceneMetadataValues() {
     return this.db.prepare('SELECT * FROM scene_metadata_values').all() as SceneMetadataValueRow[];
+  }
+
+  // ── Arc field defs + values ───────────────────────────────────────────────
+  getArcFieldDefs() {
+    return this.db.prepare('SELECT * FROM arc_field_defs ORDER BY display_order').all() as ArcFieldDefRow[];
+  }
+
+  replaceArcFieldDefs(defs: ArcFieldDefRow[]) {
+    this.db.prepare('DELETE FROM arc_field_defs').run();
+    const insert = this.db.prepare('INSERT INTO arc_field_defs (id, label, field_type, options, option_colors, rating_max, display_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    for (const d of defs) insert.run(d.id, d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order);
+  }
+
+  getArcFieldValues(entityType: string, entityId: string) {
+    return this.db.prepare('SELECT * FROM arc_field_values WHERE entity_type = ? AND entity_id = ?').all(entityType, entityId) as ArcFieldValueRow[];
+  }
+
+  replaceArcFieldValues(entityType: string, entityId: string, values: { field_def_id: string; value: string }[]) {
+    this.db.prepare('DELETE FROM arc_field_values WHERE entity_type = ? AND entity_id = ?').run(entityType, entityId);
+    const insert = this.db.prepare('INSERT INTO arc_field_values (entity_type, entity_id, field_def_id, value) VALUES (?, ?, ?, ?)');
+    for (const v of values) insert.run(entityType, entityId, v.field_def_id, v.value);
+  }
+
+  getAllArcFieldValues() {
+    return this.db.prepare('SELECT * FROM arc_field_values').all() as ArcFieldValueRow[];
   }
 
   // ── Table Views ───────────────────────────────────────────────────────────
