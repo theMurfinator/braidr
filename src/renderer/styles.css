@@ -5697,6 +5697,7 @@ textarea.scene-metadata-field-input {
   height: 100%;
   box-sizing: border-box;
   background: var(--bg-primary);
+  position: relative; /* containing block for the scene preview overlay */
 }
 
 .rails-main {
@@ -5942,6 +5943,13 @@ textarea.scene-metadata-field-input {
   border-top-color: var(--text-muted);
   border-right-color: var(--text-muted);
   border-bottom-color: var(--text-muted);
+}
+
+.rails-scene-card.selected {
+  border-top-color: var(--border-focus);
+  border-right-color: var(--border-focus);
+  border-bottom-color: var(--border-focus);
+  box-shadow: var(--shadow-md);
 }
 
 .rails-scene-card.pov-reordered {

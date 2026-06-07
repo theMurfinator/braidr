@@ -48,7 +48,8 @@ A grid layout showing all characters in parallel columns, timeline rows going do
 - **POV color mode** — tints each scene cell by character color
 - **Chapter envelopes** — chapters rendered as bordered boxes wrapping their scenes
 - Inline drag-and-drop reorder (within rails)
-- **Floating editor** — click a scene to open a draft editor in-place
+- **Scene preview panel** — click a scene to pop out the same right-side reading pane used in the Arc and POV views: editable draft text with auto-save plus a **Go to Scene** button. Click the same scene again (or Esc) to close
+- **Floating editor** — right-click a scene to open the full in-place draft editor (tags, scene connections, metadata)
 - Insert scene at any timeline position from the row number
 
 ### Braided Timeline — Table View

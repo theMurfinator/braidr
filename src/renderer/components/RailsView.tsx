@@ -2,6 +2,7 @@ import React, { useState, useRef, useLayoutEffect, useEffect, useCallback } from
 import { Scene, Character, Tag, TagCategory, PlotPoint, Chapter } from '../../shared/types';
 import RailsSceneCard from './RailsSceneCard';
 import FloatingEditor from './FloatingEditor';
+import ScenePreviewPanel from './ScenePreviewPanel';
 import { useAutoScrollOnDrag } from '../hooks/useAutoScrollOnDrag';
 
 interface RailsViewProps {
@@ -79,6 +80,7 @@ export default function RailsView({
 }: RailsViewProps) {
   const [inboxCharFilter, setInboxCharFilter] = useState<string>('all');
   const [floatingEditorScene, setFloatingEditorScene] = useState<Scene | null>(null);
+  const [previewSceneId, setPreviewSceneId] = useState<string | null>(null);
   const [scenePositions, setScenePositions] = useState<Record<string, { left: number; right: number; y: number }>>({});
   const [hoveredSceneId, setHoveredSceneId] = useState<string | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
@@ -314,7 +316,15 @@ export default function RailsView({
       return;
     }
 
-    // Save scroll position before opening editor
+    // Click pops out the right-side reading/preview pane (mirrors Arc/POV views).
+    setPreviewSceneId(id => (id === scene.id ? null : scene.id));
+  };
+
+  // Right-click opens the full slide-in editor (tags, connections, etc.) — the
+  // metadata-rich panel that used to open on click.
+  const handleSceneContextMenu = (scene: Scene, e: React.MouseEvent) => {
+    if (isConnecting) return;
+    e.preventDefault();
     if (scrollRef.current) {
       savedScrollTop.current = scrollRef.current.scrollTop;
     }
@@ -732,6 +742,8 @@ export default function RailsView({
                             scene={row.scene}
                             characterColor={getCharacterHexColor(row.characterId)}
                             onClick={(e) => handleSceneClick(row.scene, e)}
+                            onContextMenu={(e) => handleSceneContextMenu(row.scene, e)}
+                            isSelected={previewSceneId === row.scene.id}
                             onMouseEnter={() => setHoveredSceneId(row.scene.id)}
                             onMouseLeave={() => setHoveredSceneId(null)}
                             isHighlighted={hoveredSceneId === row.scene.id ||
@@ -1041,6 +1053,17 @@ export default function RailsView({
           onOpenInEditor={onOpenInEditor}
         />
       )}
+
+      {/* Right-side reading/preview pane — same component and styling as Arc/POV */}
+      <ScenePreviewPanel
+        variant="overlay"
+        sceneId={previewSceneId}
+        title={scenes.find(s => s.id === previewSceneId)?.title || ''}
+        draftContent={draftContent}
+        onDraftChange={onDraftChange}
+        onGoToScene={(sceneId) => { onOpenInEditor?.(sceneId); setPreviewSceneId(null); }}
+        onClose={() => setPreviewSceneId(null)}
+      />
     </div>
   );
 }

@@ -5,9 +5,11 @@ interface RailsSceneCardProps {
   scene: Scene;
   characterColor: string;
   onClick: (e: React.MouseEvent) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   isHighlighted: boolean;
+  isSelected?: boolean;
   hasConnections: boolean;
   isConnecting: boolean;
   isConnectionSource: boolean;
@@ -23,9 +25,11 @@ export default function RailsSceneCard({
   scene,
   characterColor,
   onClick,
+  onContextMenu,
   onMouseEnter,
   onMouseLeave,
   isHighlighted,
+  isSelected,
   hasConnections,
   isConnecting,
   isConnectionSource,
@@ -46,9 +50,10 @@ export default function RailsSceneCard({
 
   return (
     <div
-      className={`rails-scene-card ${isHighlighted ? 'highlighted' : ''} ${hasConnections ? 'has-connections' : ''} ${isConnectionSource ? 'connection-source' : ''} ${isConnectionTarget ? 'connection-target' : ''} ${isDragging ? 'dragging' : ''} ${isPovReordered ? 'pov-reordered' : ''}`}
+      className={`rails-scene-card ${isHighlighted ? 'highlighted' : ''} ${isSelected ? 'selected' : ''} ${hasConnections ? 'has-connections' : ''} ${isConnectionSource ? 'connection-source' : ''} ${isConnectionTarget ? 'connection-target' : ''} ${isDragging ? 'dragging' : ''} ${isPovReordered ? 'pov-reordered' : ''}`}
       style={{ borderLeftColor: characterColor }}
       onClick={onClick}
+      onContextMenu={onContextMenu}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       data-scene-id={scene.id}
