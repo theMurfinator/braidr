@@ -313,6 +313,11 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       }
     }
 
+    // One-time idempotent migration: copy legacy scene metadata into arc tables
+    try { db.migrateSceneMetadataToArcTables(); } catch (e) {
+      console.error('[BRAIDR_LOAD_PROJECT] scene metadata migration failed (non-fatal)', e);
+    }
+
     // Arc field defs (all scopes — arc + scene)
     const arcDefRows = db.getArcFieldDefs();
     const arcFieldDefs: ArcFieldDef[] = arcDefRows.map(row => ({

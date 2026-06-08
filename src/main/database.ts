@@ -888,6 +888,34 @@ export class BraidrDB {
     return this.db.prepare('SELECT * FROM scene_metadata_values').all() as SceneMetadataValueRow[];
   }
 
+  // One-time idempotent migration: copy metadata_field_defs → arc_field_defs (scope='scene')
+  // and scene_metadata_values → arc_field_values (entity_type='scene').
+  migrateSceneMetadataToArcTables() {
+    const tx = this.db.transaction(() => {
+      const existingIds = new Set(
+        (this.db.prepare('SELECT id FROM arc_field_defs').all() as { id: string }[]).map(r => r.id)
+      );
+      const mfdRows = this.db.prepare('SELECT * FROM metadata_field_defs').all() as MetadataFieldDefRow[];
+      const insertDef = this.db.prepare(
+        'INSERT INTO arc_field_defs (id, label, field_type, options, option_colors, display_order, scope) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      );
+      for (const row of mfdRows) {
+        if (!existingIds.has(row.id)) {
+          insertDef.run(row.id, row.label, row.field_type, row.options, row.option_colors, row.display_order, 'scene');
+        }
+      }
+
+      const smvRows = this.db.prepare('SELECT * FROM scene_metadata_values').all() as SceneMetadataValueRow[];
+      const insertVal = this.db.prepare(
+        'INSERT OR IGNORE INTO arc_field_values (entity_type, entity_id, field_def_id, value) VALUES (?, ?, ?, ?)'
+      );
+      for (const row of smvRows) {
+        insertVal.run('scene', row.scene_id, row.field_def_id, row.value);
+      }
+    });
+    tx();
+  }
+
   // ── Arc field defs + values ───────────────────────────────────────────────
   getArcFieldDefs() {
     return this.db.prepare('SELECT * FROM arc_field_defs ORDER BY scope, display_order').all() as ArcFieldDefRow[];
