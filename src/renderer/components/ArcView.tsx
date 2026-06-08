@@ -3,7 +3,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '../dnd';
 import ScenePreviewPanel from './ScenePreviewPanel';
-import { Character, Act, PlotPoint, Scene, CharacterPsychology } from '../../shared/types';
+import { Character, Act, PlotPoint, Scene, CharacterPsychology, ArcFieldDef } from '../../shared/types';
 
 // ── Arc column model ─────────────────────────────────────────────────────────
 // The arc table's content columns (everything right of the pinned Name column).
@@ -11,7 +11,7 @@ import { Character, Act, PlotPoint, Scene, CharacterPsychology } from '../../sha
 // same column list drives the header, every row, AND the grid template — which
 // keeps them aligned by construction.
 type ArcRowKind = 'novel' | 'act' | 'section' | 'scene';
-type ArcColKind = 'text' | 'polarity' | 'words';
+type ArcColKind = 'text' | 'polarity' | 'words' | 'custom';
 interface ArcColumn {
   id: string;
   label: string;
@@ -19,6 +19,7 @@ interface ArcColumn {
   kind: ArcColKind;
   field: string;   // entity field (non-novel name); the novel row uses 'novel' + Capitalized
   center?: boolean;
+  customDef?: ArcFieldDef;
 }
 const ARC_NAME_COL_WIDTH = 240; // pinned first column (default width)
 const ARC_NAME_COL_ID = '__name__'; // reserved width key for the pinned name column
@@ -46,19 +47,17 @@ const ARC_PLACEHOLDERS: Record<ArcRowKind, Record<string, string>> = {
 const ARC_COLS_LS_KEY = 'braidr.arcColumns.v1';
 const ARC_MIN_COL_WIDTH = 80;
 interface ArcColPref { order: string[]; hidden: string[]; widths: Record<string, number>; }
-function loadArcColPref(): ArcColPref {
+function loadArcColPref(allIds: string[]): ArcColPref {
   try {
     const raw = localStorage.getItem(ARC_COLS_LS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<ArcColPref>;
-      const known = new Set(ARC_COL_IDS);
+      const known = new Set(allIds);
       const order = (parsed.order ?? []).filter(id => known.has(id));
-      for (const id of ARC_COL_IDS) if (!order.includes(id)) order.push(id); // append columns added since
+      for (const id of allIds) if (!order.includes(id)) order.push(id);
       const hidden = (parsed.hidden ?? []).filter(id => known.has(id));
       const widths: Record<string, number> = {};
       for (const [id, w] of Object.entries(parsed.widths ?? {})) {
-        // The pinned Name column persists under a reserved key that isn't in
-        // ARC_COL_IDS, so allow it through the filter explicitly.
         if ((known.has(id) || id === ARC_NAME_COL_ID) && typeof w === 'number' && isFinite(w)) {
           widths[id] = Math.max(ARC_MIN_COL_WIDTH, Math.round(w));
         }
@@ -66,7 +65,7 @@ function loadArcColPref(): ArcColPref {
       return { order, hidden, widths };
     }
   } catch { /* ignore corrupt prefs */ }
-  return { order: [...ARC_COL_IDS], hidden: [], widths: {} };
+  return { order: [...allIds], hidden: [], widths: {} };
 }
 function saveArcColPref(order: string[], hidden: Set<string>, widths: Record<string, number>) {
   try { localStorage.setItem(ARC_COLS_LS_KEY, JSON.stringify({ order, hidden: [...hidden], widths })); } catch { /* ignore */ }
@@ -228,6 +227,81 @@ function PolarityCell({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
+function RatingCell({ value, max, onChange }: { value: number; max: number; onChange: (v: number) => void }) {
+  return (
+    <div className="arc-rating-cell">
+      {Array.from({ length: max }, (_, i) => (
+        <span
+          key={i}
+          className={`arc-rating-dot${i < value ? ' filled' : ''}`}
+          onClick={() => onChange(i + 1 === value ? 0 : i + 1)}
+          title={`${i + 1}/${max}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function DropdownCell({ value, options, colors, onChange }: {
+  value: string; options: string[]; colors?: Record<string, string>; onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+  const filtered = options.filter(o => !search || o.toLowerCase().includes(search.toLowerCase()));
+  const pillStyle = value && colors?.[value] ? { background: colors[value], color: '#fff' } : {};
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <span
+        className="arc-pill arc-dropdown-trigger"
+        style={{ ...pillStyle, cursor: 'pointer' }}
+        onClick={() => { setOpen(o => !o); setSearch(''); }}
+      >
+        {value || '—'}
+      </span>
+      {open && (
+        <div className="arc-dropdown-picker">
+          {options.length >= 5 && (
+            <input
+              className="arc-dropdown-search"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search..."
+              autoFocus
+              onClick={e => e.stopPropagation()}
+            />
+          )}
+          <div className="arc-dropdown-list">
+            {filtered.map(opt => (
+              <div
+                key={opt}
+                className="arc-dropdown-opt"
+                style={colors?.[opt] ? { background: colors[opt], color: '#fff' } : {}}
+                onClick={() => { onChange(opt); setOpen(false); }}
+              >
+                {opt}
+              </div>
+            ))}
+            {value && (
+              <div className="arc-dropdown-opt arc-dropdown-clear"
+                onClick={() => { onChange(''); setOpen(false); }}>
+                Clear
+              </div>
+            )}
+            {filtered.length === 0 && <div className="arc-dropdown-empty">No match</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EmptySectionDropZone({ sectionId }: { sectionId: string }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `section-empty:${sectionId}`,
@@ -265,6 +339,10 @@ interface ArcViewProps {
   onDeleteSection: (sectionId: string) => void;
   onSavePsychology: (psychology: CharacterPsychology) => void;
   arcActiveId: string | null;
+  arcFieldDefs: ArcFieldDef[];
+  arcFieldValues: Record<string, Record<string, string | string[]>>;
+  onSaveArcFieldDefs: (defs: ArcFieldDef[]) => void;
+  onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void;
 }
 
 function ActContextMenu({ x, y, onDelete, onClose }: {
@@ -373,6 +451,10 @@ export default function ArcView({
   onDeleteSection,
   onSavePsychology,
   arcActiveId: _arcActiveId,
+  arcFieldDefs,
+  arcFieldValues,
+  onSaveArcFieldDefs,
+  onSaveArcFieldValues,
 }: ArcViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadArcViewPref().collapsed));
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
@@ -380,9 +462,18 @@ export default function ArcView({
   const [sceneContextMenu, setSceneContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
   const [hideActs, setHideActs] = useState(() => loadArcViewPref().hideActs);
   const [hideSections, setHideSections] = useState(() => loadArcViewPref().hideSections);
-  const [columnOrder, setColumnOrder] = useState<string[]>(() => loadArcColPref().order);
-  const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => new Set(loadArcColPref().hidden));
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => loadArcColPref().widths);
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    const allIds = [...ARC_COL_IDS, ...arcFieldDefs.map(d => `cf:${d.id}`)];
+    return loadArcColPref(allIds).order;
+  });
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => {
+    const allIds = [...ARC_COL_IDS, ...arcFieldDefs.map(d => `cf:${d.id}`)];
+    return new Set(loadArcColPref(allIds).hidden);
+  });
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+    const allIds = [...ARC_COL_IDS, ...arcFieldDefs.map(d => `cf:${d.id}`)];
+    return loadArcColPref(allIds).widths;
+  });
   const [dragColId, setDragColId] = useState<string | null>(null);
   const [resizingColId, setResizingColId] = useState<string | null>(null);
   const resizeRef = useRef<{ id: string; startX: number; startW: number } | null>(null);
@@ -402,6 +493,34 @@ export default function ArcView({
     document.addEventListener('keydown', key);
     return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', key); };
   }, [showColMenu]);
+
+  const customColumns: ArcColumn[] = arcFieldDefs.map(def => ({
+    id: `cf:${def.id}`,
+    label: def.label,
+    width: def.type === 'rating' ? 100 : 160,
+    kind: 'custom' as const,
+    field: def.id,
+    center: def.type === 'rating',
+    customDef: def,
+  }));
+  const allColumnById: Record<string, ArcColumn> = {
+    ...ARC_COL_BY_ID,
+    ...Object.fromEntries(customColumns.map(c => [c.id, c])),
+  };
+
+  useEffect(() => {
+    const customIds = arcFieldDefs.map(d => `cf:${d.id}`);
+    const validSet = new Set([...ARC_COL_IDS, ...customIds]);
+    setColumnOrder(prev => {
+      const cleaned = prev.filter(id => validSet.has(id));
+      for (const id of customIds) if (!cleaned.includes(id)) cleaned.push(id);
+      return cleaned;
+    });
+    setHiddenCols(prev => {
+      const validCustom = new Set(customIds);
+      return new Set([...prev].filter(id => !id.startsWith('cf:') || validCustom.has(id)));
+    });
+  }, [arcFieldDefs]);
 
   const character = characters.find(c => c.id === selectedCharacterId);
   const charColor = characterColors[selectedCharacterId] || '#6366f1';
@@ -448,7 +567,7 @@ export default function ArcView({
 
   // Visible columns in user order; drives header, rows, and the grid template.
   const visibleColumns = columnOrder
-    .map(id => ARC_COL_BY_ID[id])
+    .map(id => allColumnById[id])
     .filter((c): c is ArcColumn => !!c && !hiddenCols.has(c.id));
   const colWidth = (col: ArcColumn) => columnWidths[col.id] ?? col.width;
   const nameColWidth = columnWidths[ARC_NAME_COL_ID] ?? ARC_NAME_COL_WIDTH;
@@ -475,7 +594,11 @@ export default function ArcView({
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
-  const resetColumns = () => { setColumnOrder([...ARC_COL_IDS]); setHiddenCols(new Set()); setColumnWidths({}); };
+  const resetColumns = () => {
+    setColumnOrder([...ARC_COL_IDS, ...arcFieldDefs.map(d => `cf:${d.id}`)]);
+    setHiddenCols(new Set());
+    setColumnWidths({});
+  };
 
   // Drag the right edge of a header to resize that column (works for the pinned
   // name column too). Uses document-level listeners so the drag keeps tracking
@@ -503,6 +626,58 @@ export default function ArcView({
 
   // Render the content cells (everything right of the Name column) for one row.
   const renderArcCells = (kind: ArcRowKind, entity: any) => visibleColumns.map(col => {
+    if (col.kind === 'custom') {
+      if (kind === 'novel' || kind === 'scene') {
+        return <div key={col.id} className="arc-cell" />;
+      }
+      const def = col.customDef!;
+      const valuesKey = `${kind}:${entity.id}`;
+      const entityValues = arcFieldValues[valuesKey] ?? {};
+      const rawValue = entityValues[def.id];
+      const strValue = String(rawValue ?? '');
+      const arrValue = Array.isArray(rawValue) ? rawValue : [];
+      const onChangeCustom = (v: string | string[]) => {
+        onSaveArcFieldValues(kind as 'act' | 'section', entity.id, { ...entityValues, [def.id]: v });
+      };
+      if (def.type === 'text' || def.type === 'number') {
+        return (
+          <div key={col.id} className="arc-cell">
+            <EditableCell value={strValue} placeholder="" onChange={v => onChangeCustom(v)} multiline={def.type === 'text'} />
+          </div>
+        );
+      }
+      if (def.type === 'rating') {
+        return (
+          <div key={col.id} className="arc-cell arc-rating-col">
+            <RatingCell value={parseInt(strValue, 10) || 0} max={def.ratingMax ?? 5} onChange={v => onChangeCustom(String(v))} />
+          </div>
+        );
+      }
+      if (def.type === 'dropdown') {
+        return (
+          <div key={col.id} className="arc-cell arc-custom-col">
+            <DropdownCell value={strValue} options={def.options ?? []} colors={def.optionColors} onChange={v => onChangeCustom(v)} />
+          </div>
+        );
+      }
+      if (def.type === 'multiselect') {
+        return (
+          <div key={col.id} className="arc-cell arc-custom-col">
+            <div className="arc-ms-display">
+              {arrValue.length > 0
+                ? arrValue.map(v => (
+                    <span key={v} className="arc-pill"
+                      style={def.optionColors?.[v] ? { background: def.optionColors[v], color: '#fff' } : {}}>
+                      {v}
+                    </span>
+                  ))
+                : <span className="arc-cell-empty">—</span>}
+            </div>
+          </div>
+        );
+      }
+      return <div key={col.id} className="arc-cell" />;
+    }
     if (col.kind === 'words') {
       const wc = kind === 'novel' ? novelWc()
         : kind === 'act' ? actWc(entity.id)
@@ -687,6 +862,18 @@ export default function ArcView({
                   <span>{ARC_COL_BY_ID[id].label}</span>
                 </label>
               ))}
+              {customColumns.length > 0 && (
+                <>
+                  <div className="arc-col-menu-divider" />
+                  <div className="arc-col-menu-section-label">Custom</div>
+                  {customColumns.map(col => (
+                    <label key={col.id} className="arc-col-menu-item">
+                      <input type="checkbox" checked={!hiddenCols.has(col.id)} onChange={() => toggleColumn(col.id)} />
+                      <span>{col.label}</span>
+                    </label>
+                  ))}
+                </>
+              )}
               <div className="arc-col-menu-divider" />
               <button className="arc-col-menu-reset" onClick={resetColumns}>Reset columns</button>
             </div>
