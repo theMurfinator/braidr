@@ -9146,6 +9146,12 @@ textarea.editor-meta-field-input {
   color: #e94560;
 }
 
+.meta-field-editor-toggle {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 12px; cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.meta-field-editor-toggle:hover { color: var(--text-primary); }
+
 .meta-field-editor-add {
   display: block;
   width: 100%;

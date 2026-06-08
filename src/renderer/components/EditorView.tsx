@@ -1128,6 +1128,22 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   // Metadata field editor
   const [editingFieldDefs, setEditingFieldDefs] = useState<MetadataFieldDef[]>([]);
 
+  const HIDDEN_SCENE_FIELDS_KEY = sk('hidden-scene-field-ids');
+  const [hiddenSceneFieldIds, setHiddenSceneFieldIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(HIDDEN_SCENE_FIELDS_KEY);
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
+  const toggleSceneFieldHidden = (id: string) => {
+    setHiddenSceneFieldIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem(HIDDEN_SCENE_FIELDS_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
   const openMetaEditor = () => {
     setEditingFieldDefs(metadataFieldDefs.filter(f => f.id !== '_status'));
     setShowMetaEditor(true);
@@ -1949,7 +1965,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
               </div>
               <div className="editor-meta-fields">
                 {(() => {
-                  const sortedFields = metadataFieldDefs.filter(f => f.id !== '_status').sort((a, b) => a.order - b.order);
+                  const sortedFields = metadataFieldDefs.filter(f => f.id !== '_status' && !hiddenSceneFieldIds.has(f.id)).sort((a, b) => a.order - b.order);
                   return sortedFields.map((field, idx) => (
                   <div
                     key={field.id}
@@ -2022,7 +2038,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                   </div>
                 ));
                 })()}
-                {metadataFieldDefs.filter(f => f.id !== '_status').length === 0 && (
+                {metadataFieldDefs.filter(f => f.id !== '_status' && !hiddenSceneFieldIds.has(f.id)).length === 0 && (
                   <p className="editor-meta-empty">No properties yet. Click "Edit..." to add some.</p>
                 )}
               </div>
@@ -2102,6 +2118,12 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                       <option value="dropdown">Dropdown</option>
                       <option value="multiselect">Multiselect</option>
                     </select>
+                    <button
+                      className="meta-field-editor-toggle"
+                      onClick={() => toggleSceneFieldHidden(field.id)}
+                      title={hiddenSceneFieldIds.has(field.id) ? 'Show field' : 'Hide field'}
+                      type="button"
+                    >{hiddenSceneFieldIds.has(field.id) ? '○' : '●'}</button>
                     <button className="meta-field-editor-remove" onClick={() => removeField(field.id)}>×</button>
                   </div>
                   {(field.type === 'dropdown' || field.type === 'multiselect') && (
