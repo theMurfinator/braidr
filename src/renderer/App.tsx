@@ -3873,6 +3873,9 @@ function App() {
                 tasks={tasks}
                 onTasksChange={handleTasksChange}
                 chapters={chapters}
+                arcFieldDefs={arcFieldDefs}
+                onSaveSceneFieldDefs={handleSaveSceneFieldDefs}
+                onSaveSceneFieldValues={handleSaveSceneFieldValues}
               />
             ) : mode === 'arc' ? (
               // Arc Planning View

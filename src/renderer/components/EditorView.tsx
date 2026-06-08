@@ -8,12 +8,14 @@ import Heading from '@tiptap/extension-heading';
 import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, DraftVersion, NoteMetadata, SceneComment, Task, TaskStatus, Chapter } from '../../shared/types';
+import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, ArcFieldDef, DraftVersion, NoteMetadata, SceneComment, Task, TaskStatus, Chapter } from '../../shared/types';
 import { SceneTodo, getTodosForScene } from '../utils/parseTodoWidgets';
 import { SceneSession, getSceneSessionTotals } from '../utils/analyticsStore';
 import SceneSubEditor from './SceneSubEditor';
 import { htmlToNotes, notesToHtml } from '../utils/notesHtml';
 import { OptionEditor, OPTION_COLORS } from './OptionEditor';
+import ArcDetailModal from './ArcDetailModal';
+import type { DetailField, FieldRender } from './ArcDetailModal';
 
 interface EditorViewProps {
   scenes: Scene[];
@@ -69,6 +71,9 @@ interface EditorViewProps {
   onTasksChange?: (tasks: Task[]) => void;
   storagePrefix?: string;
   chapters?: Chapter[];
+  arcFieldDefs?: ArcFieldDef[];
+  onSaveSceneFieldDefs?: (defs: ArcFieldDef[]) => void;
+  onSaveSceneFieldValues?: (sceneId: string, values: Record<string, string | string[]>) => void;
 }
 
 export interface EditorViewHandle {
@@ -236,6 +241,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   onTasksChange,
   storagePrefix,
   chapters,
+  arcFieldDefs,
+  onSaveSceneFieldDefs,
+  onSaveSceneFieldValues,
 }, ref) {
   const sk = (key: string) => storagePrefix ? `${key}-${storagePrefix}` : key;
   const [selectedCharFilter, setSelectedCharFilter] = useState<string>('all');
@@ -245,6 +253,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   const [selectedSceneKey, setSelectedSceneKey] = useState<string | null>(null);
   const [selectedScene, setSelectedScene] = useState<Scene | null>(null);
   const [showMetaEditor, setShowMetaEditor] = useState(false);
+  const [sceneDetailOpen, setSceneDetailOpen] = useState(false);
   const [showMeta, setShowMeta] = useState(() => {
     const saved = localStorage.getItem(sk('editor-show-meta'));
     return saved !== null ? JSON.parse(saved) : true;
@@ -1182,6 +1191,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   };
 
   return (
+    <>
     <div ref={editorViewRef} className="editor-view" style={{ display: 'flex', flex: 1, height: '100%', minHeight: 0, width: '100%' }}>
       {/* Left: Scene Navigator */}
       {showNav && <div className="editor-nav" style={{ width: navWidth }}>
@@ -1930,7 +1940,12 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
             <div className="editor-meta-section">
               <div className="editor-meta-label-row">
                 <h4 className="editor-meta-label">Properties</h4>
-                <button className="editor-meta-edit-btn" onClick={openMetaEditor}>Edit...</button>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {arcFieldDefs && arcFieldDefs.filter(d => d.scope === 'scene').length > 0 && (
+                    <button className="editor-meta-edit-btn" onClick={() => setSceneDetailOpen(true)} title="Expand fields" type="button">&#8862;</button>
+                  )}
+                  <button className="editor-meta-edit-btn" onClick={openMetaEditor}>Edit...</button>
+                </div>
               </div>
               <div className="editor-meta-fields">
                 {(() => {
@@ -2261,6 +2276,38 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
         );
       })()}
     </div>
+    {sceneDetailOpen && selectedSceneKey && arcFieldDefs && onSaveSceneFieldDefs && onSaveSceneFieldValues && (() => {
+      const sceneDefs = arcFieldDefs.filter(d => d.scope === 'scene');
+      const sceneId = selectedSceneKey;
+      const sceneValues = sceneMetadata[sceneId] ?? {};
+      const fields: DetailField[] = sceneDefs.map(def => {
+        const render: FieldRender = def.type === 'dropdown'
+          ? { kind: 'dropdown', options: def.options ?? [], colors: def.optionColors }
+          : def.type === 'multiselect'
+          ? { kind: 'multiselect', options: def.options ?? [], colors: def.optionColors }
+          : def.type === 'number'
+          ? { kind: 'number' }
+          : { kind: 'text' };
+        return {
+          id: def.id, label: def.label, icon: '·', render,
+          value: sceneValues[def.id] ?? (def.type === 'multiselect' ? [] : ''),
+          onChange: (v: string | string[]) => onSaveSceneFieldValues!(sceneId, { ...sceneValues, [def.id]: v }),
+          builtin: false,
+        };
+      });
+      return (
+        <ArcDetailModal
+          title={selectedScene?.title || 'Scene details'}
+          subtitle="Scene"
+          fields={fields}
+          arcFieldDefs={sceneDefs}
+          onSaveDefs={onSaveSceneFieldDefs!}
+          onClose={() => setSceneDetailOpen(false)}
+          storageKey="arc-field-order:scene"
+        />
+      );
+    })()}
+    </>
   );
 });
 
