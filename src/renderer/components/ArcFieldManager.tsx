@@ -25,11 +25,15 @@ interface FieldForm {
 }
 
 function blankForm(base?: Partial<ArcFieldDef>): FieldForm {
+  const opts = base?.options ?? [''];
+  const labelColors = base?.optionColors ?? {};
+  const optionColors: Record<string, string> = {};
+  opts.forEach((label, i) => { if (labelColors[label]) optionColors[String(i)] = labelColors[label]; });
   return {
     label: base?.label ?? '',
     type: base?.type ?? 'text',
-    options: base?.options ?? [''],
-    optionColors: base?.optionColors ?? {},
+    options: opts,
+    optionColors,
     ratingMax: base?.ratingMax ?? 5,
   };
 }
@@ -68,16 +72,21 @@ export default function ArcFieldManager({ defs, onSave, onBack }: ArcFieldManage
     if (!form.label.trim()) return;
     const isDropdownType = form.type === 'dropdown' || form.type === 'multiselect';
     const options = isDropdownType ? form.options.map(o => o.trim()).filter(Boolean) : undefined;
-    const optionColors = isDropdownType ? form.optionColors : undefined;
+    const optionColors = isDropdownType
+      ? Object.fromEntries(
+          form.options
+            .map((o, i) => [o.trim(), form.optionColors[String(i)]])
+            .filter(([label, color]) => label && color)
+        )
+      : undefined;
     const ratingMax = form.type === 'rating' ? Math.max(1, Math.min(10, form.ratingMax)) : undefined;
 
     if (editingId) {
-      const updated = localDefs.map(d =>
+      const next = localDefs.map(d =>
         d.id === editingId
           ? { ...d, label: form.label.trim(), type: form.type, options, optionColors, ratingMax }
           : d
       );
-      const next = updated;
       setLocalDefs(next);
       onSave(next);
     } else {
@@ -118,9 +127,11 @@ export default function ArcFieldManager({ defs, onSave, onBack }: ArcFieldManage
   }
 
   function setOption(i: number, v: string) {
-    const opts = [...form.options];
-    opts[i] = v;
-    setForm(f => ({ ...f, options: opts }));
+    setForm(f => {
+      const opts = [...f.options];
+      opts[i] = v;
+      return { ...f, options: opts };
+    });
   }
 
   function addOption() {
@@ -131,8 +142,8 @@ export default function ArcFieldManager({ defs, onSave, onBack }: ArcFieldManage
     setForm(f => ({ ...f, options: f.options.filter((_, j) => j !== i) }));
   }
 
-  function setOptionColor(optLabel: string, color: string) {
-    setForm(f => ({ ...f, optionColors: { ...f.optionColors, [optLabel]: color } }));
+  function setOptionColor(optIdx: number, color: string) {
+    setForm(f => ({ ...f, optionColors: { ...f.optionColors, [String(optIdx)]: color } }));
   }
 
   const isDropdownType = form.type === 'dropdown' || form.type === 'multiselect';
@@ -146,7 +157,7 @@ export default function ArcFieldManager({ defs, onSave, onBack }: ArcFieldManage
       </div>
 
       {showForm && (
-        <div className="arc-fm-form" onKeyDown={e => { if (e.key === 'Escape') cancelForm(); }}>
+        <div className="arc-fm-form">
           <div className="arc-fm-form-row">
             <label className="arc-fm-label">Field name</label>
             <input
@@ -179,7 +190,7 @@ export default function ArcFieldManager({ defs, onSave, onBack }: ArcFieldManage
                 min={1}
                 max={10}
                 value={form.ratingMax}
-                onChange={e => setForm(f => ({ ...f, ratingMax: parseInt(e.target.value) || 5 }))}
+                onChange={e => setForm(f => ({ ...f, ratingMax: parseInt(e.target.value, 10) || 5 }))}
               />
             </div>
           )}
@@ -199,9 +210,9 @@ export default function ArcFieldManager({ defs, onSave, onBack }: ArcFieldManage
                       {OPTION_COLORS.map(c => (
                         <span
                           key={c}
-                          className={`arc-fm-swatch${form.optionColors[opt] === c ? ' selected' : ''}`}
+                          className={`arc-fm-swatch${form.optionColors[String(i)] === c ? ' selected' : ''}`}
                           style={{ background: c }}
-                          onClick={() => setOptionColor(opt, form.optionColors[opt] === c ? '' : c)}
+                          onClick={() => setOptionColor(i, form.optionColors[String(i)] === c ? '' : c)}
                         />
                       ))}
                     </div>
