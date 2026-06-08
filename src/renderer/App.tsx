@@ -1142,8 +1142,28 @@ function App() {
 
     setSceneMetadata(loadedMetaData);
     sceneMetadataRef.current = loadedMetaData;
-    setArcFieldDefs(data.arcFieldDefs ?? []);
-    setArcFieldValues(data.arcFieldValues ?? {});
+    const loadedArcFieldDefs = data.arcFieldDefs ?? [];
+    const loadedArcFieldValues = data.arcFieldValues ?? {};
+    setArcFieldDefs(loadedArcFieldDefs);
+    setArcFieldValues(loadedArcFieldValues);
+
+    // Derive backward-compat scene metadata state from unified arc tables (post-migration)
+    const sceneDefs = loadedArcFieldDefs.filter(d => d.scope === 'scene');
+    if (sceneDefs.length > 0) {
+      const derivedMetaDefs: MetadataFieldDef[] = sceneDefs.map(d => ({
+        id: d.id, label: d.label,
+        type: d.type as MetadataFieldDef['type'],
+        options: d.options, optionColors: d.optionColors, order: d.order,
+      }));
+      setMetadataFieldDefs(derivedMetaDefs);
+      metadataFieldDefsRef.current = derivedMetaDefs;
+      const derivedSceneMeta: Record<string, Record<string, string | string[]>> = {};
+      for (const [key, vals] of Object.entries(loadedArcFieldValues)) {
+        if (key.startsWith('scene:')) derivedSceneMeta[key.slice(6)] = vals;
+      }
+      setSceneMetadata(derivedSceneMeta);
+      sceneMetadataRef.current = derivedSceneMeta;
+    }
     setDraftContent(loadedDraft);
     draftContentRef.current = loadedDraft;
     setScratchpadContent(loadedScratchpad);
@@ -1788,6 +1808,36 @@ function App() {
       await dataService.saveArcFieldValues(entityType, entityId, values);
     } catch {
       addToast('Could not save field values');
+    }
+  }, []);
+
+  const handleSaveSceneFieldDefs = useCallback(async (defs: ArcFieldDef[]) => {
+    // Update arcFieldDefs: replace scene-scoped entries, keep arc-scoped
+    setArcFieldDefs(prev => [...prev.filter(d => d.scope !== 'scene'), ...defs]);
+    // Keep metadataFieldDefs in sync for TableView/CompileModal backward compat
+    const metaDefs: MetadataFieldDef[] = defs.map(d => ({
+      id: d.id, label: d.label,
+      type: d.type as MetadataFieldDef['type'],
+      options: d.options, optionColors: d.optionColors, order: d.order,
+    }));
+    setMetadataFieldDefs(metaDefs);
+    metadataFieldDefsRef.current = metaDefs;
+    try {
+      await dataService.saveArcFieldDefs(defs);
+    } catch {
+      addToast('Could not save scene field definitions');
+    }
+  }, []);
+
+  const handleSaveSceneFieldValues = useCallback(async (sceneId: string, values: Record<string, string | string[]>) => {
+    setArcFieldValues(prev => ({ ...prev, [`scene:${sceneId}`]: values }));
+    // Keep sceneMetadata in sync for TableView/CompileModal backward compat
+    setSceneMetadata(prev => ({ ...prev, [sceneId]: values }));
+    sceneMetadataRef.current = { ...sceneMetadataRef.current, [sceneId]: values };
+    try {
+      await dataService.saveArcFieldValues('scene', sceneId, values);
+    } catch {
+      addToast('Could not save scene field values');
     }
   }, []);
 
@@ -2631,8 +2681,7 @@ function App() {
         wordCounts: sceneWordCounts,
         fontSettings: allFontSettingsRef.current.global,
         archivedScenes: archivedScenesRef.current,
-        metadataFieldDefs: metadataFieldDefsRef.current,
-        sceneMetadata: metaForSave,
+        // Scene metadata now managed via braidrSaveArcFieldDefs/braidrSaveArcFieldValues — no-op in applySaveTimeline
         wordCountGoal: wordCountGoalRef.current,
         allFontSettings: allFontSettingsRef.current,
         tasks: tasksRef.current,
