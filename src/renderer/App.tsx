@@ -3292,14 +3292,16 @@ function App() {
   };
 
   const handleMetadataChange = async (sceneKey: string, fieldId: string, value: string | string[]) => {
-    const updated = {
-      ...sceneMetadataRef.current,
-      [sceneKey]: { ...(sceneMetadataRef.current[sceneKey] || {}), [fieldId]: value },
-    };
+    const sceneValues = { ...(sceneMetadataRef.current[sceneKey] || {}), [fieldId]: value };
+    const updated = { ...sceneMetadataRef.current, [sceneKey]: sceneValues };
     setSceneMetadata(updated);
     sceneMetadataRef.current = updated;
-    if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections);
+    // Also keep arcFieldValues in sync and persist via arc IPC
+    setArcFieldValues(prev => ({ ...prev, [`scene:${sceneKey}`]: sceneValues }));
+    try {
+      await dataService.saveArcFieldValues('scene', sceneKey, sceneValues);
+    } catch {
+      addToast('Could not save scene metadata');
     }
   };
 
@@ -3322,8 +3324,16 @@ function App() {
   const handleMetadataFieldDefsChange = async (defs: MetadataFieldDef[]) => {
     setMetadataFieldDefs(defs);
     metadataFieldDefsRef.current = defs;
-    if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections);
+    // Keep arcFieldDefs in sync and persist via arc IPC
+    const arcDefs: ArcFieldDef[] = defs.map(d => ({
+      id: d.id, label: d.label, type: d.type as ArcFieldDef['type'],
+      options: d.options, optionColors: d.optionColors, order: d.order, scope: 'scene' as const,
+    }));
+    setArcFieldDefs(prev => [...prev.filter(d => d.scope !== 'scene'), ...arcDefs]);
+    try {
+      await dataService.saveArcFieldDefs(arcDefs);
+    } catch {
+      addToast('Could not save scene field definitions');
     }
   };
 
