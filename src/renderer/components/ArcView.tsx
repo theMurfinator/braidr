@@ -91,7 +91,6 @@ function buildActDetailFields(
   arcFieldValues: Record<string, Record<string, string | string[]>>,
   onSaveAct: (act: Act) => void,
   onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void,
-  hiddenBuiltinIds: Set<string> = new Set()
 ): DetailField[] {
   const entityValues = arcFieldValues[`act:${act.id}`] ?? {};
   const builtins: DetailField[] = [
@@ -111,7 +110,7 @@ function buildActDetailFields(
     onChange: (v: string | string[]) => onSaveArcFieldValues('act', act.id, { ...entityValues, [def.id]: v }),
     builtin: false,
   }));
-  return [...builtins.filter(f => !hiddenBuiltinIds.has(f.id)), ...custom];
+  return [...builtins, ...custom];
 }
 
 function buildSectionDetailFields(
@@ -120,7 +119,6 @@ function buildSectionDetailFields(
   arcFieldValues: Record<string, Record<string, string | string[]>>,
   onSavePlotPointArcFields: (id: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description' | 'synopsis'>>) => void,
   onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void,
-  hiddenBuiltinIds: Set<string> = new Set()
 ): DetailField[] {
   const entityValues = arcFieldValues[`section:${pp.id}`] ?? {};
   const builtins: DetailField[] = [
@@ -141,7 +139,7 @@ function buildSectionDetailFields(
     onChange: (v: string | string[]) => onSaveArcFieldValues('section', pp.id, { ...entityValues, [def.id]: v }),
     builtin: false,
   }));
-  return [...builtins.filter(f => !hiddenBuiltinIds.has(f.id)), ...custom];
+  return [...builtins, ...custom];
 }
 
 // Hidden builtin field IDs — persisted per view.
@@ -1061,7 +1059,7 @@ export default function ArcView({
             <ArcDetailModal
               title={act.name || 'Unnamed act'}
               subtitle="Act"
-              fields={buildActDetailFields(act, arcFieldDefs, arcFieldValues, onSaveAct, onSaveArcFieldValues, hiddenBuiltinIds)}
+              fields={buildActDetailFields(act, arcFieldDefs, arcFieldValues, onSaveAct, onSaveArcFieldValues)}
               arcFieldDefs={arcFieldDefs}
               onSaveDefs={onSaveArcFieldDefs}
               onClose={() => setOpenModal(null)}
@@ -1083,7 +1081,7 @@ export default function ArcView({
             <ArcDetailModal
               title={pp.title || 'Unnamed section'}
               subtitle="Section"
-              fields={buildSectionDetailFields(pp, arcFieldDefs, arcFieldValues, onSavePlotPointArcFields, onSaveArcFieldValues, hiddenBuiltinIds)}
+              fields={buildSectionDetailFields(pp, arcFieldDefs, arcFieldValues, onSavePlotPointArcFields, onSaveArcFieldValues)}
               arcFieldDefs={arcFieldDefs}
               onSaveDefs={onSaveArcFieldDefs}
               onClose={() => setOpenModal(null)}

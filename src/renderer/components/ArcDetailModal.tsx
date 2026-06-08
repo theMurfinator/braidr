@@ -609,8 +609,8 @@ export default function ArcDetailModal({
                 />
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={orderedFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
-                    {orderedFields.map(f => (
+                  <SortableContext items={orderedFields.filter(f => !f.builtin || !hiddenBuiltinIds?.has(f.id)).map(f => f.id)} strategy={verticalListSortingStrategy}>
+                    {orderedFields.filter(f => !f.builtin || !hiddenBuiltinIds?.has(f.id)).map(f => (
                       <FieldRow
                         key={f.id}
                         field={f}

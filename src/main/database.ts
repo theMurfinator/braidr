@@ -922,13 +922,16 @@ export class BraidrDB {
   }
 
   replaceArcFieldDefs(defs: ArcFieldDefRow[]) {
-    // Scope-aware replace: only delete defs of the same scope as those being saved.
+    // Scope-aware replace: only delete/insert defs of the same scope as those being saved.
     // This prevents arc-scoped saves from wiping scene-scoped defs and vice versa.
+    // Filter inserts to matching scope so mixed-scope arrays from the renderer don't
+    // cause UNIQUE constraint violations on defs from the other scope still in the DB.
     const scope = defs[0]?.scope ?? 'arc';
+    const scopedDefs = defs.filter(d => (d.scope ?? 'arc') === scope);
     const insert = this.db.prepare('INSERT INTO arc_field_defs (id, label, field_type, options, option_colors, rating_max, display_order, scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
     this.db.transaction(() => {
       this.db.prepare('DELETE FROM arc_field_defs WHERE scope = ?').run(scope);
-      for (const d of defs) insert.run(d.id, d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order, d.scope ?? 'arc');
+      for (const d of scopedDefs) insert.run(d.id, d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order, d.scope ?? 'arc');
     })();
   }
 
