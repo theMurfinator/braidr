@@ -20827,6 +20827,13 @@ textarea.table-cell-input {
 }
 .arc-dm-drag-handle:hover { opacity: 1; }
 .arc-dm-drag-handle:active { cursor: grabbing; }
+.arc-dm-hide-btn {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  font-size: 11px; color: var(--text-muted); padding: 0 0 0 6px;
+  opacity: 0; transition: opacity 0.1s;
+}
+.arc-dm-field-row:hover .arc-dm-hide-btn { opacity: 0.5; }
+.arc-dm-hide-btn:hover { opacity: 1 !important; color: var(--text-primary); }
 .arc-dm-field-row:last-child { border-bottom: none; }
 .arc-dm-field-label {
   width: 160px; flex-shrink: 0; display: flex; align-items: center; padding-top: 2px;

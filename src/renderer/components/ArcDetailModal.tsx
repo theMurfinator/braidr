@@ -278,7 +278,7 @@ function NumberField({ value, onChange }: { value: string; onChange: (v: string)
 }
 
 // ── Field row ─────────────────────────────────────────────────────────────────
-function FieldRow({ field, sortable: isSortable }: { field: DetailField; sortable?: boolean }) {
+function FieldRow({ field, sortable: isSortable, onHide }: { field: DetailField; sortable?: boolean; onHide?: () => void }) {
   const {
     attributes,
     listeners,
@@ -324,6 +324,9 @@ function FieldRow({ field, sortable: isSortable }: { field: DetailField; sortabl
         <span className="arc-dm-field-name">{field.label}</span>
       </div>
       <div className="arc-dm-field-value">{control}</div>
+      {onHide && (
+        <button className="arc-dm-hide-btn" onClick={onHide} type="button" title="Hide field">&#9673;</button>
+      )}
     </div>
   );
 }
@@ -434,7 +437,14 @@ export default function ArcDetailModal({
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={orderedFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
-                {orderedFields.map(f => <FieldRow key={f.id} field={f} sortable />)}
+                {orderedFields.map(f => (
+                  <FieldRow
+                    key={f.id}
+                    field={f}
+                    sortable
+                    onHide={f.builtin && onToggleBuiltin ? () => onToggleBuiltin(f.id) : undefined}
+                  />
+                ))}
               </SortableContext>
             </DndContext>
           )}
