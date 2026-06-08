@@ -90,7 +90,8 @@ function buildActDetailFields(
   arcFieldDefs: ArcFieldDef[],
   arcFieldValues: Record<string, Record<string, string | string[]>>,
   onSaveAct: (act: Act) => void,
-  onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void
+  onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void,
+  hiddenBuiltinIds: Set<string> = new Set()
 ): DetailField[] {
   const entityValues = arcFieldValues[`act:${act.id}`] ?? {};
   const builtins: DetailField[] = [
@@ -110,7 +111,7 @@ function buildActDetailFields(
     onChange: (v: string | string[]) => onSaveArcFieldValues('act', act.id, { ...entityValues, [def.id]: v }),
     builtin: false,
   }));
-  return [...builtins, ...custom];
+  return [...builtins.filter(f => !hiddenBuiltinIds.has(f.id)), ...custom];
 }
 
 function buildSectionDetailFields(
@@ -118,7 +119,8 @@ function buildSectionDetailFields(
   arcFieldDefs: ArcFieldDef[],
   arcFieldValues: Record<string, Record<string, string | string[]>>,
   onSavePlotPointArcFields: (id: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description' | 'synopsis'>>) => void,
-  onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void
+  onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void,
+  hiddenBuiltinIds: Set<string> = new Set()
 ): DetailField[] {
   const entityValues = arcFieldValues[`section:${pp.id}`] ?? {};
   const builtins: DetailField[] = [
@@ -139,7 +141,19 @@ function buildSectionDetailFields(
     onChange: (v: string | string[]) => onSaveArcFieldValues('section', pp.id, { ...entityValues, [def.id]: v }),
     builtin: false,
   }));
-  return [...builtins, ...custom];
+  return [...builtins.filter(f => !hiddenBuiltinIds.has(f.id)), ...custom];
+}
+
+// Hidden builtin field IDs — persisted per view.
+const ARC_HIDDEN_BUILTINS_KEY = 'arc-hidden-builtin-ids';
+function loadHiddenBuiltins(): Set<string> {
+  try {
+    const raw = localStorage.getItem(ARC_HIDDEN_BUILTINS_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch { return new Set(); }
+}
+function saveHiddenBuiltins(ids: Set<string>) {
+  try { localStorage.setItem(ARC_HIDDEN_BUILTINS_KEY, JSON.stringify([...ids])); } catch { /* ignore */ }
 }
 
 // Arc view layout state (hide-acts/sections toggles + which acts/sections are
@@ -527,6 +541,7 @@ export default function ArcView({
   onSaveArcFieldValues,
 }: ArcViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadArcViewPref().collapsed));
+  const [hiddenBuiltinIds, setHiddenBuiltinIds] = useState<Set<string>>(() => loadHiddenBuiltins());
   const [openModal, setOpenModal] = useState<{ kind: 'act' | 'section'; id: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
@@ -609,6 +624,15 @@ export default function ArcView({
   const savePsych = (update: Partial<CharacterPsychology>) => {
     onSavePsychology({ ...(psych || emptyPsych(selectedCharacterId)), ...update });
   };
+
+  function handleToggleBuiltin(id: string) {
+    setHiddenBuiltinIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      saveHiddenBuiltins(next);
+      return next;
+    });
+  }
 
   const sortedActs = [...acts].sort((a, b) => a.order - b.order);
   // "Collapse all" targets every act and every section (plot point under an act).
@@ -1027,11 +1051,13 @@ export default function ArcView({
             <ArcDetailModal
               title={act.name || 'Unnamed act'}
               subtitle="Act"
-              fields={buildActDetailFields(act, arcFieldDefs, arcFieldValues, onSaveAct, onSaveArcFieldValues)}
+              fields={buildActDetailFields(act, arcFieldDefs, arcFieldValues, onSaveAct, onSaveArcFieldValues, hiddenBuiltinIds)}
               arcFieldDefs={arcFieldDefs}
               onSaveDefs={onSaveArcFieldDefs}
               onClose={() => setOpenModal(null)}
               storageKey="arc-field-order:act"
+              hiddenBuiltinIds={hiddenBuiltinIds}
+              onToggleBuiltin={handleToggleBuiltin}
             />
           );
         }
@@ -1042,11 +1068,13 @@ export default function ArcView({
             <ArcDetailModal
               title={pp.title || 'Unnamed section'}
               subtitle="Section"
-              fields={buildSectionDetailFields(pp, arcFieldDefs, arcFieldValues, onSavePlotPointArcFields, onSaveArcFieldValues)}
+              fields={buildSectionDetailFields(pp, arcFieldDefs, arcFieldValues, onSavePlotPointArcFields, onSaveArcFieldValues, hiddenBuiltinIds)}
               arcFieldDefs={arcFieldDefs}
               onSaveDefs={onSaveArcFieldDefs}
               onClose={() => setOpenModal(null)}
               storageKey="arc-field-order:section"
+              hiddenBuiltinIds={hiddenBuiltinIds}
+              onToggleBuiltin={handleToggleBuiltin}
             />
           );
         }

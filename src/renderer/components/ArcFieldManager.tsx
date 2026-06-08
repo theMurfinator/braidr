@@ -38,13 +38,18 @@ function blankForm(base?: Partial<ArcFieldDef>): FieldForm {
   };
 }
 
+interface BuiltinFieldRef { id: string; label: string; }
+
 interface ArcFieldManagerProps {
   defs: ArcFieldDef[];
   onSave: (defs: ArcFieldDef[]) => void;
   onBack: () => void;
+  builtinFields?: BuiltinFieldRef[];
+  hiddenBuiltinIds?: Set<string>;
+  onToggleBuiltin?: (id: string) => void;
 }
 
-export default function ArcFieldManager({ defs, onSave, onBack }: ArcFieldManagerProps) {
+export default function ArcFieldManager({ defs, onSave, onBack, builtinFields = [], hiddenBuiltinIds = new Set(), onToggleBuiltin }: ArcFieldManagerProps) {
   const [localDefs, setLocalDefs] = useState<ArcFieldDef[]>(defs);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -237,6 +242,31 @@ export default function ArcFieldManager({ defs, onSave, onBack }: ArcFieldManage
               {editingId ? 'Save' : 'Create'}
             </button>
           </div>
+        </div>
+      )}
+
+      {builtinFields.length > 0 && (
+        <div className="arc-fm-builtin-section">
+          <div className="arc-fm-builtin-header">Built-in fields</div>
+          {builtinFields.map(bf => (
+            <div key={bf.id} className="arc-fm-def-row">
+              <div className="arc-fm-def-info">
+                <span className="arc-fm-def-label">{bf.label}</span>
+                <span className="arc-fm-def-type">built-in</span>
+              </div>
+              <div className="arc-fm-def-actions">
+                <button
+                  className="arc-fm-icon-btn"
+                  onClick={() => onToggleBuiltin?.(bf.id)}
+                  type="button"
+                  title={hiddenBuiltinIds.has(bf.id) ? 'Show field' : 'Hide field'}
+                >
+                  {hiddenBuiltinIds.has(bf.id) ? '○' : '●'}
+                </button>
+              </div>
+            </div>
+          ))}
+          <div className="arc-fm-builtin-divider" />
         </div>
       )}
 

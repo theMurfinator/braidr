@@ -38,6 +38,8 @@ interface ArcDetailModalProps {
   onSaveDefs: (defs: ArcFieldDef[]) => void;
   onClose: () => void;
   storageKey?: string;
+  hiddenBuiltinIds?: Set<string>;
+  onToggleBuiltin?: (id: string) => void;
 }
 
 // ── Polarity picker (mirrored from ArcView) ───────────────────────────────────
@@ -335,9 +337,12 @@ export default function ArcDetailModal({
   onSaveDefs,
   onClose,
   storageKey,
+  hiddenBuiltinIds,
+  onToggleBuiltin,
 }: ArcDetailModalProps) {
   const [showManager, setShowManager] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const builtinRefs = fields.filter(f => f.builtin).map(f => ({ id: f.id, label: f.label }));
 
   // Ordered fields state — initialized with saved order from localStorage if available
   const [orderedFields, setOrderedFields] = useState<DetailField[]>(() => {
@@ -422,6 +427,9 @@ export default function ArcDetailModal({
               defs={arcFieldDefs}
               onSave={defs => onSaveDefs(defs)}
               onBack={() => setShowManager(false)}
+              builtinFields={builtinRefs}
+              hiddenBuiltinIds={hiddenBuiltinIds}
+              onToggleBuiltin={onToggleBuiltin}
             />
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
