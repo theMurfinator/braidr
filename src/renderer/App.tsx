@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology, ArcFieldDef } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -221,6 +221,8 @@ function App() {
   const metadataFieldDefsRef = useRef<MetadataFieldDef[]>([]);
   const [sceneMetadata, setSceneMetadata] = useState<Record<string, Record<string, string | string[]>>>({});
   const sceneMetadataRef = useRef<Record<string, Record<string, string | string[]>>>({});
+  const [arcFieldDefs, setArcFieldDefs] = useState<ArcFieldDef[]>([]);
+  const [arcFieldValues, setArcFieldValues] = useState<Record<string, Record<string, string | string[]>>>({});
   const [showCompileModal, setShowCompileModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -1140,6 +1142,28 @@ function App() {
 
     setSceneMetadata(loadedMetaData);
     sceneMetadataRef.current = loadedMetaData;
+    const loadedArcFieldDefs = data.arcFieldDefs ?? [];
+    const loadedArcFieldValues = data.arcFieldValues ?? {};
+    setArcFieldDefs(loadedArcFieldDefs);
+    setArcFieldValues(loadedArcFieldValues);
+
+    // Derive backward-compat scene metadata state from unified arc tables (post-migration)
+    const sceneDefs = loadedArcFieldDefs.filter(d => d.scope === 'scene');
+    if (sceneDefs.length > 0) {
+      const derivedMetaDefs: MetadataFieldDef[] = sceneDefs.map(d => ({
+        id: d.id, label: d.label,
+        type: d.type as MetadataFieldDef['type'],
+        options: d.options, optionColors: d.optionColors, order: d.order,
+      }));
+      setMetadataFieldDefs(derivedMetaDefs);
+      metadataFieldDefsRef.current = derivedMetaDefs;
+      const derivedSceneMeta: Record<string, Record<string, string | string[]>> = {};
+      for (const [key, vals] of Object.entries(loadedArcFieldValues)) {
+        if (key.startsWith('scene:')) derivedSceneMeta[key.slice(6)] = vals;
+      }
+      setSceneMetadata(derivedSceneMeta);
+      sceneMetadataRef.current = derivedSceneMeta;
+    }
     setDraftContent(loadedDraft);
     draftContentRef.current = loadedDraft;
     setScratchpadContent(loadedScratchpad);
@@ -1769,6 +1793,54 @@ function App() {
     }
   }, [projectData]);
 
+  const handleSaveArcFieldDefs = useCallback(async (defs: ArcFieldDef[]) => {
+    setArcFieldDefs(defs);
+    try {
+      await dataService.saveArcFieldDefs(defs);
+    } catch {
+      addToast('Could not save field definitions');
+    }
+  }, []);
+
+  const handleSaveArcFieldValues = useCallback(async (entityType: 'act' | 'section' | 'scene', entityId: string, values: Record<string, string | string[]>) => {
+    setArcFieldValues(prev => ({ ...prev, [`${entityType}:${entityId}`]: values }));
+    try {
+      await dataService.saveArcFieldValues(entityType, entityId, values);
+    } catch {
+      addToast('Could not save field values');
+    }
+  }, []);
+
+  const handleSaveSceneFieldDefs = useCallback(async (defs: ArcFieldDef[]) => {
+    // Update arcFieldDefs: replace scene-scoped entries, keep arc-scoped
+    setArcFieldDefs(prev => [...prev.filter(d => d.scope !== 'scene'), ...defs]);
+    // Keep metadataFieldDefs in sync for TableView/CompileModal backward compat
+    const metaDefs: MetadataFieldDef[] = defs.map(d => ({
+      id: d.id, label: d.label,
+      type: d.type as MetadataFieldDef['type'],
+      options: d.options, optionColors: d.optionColors, order: d.order,
+    }));
+    setMetadataFieldDefs(metaDefs);
+    metadataFieldDefsRef.current = metaDefs;
+    try {
+      await dataService.saveArcFieldDefs(defs);
+    } catch {
+      addToast('Could not save scene field definitions');
+    }
+  }, []);
+
+  const handleSaveSceneFieldValues = useCallback(async (sceneId: string, values: Record<string, string | string[]>) => {
+    setArcFieldValues(prev => ({ ...prev, [`scene:${sceneId}`]: values }));
+    // Keep sceneMetadata in sync for TableView/CompileModal backward compat
+    setSceneMetadata(prev => ({ ...prev, [sceneId]: values }));
+    sceneMetadataRef.current = { ...sceneMetadataRef.current, [sceneId]: values };
+    try {
+      await dataService.saveArcFieldValues('scene', sceneId, values);
+    } catch {
+      addToast('Could not save scene field values');
+    }
+  }, []);
+
   // Save the scene synopsis (stored as scene.notes) from the arc view, without
   // touching title/content. Persists via the bulk outline save (replaceSceneNotes).
   const handleSaveSceneNotes = useCallback(async (sceneId: string, notes: string[]) => {
@@ -2111,6 +2183,90 @@ function App() {
     } catch {
       addToast('Couldn\'t save your changes — check that the project folder still exists');
     }
+  };
+
+  const handleArcReorderScenesInSection = async (sectionId: string, orderedIds: string[]) => {
+    if (!projectData || !selectedCharacterId) return;
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+    const charScenes = [...projectData.scenes.filter(s => s.characterId === selectedCharacterId)]
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    // Grab the sceneNumbers currently assigned to the section (in sorted order) and
+    // redistribute them across the new scene order — other scenes stay untouched.
+    const sectionNumbers = charScenes
+      .filter(s => s.plotPointId === sectionId)
+      .map(s => s.sceneNumber);
+    const updated = charScenes.map(s => {
+      const newPos = orderedIds.indexOf(s.id);
+      return newPos >= 0 ? { ...s, sceneNumber: sectionNumbers[newPos] } : s;
+    });
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
+    const updatedScenes = [...otherScenes, ...updated];
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, updated);
+      await saveTimelineData(updatedScenes, sceneConnections);
+    } catch {
+      addToast('Couldn\'t save your changes — check that the project folder still exists');
+    }
+  };
+
+  const handleAddSceneToSection = async (sectionId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+    const charScenes = [...projectData.scenes.filter(s => s.characterId === selectedCharacterId)]
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    const newScene: Scene = {
+      id: Math.random().toString(36).substring(2, 11),
+      characterId: selectedCharacterId,
+      sceneNumber: charScenes.length + 1,
+      title: '', content: '', tags: [],
+      timelinePosition: null, isHighlighted: false, notes: [],
+      plotPointId: sectionId, chapterId: null, sceneOrder: 0, stationId: null,
+      polarity: '', transformation: '', dilemma: '', propellingAction: '', startingState: '', endingState: '',
+    };
+    const newCharScenes = [...charScenes, newScene];
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
+    const updatedScenes = [...otherScenes, ...newCharScenes];
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections);
+    } catch { addToast('Couldn\'t save your changes'); }
+  };
+
+  const handleAssignSceneToSection = async (sceneId: string, sectionId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+    const charScenes = [...projectData.scenes.filter(s => s.characterId === selectedCharacterId)]
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    const draggedIndex = charScenes.findIndex(s => s.id === sceneId);
+    if (draggedIndex === -1) return;
+    const sectionScenes = charScenes.filter(s => s.plotPointId === sectionId);
+    const lastInSection = sectionScenes[sectionScenes.length - 1];
+    let targetIndex = lastInSection
+      ? charScenes.findIndex(s => s.id === lastInSection.id) + 1
+      : charScenes.length;
+    if (draggedIndex < targetIndex) targetIndex -= 1;
+    const [movedScene] = charScenes.splice(draggedIndex, 1);
+    movedScene.plotPointId = sectionId;
+    charScenes.splice(Math.min(targetIndex, charScenes.length), 0, movedScene);
+    charScenes.forEach((s, idx) => { s.sceneNumber = idx + 1; });
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
+    const updatedScenes = [...otherScenes, ...charScenes];
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+      await saveTimelineData(updatedScenes, sceneConnections);
+    } catch { addToast('Couldn\'t save your changes'); }
   };
 
   const handleArcDndEnd = (e: DragEndEvent) => {
@@ -2497,23 +2653,6 @@ function App() {
     }
   };
 
-  const handleAssignSceneToSection = async (sceneId: string, sectionId: string) => {
-    if (!projectData) return;
-    const scene = projectData.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-    const updatedScenes = projectData.scenes.map(s => s.id === sceneId ? { ...s, plotPointId: sectionId } : s);
-    setProjectData({ ...projectData, scenes: updatedScenes });
-    try {
-      const character = projectData.characters.find(c => c.id === scene.characterId);
-      const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === scene.characterId);
-      if (character) {
-        await dataService.saveCharacterOutline(character, charPlotPoints, updatedScenes.filter(s => s.characterId === scene.characterId));
-      }
-    } catch {
-      addToast('Could not assign scene');
-    }
-  };
-
   // Send a scene to the bullpen from the arc view: clear its section assignment
   // and unbraid it (loose scenes can't be braided), mirroring handleDeletePlotPoint.
   const handleSendSceneToBullpen = async (sceneId: string) => {
@@ -2609,8 +2748,7 @@ function App() {
         wordCounts: sceneWordCounts,
         fontSettings: allFontSettingsRef.current.global,
         archivedScenes: archivedScenesRef.current,
-        metadataFieldDefs: metadataFieldDefsRef.current,
-        sceneMetadata: metaForSave,
+        // Scene metadata now managed via braidrSaveArcFieldDefs/braidrSaveArcFieldValues — no-op in applySaveTimeline
         wordCountGoal: wordCountGoalRef.current,
         allFontSettings: allFontSettingsRef.current,
         tasks: tasksRef.current,
@@ -3221,14 +3359,16 @@ function App() {
   };
 
   const handleMetadataChange = async (sceneKey: string, fieldId: string, value: string | string[]) => {
-    const updated = {
-      ...sceneMetadataRef.current,
-      [sceneKey]: { ...(sceneMetadataRef.current[sceneKey] || {}), [fieldId]: value },
-    };
+    const sceneValues = { ...(sceneMetadataRef.current[sceneKey] || {}), [fieldId]: value };
+    const updated = { ...sceneMetadataRef.current, [sceneKey]: sceneValues };
     setSceneMetadata(updated);
     sceneMetadataRef.current = updated;
-    if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections);
+    // Also keep arcFieldValues in sync and persist via arc IPC
+    setArcFieldValues(prev => ({ ...prev, [`scene:${sceneKey}`]: sceneValues }));
+    try {
+      await dataService.saveArcFieldValues('scene', sceneKey, sceneValues);
+    } catch {
+      addToast('Could not save scene metadata');
     }
   };
 
@@ -3251,8 +3391,16 @@ function App() {
   const handleMetadataFieldDefsChange = async (defs: MetadataFieldDef[]) => {
     setMetadataFieldDefs(defs);
     metadataFieldDefsRef.current = defs;
-    if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections);
+    // Keep arcFieldDefs in sync and persist via arc IPC
+    const arcDefs: ArcFieldDef[] = defs.map(d => ({
+      id: d.id, label: d.label, type: d.type as ArcFieldDef['type'],
+      options: d.options, optionColors: d.optionColors, order: d.order, scope: 'scene' as const,
+    }));
+    setArcFieldDefs(prev => [...prev.filter(d => d.scope !== 'scene'), ...arcDefs]);
+    try {
+      await dataService.saveArcFieldDefs(arcDefs);
+    } catch {
+      addToast('Could not save scene field definitions');
     }
   };
 
@@ -3802,6 +3950,9 @@ function App() {
                 tasks={tasks}
                 onTasksChange={handleTasksChange}
                 chapters={chapters}
+                arcFieldDefs={arcFieldDefs}
+                onSaveSceneFieldDefs={handleSaveSceneFieldDefs}
+                onSaveSceneFieldValues={handleSaveSceneFieldValues}
               />
             ) : mode === 'arc' ? (
               // Arc Planning View
@@ -3837,7 +3988,13 @@ function App() {
                         onSendSceneToBullpen={handleSendSceneToBullpen}
                         onSavePsychology={handleSaveCharacterPsychology}
                         arcActiveId={arcActiveId}
-
+                        arcFieldDefs={arcFieldDefs}
+                        arcFieldValues={arcFieldValues}
+                        onSaveArcFieldDefs={handleSaveArcFieldDefs}
+                        onSaveArcFieldValues={handleSaveArcFieldValues}
+                        onReorderSceneInSection={handleArcReorderScenesInSection}
+                        onAddSceneToSection={handleAddSceneToSection}
+                        onAssignSceneToSection={handleAssignSceneToSection}
                         onDeleteSection={handleDeletePlotPoint}
                       />
                     </div>

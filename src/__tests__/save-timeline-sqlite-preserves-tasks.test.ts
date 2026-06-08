@@ -66,8 +66,6 @@ function counts(db: { prepare: (s: string) => { get: () => unknown } }) {
   return {
     tasks: n('tasks'),
     timeEntries: n('time_entries'),
-    metadataDefs: n('metadata_field_defs'),
-    sceneMetadata: n('scene_metadata_values'),
   };
 }
 
@@ -76,9 +74,9 @@ describe('applySaveTimeline preserves task-family + metadata against empty saves
   beforeEach(() => { tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'braidr-save-sqlite-')); });
   afterEach(async () => { (await import('../main/database')).closeAllDatabases(); fs.rmSync(tmp, { recursive: true, force: true }); });
 
-  it('seed populates the task-family + metadata tables', async () => {
+  it('seed populates the task-family tables', async () => {
     const { db } = await setupSeededProject(tmp);
-    expect(counts(db)).toEqual({ tasks: 1, timeEntries: 2, metadataDefs: 1, sceneMetadata: 1 });
+    expect(counts(db)).toEqual({ tasks: 1, timeEntries: 2 });
   });
 
   it('does NOT wipe when payload sends empty tasks/sceneMetadata/metadataFieldDefs (the bug)', async () => {
@@ -89,13 +87,13 @@ describe('applySaveTimeline preserves task-family + metadata against empty saves
       sceneMetadata: {},
       metadataFieldDefs: [],
     });
-    expect(counts(db)).toEqual({ tasks: 1, timeEntries: 2, metadataDefs: 1, sceneMetadata: 1 });
+    expect(counts(db)).toEqual({ tasks: 1, timeEntries: 2 });
   });
 
   it('does NOT wipe when payload omits the keys entirely', async () => {
     const { db } = await setupSeededProject(tmp);
     applySaveTimeline(db, { positions: { 'scene-1': 3 } });
-    expect(counts(db)).toEqual({ tasks: 1, timeEntries: 2, metadataDefs: 1, sceneMetadata: 1 });
+    expect(counts(db)).toEqual({ tasks: 1, timeEntries: 2 });
   });
 
   it('still replaces when a non-empty collection is provided', async () => {

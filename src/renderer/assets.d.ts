@@ -132,5 +132,7 @@ interface Window {
     braidrSaveCharacterPsychology: (braidrPath: string, row: unknown) => Promise<any>;
     braidrSaveSceneArcFields: (braidrPath: string, sceneId: string, fields: unknown) => Promise<unknown>;
     braidrSavePlotPointArcFields: (braidrPath: string, plotPointId: string, fields: unknown) => Promise<unknown>;
+    braidrSaveArcFieldDefs: (braidrPath: string, defs: unknown) => Promise<unknown>;
+    braidrSaveArcFieldValues: (braidrPath: string, entityType: string, entityId: string, values: unknown) => Promise<unknown>;
   };
 }

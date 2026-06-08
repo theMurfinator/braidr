@@ -290,6 +290,26 @@ const CREATE_SCHEMA = `
     PRIMARY KEY (task_id, field_def_id)
   );
 
+  CREATE TABLE IF NOT EXISTS arc_field_defs (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    field_type TEXT NOT NULL DEFAULT 'text',
+    options TEXT,
+    option_colors TEXT,
+    rating_max INTEGER,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    scope TEXT NOT NULL DEFAULT 'arc'
+  );
+
+  -- entity_type valid values: 'act' | 'section' | 'scene' (open for future extension)
+  CREATE TABLE IF NOT EXISTS arc_field_values (
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    field_def_id TEXT NOT NULL REFERENCES arc_field_defs(id) ON DELETE CASCADE,
+    value TEXT NOT NULL DEFAULT '""',
+    PRIMARY KEY (entity_type, entity_id, field_def_id)
+  );
+
   CREATE TABLE IF NOT EXISTS writing_sessions (
     id TEXT PRIMARY KEY,
     scene_id TEXT REFERENCES scenes(id) ON DELETE SET NULL,
@@ -476,6 +496,14 @@ export class BraidrDB {
     }
     if (!sceneColumns.includes('ending_state')) {
       this.db.exec("ALTER TABLE scenes ADD COLUMN ending_state TEXT NOT NULL DEFAULT ''");
+    }
+
+    // scope column for unified arc/scene field defs
+    const arcFieldDefColumns = (
+      this.db.prepare('PRAGMA table_info(arc_field_defs)').all() as { name: string }[]
+    ).map(c => c.name);
+    if (!arcFieldDefColumns.includes('scope')) {
+      this.db.exec("ALTER TABLE arc_field_defs ADD COLUMN scope TEXT NOT NULL DEFAULT 'arc'");
     }
   }
 
@@ -858,6 +886,66 @@ export class BraidrDB {
 
   getAllSceneMetadataValues() {
     return this.db.prepare('SELECT * FROM scene_metadata_values').all() as SceneMetadataValueRow[];
+  }
+
+  // One-time idempotent migration: copy metadata_field_defs → arc_field_defs (scope='scene')
+  // and scene_metadata_values → arc_field_values (entity_type='scene').
+  migrateSceneMetadataToArcTables() {
+    const tx = this.db.transaction(() => {
+      const existingIds = new Set(
+        (this.db.prepare('SELECT id FROM arc_field_defs').all() as { id: string }[]).map(r => r.id)
+      );
+      const mfdRows = this.db.prepare('SELECT * FROM metadata_field_defs').all() as MetadataFieldDefRow[];
+      const insertDef = this.db.prepare(
+        'INSERT INTO arc_field_defs (id, label, field_type, options, option_colors, display_order, scope) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      );
+      for (const row of mfdRows) {
+        if (!existingIds.has(row.id)) {
+          insertDef.run(row.id, row.label, row.field_type, row.options, row.option_colors, row.display_order, 'scene');
+        }
+      }
+
+      const smvRows = this.db.prepare('SELECT * FROM scene_metadata_values').all() as SceneMetadataValueRow[];
+      const insertVal = this.db.prepare(
+        'INSERT OR IGNORE INTO arc_field_values (entity_type, entity_id, field_def_id, value) VALUES (?, ?, ?, ?)'
+      );
+      for (const row of smvRows) {
+        insertVal.run('scene', row.scene_id, row.field_def_id, row.value);
+      }
+    });
+    tx();
+  }
+
+  // ── Arc field defs + values ───────────────────────────────────────────────
+  getArcFieldDefs() {
+    return this.db.prepare('SELECT * FROM arc_field_defs ORDER BY scope, display_order').all() as ArcFieldDefRow[];
+  }
+
+  replaceArcFieldDefs(defs: ArcFieldDefRow[]) {
+    // Scope-aware replace: only delete defs of the same scope as those being saved.
+    // This prevents arc-scoped saves from wiping scene-scoped defs and vice versa.
+    const scope = defs[0]?.scope ?? 'arc';
+    const insert = this.db.prepare('INSERT INTO arc_field_defs (id, label, field_type, options, option_colors, rating_max, display_order, scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM arc_field_defs WHERE scope = ?').run(scope);
+      for (const d of defs) insert.run(d.id, d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order, d.scope ?? 'arc');
+    })();
+  }
+
+  getArcFieldValues(entityType: string, entityId: string) {
+    return this.db.prepare('SELECT * FROM arc_field_values WHERE entity_type = ? AND entity_id = ?').all(entityType, entityId) as ArcFieldValueRow[];
+  }
+
+  replaceArcFieldValues(entityType: string, entityId: string, values: { field_def_id: string; value: string }[]) {
+    const insert = this.db.prepare('INSERT INTO arc_field_values (entity_type, entity_id, field_def_id, value) VALUES (?, ?, ?, ?)');
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM arc_field_values WHERE entity_type = ? AND entity_id = ?').run(entityType, entityId);
+      for (const v of values) insert.run(entityType, entityId, v.field_def_id, v.value);
+    })();
+  }
+
+  getAllArcFieldValues() {
+    return this.db.prepare('SELECT * FROM arc_field_values').all() as ArcFieldValueRow[];
   }
 
   // ── Table Views ───────────────────────────────────────────────────────────
@@ -1279,6 +1367,8 @@ export interface SceneConnectionRow { id: string; source_scene_id: string; targe
 export interface TagRow { id: string; name: string; category: string }
 export interface MetadataFieldDefRow { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; display_order: number }
 export interface SceneMetadataValueRow { scene_id: string; field_def_id: string; value: string }
+export interface ArcFieldDefRow { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; rating_max: number | null; display_order: number; scope: string }
+export interface ArcFieldValueRow { entity_type: string; entity_id: string; field_def_id: string; value: string }
 export interface SceneDateRow { scene_id: string; date: string; end_date: string | null }
 export interface NoteRow { id: string; title: string; content: string; parent_id: string | null; display_order: number; created_at: number; updated_at: number }
 export interface WorldEventRow { id: string; title: string; date: string; end_date: string | null; description: string; created_at: number; updated_at: number }
