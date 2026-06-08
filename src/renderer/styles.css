@@ -20818,6 +20818,12 @@ textarea.table-cell-input {
   padding: 8px 0; border-bottom: 1px solid var(--border);
   gap: 12px;
 }
+.arc-dm-drag-handle {
+  cursor: grab; color: var(--text-muted); font-size: 14px; padding: 2px 6px 0 0;
+  flex-shrink: 0; user-select: none; opacity: 0.4;
+}
+.arc-dm-drag-handle:hover { opacity: 1; }
+.arc-dm-drag-handle:active { cursor: grabbing; }
 .arc-dm-field-row:last-child { border-bottom: none; }
 .arc-dm-field-label {
   width: 160px; flex-shrink: 0; display: flex; align-items: center; padding-top: 2px;

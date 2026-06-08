@@ -1031,6 +1031,7 @@ export default function ArcView({
               arcFieldDefs={arcFieldDefs}
               onSaveDefs={onSaveArcFieldDefs}
               onClose={() => setOpenModal(null)}
+              storageKey="arc-field-order:act"
             />
           );
         }
@@ -1045,6 +1046,7 @@ export default function ArcView({
               arcFieldDefs={arcFieldDefs}
               onSaveDefs={onSaveArcFieldDefs}
               onClose={() => setOpenModal(null)}
+              storageKey="arc-field-order:section"
             />
           );
         }

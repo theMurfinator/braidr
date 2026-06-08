@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import ArcFieldManager from './ArcFieldManager';
 import type { ArcFieldDef } from '../../shared/types';
 
@@ -30,6 +34,7 @@ interface ArcDetailModalProps {
   arcFieldDefs: ArcFieldDef[];
   onSaveDefs: (defs: ArcFieldDef[]) => void;
   onClose: () => void;
+  storageKey?: string;
 }
 
 // ── Polarity picker (mirrored from ArcView) ───────────────────────────────────
@@ -262,7 +267,16 @@ function NumberField({ value, onChange }: { value: string; onChange: (v: string)
 }
 
 // ── Field row ─────────────────────────────────────────────────────────────────
-function FieldRow({ field }: { field: DetailField }) {
+function FieldRow({ field, sortable: isSortable }: { field: DetailField; sortable?: boolean }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: field.id, disabled: !isSortable });
+
   const r = field.render;
   let control: ReactNode;
   if (r.kind === 'text') {
@@ -283,8 +297,18 @@ function FieldRow({ field }: { field: DetailField }) {
     control = null;
   }
 
+  const style: React.CSSProperties = isSortable ? {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
+  } : {};
+
   return (
-    <div className="arc-dm-field-row">
+    <div ref={isSortable ? setNodeRef : undefined} style={style} className="arc-dm-field-row">
+      {isSortable && (
+        <div className="arc-dm-drag-handle" {...attributes} {...listeners}>&#8959;</div>
+      )}
       <div className="arc-dm-field-label">
         <span className="arc-dm-field-name">{field.label}</span>
       </div>
@@ -301,9 +325,66 @@ export default function ArcDetailModal({
   arcFieldDefs,
   onSaveDefs,
   onClose,
+  storageKey,
 }: ArcDetailModalProps) {
   const [showManager, setShowManager] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  // Ordered fields state — initialized with saved order from localStorage if available
+  const [orderedFields, setOrderedFields] = useState<DetailField[]>(() => {
+    if (!storageKey) return fields;
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const savedIds: string[] = JSON.parse(saved);
+        const byId = Object.fromEntries(fields.map(f => [f.id, f]));
+        const ordered = savedIds.map(id => byId[id]).filter(Boolean) as DetailField[];
+        // Append any new fields not in saved order
+        const savedSet = new Set(savedIds);
+        for (const f of fields) if (!savedSet.has(f.id)) ordered.push(f);
+        return ordered;
+      }
+    } catch { /* ignore */ }
+    return fields;
+  });
+
+  // Sync when fields prop changes (e.g. new custom field added or field deleted)
+  useEffect(() => {
+    setOrderedFields(prev => {
+      const fieldMap = Object.fromEntries(fields.map(f => [f.id, f]));
+      const updated = prev.map(f => fieldMap[f.id]).filter(Boolean) as DetailField[];
+      const prevIds = new Set(prev.map(f => f.id));
+      const newFields = fields.filter(f => !prevIds.has(f.id));
+      return [...updated, ...newFields];
+    });
+  }, [fields]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = orderedFields.findIndex(f => f.id === active.id);
+    const newIdx = orderedFields.findIndex(f => f.id === over.id);
+    const newOrder = arrayMove(orderedFields, oldIdx, newIdx);
+    setOrderedFields(newOrder);
+    // Persist full display order
+    if (storageKey) {
+      localStorage.setItem(storageKey, JSON.stringify(newOrder.map(f => f.id)));
+    }
+    // Update custom field def order values
+    const customInOrder = newOrder.filter(f => !f.builtin);
+    const updatedDefs = arcFieldDefs.map(def => {
+      const idx = customInOrder.findIndex(f => f.id === def.id);
+      return idx >= 0 ? { ...def, order: idx } : def;
+    });
+    if (updatedDefs.some((d, i) => d.order !== arcFieldDefs[i]?.order)) {
+      onSaveDefs(updatedDefs);
+    }
+  }
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -334,7 +415,11 @@ export default function ArcDetailModal({
               onBack={() => setShowManager(false)}
             />
           ) : (
-            fields.map(f => <FieldRow key={f.id} field={f} />)
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={orderedFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                {orderedFields.map(f => <FieldRow key={f.id} field={f} sortable />)}
+              </SortableContext>
+            </DndContext>
           )}
         </div>
 
