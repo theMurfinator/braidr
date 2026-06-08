@@ -20953,6 +20953,16 @@ textarea.table-cell-input {
 .arc-ms-display { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
 .arc-cell-empty { font-size: 12px; color: var(--text-muted); }
 
+/* Arc expand button (hover reveals detail modal trigger) */
+.arc-expand-btn {
+  opacity: 0; flex-shrink: 0; background: none; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 2px 5px; font-size: 12px;
+  color: var(--text-muted); cursor: pointer; transition: opacity 0.1s;
+  margin-left: 4px;
+}
+.arc-row:hover .arc-expand-btn { opacity: 1; }
+.arc-expand-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
 .arc-scroll { flex: 1; overflow: auto; padding-bottom: 80px; }
 
 .arc-row {

@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { SortableItem } from '../dnd';
 import ScenePreviewPanel from './ScenePreviewPanel';
 import { Character, Act, PlotPoint, Scene, CharacterPsychology, ArcFieldDef } from '../../shared/types';
+import ArcDetailModal, { type DetailField, type FieldRender } from './ArcDetailModal';
 
 // ── Arc column model ─────────────────────────────────────────────────────────
 // The arc table's content columns (everything right of the pinned Name column).
@@ -71,6 +72,75 @@ function saveArcColPref(order: string[], hidden: Set<string>, widths: Record<str
   try { localStorage.setItem(ARC_COLS_LS_KEY, JSON.stringify({ order, hidden: [...hidden], widths })); } catch { /* ignore */ }
 }
 const arcCapitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const BUILTIN_ICONS: Record<string, string> = {
+  beginning: '→', ending: '←', turningPoint: '↺', dilemma: '?', propellingAction: '▶', polarity: '±', description: '≡',
+};
+
+function renderForDef(def: ArcFieldDef): FieldRender {
+  if (def.type === 'dropdown') return { kind: 'dropdown', options: def.options ?? [], colors: def.optionColors };
+  if (def.type === 'multiselect') return { kind: 'multiselect', options: def.options ?? [], colors: def.optionColors };
+  if (def.type === 'rating') return { kind: 'rating', max: def.ratingMax ?? 5 };
+  if (def.type === 'number') return { kind: 'number' };
+  return { kind: 'text' };
+}
+
+function buildActDetailFields(
+  act: Act,
+  arcFieldDefs: ArcFieldDef[],
+  arcFieldValues: Record<string, Record<string, string | string[]>>,
+  onSaveAct: (act: Act) => void,
+  onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void
+): DetailField[] {
+  const entityValues = arcFieldValues[`act:${act.id}`] ?? {};
+  const builtins: DetailField[] = [
+    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: act.startingState ?? '', onChange: v => onSaveAct({ ...act, startingState: v as string }), builtin: true },
+    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: act.endingState ?? '', onChange: v => onSaveAct({ ...act, endingState: v as string }), builtin: true },
+    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: act.transformation ?? '', onChange: v => onSaveAct({ ...act, transformation: v as string }), builtin: true },
+    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: act.dilemma ?? '', onChange: v => onSaveAct({ ...act, dilemma: v as string }), builtin: true },
+    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: act.propellingAction ?? '', onChange: v => onSaveAct({ ...act, propellingAction: v as string }), builtin: true },
+    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: act.polarity ?? '', onChange: v => onSaveAct({ ...act, polarity: v as string }), builtin: true },
+  ];
+  const custom: DetailField[] = arcFieldDefs.map(def => ({
+    id: def.id,
+    label: def.label,
+    icon: '·',
+    render: renderForDef(def),
+    value: entityValues[def.id] ?? (def.type === 'multiselect' ? [] : ''),
+    onChange: (v: string | string[]) => onSaveArcFieldValues('act', act.id, { ...entityValues, [def.id]: v }),
+    builtin: false,
+  }));
+  return [...builtins, ...custom];
+}
+
+function buildSectionDetailFields(
+  pp: PlotPoint,
+  arcFieldDefs: ArcFieldDef[],
+  arcFieldValues: Record<string, Record<string, string | string[]>>,
+  onSavePlotPointArcFields: (id: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description' | 'synopsis'>>) => void,
+  onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void
+): DetailField[] {
+  const entityValues = arcFieldValues[`section:${pp.id}`] ?? {};
+  const builtins: DetailField[] = [
+    { id: 'description', label: 'Synopsis', icon: BUILTIN_ICONS.description, render: { kind: 'text' }, value: pp.description ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { description: v as string }), builtin: true },
+    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: pp.startingState ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { startingState: v as string }), builtin: true },
+    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: pp.endingState ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { endingState: v as string }), builtin: true },
+    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: pp.transformation ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { transformation: v as string }), builtin: true },
+    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: pp.dilemma ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { dilemma: v as string }), builtin: true },
+    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: pp.propellingAction ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { propellingAction: v as string }), builtin: true },
+    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: pp.polarity ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { polarity: v as string }), builtin: true },
+  ];
+  const custom: DetailField[] = arcFieldDefs.map(def => ({
+    id: def.id,
+    label: def.label,
+    icon: '·',
+    render: renderForDef(def),
+    value: entityValues[def.id] ?? (def.type === 'multiselect' ? [] : ''),
+    onChange: (v: string | string[]) => onSaveArcFieldValues('section', pp.id, { ...entityValues, [def.id]: v }),
+    builtin: false,
+  }));
+  return [...builtins, ...custom];
+}
 
 // Arc view layout state (hide-acts/sections toggles + which acts/sections are
 // collapsed) persists so the view reopens exactly as you left it.
@@ -457,6 +527,7 @@ export default function ArcView({
   onSaveArcFieldValues,
 }: ArcViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadArcViewPref().collapsed));
+  const [openModal, setOpenModal] = useState<{ kind: 'act' | 'section'; id: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
   const [sceneContextMenu, setSceneContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
@@ -779,6 +850,11 @@ export default function ArcView({
                 <EditableCell className="arc-scene-synopsis" value={pp.description || ''} placeholder="Add synopsis..."
                   onChange={v => onSavePlotPointArcFields(pp.id, { description: v })} multiline />
               </div>
+              <button
+                className="arc-expand-btn"
+                onClick={e => { e.stopPropagation(); setOpenModal({ kind: 'section', id: pp.id }); }}
+                title="Open detail view"
+              >⊞</button>
             </div>
             {renderArcCells('section', pp)}
           </div>
@@ -812,6 +888,11 @@ export default function ArcView({
                 <EditableCell value={act.name} placeholder="Act name..."
                   onChange={v => onSaveAct({ ...act, name: v })} />
               </div>
+              <button
+                className="arc-expand-btn"
+                onClick={e => { e.stopPropagation(); setOpenModal({ kind: 'act', id: act.id }); }}
+                title="Open detail view"
+              >⊞</button>
             </div>
             {renderArcCells('act', act)}
           </div>
@@ -938,6 +1019,37 @@ export default function ArcView({
           onClose={() => setSceneContextMenu(null)}
         />
       )}
+      {openModal && (() => {
+        if (openModal.kind === 'act') {
+          const act = sortedActs.find(a => a.id === openModal.id);
+          if (!act) return null;
+          return (
+            <ArcDetailModal
+              title={act.name || 'Unnamed act'}
+              subtitle="Act"
+              fields={buildActDetailFields(act, arcFieldDefs, arcFieldValues, onSaveAct, onSaveArcFieldValues)}
+              arcFieldDefs={arcFieldDefs}
+              onSaveDefs={onSaveArcFieldDefs}
+              onClose={() => setOpenModal(null)}
+            />
+          );
+        }
+        if (openModal.kind === 'section') {
+          const pp = plotPoints.find(p => p.id === openModal.id);
+          if (!pp) return null;
+          return (
+            <ArcDetailModal
+              title={pp.title || 'Unnamed section'}
+              subtitle="Section"
+              fields={buildSectionDetailFields(pp, arcFieldDefs, arcFieldValues, onSavePlotPointArcFields, onSaveArcFieldValues)}
+              arcFieldDefs={arcFieldDefs}
+              onSaveDefs={onSaveArcFieldDefs}
+              onClose={() => setOpenModal(null)}
+            />
+          );
+        }
+        return null;
+      })()}
       <ScenePreviewPanel
         sceneId={previewSceneId}
         title={scenes.find(s => s.id === previewSceneId)?.title || ''}
