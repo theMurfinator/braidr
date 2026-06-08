@@ -236,6 +236,7 @@ function TextField({ value, onChange }: { value: string; onChange: (v: string) =
       ref={taRef}
       className="arc-dm-textarea"
       value={draft}
+      placeholder="—"
       onChange={e => { setDraft(e.target.value); autoResize(e.target); }}
       onBlur={() => { if (draft !== value) onChange(draft); }}
       rows={1}
@@ -253,6 +254,7 @@ function NumberField({ value, onChange }: { value: string; onChange: (v: string)
       className="arc-dm-number"
       type="number"
       value={draft}
+      placeholder="—"
       onChange={e => setDraft(e.target.value)}
       onBlur={() => { if (draft !== value) onChange(draft); }}
     />
@@ -318,9 +320,6 @@ export default function ArcDetailModal({
       })
     : fields;
 
-  const builtinFields = visibleFields.filter(f => f.builtin);
-  const customFields = visibleFields.filter(f => !f.builtin);
-
   return (
     <div
       className="arc-dm-overlay"
@@ -345,11 +344,7 @@ export default function ArcDetailModal({
             />
           ) : (
             <>
-              {builtinFields.map(f => <FieldRow key={f.id} field={f} />)}
-              {builtinFields.length > 0 && customFields.length > 0 && (
-                <div className="arc-dm-section-divider">Custom</div>
-              )}
-              {customFields.map(f => <FieldRow key={f.id} field={f} />)}
+              {visibleFields.map(f => <FieldRow key={f.id} field={f} />)}
               {visibleFields.length === 0 && (
                 <div className="arc-dm-empty">All fields are empty. Uncheck &quot;Hide empty fields&quot; to edit.</div>
               )}
