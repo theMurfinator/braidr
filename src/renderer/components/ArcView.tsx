@@ -400,6 +400,62 @@ function EmptySectionDropZone({ sectionId }: { sectionId: string }) {
   );
 }
 
+function ArcScenesPanel({
+  title, subtitle, scenes, characters, characterColors, onClose, onSelectScene, selectedSceneId, shifted,
+}: {
+  title: string;
+  subtitle: string;
+  scenes: Scene[];
+  characters: Character[];
+  characterColors: Record<string, string>;
+  onClose: () => void;
+  onSelectScene: (id: string) => void;
+  selectedSceneId: string | null;
+  shifted: boolean;
+}) {
+  const totalWc = scenes.reduce((s, sc) => s + (sc.wordCount ?? 0), 0);
+  return (
+    <div className={`arc-scenes-panel${shifted ? ' arc-scenes-panel--shifted' : ''}`}>
+      <div className="arc-scenes-panel-header">
+        <div className="arc-scenes-panel-header-text">
+          <span className="arc-scenes-panel-subtitle">{subtitle}</span>
+          <span className="arc-scenes-panel-name">{title || 'Untitled'}</span>
+        </div>
+        <button className="arc-scenes-panel-close" onClick={onClose} title="Close">×</button>
+      </div>
+      <div className="arc-scenes-panel-list">
+        {scenes.length === 0 ? (
+          <div className="arc-scenes-panel-empty">No scenes assigned yet</div>
+        ) : scenes.map(scene => {
+          const char = characters.find(c => c.id === scene.characterId);
+          const color = characterColors[scene.characterId] || '#888';
+          return (
+            <div
+              key={scene.id}
+              className={`arc-scenes-panel-item${selectedSceneId === scene.id ? ' active' : ''}`}
+              onClick={() => onSelectScene(scene.id)}
+              title="Click to preview"
+            >
+              <span className="arc-scenes-panel-dot" style={{ background: color }} />
+              <div className="arc-scenes-panel-item-body">
+                <span className="arc-scenes-panel-char">{char?.name} {scene.sceneNumber}</span>
+                <span className="arc-scenes-panel-scene-title">{scene.title || '—'}</span>
+              </div>
+              {(scene.wordCount ?? 0) > 0 && (
+                <span className="arc-scenes-panel-wc">{scene.wordCount!.toLocaleString()}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="arc-scenes-panel-footer">
+        {scenes.length} scene{scenes.length !== 1 ? 's' : ''}
+        {totalWc > 0 && <> · {totalWc.toLocaleString()} words</>}
+      </div>
+    </div>
+  );
+}
+
 interface ArcViewProps {
   characters: Character[];
   selectedCharacterId: string;
@@ -543,6 +599,7 @@ export default function ArcView({
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadArcViewPref().collapsed));
   const [hiddenBuiltinIds, setHiddenBuiltinIds] = useState<Set<string>>(() => loadHiddenBuiltins());
   const [openModal, setOpenModal] = useState<{ kind: 'act' | 'section'; id: string } | null>(null);
+  const [selectedRow, setSelectedRow] = useState<{ kind: 'act' | 'section'; id: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
   const [sceneContextMenu, setSceneContextMenu] = useState<{ x: number; y: number; sceneId: string } | null>(null);
@@ -659,6 +716,24 @@ export default function ArcView({
   const novelWc = () => scenes.reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
 
   const fmtWc = (n: number) => n > 0 ? n.toLocaleString() : null;
+
+  const selectedRowScenes = (): Scene[] => {
+    if (!selectedRow) return [];
+    if (selectedRow.kind === 'section') {
+      return scenes.filter(s => s.plotPointId === selectedRow.id).sort((a, b) => a.sceneNumber - b.sceneNumber);
+    }
+    const ppIds = new Set(plotPoints.filter(pp => pp.actId === selectedRow.id).map(pp => pp.id));
+    return scenes.filter(s => s.plotPointId && ppIds.has(s.plotPointId)).sort((a, b) => a.sceneNumber - b.sceneNumber);
+  };
+  const selectedRowLabel = (): { title: string; subtitle: string } => {
+    if (!selectedRow) return { title: '', subtitle: '' };
+    if (selectedRow.kind === 'section') {
+      const pp = plotPoints.find(p => p.id === selectedRow.id);
+      return { title: pp?.title || 'Untitled section', subtitle: 'Section' };
+    }
+    const act = acts.find(a => a.id === selectedRow.id);
+    return { title: act?.name || 'Untitled act', subtitle: 'Act' };
+  };
 
   // Visible columns in user order; drives header, rows, and the grid template.
   const visibleColumns = columnOrder
@@ -860,9 +935,10 @@ export default function ArcView({
       <div key={pp.id}>
         {!hideSections && (
           <div
-            className="arc-row arc-section arc-grid"
+            className={`arc-row arc-section arc-grid${selectedRow?.id === pp.id ? ' arc-row-selected' : ''}`}
             style={{ borderLeft: `2px solid ${charColor}` }}
             onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, sectionId: pp.id }); }}
+            onClick={e => { if (!(e.target as HTMLElement).closest('button, .arc-toggle')) setSelectedRow(r => r?.id === pp.id ? null : { kind: 'section', id: pp.id }); }}
           >
             <div className="arc-name-cell" style={{ paddingLeft: 72 }}>
               <span className="arc-toggle" onClick={() => toggleCollapsed(`sec-${pp.id}`)}>
@@ -902,8 +978,9 @@ export default function ArcView({
     return (
       <div key={act.id}>
         {!hideActs && (
-          <div className="arc-row arc-act arc-grid"
-            onContextMenu={e => { e.preventDefault(); setActContextMenu({ x: e.clientX, y: e.clientY, actId: act.id }); }}>
+          <div className={`arc-row arc-act arc-grid${selectedRow?.id === act.id ? ' arc-row-selected' : ''}`}
+            onContextMenu={e => { e.preventDefault(); setActContextMenu({ x: e.clientX, y: e.clientY, actId: act.id }); }}
+            onClick={e => { if (!(e.target as HTMLElement).closest('button, .arc-toggle')) setSelectedRow(r => r?.id === act.id ? null : { kind: 'act', id: act.id }); }}>
             <div className="arc-name-cell" style={{ paddingLeft: 32 }}>
               <span className="arc-toggle" onClick={() => toggleCollapsed(`act-${act.id}`)}>
                 {coll ? '▶' : '▼'}
@@ -1079,6 +1156,22 @@ export default function ArcView({
           );
         }
         return null;
+      })()}
+      {selectedRow && (() => {
+        const { title, subtitle } = selectedRowLabel();
+        return (
+          <ArcScenesPanel
+            title={title}
+            subtitle={subtitle}
+            scenes={selectedRowScenes()}
+            characters={characters}
+            characterColors={characterColors}
+            onClose={() => setSelectedRow(null)}
+            onSelectScene={id => setPreviewSceneId(pid => pid === id ? null : id)}
+            selectedSceneId={previewSceneId}
+            shifted={previewSceneId !== null}
+          />
+        );
       })()}
       <ScenePreviewPanel
         sceneId={previewSceneId}
