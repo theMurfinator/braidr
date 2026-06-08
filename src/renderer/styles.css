@@ -20809,6 +20809,172 @@ textarea.table-cell-input {
   width: min(640px, 92vw); max-height: 80vh;
   display: flex; flex-direction: column; overflow: hidden;
 }
+.arc-dm-card--with-scenes {
+  width: min(940px, 96vw);
+}
+.arc-dm-columns {
+  display: flex; flex: 1; overflow: hidden;
+}
+.arc-dm-main {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+}
+.arc-dm-scenes-col {
+  width: 260px; flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg-secondary);
+}
+.arc-dm-scenes-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.arc-dm-scenes-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.arc-dm-scenes-count {
+  font-size: 11px; font-weight: 600; color: var(--text-muted);
+  background: var(--bg-tertiary); padding: 1px 6px; border-radius: 10px;
+}
+.arc-dm-scenes-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+.arc-dm-scenes-empty {
+  padding: 16px 14px; font-size: 12px; color: var(--text-muted); font-style: italic;
+}
+.arc-dm-scene-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px 6px 14px; cursor: default;
+}
+.arc-dm-scene-item--clickable { cursor: pointer; }
+.arc-dm-scene-item:hover { background: var(--bg-hover); }
+.arc-dm-scene-drag {
+  color: var(--text-muted); cursor: grab; font-size: 14px; flex-shrink: 0;
+  opacity: 0; transition: opacity 0.1s;
+}
+.arc-dm-scene-item:hover .arc-dm-scene-drag { opacity: 1; }
+.arc-dm-scene-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.arc-dm-scene-info {
+  flex: 1; display: flex; flex-direction: column; gap: 1px; overflow: hidden; min-width: 0;
+}
+.arc-dm-scene-char {
+  font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em;
+}
+.arc-dm-scene-title {
+  font-size: 12px; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.arc-dm-scene-wc {
+  font-size: 11px; color: var(--text-muted); flex-shrink: 0;
+}
+.arc-dm-scenes-footer {
+  padding: 7px 14px; font-size: 11px; color: var(--text-muted);
+  border-top: 1px solid var(--border); flex-shrink: 0;
+}
+.arc-dm-scene-item--selected { background: var(--bg-secondary); }
+.arc-dm-scene-detail {
+  display: flex; flex-direction: column; height: 100%;
+  overflow-y: auto; padding: 8px 0;
+}
+.arc-dm-scene-detail-back {
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; color: var(--text-muted); padding: 4px 14px 8px;
+  text-align: left; display: block;
+}
+.arc-dm-scene-detail-back:hover { color: var(--text-primary); }
+.arc-dm-scene-detail-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 14px 10px; border-bottom: 1px solid var(--border);
+}
+.arc-dm-scene-detail-section {
+  padding: 10px 14px 2px; border-bottom: 1px solid var(--border);
+}
+.arc-dm-scene-detail-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;
+}
+.arc-dm-scene-detail-note {
+  font-size: 12px; color: var(--text-secondary); margin: 0 0 6px; line-height: 1.5;
+}
+.arc-dm-scene-detail-row {
+  display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px;
+}
+.arc-dm-scene-detail-field {
+  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.arc-dm-scene-detail-value {
+  font-size: 12px; color: var(--text-secondary); line-height: 1.5;
+}
+.arc-dm-scene-title--editable:hover { text-decoration: underline; cursor: text; }
+.arc-dm-scene-title-input {
+  font-size: 12px; color: var(--text-primary);
+  background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: 3px; padding: 1px 4px; width: 100%; outline: none;
+  font-family: inherit;
+}
+.arc-dm-scene-send-bullpen {
+  background: none; border: none; cursor: pointer; font-size: 14px; line-height: 1;
+  color: var(--text-muted); padding: 0 2px; flex-shrink: 0;
+  opacity: 0; transition: opacity 0.1s;
+}
+.arc-dm-scene-item:hover .arc-dm-scene-send-bullpen { opacity: 1; }
+.arc-dm-scene-send-bullpen:hover { color: var(--text-primary); }
+.arc-dm-scenes-add {
+  background: none; border: 1px solid var(--border); cursor: pointer;
+  font-size: 14px; line-height: 1; color: var(--text-muted);
+  padding: 0 5px; border-radius: 3px; flex-shrink: 0;
+}
+.arc-dm-scenes-add:hover { color: var(--text-primary); border-color: var(--text-muted); }
+.arc-dm-bullpen {
+  border-top: 1px dashed var(--border); margin-top: 4px; padding: 2px 0 8px;
+  transition: background 0.15s;
+}
+.arc-dm-bullpen--over { background: var(--bg-secondary); border-radius: 6px; }
+.arc-dm-bullpen-header {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-muted);
+  padding: 6px 14px 4px;
+}
+.arc-dm-bullpen-hint {
+  font-size: 9px; font-weight: 400; letter-spacing: 0; text-transform: none;
+  color: var(--text-muted); opacity: 0.6; font-style: italic;
+}
+.arc-dm-bullpen-empty {
+  padding: 4px 14px; font-size: 11px; color: var(--text-muted); font-style: italic;
+}
+.arc-dm-bullpen-pull {
+  background: none; border: 1px solid var(--border); cursor: pointer;
+  font-size: 13px; line-height: 1; color: var(--text-muted);
+  padding: 0 5px; border-radius: 3px; flex-shrink: 0;
+  opacity: 0; transition: opacity 0.1s;
+}
+.arc-bullpen-row:hover .arc-dm-bullpen-pull { opacity: 1; }
+.arc-dm-bullpen-pull:hover { color: var(--text-primary); border-color: var(--text-muted); }
+.arc-dm-scene-text-panel {
+  display: flex; flex-direction: column; height: 100%; overflow: hidden;
+}
+.arc-dm-scene-text-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 8px 4px 4px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.arc-dm-scene-text-goto {
+  background: none; border: none; cursor: pointer; font-size: 11px;
+  color: var(--text-muted); padding: 2px 4px; white-space: nowrap;
+}
+.arc-dm-scene-text-goto:hover { color: var(--text-primary); }
+.arc-dm-scene-text-title {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  padding: 8px 14px 4px; flex-shrink: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.arc-dm-scene-text-body {
+  flex: 1; overflow-y: auto; padding: 4px 14px 12px;
+}
+.arc-dm-scene-text-editor { font-size: 13px; line-height: 1.6; }
 .arc-dm-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 20px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;

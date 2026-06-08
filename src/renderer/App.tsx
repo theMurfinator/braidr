@@ -2185,6 +2185,90 @@ function App() {
     }
   };
 
+  const handleArcReorderScenesInSection = async (sectionId: string, orderedIds: string[]) => {
+    if (!projectData || !selectedCharacterId) return;
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+    const charScenes = [...projectData.scenes.filter(s => s.characterId === selectedCharacterId)]
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    // Grab the sceneNumbers currently assigned to the section (in sorted order) and
+    // redistribute them across the new scene order — other scenes stay untouched.
+    const sectionNumbers = charScenes
+      .filter(s => s.plotPointId === sectionId)
+      .map(s => s.sceneNumber);
+    const updated = charScenes.map(s => {
+      const newPos = orderedIds.indexOf(s.id);
+      return newPos >= 0 ? { ...s, sceneNumber: sectionNumbers[newPos] } : s;
+    });
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
+    const updatedScenes = [...otherScenes, ...updated];
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, updated);
+      await saveTimelineData(updatedScenes, sceneConnections);
+    } catch {
+      addToast('Couldn\'t save your changes — check that the project folder still exists');
+    }
+  };
+
+  const handleAddSceneToSection = async (sectionId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+    const charScenes = [...projectData.scenes.filter(s => s.characterId === selectedCharacterId)]
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    const newScene: Scene = {
+      id: Math.random().toString(36).substring(2, 11),
+      characterId: selectedCharacterId,
+      sceneNumber: charScenes.length + 1,
+      title: '', content: '', tags: [],
+      timelinePosition: null, isHighlighted: false, notes: [],
+      plotPointId: sectionId, chapterId: null, sceneOrder: 0, stationId: null,
+      polarity: '', transformation: '', dilemma: '', propellingAction: '', startingState: '', endingState: '',
+    };
+    const newCharScenes = [...charScenes, newScene];
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
+    const updatedScenes = [...otherScenes, ...newCharScenes];
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
+      await saveTimelineData(updatedScenes, sceneConnections);
+    } catch { addToast('Couldn\'t save your changes'); }
+  };
+
+  const handleAssignSceneToSection = async (sceneId: string, sectionId: string) => {
+    if (!projectData || !selectedCharacterId) return;
+    const character = projectData.characters.find(c => c.id === selectedCharacterId);
+    if (!character) return;
+    const charScenes = [...projectData.scenes.filter(s => s.characterId === selectedCharacterId)]
+      .sort((a, b) => a.sceneNumber - b.sceneNumber);
+    const draggedIndex = charScenes.findIndex(s => s.id === sceneId);
+    if (draggedIndex === -1) return;
+    const sectionScenes = charScenes.filter(s => s.plotPointId === sectionId);
+    const lastInSection = sectionScenes[sectionScenes.length - 1];
+    let targetIndex = lastInSection
+      ? charScenes.findIndex(s => s.id === lastInSection.id) + 1
+      : charScenes.length;
+    if (draggedIndex < targetIndex) targetIndex -= 1;
+    const [movedScene] = charScenes.splice(draggedIndex, 1);
+    movedScene.plotPointId = sectionId;
+    charScenes.splice(Math.min(targetIndex, charScenes.length), 0, movedScene);
+    charScenes.forEach((s, idx) => { s.sceneNumber = idx + 1; });
+    const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
+    const updatedScenes = [...otherScenes, ...charScenes];
+    const updatedData = { ...projectData, scenes: updatedScenes };
+    setProjectData(updatedData);
+    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    try {
+      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+      await saveTimelineData(updatedScenes, sceneConnections);
+    } catch { addToast('Couldn\'t save your changes'); }
+  };
+
   const handleArcDndEnd = (e: DragEndEvent) => {
     setArcActiveId(null);
     const { active, over } = e;
@@ -2566,23 +2650,6 @@ function App() {
       await saveTimelineData(updatedScenes, sceneConnections);
     } catch {
       addToast('Could not save your changes');
-    }
-  };
-
-  const handleAssignSceneToSection = async (sceneId: string, sectionId: string) => {
-    if (!projectData) return;
-    const scene = projectData.scenes.find(s => s.id === sceneId);
-    if (!scene) return;
-    const updatedScenes = projectData.scenes.map(s => s.id === sceneId ? { ...s, plotPointId: sectionId } : s);
-    setProjectData({ ...projectData, scenes: updatedScenes });
-    try {
-      const character = projectData.characters.find(c => c.id === scene.characterId);
-      const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === scene.characterId);
-      if (character) {
-        await dataService.saveCharacterOutline(character, charPlotPoints, updatedScenes.filter(s => s.characterId === scene.characterId));
-      }
-    } catch {
-      addToast('Could not assign scene');
     }
   };
 
@@ -3925,7 +3992,9 @@ function App() {
                         arcFieldValues={arcFieldValues}
                         onSaveArcFieldDefs={handleSaveArcFieldDefs}
                         onSaveArcFieldValues={handleSaveArcFieldValues}
-
+                        onReorderSceneInSection={handleArcReorderScenesInSection}
+                        onAddSceneToSection={handleAddSceneToSection}
+                        onAssignSceneToSection={handleAssignSceneToSection}
                         onDeleteSection={handleDeletePlotPoint}
                       />
                     </div>

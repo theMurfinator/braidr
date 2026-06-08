@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Heading from '@tiptap/extension-heading';
+import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import Placeholder from '@tiptap/extension-placeholder';
 import ArcFieldManager from './ArcFieldManager';
-import type { ArcFieldDef } from '../../shared/types';
+import type { ArcFieldDef, Scene, Character } from '../../shared/types';
 
 // ── Public types (used by ArcView descriptor builders) ────────────────────────
 
@@ -40,6 +42,17 @@ interface ArcDetailModalProps {
   storageKey?: string;
   hiddenBuiltinIds?: Set<string>;
   onToggleBuiltin?: (id: string) => void;
+  scenes?: Scene[];
+  bullpenScenes?: Scene[];
+  characters?: Character[];
+  characterColors?: Record<string, string>;
+  onReorderScenes?: (orderedIds: string[]) => void;
+  onAddScene?: () => void;
+  onSendToBullpen?: (sceneId: string) => void;
+  onPullFromBullpen?: (sceneId: string) => void;
+  draftContent?: Record<string, string>;
+  onDraftChange?: (sceneId: string, html: string) => void;
+  onGoToScene?: (sceneId: string) => void;
 }
 
 // ── Polarity picker (mirrored from ArcView) ───────────────────────────────────
@@ -331,7 +344,126 @@ function FieldRow({ field, sortable: isSortable, onHide }: { field: DetailField;
   );
 }
 
+// ── Bullpen drop zone (inside scenes DndContext) ──────────────────────────────
+function BullpenDropZone({ children }: { children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'modal-bullpen' });
+  return (
+    <div ref={setNodeRef} className={`arc-dm-bullpen${isOver ? ' arc-dm-bullpen--over' : ''}`}>
+      {children}
+    </div>
+  );
+}
+
 // ── Main modal ────────────────────────────────────────────────────────────────
+function SceneRowContextMenu({ x, y, onSendToBullpen, onClose }: {
+  x: number; y: number;
+  onSendToBullpen?: () => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('keydown', keyHandler);
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', keyHandler); };
+  }, [onClose]);
+  return (
+    <div ref={ref} className="arc-context-menu" style={{ left: x, top: y }}>
+      {onSendToBullpen && (
+        <div className="arc-context-item" onClick={onSendToBullpen}>Send to Bullpen</div>
+      )}
+    </div>
+  );
+}
+
+function SortableSceneItem({ scene, selected, onSelect, onSendToBullpen }: {
+  scene: Scene;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  onSendToBullpen?: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: scene.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 };
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  return (
+    <>
+      <div ref={setNodeRef} style={style}
+        className={`arc-bullpen-row${selected ? ' active' : ''}`}
+        onClick={() => onSelect(scene.id)}
+        onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY }); }}
+      >
+        <span className="arc-bullpen-drag" {...attributes} {...listeners} onClick={e => e.stopPropagation()}>⠿</span>
+        <span className="arc-bullpen-label arc-bullpen-clickable">{scene.title || 'Untitled scene'}</span>
+      </div>
+      {contextMenu && (
+        <SceneRowContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onSendToBullpen={onSendToBullpen ? () => { onSendToBullpen(); setContextMenu(null); } : undefined}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function SceneTextPanel({ scene, draftContent, onDraftChange, onGoToScene, onBack }: {
+  scene: Scene;
+  draftContent: Record<string, string>;
+  onDraftChange?: (sceneId: string, html: string) => void;
+  onGoToScene?: (sceneId: string) => void;
+  onBack: () => void;
+}) {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRef = useRef<{ key: string; html: string } | null>(null);
+  const settingContentRef = useRef(false);
+  const sceneIdRef = useRef(scene.id);
+  sceneIdRef.current = scene.id;
+
+  const editor = useEditor({
+    editorProps: { attributes: { spellcheck: 'true' } },
+    extensions: [
+      StarterKit,
+      Heading.configure({ levels: [2, 3] }),
+      HorizontalRule,
+      Placeholder.configure({ placeholder: 'Write this scene…' }),
+    ],
+    content: draftContent[scene.id] || '',
+    onUpdate: ({ editor: e }) => {
+      if (settingContentRef.current || !onDraftChange) return;
+      pendingRef.current = { key: sceneIdRef.current, html: e.getHTML() };
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        if (pendingRef.current) { onDraftChange(pendingRef.current.key, pendingRef.current.html); pendingRef.current = null; }
+      }, 800);
+    },
+  });
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+      if (pendingRef.current && onDraftChange) { onDraftChange(pendingRef.current.key, pendingRef.current.html); pendingRef.current = null; }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="arc-dm-scene-text-panel">
+      <div className="arc-dm-scene-text-header">
+        <button className="arc-dm-scene-detail-back" onClick={onBack}>← Back</button>
+        {onGoToScene && (
+          <button className="arc-dm-scene-text-goto" onClick={() => onGoToScene(scene.id)}>Full Editor →</button>
+        )}
+      </div>
+      <div className="arc-dm-scene-text-title">{scene.title || 'Untitled scene'}</div>
+      <div className="arc-dm-scene-text-body">
+        {editor && <EditorContent editor={editor} className="arc-dm-scene-text-editor" />}
+      </div>
+    </div>
+  );
+}
+
 export default function ArcDetailModal({
   title,
   subtitle,
@@ -342,10 +474,46 @@ export default function ArcDetailModal({
   storageKey,
   hiddenBuiltinIds,
   onToggleBuiltin,
+  scenes,
+  bullpenScenes,
+  characters: _characters,
+  characterColors: _characterColors,
+  onReorderScenes,
+  onAddScene,
+  onSendToBullpen,
+  onPullFromBullpen,
+  draftContent,
+  onDraftChange,
+  onGoToScene,
 }: ArcDetailModalProps) {
   const [showManager, setShowManager] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const builtinRefs = fields.filter(f => f.builtin).map(f => ({ id: f.id, label: f.label }));
+
+  const [orderedScenes, setOrderedScenes] = useState<Scene[]>(() => scenes ?? []);
+  useEffect(() => { setOrderedScenes(scenes ?? []); }, [scenes]);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  useEffect(() => {
+    if (selectedSceneId && !orderedScenes.find(s => s.id === selectedSceneId)) setSelectedSceneId(null);
+  }, [orderedScenes, selectedSceneId]);
+  const selectedScene = selectedSceneId ? orderedScenes.find(s => s.id === selectedSceneId) ?? null : null;
+
+  const scenesSensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  function handleScenesDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over) return;
+    if (String(over.id) === 'modal-bullpen') {
+      onSendToBullpen?.(String(active.id));
+      return;
+    }
+    if (active.id === over.id) return;
+    const oldIdx = orderedScenes.findIndex(s => s.id === active.id);
+    const newIdx = orderedScenes.findIndex(s => s.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const reordered = arrayMove(orderedScenes, oldIdx, newIdx);
+    setOrderedScenes(reordered);
+    onReorderScenes?.(reordered.map(s => s.id));
+  }
 
   // Ordered fields state — initialized with saved order from localStorage if available
   const [orderedFields, setOrderedFields] = useState<DetailField[]>(() => {
@@ -409,13 +577,16 @@ export default function ArcDetailModal({
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
+  const hasScenes = scenes && scenes.length >= 0;
+  const totalWc = scenes ? scenes.reduce((s, sc) => s + (sc.wordCount ?? 0), 0) : 0;
+
   return (
     <div
       className="arc-dm-overlay"
       ref={overlayRef}
       onClick={e => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className="arc-dm-card">
+      <div className={`arc-dm-card${hasScenes ? ' arc-dm-card--with-scenes' : ''}`}>
         <div className="arc-dm-header">
           <div className="arc-dm-header-left">
             {subtitle && <span className="arc-dm-subtitle">{subtitle}</span>}
@@ -424,39 +595,107 @@ export default function ArcDetailModal({
           <button className="arc-dm-close" onClick={onClose} type="button">&times;</button>
         </div>
 
-        <div className="arc-dm-body">
-          {showManager ? (
-            <ArcFieldManager
-              defs={arcFieldDefs}
-              onSave={defs => onSaveDefs(defs)}
-              onBack={() => setShowManager(false)}
-              builtinFields={builtinRefs}
-              hiddenBuiltinIds={hiddenBuiltinIds}
-              onToggleBuiltin={onToggleBuiltin}
-            />
-          ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={orderedFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
-                {orderedFields.map(f => (
-                  <FieldRow
-                    key={f.id}
-                    field={f}
-                    sortable
-                    onHide={f.builtin && onToggleBuiltin ? () => onToggleBuiltin(f.id) : undefined}
+        <div className="arc-dm-columns">
+          <div className="arc-dm-main">
+            <div className="arc-dm-body">
+              {showManager ? (
+                <ArcFieldManager
+                  defs={arcFieldDefs}
+                  onSave={defs => onSaveDefs(defs)}
+                  onBack={() => setShowManager(false)}
+                  builtinFields={builtinRefs}
+                  hiddenBuiltinIds={hiddenBuiltinIds}
+                  onToggleBuiltin={onToggleBuiltin}
+                />
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={orderedFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                    {orderedFields.map(f => (
+                      <FieldRow
+                        key={f.id}
+                        field={f}
+                        sortable
+                        onHide={f.builtin && onToggleBuiltin ? () => onToggleBuiltin(f.id) : undefined}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+            {!showManager && (
+              <div className="arc-dm-footer">
+                <button className="arc-dm-manage-btn" onClick={() => setShowManager(true)} type="button">
+                  &#9881; Manage fields
+                </button>
+              </div>
+            )}
+          </div>
+
+          {hasScenes && (
+            <div className="arc-dm-scenes-col">
+              <div className="arc-dm-scenes-header">
+                <span className="arc-dm-scenes-label">Scenes</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="arc-dm-scenes-count">{orderedScenes.length}</span>
+                  {onAddScene && (
+                    <button className="arc-dm-scenes-add" onClick={onAddScene} title="Add new scene">+ Scene</button>
+                  )}
+                </div>
+              </div>
+              <div className="arc-dm-scenes-list">
+                {selectedScene ? (
+                  <SceneTextPanel
+                    key={selectedScene.id}
+                    scene={selectedScene}
+                    draftContent={draftContent ?? {}}
+                    onDraftChange={onDraftChange}
+                    onGoToScene={onGoToScene}
+                    onBack={() => setSelectedSceneId(null)}
                   />
-                ))}
-              </SortableContext>
-            </DndContext>
+                ) : (
+                  <DndContext sensors={scenesSensors} collisionDetection={closestCenter} onDragEnd={handleScenesDragEnd}>
+                    <SortableContext items={orderedScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                      {orderedScenes.length === 0 && (
+                        <div className="arc-dm-scenes-empty">No scenes yet — add one above</div>
+                      )}
+                      {orderedScenes.map(scene => (
+                        <SortableSceneItem
+                          key={scene.id}
+                          scene={scene}
+                          selected={selectedSceneId === scene.id}
+                          onSelect={id => setSelectedSceneId(id)}
+                          onSendToBullpen={onSendToBullpen ? () => onSendToBullpen(scene.id) : undefined}
+                        />
+                      ))}
+                    </SortableContext>
+                    <BullpenDropZone>
+                      <div className="arc-dm-bullpen-header">
+                        Bullpen
+                        <span className="arc-dm-bullpen-hint">drag here or right-click</span>
+                      </div>
+                      {bullpenScenes && bullpenScenes.map(scene => (
+                        <div key={scene.id} className="arc-bullpen-row">
+                          <span className="arc-bullpen-label">{scene.title || 'Untitled scene'}</span>
+                          <button
+                            className="arc-dm-bullpen-pull"
+                            onClick={() => onPullFromBullpen?.(scene.id)}
+                            title="Pull into section"
+                          >+</button>
+                        </div>
+                      ))}
+                      {(!bullpenScenes || bullpenScenes.length === 0) && (
+                        <div className="arc-dm-bullpen-empty">No scenes in bullpen</div>
+                      )}
+                    </BullpenDropZone>
+                  </DndContext>
+                )}
+              </div>
+              {totalWc > 0 && (
+                <div className="arc-dm-scenes-footer">{totalWc.toLocaleString()} words</div>
+              )}
+            </div>
           )}
         </div>
-
-        {!showManager && (
-          <div className="arc-dm-footer">
-            <button className="arc-dm-manage-btn" onClick={() => setShowManager(true)} type="button">
-              &#9881; Manage fields
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
