@@ -139,7 +139,15 @@ export default function ArcFieldManager({ defs, onSave, onBack }: ArcFieldManage
   }
 
   function removeOption(i: number) {
-    setForm(f => ({ ...f, options: f.options.filter((_, j) => j !== i) }));
+    setForm(f => {
+      const newOptions = f.options.filter((_, j) => j !== i);
+      const newColors: Record<string, string> = {};
+      newOptions.forEach((_, newIdx) => {
+        const oldIdx = newIdx >= i ? newIdx + 1 : newIdx;
+        if (f.optionColors[String(oldIdx)]) newColors[String(newIdx)] = f.optionColors[String(oldIdx)];
+      });
+      return { ...f, options: newOptions, optionColors: newColors };
+    });
   }
 
   function setOptionColor(optIdx: number, color: string) {
