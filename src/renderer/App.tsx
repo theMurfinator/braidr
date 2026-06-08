@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology, ArcFieldDef } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -221,6 +221,8 @@ function App() {
   const metadataFieldDefsRef = useRef<MetadataFieldDef[]>([]);
   const [sceneMetadata, setSceneMetadata] = useState<Record<string, Record<string, string | string[]>>>({});
   const sceneMetadataRef = useRef<Record<string, Record<string, string | string[]>>>({});
+  const [arcFieldDefs, setArcFieldDefs] = useState<ArcFieldDef[]>([]);
+  const [arcFieldValues, setArcFieldValues] = useState<Record<string, Record<string, string | string[]>>>({});
   const [showCompileModal, setShowCompileModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -1140,6 +1142,8 @@ function App() {
 
     setSceneMetadata(loadedMetaData);
     sceneMetadataRef.current = loadedMetaData;
+    setArcFieldDefs(data.arcFieldDefs ?? []);
+    setArcFieldValues(data.arcFieldValues ?? {});
     setDraftContent(loadedDraft);
     draftContentRef.current = loadedDraft;
     setScratchpadContent(loadedScratchpad);

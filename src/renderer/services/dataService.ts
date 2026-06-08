@@ -1,4 +1,4 @@
-import { Character, Scene, PlotPoint, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload, Act, CharacterPsychology } from '../../shared/types';
+import { Character, Scene, PlotPoint, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload, Act, CharacterPsychology, ArcFieldDef } from '../../shared/types';
 import { CapacitorDataService } from './capacitorDataService';
 import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } from './projectLock';
 
@@ -6,7 +6,7 @@ import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } fro
 export interface DataService {
   selectProjectFolder(): Promise<string | null>;
   selectBraidrFile(): Promise<string | null>;
-  loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }>;
+  loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; arcFieldDefs: ArcFieldDef[]; arcFieldValues: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }>;
   saveCharacterOutline(character: Character, plotPoints: PlotPoint[], scenes: Scene[]): Promise<void>;
   createCharacter(folderPath: string, name: string): Promise<Character>;
   saveTimeline(payload: SaveTimelinePayload): Promise<void>;
@@ -68,6 +68,8 @@ export interface DataService {
   // Arc field saves
   saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }): Promise<void>;
   savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; inBullpen?: boolean; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string; synopsis?: string }): Promise<void>;
+  saveArcFieldDefs(defs: ArcFieldDef[]): Promise<void>;
+  saveArcFieldValues(entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>): Promise<void>;
 }
 
 // Local file system implementation (Electron) — SQLite .braidr format only
@@ -84,7 +86,7 @@ class ElectronDataService implements DataService {
     return window.electronAPI.selectBraidrFile();
   }
 
-  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }> {
+  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; arcFieldDefs: ArcFieldDef[]; arcFieldValues: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }> {
     const formatResult = await window.electronAPI.detectProjectFormat(folderPath);
     if (formatResult?.format === 'braidr' && formatResult.braidrPath) {
       const result = await window.electronAPI.braidrLoadProject(formatResult.braidrPath);
@@ -482,6 +484,18 @@ class ElectronDataService implements DataService {
     if (!this.braidrPath) throw new Error('No project loaded');
     const result = await window.electronAPI.braidrSavePlotPointArcFields(this.braidrPath, plotPointId, fields) as any;
     if (!result.success) throw new Error(result.error || 'Failed to save plot point arc fields');
+  }
+
+  async saveArcFieldDefs(defs: ArcFieldDef[]): Promise<void> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrSaveArcFieldDefs(this.braidrPath, defs) as any;
+    if (!result?.success) throw new Error(result?.error || 'Failed to save arc field defs');
+  }
+
+  async saveArcFieldValues(entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>): Promise<void> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrSaveArcFieldValues(this.braidrPath, entityType, entityId, values) as any;
+    if (!result?.success) throw new Error(result?.error || 'Failed to save arc field values');
   }
 }
 

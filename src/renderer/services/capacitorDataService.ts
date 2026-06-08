@@ -15,6 +15,7 @@ import {
   AllFontSettings,
   ArchivedScene,
   MetadataFieldDef,
+  ArcFieldDef,
   DraftVersion,
   NotesIndex,
   SceneComment,
@@ -244,6 +245,8 @@ export class CapacitorDataService implements DataService {
       draftContent: Record<string, string>;
       metadataFieldDefs: MetadataFieldDef[];
       sceneMetadata: Record<string, Record<string, string | string[]>>;
+      arcFieldDefs: ArcFieldDef[];
+      arcFieldValues: Record<string, Record<string, string | string[]>>;
       drafts: Record<string, DraftVersion[]>;
       wordCountGoal: number;
       scratchpad: Record<string, string>;
@@ -402,6 +405,8 @@ export class CapacitorDataService implements DataService {
         : (timelineData.draftContent || {}),
       metadataFieldDefs: timelineData.metadataFieldDefs || [],
       sceneMetadata: timelineData.sceneMetadata || {},
+      arcFieldDefs: [],
+      arcFieldValues: {},
       drafts: Object.keys(drafts).length > 0
         ? drafts
         : (timelineData.drafts || {}),
@@ -984,4 +989,6 @@ export class CapacitorDataService implements DataService {
   async saveCharacterPsychology(_psychology: import('../../shared/types').CharacterPsychology): Promise<void> {}
   async saveSceneArcFields(_sceneId: string, _fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }): Promise<void> {}
   async savePlotPointArcFields(_plotPointId: string, _fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }): Promise<void> {}
+  async saveArcFieldDefs(_defs: ArcFieldDef[]): Promise<void> {}
+  async saveArcFieldValues(_entityType: 'act' | 'section', _entityId: string, _values: Record<string, string | string[]>): Promise<void> {}
 }
