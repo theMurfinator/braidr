@@ -286,7 +286,6 @@ function FieldRow({ field }: { field: DetailField }) {
   return (
     <div className="arc-dm-field-row">
       <div className="arc-dm-field-label">
-        <span className="arc-dm-field-icon">{field.icon}</span>
         <span className="arc-dm-field-name">{field.label}</span>
       </div>
       <div className="arc-dm-field-value">{control}</div>
@@ -303,7 +302,6 @@ export default function ArcDetailModal({
   onSaveDefs,
   onClose,
 }: ArcDetailModalProps) {
-  const [hideEmpty, setHideEmpty] = useState(true);
   const [showManager, setShowManager] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -312,13 +310,6 @@ export default function ArcDetailModal({
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
-
-  const visibleFields = hideEmpty
-    ? fields.filter(f => {
-        const v = f.value;
-        return Array.isArray(v) ? v.length > 0 : v !== '';
-      })
-    : fields;
 
   return (
     <div
@@ -343,30 +334,15 @@ export default function ArcDetailModal({
               onBack={() => setShowManager(false)}
             />
           ) : (
-            <>
-              {visibleFields.map(f => <FieldRow key={f.id} field={f} />)}
-              {visibleFields.length === 0 && (
-                <div className="arc-dm-empty">All fields are empty. Uncheck &quot;Hide empty fields&quot; to edit.</div>
-              )}
-            </>
+            fields.map(f => <FieldRow key={f.id} field={f} />)
           )}
         </div>
 
         {!showManager && (
           <div className="arc-dm-footer">
-            <label className="arc-dm-hide-toggle">
-              <input
-                type="checkbox"
-                checked={hideEmpty}
-                onChange={e => setHideEmpty(e.target.checked)}
-              />
-              <span>Hide empty fields</span>
-            </label>
-            <div className="arc-dm-footer-actions">
-              <button className="arc-dm-manage-btn" onClick={() => setShowManager(true)} type="button">
-                &#9881; Manage fields
-              </button>
-            </div>
+            <button className="arc-dm-manage-btn" onClick={() => setShowManager(true)} type="button">
+              &#9881; Manage fields
+            </button>
           </div>
         )}
       </div>
