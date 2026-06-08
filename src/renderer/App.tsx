@@ -1773,6 +1773,24 @@ function App() {
     }
   }, [projectData]);
 
+  const handleSaveArcFieldDefs = useCallback(async (defs: ArcFieldDef[]) => {
+    setArcFieldDefs(defs);
+    try {
+      await dataService.saveArcFieldDefs(defs);
+    } catch {
+      addToast('Could not save field definitions');
+    }
+  }, []);
+
+  const handleSaveArcFieldValues = useCallback(async (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => {
+    setArcFieldValues(prev => ({ ...prev, [`${entityType}:${entityId}`]: values }));
+    try {
+      await dataService.saveArcFieldValues(entityType, entityId, values);
+    } catch {
+      addToast('Could not save field values');
+    }
+  }, []);
+
   // Save the scene synopsis (stored as scene.notes) from the arc view, without
   // touching title/content. Persists via the bulk outline save (replaceSceneNotes).
   const handleSaveSceneNotes = useCallback(async (sceneId: string, notes: string[]) => {
@@ -3841,6 +3859,10 @@ function App() {
                         onSendSceneToBullpen={handleSendSceneToBullpen}
                         onSavePsychology={handleSaveCharacterPsychology}
                         arcActiveId={arcActiveId}
+                        arcFieldDefs={arcFieldDefs}
+                        arcFieldValues={arcFieldValues}
+                        onSaveArcFieldDefs={handleSaveArcFieldDefs}
+                        onSaveArcFieldValues={handleSaveArcFieldValues}
 
                         onDeleteSection={handleDeletePlotPoint}
                       />
