@@ -20957,6 +20957,26 @@ textarea.table-cell-input {
 .arc-row:hover .arc-expand-btn { opacity: 1; }
 .arc-expand-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
+/* ── TipTap rich text field (ArcDetailModal) ─────────────────────────────── */
+.arc-dm-rich-wrapper { width: 100%; }
+.arc-dm-rich-editor .ProseMirror {
+  min-height: 22px; padding: 2px 0; outline: none;
+  font-size: 13px; line-height: 1.5; color: var(--text-primary);
+  transition: min-height 0.15s;
+}
+.arc-dm-rich-editor .ProseMirror:focus { min-height: 80px; }
+.arc-dm-rich-editor .ProseMirror p { margin: 0; }
+.arc-dm-rich-editor .ProseMirror p + p { margin-top: 4px; }
+.arc-dm-rich-editor .ProseMirror ul { list-style: disc; padding-left: 18px; margin: 4px 0; }
+.arc-dm-rich-editor .ProseMirror ol { list-style: decimal; padding-left: 18px; margin: 4px 0; }
+.arc-dm-rich-editor .ProseMirror li { margin: 2px 0; }
+.arc-dm-rich-editor .ProseMirror strong { font-weight: 600; }
+.arc-dm-rich-editor .ProseMirror em { font-style: italic; }
+.arc-dm-rich-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left; color: var(--text-muted); pointer-events: none; height: 0;
+}
+
 .arc-scroll { flex: 1; overflow: auto; padding-bottom: 80px; }
 
 .arc-row {

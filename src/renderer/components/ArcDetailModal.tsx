@@ -4,6 +4,9 @@ import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, us
 import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
 import ArcFieldManager from './ArcFieldManager';
 import type { ArcFieldDef } from '../../shared/types';
 
@@ -224,29 +227,35 @@ function MultiSelectField({ value, options, colors, onChange }: {
   );
 }
 
-// ── Text field ────────────────────────────────────────────────────────────────
-function TextField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [draft, setDraft] = useState(value);
-  const taRef = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => { setDraft(value); }, [value]);
-  const autoResize = (el: HTMLTextAreaElement) => {
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  };
+// ── Rich text field (TipTap) ──────────────────────────────────────────────────
+function RichTextField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({ placeholder: '—' }),
+    ],
+    content: value || '',
+    onBlur: ({ editor: e }) => {
+      const html = e.isEmpty ? '' : e.getHTML();
+      onChangeRef.current(html);
+    },
+  });
+
   useEffect(() => {
-    if (taRef.current) autoResize(taRef.current);
-  }, [draft]);
+    if (!editor || editor.isDestroyed) return;
+    const current = editor.isEmpty ? '' : editor.getHTML();
+    if (current !== value) {
+      editor.commands.setContent(value || '');
+    }
+  }, [editor, value]);
+
   return (
-    <textarea
-      ref={taRef}
-      className="arc-dm-textarea"
-      value={draft}
-      placeholder="—"
-      onChange={e => { setDraft(e.target.value); autoResize(e.target); }}
-      onBlur={() => { if (draft !== value) onChange(draft); }}
-      rows={1}
-      style={{ resize: 'none', overflow: 'hidden' }}
-    />
+    <div className="arc-dm-rich-wrapper">
+      <EditorContent editor={editor} className="arc-dm-rich-editor" />
+    </div>
   );
 }
 
@@ -280,7 +289,7 @@ function FieldRow({ field, sortable: isSortable }: { field: DetailField; sortabl
   const r = field.render;
   let control: ReactNode;
   if (r.kind === 'text') {
-    control = <TextField value={field.value as string} onChange={v => field.onChange(v)} />;
+    control = <RichTextField value={field.value as string} onChange={v => field.onChange(v)} />;
   } else if (r.kind === 'number') {
     control = <NumberField value={field.value as string} onChange={v => field.onChange(v)} />;
   } else if (r.kind === 'polarity') {
