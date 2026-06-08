@@ -990,5 +990,5 @@ export class CapacitorDataService implements DataService {
   async saveSceneArcFields(_sceneId: string, _fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string }): Promise<void> {}
   async savePlotPointArcFields(_plotPointId: string, _fields: { actId?: string | null; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string }): Promise<void> {}
   async saveArcFieldDefs(_defs: ArcFieldDef[]): Promise<void> {}
-  async saveArcFieldValues(_entityType: 'act' | 'section', _entityId: string, _values: Record<string, string | string[]>): Promise<void> {}
+  async saveArcFieldValues(_entityType: 'act' | 'section' | 'scene', _entityId: string, _values: Record<string, string | string[]>): Promise<void> {}
 }

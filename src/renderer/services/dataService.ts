@@ -69,7 +69,7 @@ export interface DataService {
   saveSceneArcFields(sceneId: string, fields: { polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; synopsis?: string; startingState?: string; endingState?: string; title?: string }): Promise<void>;
   savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; inBullpen?: boolean; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string; synopsis?: string }): Promise<void>;
   saveArcFieldDefs(defs: ArcFieldDef[]): Promise<void>;
-  saveArcFieldValues(entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>): Promise<void>;
+  saveArcFieldValues(entityType: 'act' | 'section' | 'scene', entityId: string, values: Record<string, string | string[]>): Promise<void>;
 }
 
 // Local file system implementation (Electron) — SQLite .braidr format only

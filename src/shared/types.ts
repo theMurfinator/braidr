@@ -93,6 +93,7 @@ export interface ArcFieldDef {
   optionColors?: Record<string, string>;  // per-option hex colors
   ratingMax?: number;                     // rating only (default 5)
   order: number;
+  scope?: 'arc' | 'scene';              // defaults to 'arc' if absent
 }
 
 export interface DraftVersion {

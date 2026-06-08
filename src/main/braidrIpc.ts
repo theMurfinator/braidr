@@ -313,7 +313,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       }
     }
 
-    // Arc field defs
+    // Arc field defs (all scopes — arc + scene)
     const arcDefRows = db.getArcFieldDefs();
     const arcFieldDefs: ArcFieldDef[] = arcDefRows.map(row => ({
       id: row.id,
@@ -323,6 +323,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       optionColors: row.option_colors ? (() => { try { return JSON.parse(row.option_colors!); } catch { return undefined; } })() : undefined,
       ratingMax: row.rating_max ?? undefined,
       order: row.display_order,
+      scope: (row.scope as 'arc' | 'scene') ?? 'arc',
     }));
 
     // Arc field values (bulk) -> keyed by "<entity_type>:<entity_id>"
@@ -1039,6 +1040,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ARC_FIELD_DEFS, (_event, braidrPath: str
       option_colors: d.optionColors ? JSON.stringify(d.optionColors) : null,
       rating_max: d.ratingMax ?? null,
       display_order: d.order,
+      scope: d.scope ?? 'arc',
     })));
     return { success: true };
   } catch (error) {
@@ -1046,7 +1048,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ARC_FIELD_DEFS, (_event, braidrPath: str
   }
 });
 
-ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ARC_FIELD_VALUES, (_event, braidrPath: string, entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => {
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ARC_FIELD_VALUES, (_event, braidrPath: string, entityType: 'act' | 'section' | 'scene', entityId: string, values: Record<string, string | string[]>) => {
   try {
     const db = getDb(braidrPath);
     db.replaceArcFieldValues(entityType, entityId, Object.entries(values).map(([field_def_id, value]) => ({

@@ -1782,7 +1782,7 @@ function App() {
     }
   }, []);
 
-  const handleSaveArcFieldValues = useCallback(async (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => {
+  const handleSaveArcFieldValues = useCallback(async (entityType: 'act' | 'section' | 'scene', entityId: string, values: Record<string, string | string[]>) => {
     setArcFieldValues(prev => ({ ...prev, [`${entityType}:${entityId}`]: values }));
     try {
       await dataService.saveArcFieldValues(entityType, entityId, values);
