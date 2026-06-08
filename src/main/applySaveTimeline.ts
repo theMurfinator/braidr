@@ -138,28 +138,9 @@ export function applySaveTimeline(db: BraidrDB, payload: SaveTimelinePayload): v
       }
     }
 
-    // Metadata field defs (bulk replace — guarded; cascades to scene_metadata_values)
-    if (payload.metadataFieldDefs !== undefined && shouldReplace(db, payload.metadataFieldDefs.length, 'metadata_field_defs')) {
-      db.replaceMetadataFieldDefs(payload.metadataFieldDefs.map(d => ({
-        id: d.id,
-        label: d.label,
-        field_type: d.type,
-        options: d.options ? JSON.stringify(d.options) : null,
-        option_colors: d.optionColors ? JSON.stringify(d.optionColors) : null,
-        display_order: d.order,
-      })));
-    }
-    // Scene metadata values (bulk replace — guarded)
-    if (payload.sceneMetadata !== undefined && shouldReplace(db, Object.keys(payload.sceneMetadata).length, 'scene_metadata_values')) {
-      // replaceMetadataFieldDefs cascades deletes scene_metadata_values, so re-insert
-      db.prepare('DELETE FROM scene_metadata_values').run();
-      const insertMV = db.prepare('INSERT INTO scene_metadata_values (scene_id, field_def_id, value) VALUES (?, ?, ?)');
-      for (const [sceneId, fields] of Object.entries(payload.sceneMetadata)) {
-        for (const [fieldId, value] of Object.entries(fields)) {
-          insertMV.run(sceneId, fieldId, JSON.stringify(value));
-        }
-      }
-    }
+    // Scene metadata is now managed via braidrSaveArcFieldDefs/braidrSaveArcFieldValues.
+    // These blocks are intentional no-ops — we no longer write the legacy tables from saveTimeline.
+    // (metadataFieldDefs and sceneMetadata remain in the payload type for backward compat only.)
 
     // Word count goal
     if (payload.wordCountGoal !== undefined) {
