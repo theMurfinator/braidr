@@ -30,6 +30,7 @@ export interface DetailField {
   value: string | string[];
   onChange: (v: string | string[]) => void;
   builtin: boolean;
+  section?: string;
 }
 
 interface ArcDetailModalProps {
@@ -615,18 +616,27 @@ export default function ArcDetailModal({
                 />
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={orderedFields.filter(f => f.builtin ? !hiddenBuiltinIds?.has(f.id) : !hiddenCustomIds?.has(f.id)).map(f => f.id)} strategy={verticalListSortingStrategy}>
-                    {orderedFields.filter(f => f.builtin ? !hiddenBuiltinIds?.has(f.id) : !hiddenCustomIds?.has(f.id)).map(f => (
-                      <FieldRow
-                        key={f.id}
-                        field={f}
-                        sortable
-                        onHide={f.builtin
-                          ? (onToggleBuiltin ? () => onToggleBuiltin(f.id) : undefined)
-                          : (onToggleCustom ? () => onToggleCustom(f.id) : undefined)}
-                      />
-                    ))}
-                  </SortableContext>
+                  {(() => {
+                    const visibleFields = orderedFields.filter(f => f.builtin ? !hiddenBuiltinIds?.has(f.id) : !hiddenCustomIds?.has(f.id));
+                    const rows: ReactNode[] = [];
+                    visibleFields.forEach((f, i) => {
+                      const showHeader = f.section && (i === 0 || visibleFields[i - 1].section !== f.section);
+                      if (showHeader) {
+                        rows.push(<div key={`section-${f.section}-${i}`} className="arc-dm-section-header">{f.section}</div>);
+                      }
+                      rows.push(
+                        <FieldRow
+                          key={f.id}
+                          field={f}
+                          sortable
+                          onHide={f.builtin
+                            ? (onToggleBuiltin ? () => onToggleBuiltin(f.id) : undefined)
+                            : (onToggleCustom ? () => onToggleCustom(f.id) : undefined)}
+                        />
+                      );
+                    });
+                    return <SortableContext items={visibleFields.map(f => f.id)} strategy={verticalListSortingStrategy}>{rows}</SortableContext>;
+                  })()}
                 </DndContext>
               )}
             </div>

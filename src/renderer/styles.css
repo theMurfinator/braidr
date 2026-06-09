@@ -21007,6 +21007,12 @@ textarea.table-cell-input {
 .arc-dm-field-row:hover .arc-dm-hide-btn { opacity: 0.5; }
 .arc-dm-hide-btn:hover { opacity: 1 !important; color: var(--text-primary); }
 .arc-dm-field-row:last-child { border-bottom: none; }
+.arc-dm-section-header {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--text-muted);
+  padding: 18px 0 4px 0; margin-bottom: 0;
+}
+.arc-dm-section-header:first-child { padding-top: 6px; }
 .arc-dm-field-label {
   width: 160px; flex-shrink: 0; display: flex; align-items: center; padding-top: 2px;
 }
