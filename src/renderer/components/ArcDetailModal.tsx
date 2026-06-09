@@ -11,6 +11,7 @@ import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import Placeholder from '@tiptap/extension-placeholder';
 import ArcFieldManager from './ArcFieldManager';
 import type { ArcFieldDef, Scene, Character } from '../../shared/types';
+import { dataService } from '../services/dataService';
 
 // ── Public types (used by ArcView descriptor builders) ────────────────────────
 
@@ -33,6 +34,10 @@ export interface DetailField {
   section?: string;
 }
 
+export interface SectionDivider { kind: 'divider'; id: string; label: string; }
+type OrderedItem = DetailField | SectionDivider;
+function isDivider(item: OrderedItem): item is SectionDivider { return (item as SectionDivider).kind === 'divider'; }
+
 interface ArcDetailModalProps {
   title: string;
   subtitle?: string;
@@ -47,6 +52,7 @@ interface ArcDetailModalProps {
   onToggleCustom?: (id: string) => void;
   fieldSections?: Record<string, string>;
   onSectionChange?: (id: string, section: string) => void;
+  onSaveAllSections?: (sections: Record<string, string>) => void;
   scenes?: Scene[];
   bullpenScenes?: Scene[];
   characters?: Character[];
@@ -295,6 +301,54 @@ function NumberField({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
+// ── Section divider row ───────────────────────────────────────────────────────
+function DividerRow({ divider, onRename, onDelete }: {
+  divider: SectionDivider;
+  onRename: (id: string, label: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: divider.id });
+  const [editing, setEditing] = useState(!divider.label);
+  const [draft, setDraft] = useState(divider.label);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+  useEffect(() => { setDraft(divider.label); }, [divider.label]);
+
+  function commit() {
+    const trimmed = draft.trim();
+    if (trimmed) onRename(divider.id, trimmed);
+    setEditing(false);
+  }
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="arc-dm-divider-row">
+      <div className="arc-dm-drag-handle" {...attributes} {...listeners}>&#8959;</div>
+      {editing ? (
+        <input
+          ref={inputRef}
+          className="arc-dm-divider-input"
+          value={draft}
+          placeholder="Section name..."
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(divider.label); setEditing(false); } }}
+        />
+      ) : (
+        <span className="arc-dm-divider-label" onClick={() => setEditing(true)} title="Click to rename">
+          {divider.label || 'Unnamed section'}
+        </span>
+      )}
+      <button className="arc-dm-divider-delete" onClick={() => onDelete(divider.id)} type="button" title="Remove section">&times;</button>
+    </div>
+  );
+}
+
 // ── Field row ─────────────────────────────────────────────────────────────────
 function FieldRow({ field, sortable: isSortable, onHide }: { field: DetailField; sortable?: boolean; onHide?: () => void }) {
   const {
@@ -482,7 +536,8 @@ export default function ArcDetailModal({
   hiddenCustomIds,
   onToggleCustom,
   fieldSections,
-  onSectionChange,
+  onSectionChange: _onSectionChange,
+  onSaveAllSections,
   scenes,
   bullpenScenes,
   characters: _characters,
@@ -524,8 +579,8 @@ export default function ArcDetailModal({
     onReorderScenes?.(reordered.map(s => s.id));
   }
 
-  // Ordered fields state — initialized with saved order from localStorage if available
-  const [orderedFields, setOrderedFields] = useState<DetailField[]>(() => {
+  // ── Ordered items (fields + section dividers) ────────────────────────────
+  const [orderedItems, setOrderedItems] = useState<OrderedItem[]>(() => {
     if (!storageKey) return fields;
     try {
       const saved = localStorage.getItem(storageKey);
@@ -533,7 +588,6 @@ export default function ArcDetailModal({
         const savedIds: string[] = JSON.parse(saved);
         const byId = Object.fromEntries(fields.map(f => [f.id, f]));
         const ordered = savedIds.map(id => byId[id]).filter(Boolean) as DetailField[];
-        // Append any new fields not in saved order
         const savedSet = new Set(savedIds);
         for (const f of fields) if (!savedSet.has(f.id)) ordered.push(f);
         return ordered;
@@ -542,16 +596,82 @@ export default function ArcDetailModal({
     return fields;
   });
 
-  // Sync when fields prop changes (e.g. new custom field added or field deleted)
+  // Load dividers from SQLite and merge into item list
   useEffect(() => {
-    setOrderedFields(prev => {
+    if (!storageKey) return;
+    dataService.getArcUiPref(`arc-dividers:${storageKey}`).then((raw: string | null) => {
+      if (!raw) return;
+      try {
+        const saved: { id: string; label: string; afterId: string | '__start__' }[] = JSON.parse(raw);
+        setOrderedItems(prev => {
+          const result: OrderedItem[] = [];
+          // Insert dividers before the field they were saved after
+          const dividersBefore: Record<string, SectionDivider[]> = {};
+          for (const d of saved) {
+            const key = d.afterId;
+            if (!dividersBefore[key]) dividersBefore[key] = [];
+            dividersBefore[key].push({ kind: 'divider', id: d.id, label: d.label });
+          }
+          for (const div of (dividersBefore['__start__'] ?? [])) result.push(div);
+          for (const item of prev) {
+            if (!isDivider(item)) {
+              result.push(item);
+              for (const div of (dividersBefore[item.id] ?? [])) result.push(div);
+            }
+          }
+          return result;
+        });
+      } catch { /* ignore */ }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
+
+  // Sync when fields prop changes
+  useEffect(() => {
+    setOrderedItems(prev => {
       const fieldMap = Object.fromEntries(fields.map(f => [f.id, f]));
-      const updated = prev.map(f => fieldMap[f.id]).filter(Boolean) as DetailField[];
-      const prevIds = new Set(prev.map(f => f.id));
-      const newFields = fields.filter(f => !prevIds.has(f.id));
+      const updated = prev.map(item => isDivider(item) ? item : (fieldMap[item.id] ?? null)).filter(Boolean) as OrderedItem[];
+      const prevFieldIds = new Set(prev.filter(i => !isDivider(i)).map(i => i.id));
+      const newFields = fields.filter(f => !prevFieldIds.has(f.id));
       return [...updated, ...newFields];
     });
   }, [fields]);
+
+  function deriveSections(items: OrderedItem[]): Record<string, string> {
+    const sections: Record<string, string> = {};
+    let current = '';
+    for (const item of items) {
+      if (isDivider(item)) { current = item.label; }
+      else if (current) { sections[item.id] = current; }
+    }
+    return sections;
+  }
+
+  function saveItems(items: OrderedItem[]) {
+    if (!storageKey) return;
+    // Persist field order in localStorage (backward compat)
+    localStorage.setItem(storageKey, JSON.stringify(items.filter(i => !isDivider(i)).map(i => i.id)));
+    // Persist divider positions in SQLite
+    const divPositions: { id: string; label: string; afterId: string | '__start__' }[] = [];
+    let lastFieldId: string | '__start__' = '__start__';
+    for (const item of items) {
+      if (isDivider(item)) {
+        divPositions.push({ id: item.id, label: item.label, afterId: lastFieldId });
+      } else {
+        lastFieldId = item.id;
+      }
+    }
+    dataService.setArcUiPref(`arc-dividers:${storageKey}`, JSON.stringify(divPositions));
+    // Derive and save field sections
+    onSaveAllSections?.(deriveSections(items));
+    // Update custom field def order
+    const customInOrder = items.filter(i => !isDivider(i) && !(i as DetailField).builtin) as DetailField[];
+    const updatedDefs = arcFieldDefs.map(def => {
+      const idx = customInOrder.findIndex(f => f.id === def.id);
+      return idx >= 0 ? { ...def, order: idx } : def;
+    });
+    if (updatedDefs.some((d, i) => d.order !== arcFieldDefs[i]?.order)) onSaveDefs(updatedDefs);
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -561,23 +681,12 @@ export default function ArcDetailModal({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIdx = orderedFields.findIndex(f => f.id === active.id);
-    const newIdx = orderedFields.findIndex(f => f.id === over.id);
-    const newOrder = arrayMove(orderedFields, oldIdx, newIdx);
-    setOrderedFields(newOrder);
-    // Persist full display order
-    if (storageKey) {
-      localStorage.setItem(storageKey, JSON.stringify(newOrder.map(f => f.id)));
-    }
-    // Update custom field def order values
-    const customInOrder = newOrder.filter(f => !f.builtin);
-    const updatedDefs = arcFieldDefs.map(def => {
-      const idx = customInOrder.findIndex(f => f.id === def.id);
-      return idx >= 0 ? { ...def, order: idx } : def;
-    });
-    if (updatedDefs.some((d, i) => d.order !== arcFieldDefs[i]?.order)) {
-      onSaveDefs(updatedDefs);
-    }
+    const oldIdx = orderedItems.findIndex(i => i.id === active.id);
+    const newIdx = orderedItems.findIndex(i => i.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const newOrder = arrayMove(orderedItems, oldIdx, newIdx);
+    setOrderedItems(newOrder);
+    saveItems(newOrder);
   }
 
   useEffect(() => {
@@ -618,36 +727,61 @@ export default function ArcDetailModal({
                   hiddenCustomIds={hiddenCustomIds}
                   onToggleCustom={onToggleCustom}
                   fieldSections={fieldSections}
-                  onSectionChange={onSectionChange}
+                  onSectionChange={_onSectionChange}
                 />
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   {(() => {
-                    const visibleFields = orderedFields.filter(f => f.builtin ? !hiddenBuiltinIds?.has(f.id) : !hiddenCustomIds?.has(f.id));
-                    const rows: ReactNode[] = [];
-                    visibleFields.forEach((f, i) => {
-                      const showHeader = f.section && (i === 0 || visibleFields[i - 1].section !== f.section);
-                      if (showHeader) {
-                        rows.push(<div key={`section-${f.section}-${i}`} className="arc-dm-section-header">{f.section}</div>);
-                      }
-                      rows.push(
-                        <FieldRow
-                          key={f.id}
-                          field={f}
-                          sortable
-                          onHide={f.builtin
-                            ? (onToggleBuiltin ? () => onToggleBuiltin(f.id) : undefined)
-                            : (onToggleCustom ? () => onToggleCustom(f.id) : undefined)}
-                        />
-                      );
-                    });
-                    return <SortableContext items={visibleFields.map(f => f.id)} strategy={verticalListSortingStrategy}>{rows}</SortableContext>;
+                    const visibleItems = orderedItems.filter(item =>
+                      isDivider(item) || (item.builtin ? !hiddenBuiltinIds?.has(item.id) : !hiddenCustomIds?.has(item.id))
+                    );
+                    return (
+                      <SortableContext items={visibleItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                        {visibleItems.map(item => isDivider(item) ? (
+                          <DividerRow
+                            key={item.id}
+                            divider={item}
+                            onRename={(id, label) => {
+                              const next = orderedItems.map(i => isDivider(i) && i.id === id ? { ...i, label } : i);
+                              setOrderedItems(next);
+                              saveItems(next);
+                            }}
+                            onDelete={id => {
+                              const next = orderedItems.filter(i => i.id !== id);
+                              setOrderedItems(next);
+                              saveItems(next);
+                            }}
+                          />
+                        ) : (
+                          <FieldRow
+                            key={item.id}
+                            field={item}
+                            sortable
+                            onHide={item.builtin
+                              ? (onToggleBuiltin ? () => onToggleBuiltin(item.id) : undefined)
+                              : (onToggleCustom ? () => onToggleCustom(item.id) : undefined)}
+                          />
+                        ))}
+                      </SortableContext>
+                    );
                   })()}
                 </DndContext>
               )}
             </div>
             {!showManager && (
               <div className="arc-dm-footer">
+                <button
+                  className="arc-dm-add-section-btn"
+                  onClick={() => {
+                    const newDiv: SectionDivider = { kind: 'divider', id: crypto.randomUUID(), label: '' };
+                    const next = [newDiv, ...orderedItems];
+                    setOrderedItems(next);
+                    saveItems(next);
+                  }}
+                  type="button"
+                >
+                  + Add section
+                </button>
                 <button className="arc-dm-manage-btn" onClick={() => setShowManager(true)} type="button">
                   &#9881; Manage fields
                 </button>

@@ -21021,13 +21021,43 @@ textarea.table-cell-input {
   padding: 18px 0 4px 0; margin-bottom: 0;
 }
 .arc-dm-section-header:first-child { padding-top: 6px; }
+.arc-dm-divider-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 12px 0 2px 0; border-bottom: none;
+}
+.arc-dm-divider-row + .arc-dm-field-row { border-top: none; }
+.arc-dm-divider-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--text-secondary);
+  cursor: text; flex: 1; padding: 2px 0;
+}
+.arc-dm-divider-label:hover { color: var(--text-primary); }
+.arc-dm-divider-input {
+  flex: 1; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; background: none; border: none;
+  border-bottom: 1px solid var(--border); outline: none;
+  color: var(--text-primary); padding: 2px 0;
+}
+.arc-dm-divider-delete {
+  background: none; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: 14px; padding: 0 2px; opacity: 0;
+  transition: opacity 0.1s;
+}
+.arc-dm-divider-row:hover .arc-dm-divider-delete { opacity: 0.6; }
+.arc-dm-divider-delete:hover { opacity: 1 !important; color: var(--text-primary); }
+.arc-dm-add-section-btn {
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-secondary); font-size: 12px; cursor: pointer;
+  padding: 4px 10px; transition: all 0.1s;
+}
+.arc-dm-add-section-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--text-muted); }
 .arc-dm-field-label {
   width: 160px; flex-shrink: 0; display: flex; align-items: center; padding-top: 2px;
 }
 .arc-dm-field-name { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
 .arc-dm-field-value { flex: 1; min-width: 0; }
 .arc-dm-footer {
-  display: flex; align-items: center; justify-content: flex-end;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 8px 20px; border-top: 1px solid var(--border); flex-shrink: 0;
   background: var(--bg-secondary);
 }

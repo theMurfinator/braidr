@@ -1105,6 +1105,7 @@ export default function ArcView({
               onToggleCustom={handleToggleCustom}
               fieldSections={arcFieldSections}
               onSectionChange={handleSectionChange}
+              onSaveAllSections={onSaveArcFieldSections}
               scenes={actScenes}
               characters={characters}
               characterColors={characterColors}
@@ -1131,6 +1132,7 @@ export default function ArcView({
               onToggleCustom={handleToggleCustom}
               fieldSections={arcFieldSections}
               onSectionChange={handleSectionChange}
+              onSaveAllSections={onSaveArcFieldSections}
               scenes={sectionScenes}
               bullpenScenes={bullpenScenes}
               characters={characters}
