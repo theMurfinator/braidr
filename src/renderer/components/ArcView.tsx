@@ -154,6 +154,17 @@ function saveHiddenBuiltins(ids: Set<string>) {
   try { localStorage.setItem(ARC_HIDDEN_BUILTINS_KEY, JSON.stringify([...ids])); } catch { /* ignore */ }
 }
 
+const ARC_HIDDEN_CUSTOM_KEY = 'arc-hidden-custom-ids';
+function loadHiddenCustoms(): Set<string> {
+  try {
+    const raw = localStorage.getItem(ARC_HIDDEN_CUSTOM_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch { return new Set(); }
+}
+function saveHiddenCustoms(ids: Set<string>) {
+  try { localStorage.setItem(ARC_HIDDEN_CUSTOM_KEY, JSON.stringify([...ids])); } catch { /* ignore */ }
+}
+
 // Arc view layout state (hide-acts/sections toggles + which acts/sections are
 // collapsed) persists so the view reopens exactly as you left it.
 const ARC_VIEW_LS_KEY = 'braidr.arcView.v1';
@@ -547,6 +558,7 @@ export default function ArcView({
 }: ArcViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadArcViewPref().collapsed));
   const [hiddenBuiltinIds, setHiddenBuiltinIds] = useState<Set<string>>(() => loadHiddenBuiltins());
+  const [hiddenCustomIds, setHiddenCustomIds] = useState<Set<string>>(() => loadHiddenCustoms());
   const [openModal, setOpenModal] = useState<{ kind: 'act' | 'section'; id: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
@@ -635,6 +647,15 @@ export default function ArcView({
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       saveHiddenBuiltins(next);
+      return next;
+    });
+  }
+
+  function handleToggleCustom(id: string) {
+    setHiddenCustomIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      saveHiddenCustoms(next);
       return next;
     });
   }
@@ -1066,6 +1087,8 @@ export default function ArcView({
               storageKey="arc-field-order:act"
               hiddenBuiltinIds={hiddenBuiltinIds}
               onToggleBuiltin={handleToggleBuiltin}
+              hiddenCustomIds={hiddenCustomIds}
+              onToggleCustom={handleToggleCustom}
               scenes={actScenes}
               characters={characters}
               characterColors={characterColors}
@@ -1088,6 +1111,8 @@ export default function ArcView({
               storageKey="arc-field-order:section"
               hiddenBuiltinIds={hiddenBuiltinIds}
               onToggleBuiltin={handleToggleBuiltin}
+              hiddenCustomIds={hiddenCustomIds}
+              onToggleCustom={handleToggleCustom}
               scenes={sectionScenes}
               bullpenScenes={bullpenScenes}
               characters={characters}
