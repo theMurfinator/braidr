@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ArcFieldDef } from '../../shared/types';
 
 export const ARC_FIELD_TYPES: { value: ArcFieldDef['type']; label: string }[] = [
@@ -49,9 +49,26 @@ interface ArcFieldManagerProps {
   onToggleBuiltin?: (id: string) => void;
   hiddenCustomIds?: Set<string>;
   onToggleCustom?: (id: string) => void;
+  fieldSections?: Record<string, string>;
+  onSectionChange?: (id: string, section: string) => void;
 }
 
-export default function ArcFieldManager({ defs, onSave, onBack, builtinFields = [], hiddenBuiltinIds = new Set(), onToggleBuiltin, hiddenCustomIds = new Set(), onToggleCustom }: ArcFieldManagerProps) {
+function SectionInput({ fieldId, value, onChange }: { fieldId: string; value: string; onChange: (id: string, v: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+  return (
+    <input
+      className="arc-fm-section-input"
+      value={draft}
+      placeholder="Section..."
+      onChange={e => setDraft(e.target.value)}
+      onBlur={() => onChange(fieldId, draft)}
+      onKeyDown={e => { if (e.key === 'Enter') { onChange(fieldId, draft); (e.target as HTMLInputElement).blur(); } }}
+    />
+  );
+}
+
+export default function ArcFieldManager({ defs, onSave, onBack, builtinFields = [], hiddenBuiltinIds = new Set(), onToggleBuiltin, hiddenCustomIds = new Set(), onToggleCustom, fieldSections = {}, onSectionChange }: ArcFieldManagerProps) {
   const [localDefs, setLocalDefs] = useState<ArcFieldDef[]>(defs);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -256,6 +273,9 @@ export default function ArcFieldManager({ defs, onSave, onBack, builtinFields = 
                 <span className="arc-fm-def-label">{bf.label}</span>
                 <span className="arc-fm-def-type">built-in</span>
               </div>
+              {onSectionChange && (
+                <SectionInput fieldId={bf.id} value={fieldSections[bf.id] ?? ''} onChange={onSectionChange} />
+              )}
               <div className="arc-fm-def-actions">
                 <button
                   className="arc-fm-icon-btn"
@@ -282,6 +302,9 @@ export default function ArcFieldManager({ defs, onSave, onBack, builtinFields = 
               <span className="arc-fm-def-label">{def.label}</span>
               <span className="arc-fm-def-type">{ARC_FIELD_TYPES.find(t => t.value === def.type)?.label}</span>
             </div>
+            {onSectionChange && (
+              <SectionInput fieldId={def.id} value={fieldSections[def.id] ?? ''} onChange={onSectionChange} />
+            )}
             <div className="arc-fm-def-actions">
               <button className="arc-fm-icon-btn" onClick={() => moveDef(def.id, -1)} disabled={idx === 0} type="button" title="Move up">&#8593;</button>
               <button className="arc-fm-icon-btn" onClick={() => moveDef(def.id, 1)} disabled={idx === localDefs.length - 1} type="button" title="Move down">&#8595;</button>

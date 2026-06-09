@@ -574,6 +574,8 @@ export const IPC_CHANNELS = {
   BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS: 'braidr:save-plot-point-arc-fields',
   BRAIDR_SAVE_ARC_FIELD_DEFS: 'braidr:save-arc-field-defs',
   BRAIDR_SAVE_ARC_FIELD_VALUES: 'braidr:save-arc-field-values',
+  BRAIDR_GET_ARC_UI_PREF: 'braidr:get-arc-ui-pref',
+  BRAIDR_SET_ARC_UI_PREF: 'braidr:set-arc-ui-pref',
   BRAIDR_DELETE_ACT: 'braidr:delete-act',
   BRAIDR_REORDER_ACTS: 'braidr:reorder-acts',
   BRAIDR_LOAD_CHARACTER_PSYCHOLOGY: 'braidr:load-character-psychology',

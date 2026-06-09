@@ -91,15 +91,16 @@ function buildActDetailFields(
   arcFieldValues: Record<string, Record<string, string | string[]>>,
   onSaveAct: (act: Act) => void,
   onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void,
+  fieldSections: Record<string, string>,
 ): DetailField[] {
   const entityValues = arcFieldValues[`act:${act.id}`] ?? {};
   const builtins: DetailField[] = [
-    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: act.startingState ?? '', onChange: v => onSaveAct({ ...act, startingState: v as string }), builtin: true, section: 'States' },
-    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: act.endingState ?? '', onChange: v => onSaveAct({ ...act, endingState: v as string }), builtin: true, section: 'States' },
-    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: act.transformation ?? '', onChange: v => onSaveAct({ ...act, transformation: v as string }), builtin: true, section: 'Story Engine' },
-    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: act.dilemma ?? '', onChange: v => onSaveAct({ ...act, dilemma: v as string }), builtin: true, section: 'Story Engine' },
-    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: act.propellingAction ?? '', onChange: v => onSaveAct({ ...act, propellingAction: v as string }), builtin: true, section: 'Story Engine' },
-    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: act.polarity ?? '', onChange: v => onSaveAct({ ...act, polarity: v as string }), builtin: true, section: 'Story Engine' },
+    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: act.startingState ?? '', onChange: v => onSaveAct({ ...act, startingState: v as string }), builtin: true, section: fieldSections['beginning'] },
+    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: act.endingState ?? '', onChange: v => onSaveAct({ ...act, endingState: v as string }), builtin: true, section: fieldSections['ending'] },
+    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: act.transformation ?? '', onChange: v => onSaveAct({ ...act, transformation: v as string }), builtin: true, section: fieldSections['turningPoint'] },
+    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: act.dilemma ?? '', onChange: v => onSaveAct({ ...act, dilemma: v as string }), builtin: true, section: fieldSections['dilemma'] },
+    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: act.propellingAction ?? '', onChange: v => onSaveAct({ ...act, propellingAction: v as string }), builtin: true, section: fieldSections['propellingAction'] },
+    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: act.polarity ?? '', onChange: v => onSaveAct({ ...act, polarity: v as string }), builtin: true, section: fieldSections['polarity'] },
   ];
   const custom: DetailField[] = arcFieldDefs.map(def => ({
     id: def.id,
@@ -109,6 +110,7 @@ function buildActDetailFields(
     value: entityValues[def.id] ?? (def.type === 'multiselect' ? [] : ''),
     onChange: (v: string | string[]) => onSaveArcFieldValues('act', act.id, { ...entityValues, [def.id]: v }),
     builtin: false,
+    section: fieldSections[def.id],
   }));
   return [...builtins, ...custom];
 }
@@ -119,16 +121,17 @@ function buildSectionDetailFields(
   arcFieldValues: Record<string, Record<string, string | string[]>>,
   onSavePlotPointArcFields: (id: string, fields: Partial<Pick<PlotPoint, 'actId' | 'inBullpen' | 'startingState' | 'endingState' | 'polarity' | 'transformation' | 'dilemma' | 'propellingAction' | 'title' | 'description' | 'synopsis'>>) => void,
   onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void,
+  fieldSections: Record<string, string>,
 ): DetailField[] {
   const entityValues = arcFieldValues[`section:${pp.id}`] ?? {};
   const builtins: DetailField[] = [
-    { id: 'description', label: 'Synopsis', icon: BUILTIN_ICONS.description, render: { kind: 'text' }, value: pp.description ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { description: v as string }), builtin: true, section: 'Overview' },
-    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: pp.startingState ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { startingState: v as string }), builtin: true, section: 'States' },
-    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: pp.endingState ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { endingState: v as string }), builtin: true, section: 'States' },
-    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: pp.transformation ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { transformation: v as string }), builtin: true, section: 'Story Engine' },
-    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: pp.dilemma ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { dilemma: v as string }), builtin: true, section: 'Story Engine' },
-    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: pp.propellingAction ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { propellingAction: v as string }), builtin: true, section: 'Story Engine' },
-    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: pp.polarity ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { polarity: v as string }), builtin: true, section: 'Story Engine' },
+    { id: 'description', label: 'Synopsis', icon: BUILTIN_ICONS.description, render: { kind: 'text' }, value: pp.description ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { description: v as string }), builtin: true, section: fieldSections['description'] },
+    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: pp.startingState ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { startingState: v as string }), builtin: true, section: fieldSections['beginning'] },
+    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: pp.endingState ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { endingState: v as string }), builtin: true, section: fieldSections['ending'] },
+    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: pp.transformation ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { transformation: v as string }), builtin: true, section: fieldSections['turningPoint'] },
+    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: pp.dilemma ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { dilemma: v as string }), builtin: true, section: fieldSections['dilemma'] },
+    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: pp.propellingAction ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { propellingAction: v as string }), builtin: true, section: fieldSections['propellingAction'] },
+    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: pp.polarity ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { polarity: v as string }), builtin: true, section: fieldSections['polarity'] },
   ];
   const custom: DetailField[] = arcFieldDefs.map(def => ({
     id: def.id,
@@ -138,6 +141,7 @@ function buildSectionDetailFields(
     value: entityValues[def.id] ?? (def.type === 'multiselect' ? [] : ''),
     onChange: (v: string | string[]) => onSaveArcFieldValues('section', pp.id, { ...entityValues, [def.id]: v }),
     builtin: false,
+    section: fieldSections[def.id],
   }));
   return [...builtins, ...custom];
 }
@@ -440,6 +444,8 @@ interface ArcViewProps {
   onAssignSceneToSection?: (sceneId: string, sectionId: string) => void;
   onSaveArcFieldDefs: (defs: ArcFieldDef[]) => void;
   onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void;
+  arcFieldSections: Record<string, string>;
+  onSaveArcFieldSections: (sections: Record<string, string>) => void;
 }
 
 function ActContextMenu({ x, y, onDelete, onClose }: {
@@ -552,6 +558,8 @@ export default function ArcView({
   arcFieldValues,
   onSaveArcFieldDefs,
   onSaveArcFieldValues,
+  arcFieldSections,
+  onSaveArcFieldSections,
   onReorderSceneInSection,
   onAddSceneToSection,
   onAssignSceneToSection,
@@ -559,6 +567,12 @@ export default function ArcView({
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadArcViewPref().collapsed));
   const [hiddenBuiltinIds, setHiddenBuiltinIds] = useState<Set<string>>(() => loadHiddenBuiltins());
   const [hiddenCustomIds, setHiddenCustomIds] = useState<Set<string>>(() => loadHiddenCustoms());
+  function handleSectionChange(id: string, section: string) {
+    const next = section.trim()
+      ? { ...arcFieldSections, [id]: section.trim() }
+      : Object.fromEntries(Object.entries(arcFieldSections).filter(([k]) => k !== id));
+    onSaveArcFieldSections(next);
+  }
   const [openModal, setOpenModal] = useState<{ kind: 'act' | 'section'; id: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; sectionId: string } | null>(null);
   const [actContextMenu, setActContextMenu] = useState<{ x: number; y: number; actId: string } | null>(null);
@@ -1080,7 +1094,7 @@ export default function ArcView({
             <ArcDetailModal
               title={act.name || 'Unnamed act'}
               subtitle="Act"
-              fields={buildActDetailFields(act, arcFieldDefs, arcFieldValues, onSaveAct, onSaveArcFieldValues)}
+              fields={buildActDetailFields(act, arcFieldDefs, arcFieldValues, onSaveAct, onSaveArcFieldValues, arcFieldSections)}
               arcFieldDefs={arcFieldDefs}
               onSaveDefs={onSaveArcFieldDefs}
               onClose={() => setOpenModal(null)}
@@ -1089,6 +1103,8 @@ export default function ArcView({
               onToggleBuiltin={handleToggleBuiltin}
               hiddenCustomIds={hiddenCustomIds}
               onToggleCustom={handleToggleCustom}
+              fieldSections={arcFieldSections}
+              onSectionChange={handleSectionChange}
               scenes={actScenes}
               characters={characters}
               characterColors={characterColors}
@@ -1104,7 +1120,7 @@ export default function ArcView({
             <ArcDetailModal
               title={pp.title || 'Unnamed section'}
               subtitle="Section"
-              fields={buildSectionDetailFields(pp, arcFieldDefs, arcFieldValues, onSavePlotPointArcFields, onSaveArcFieldValues)}
+              fields={buildSectionDetailFields(pp, arcFieldDefs, arcFieldValues, onSavePlotPointArcFields, onSaveArcFieldValues, arcFieldSections)}
               arcFieldDefs={arcFieldDefs}
               onSaveDefs={onSaveArcFieldDefs}
               onClose={() => setOpenModal(null)}
@@ -1113,6 +1129,8 @@ export default function ArcView({
               onToggleBuiltin={handleToggleBuiltin}
               hiddenCustomIds={hiddenCustomIds}
               onToggleCustom={handleToggleCustom}
+              fieldSections={arcFieldSections}
+              onSectionChange={handleSectionChange}
               scenes={sectionScenes}
               bullpenScenes={bullpenScenes}
               characters={characters}

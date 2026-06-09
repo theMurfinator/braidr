@@ -223,6 +223,7 @@ function App() {
   const sceneMetadataRef = useRef<Record<string, Record<string, string | string[]>>>({});
   const [arcFieldDefs, setArcFieldDefs] = useState<ArcFieldDef[]>([]);
   const [arcFieldValues, setArcFieldValues] = useState<Record<string, Record<string, string | string[]>>>({});
+  const [arcFieldSections, setArcFieldSections] = useState<Record<string, string>>({});
   const [showCompileModal, setShowCompileModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -1146,6 +1147,9 @@ function App() {
     const loadedArcFieldValues = data.arcFieldValues ?? {};
     setArcFieldDefs(loadedArcFieldDefs);
     setArcFieldValues(loadedArcFieldValues);
+    dataService.getArcUiPref('arc-field-sections').then((raw: string | null) => {
+      try { if (raw) setArcFieldSections(JSON.parse(raw)); } catch { /* ignore */ }
+    });
 
     // Derive backward-compat scene metadata state from unified arc tables (post-migration)
     const sceneDefs = loadedArcFieldDefs.filter(d => d.scope === 'scene');
@@ -3992,6 +3996,11 @@ function App() {
                         arcFieldValues={arcFieldValues}
                         onSaveArcFieldDefs={handleSaveArcFieldDefs}
                         onSaveArcFieldValues={handleSaveArcFieldValues}
+                        arcFieldSections={arcFieldSections}
+                        onSaveArcFieldSections={(sections) => {
+                          setArcFieldSections(sections);
+                          dataService.setArcUiPref('arc-field-sections', JSON.stringify(sections));
+                        }}
                         onReorderSceneInSection={handleArcReorderScenesInSection}
                         onAddSceneToSection={handleAddSceneToSection}
                         onAssignSceneToSection={handleAssignSceneToSection}

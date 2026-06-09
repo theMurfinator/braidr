@@ -1066,6 +1066,27 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ARC_FIELD_VALUES, (_event, braidrPath: s
   }
 });
 
+ipcMain.handle(IPC_CHANNELS.BRAIDR_GET_ARC_UI_PREF, (_event, braidrPath: string, key: string) => {
+  try {
+    const db = getDb(braidrPath);
+    const value = db.getArcUiPref(key);
+    return { success: true, data: value };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SET_ARC_UI_PREF, (_event, braidrPath: string, key: string, value: string) => {
+  try {
+    const db = getDb(braidrPath);
+    db.setArcUiPref(key, value);
+    db.checkpoint();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});
+
 ipcMain.handle(IPC_CHANNELS.BRAIDR_DELETE_ACT, (_event, braidrPath: string, actId: string) => {
   try {
     const db = getDb(braidrPath);

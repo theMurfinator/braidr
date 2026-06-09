@@ -70,6 +70,8 @@ export interface DataService {
   savePlotPointArcFields(plotPointId: string, fields: { actId?: string | null; inBullpen?: boolean; startingState?: string; endingState?: string; polarity?: string; transformation?: string; dilemma?: string; propellingAction?: string; title?: string; description?: string; synopsis?: string }): Promise<void>;
   saveArcFieldDefs(defs: ArcFieldDef[]): Promise<void>;
   saveArcFieldValues(entityType: 'act' | 'section' | 'scene', entityId: string, values: Record<string, string | string[]>): Promise<void>;
+  getArcUiPref(key: string): Promise<string | null>;
+  setArcUiPref(key: string, value: string): Promise<void>;
 }
 
 // Local file system implementation (Electron) — SQLite .braidr format only
@@ -496,6 +498,17 @@ class ElectronDataService implements DataService {
     if (!this.braidrPath) throw new Error('No project loaded');
     const result = await window.electronAPI.braidrSaveArcFieldValues(this.braidrPath, entityType, entityId, values) as any;
     if (!result?.success) throw new Error(result?.error || 'Failed to save arc field values');
+  }
+
+  async getArcUiPref(key: string): Promise<string | null> {
+    if (!this.braidrPath) return null;
+    const result = await window.electronAPI.braidrGetArcUiPref(this.braidrPath, key) as any;
+    return result?.success ? result.data : null;
+  }
+
+  async setArcUiPref(key: string, value: string): Promise<void> {
+    if (!this.braidrPath) return;
+    await window.electronAPI.braidrSetArcUiPref(this.braidrPath, key, value);
   }
 }
 

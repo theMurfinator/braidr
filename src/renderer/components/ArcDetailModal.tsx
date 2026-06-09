@@ -45,6 +45,8 @@ interface ArcDetailModalProps {
   onToggleBuiltin?: (id: string) => void;
   hiddenCustomIds?: Set<string>;
   onToggleCustom?: (id: string) => void;
+  fieldSections?: Record<string, string>;
+  onSectionChange?: (id: string, section: string) => void;
   scenes?: Scene[];
   bullpenScenes?: Scene[];
   characters?: Character[];
@@ -479,6 +481,8 @@ export default function ArcDetailModal({
   onToggleBuiltin,
   hiddenCustomIds,
   onToggleCustom,
+  fieldSections,
+  onSectionChange,
   scenes,
   bullpenScenes,
   characters: _characters,
@@ -613,6 +617,8 @@ export default function ArcDetailModal({
                   onToggleBuiltin={onToggleBuiltin}
                   hiddenCustomIds={hiddenCustomIds}
                   onToggleCustom={onToggleCustom}
+                  fieldSections={fieldSections}
+                  onSectionChange={onSectionChange}
                 />
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

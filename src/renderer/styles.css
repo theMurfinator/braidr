@@ -20784,7 +20784,15 @@ textarea.table-cell-input {
 .arc-fm-def-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid transparent; }
 .arc-fm-def-row:hover { background: var(--bg-secondary); border-color: var(--border); }
 .arc-fm-def-row.editing { background: var(--bg-tertiary); }
-.arc-fm-def-info { display: flex; align-items: center; gap: 8px; flex: 1; }
+.arc-fm-def-info { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.arc-fm-section-input {
+  flex: 1; min-width: 80px; max-width: 140px;
+  background: none; border: none; border-bottom: 1px solid transparent;
+  font-size: 12px; color: var(--text-secondary); padding: 2px 4px;
+  outline: none; margin: 0 8px;
+}
+.arc-fm-section-input:focus { border-bottom-color: var(--border); }
+.arc-fm-section-input::placeholder { color: var(--text-muted); font-style: italic; }
 .arc-fm-def-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
 .arc-fm-def-type { font-size: 11px; color: var(--text-muted); background: var(--bg-tertiary); padding: 1px 6px; border-radius: 10px; }
 .arc-fm-def-actions { display: flex; align-items: center; gap: 2px; }
