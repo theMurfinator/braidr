@@ -191,16 +191,16 @@ export function useTimers({
       startedAt: taskTimerStartRef.current,
       duration,
     };
-    setTasks(prev => {
-      const updated = prev.map(t =>
-        t.id === currentTaskId
-          ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
-          : t
-      );
-      tasksRef.current = updated;
-      isDirtyRef.current = true;
-      return updated;
-    });
+    // Update refs synchronously before setTasks so any immediate saveTimelineData
+    // call (e.g. from "Close Project" or onAppClosing) reads the new entry.
+    const updated = tasksRef.current.map(t =>
+      t.id === currentTaskId
+        ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
+        : t
+    );
+    tasksRef.current = updated;
+    isDirtyRef.current = true;
+    setTasks(updated);
     setTaskTimerTaskId(null);
     taskTimerStartRef.current = null;
     setTaskTimerElapsed(0);

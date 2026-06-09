@@ -2809,6 +2809,8 @@ function App() {
       const cleanup = api.onAppClosing(async () => {
         isClosingRef.current = true;
         editorViewRef.current?.flush();
+        // Commit any in-flight task timer before saving (no-op if not running)
+        handleStopTaskTimer();
         // End current writing session before closing
         if (sessionTrackerRef.current?.isActive()) {
           const session = sessionTrackerRef.current.getCurrentSession();
@@ -2831,7 +2833,7 @@ function App() {
       });
       return cleanup;
     }
-  }, [projectData, sceneConnections, saveTimelineData]);
+  }, [projectData, sceneConnections, saveTimelineData, handleStopTaskTimer]);
 
   // Auto-dismiss the "taken over" toast after 5 seconds
   useEffect(() => {
