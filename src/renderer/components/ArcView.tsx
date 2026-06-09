@@ -94,12 +94,12 @@ function buildActDetailFields(
 ): DetailField[] {
   const entityValues = arcFieldValues[`act:${act.id}`] ?? {};
   const builtins: DetailField[] = [
-    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: act.startingState ?? '', onChange: v => onSaveAct({ ...act, startingState: v as string }), builtin: true },
-    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: act.endingState ?? '', onChange: v => onSaveAct({ ...act, endingState: v as string }), builtin: true },
-    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: act.transformation ?? '', onChange: v => onSaveAct({ ...act, transformation: v as string }), builtin: true },
-    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: act.dilemma ?? '', onChange: v => onSaveAct({ ...act, dilemma: v as string }), builtin: true },
-    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: act.propellingAction ?? '', onChange: v => onSaveAct({ ...act, propellingAction: v as string }), builtin: true },
-    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: act.polarity ?? '', onChange: v => onSaveAct({ ...act, polarity: v as string }), builtin: true },
+    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: act.startingState ?? '', onChange: v => onSaveAct({ ...act, startingState: v as string }), builtin: true, section: 'States' },
+    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: act.endingState ?? '', onChange: v => onSaveAct({ ...act, endingState: v as string }), builtin: true, section: 'States' },
+    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: act.transformation ?? '', onChange: v => onSaveAct({ ...act, transformation: v as string }), builtin: true, section: 'Story Engine' },
+    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: act.dilemma ?? '', onChange: v => onSaveAct({ ...act, dilemma: v as string }), builtin: true, section: 'Story Engine' },
+    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: act.propellingAction ?? '', onChange: v => onSaveAct({ ...act, propellingAction: v as string }), builtin: true, section: 'Story Engine' },
+    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: act.polarity ?? '', onChange: v => onSaveAct({ ...act, polarity: v as string }), builtin: true, section: 'Story Engine' },
   ];
   const custom: DetailField[] = arcFieldDefs.map(def => ({
     id: def.id,
@@ -122,13 +122,13 @@ function buildSectionDetailFields(
 ): DetailField[] {
   const entityValues = arcFieldValues[`section:${pp.id}`] ?? {};
   const builtins: DetailField[] = [
-    { id: 'description', label: 'Synopsis', icon: BUILTIN_ICONS.description, render: { kind: 'text' }, value: pp.description ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { description: v as string }), builtin: true },
-    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: pp.startingState ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { startingState: v as string }), builtin: true },
-    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: pp.endingState ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { endingState: v as string }), builtin: true },
-    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: pp.transformation ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { transformation: v as string }), builtin: true },
-    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: pp.dilemma ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { dilemma: v as string }), builtin: true },
-    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: pp.propellingAction ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { propellingAction: v as string }), builtin: true },
-    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: pp.polarity ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { polarity: v as string }), builtin: true },
+    { id: 'description', label: 'Synopsis', icon: BUILTIN_ICONS.description, render: { kind: 'text' }, value: pp.description ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { description: v as string }), builtin: true, section: 'Overview' },
+    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: pp.startingState ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { startingState: v as string }), builtin: true, section: 'States' },
+    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: pp.endingState ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { endingState: v as string }), builtin: true, section: 'States' },
+    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: pp.transformation ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { transformation: v as string }), builtin: true, section: 'Story Engine' },
+    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: pp.dilemma ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { dilemma: v as string }), builtin: true, section: 'Story Engine' },
+    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: pp.propellingAction ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { propellingAction: v as string }), builtin: true, section: 'Story Engine' },
+    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: pp.polarity ?? '', onChange: v => onSavePlotPointArcFields(pp.id, { polarity: v as string }), builtin: true, section: 'Story Engine' },
   ];
   const custom: DetailField[] = arcFieldDefs.map(def => ({
     id: def.id,
