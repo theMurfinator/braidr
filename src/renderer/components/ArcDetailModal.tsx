@@ -258,20 +258,48 @@ function RichTextField({ value, onChange }: { value: string; onChange: (v: strin
   const onChangeRef = useRef(onChange);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
 
+  const isFocused = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder: '—' }),
     ],
     content: value || '',
+    onFocus: () => { isFocused.current = true; },
     onBlur: ({ editor: e }) => {
+      isFocused.current = false;
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
       const html = e.isEmpty ? '' : e.getHTML();
       onChangeRef.current(html);
     },
+    onUpdate: ({ editor: e }) => {
+      if (!isFocused.current) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        debounceRef.current = null;
+        const html = e.isEmpty ? '' : e.getHTML();
+        onChangeRef.current(html);
+      }, 800);
+    },
   });
 
+  // Flush any pending debounce and save on unmount (handles Escape / overlay-click close)
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
+    return () => {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+      if (editor && !editor.isDestroyed) {
+        const html = editor.isEmpty ? '' : editor.getHTML();
+        onChangeRef.current(html);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync external value changes only when not actively editing
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || isFocused.current) return;
     const current = editor.isEmpty ? '' : editor.getHTML();
     if (current !== value) {
       editor.commands.setContent(value || '');
@@ -288,7 +316,9 @@ function RichTextField({ value, onChange }: { value: string; onChange: (v: strin
 // ── Number field ──────────────────────────────────────────────────────────────
 function NumberField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [draft, setDraft] = useState(value);
-  useEffect(() => { setDraft(value); }, [value]);
+  const isFocused = useRef(false);
+  // Only sync external value when not actively editing
+  useEffect(() => { if (!isFocused.current) setDraft(value); }, [value]);
   return (
     <input
       className="arc-dm-number"
@@ -296,7 +326,8 @@ function NumberField({ value, onChange }: { value: string; onChange: (v: string)
       value={draft}
       placeholder="—"
       onChange={e => setDraft(e.target.value)}
-      onBlur={() => { if (draft !== value) onChange(draft); }}
+      onFocus={() => { isFocused.current = true; }}
+      onBlur={() => { isFocused.current = false; if (draft !== value) onChange(draft); }}
     />
   );
 }
