@@ -134,5 +134,7 @@ interface Window {
     braidrSavePlotPointArcFields: (braidrPath: string, plotPointId: string, fields: unknown) => Promise<unknown>;
     braidrSaveArcFieldDefs: (braidrPath: string, defs: unknown) => Promise<unknown>;
     braidrSaveArcFieldValues: (braidrPath: string, entityType: string, entityId: string, values: unknown) => Promise<unknown>;
+    braidrGetArcUiPref: (braidrPath: string, key: string) => Promise<unknown>;
+    braidrSetArcUiPref: (braidrPath: string, key: string, value: string) => Promise<unknown>;
   };
 }

@@ -371,6 +371,11 @@ const CREATE_SCHEMA = `
     branch_id TEXT PRIMARY KEY REFERENCES branches(id) ON DELETE CASCADE,
     positions_json TEXT NOT NULL DEFAULT '{}'
   );
+
+  CREATE TABLE IF NOT EXISTS arc_ui_prefs (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 `;
 
 export class BraidrDB {
@@ -949,6 +954,17 @@ export class BraidrDB {
 
   getAllArcFieldValues() {
     return this.db.prepare('SELECT * FROM arc_field_values').all() as ArcFieldValueRow[];
+  }
+
+  // ── Arc UI Prefs ──────────────────────────────────────────────────────────
+
+  getArcUiPref(key: string): string | null {
+    const row = this.db.prepare('SELECT value FROM arc_ui_prefs WHERE key = ?').get(key) as { value: string } | undefined;
+    return row?.value ?? null;
+  }
+
+  setArcUiPref(key: string, value: string) {
+    this.db.prepare('INSERT INTO arc_ui_prefs (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
   }
 
   // ── Table Views ───────────────────────────────────────────────────────────
