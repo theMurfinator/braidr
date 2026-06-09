@@ -47,9 +47,11 @@ interface ArcFieldManagerProps {
   builtinFields?: BuiltinFieldRef[];
   hiddenBuiltinIds?: Set<string>;
   onToggleBuiltin?: (id: string) => void;
+  hiddenCustomIds?: Set<string>;
+  onToggleCustom?: (id: string) => void;
 }
 
-export default function ArcFieldManager({ defs, onSave, onBack, builtinFields = [], hiddenBuiltinIds = new Set(), onToggleBuiltin }: ArcFieldManagerProps) {
+export default function ArcFieldManager({ defs, onSave, onBack, builtinFields = [], hiddenBuiltinIds = new Set(), onToggleBuiltin, hiddenCustomIds = new Set(), onToggleCustom }: ArcFieldManagerProps) {
   const [localDefs, setLocalDefs] = useState<ArcFieldDef[]>(defs);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -284,6 +286,7 @@ export default function ArcFieldManager({ defs, onSave, onBack, builtinFields = 
               <button className="arc-fm-icon-btn" onClick={() => moveDef(def.id, -1)} disabled={idx === 0} type="button" title="Move up">&#8593;</button>
               <button className="arc-fm-icon-btn" onClick={() => moveDef(def.id, 1)} disabled={idx === localDefs.length - 1} type="button" title="Move down">&#8595;</button>
               <button className="arc-fm-icon-btn" onClick={() => openEdit(def)} type="button" title="Edit">&#9998;</button>
+              <button className="arc-fm-icon-btn" onClick={() => onToggleCustom?.(def.id)} type="button" title={hiddenCustomIds.has(def.id) ? 'Show field' : 'Hide field'}>{hiddenCustomIds.has(def.id) ? '○' : '●'}</button>
               {confirmDeleteId === def.id
                 ? <>
                     <span className="arc-fm-confirm-text">Delete?</span>

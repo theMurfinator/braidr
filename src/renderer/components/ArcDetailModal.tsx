@@ -42,6 +42,8 @@ interface ArcDetailModalProps {
   storageKey?: string;
   hiddenBuiltinIds?: Set<string>;
   onToggleBuiltin?: (id: string) => void;
+  hiddenCustomIds?: Set<string>;
+  onToggleCustom?: (id: string) => void;
   scenes?: Scene[];
   bullpenScenes?: Scene[];
   characters?: Character[];
@@ -474,6 +476,8 @@ export default function ArcDetailModal({
   storageKey,
   hiddenBuiltinIds,
   onToggleBuiltin,
+  hiddenCustomIds,
+  onToggleCustom,
   scenes,
   bullpenScenes,
   characters: _characters,
@@ -606,16 +610,20 @@ export default function ArcDetailModal({
                   builtinFields={builtinRefs}
                   hiddenBuiltinIds={hiddenBuiltinIds}
                   onToggleBuiltin={onToggleBuiltin}
+                  hiddenCustomIds={hiddenCustomIds}
+                  onToggleCustom={onToggleCustom}
                 />
               ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={orderedFields.filter(f => !f.builtin || !hiddenBuiltinIds?.has(f.id)).map(f => f.id)} strategy={verticalListSortingStrategy}>
-                    {orderedFields.filter(f => !f.builtin || !hiddenBuiltinIds?.has(f.id)).map(f => (
+                  <SortableContext items={orderedFields.filter(f => f.builtin ? !hiddenBuiltinIds?.has(f.id) : !hiddenCustomIds?.has(f.id)).map(f => f.id)} strategy={verticalListSortingStrategy}>
+                    {orderedFields.filter(f => f.builtin ? !hiddenBuiltinIds?.has(f.id) : !hiddenCustomIds?.has(f.id)).map(f => (
                       <FieldRow
                         key={f.id}
                         field={f}
                         sortable
-                        onHide={f.builtin && onToggleBuiltin ? () => onToggleBuiltin(f.id) : undefined}
+                        onHide={f.builtin
+                          ? (onToggleBuiltin ? () => onToggleBuiltin(f.id) : undefined)
+                          : (onToggleCustom ? () => onToggleCustom(f.id) : undefined)}
                       />
                     ))}
                   </SortableContext>
