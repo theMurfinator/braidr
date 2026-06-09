@@ -15,7 +15,7 @@
     "cap:build": "npm run build:vite && npx cap sync",
     "cap:open": "npx cap open ios",
     "cap:run": "npx cap run ios",
-    "test": "vitest run",
+    "test": "node scripts/run-tests.cjs",
     "test:watch": "vitest",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
