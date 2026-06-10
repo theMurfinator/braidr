@@ -115,7 +115,7 @@ function buildActDetailFields(
   return [...builtins, ...custom];
 }
 
-function buildSectionDetailFields(
+export function buildSectionDetailFields(
   pp: PlotPoint,
   arcFieldDefs: ArcFieldDef[],
   arcFieldValues: Record<string, Record<string, string | string[]>>,

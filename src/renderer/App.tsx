@@ -48,7 +48,8 @@ import BraidedListView from './components/BraidedListView';
 import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
 import { CompareView } from './components/branches/CompareView';
-import ArcView from './components/ArcView';
+import ArcView, { buildSectionDetailFields } from './components/ArcView';
+import ArcDetailModal from './components/ArcDetailModal';
 import ScenePreviewPanel from './components/ScenePreviewPanel';
 import CharacterHubPanel from './components/CharacterHubPanel';
 
@@ -211,6 +212,7 @@ function App() {
   const draftContentRef = useRef<Record<string, string>>({});
   const [arcPreviewSceneId, setArcPreviewSceneId] = useState<string | null>(null);
   const [povPreviewSceneId, setPovPreviewSceneId] = useState<string | null>(null);
+  const [povDetailSectionId, setPovDetailSectionId] = useState<string | null>(null);
   const [scratchpadContent, setScratchpadContent] = useState<Record<string, string>>({});
   const scratchpadContentRef = useRef<Record<string, string>>({});
   const [sceneComments, setSceneComments] = useState<Record<string, SceneComment[]>>({});
@@ -4084,6 +4086,7 @@ function App() {
                   onPreview={setPovPreviewSceneId}
                   onSectionChange={handlePlotPointChange}
                   onDeleteSection={handleDeletePlotPoint}
+                  onOpenSectionDetails={setPovDetailSectionId}
                   getCharacterName={getCharacterName}
                   povReorderedScenes={povReorderedScenes}
                 />
@@ -4102,6 +4105,37 @@ function App() {
                   onGoToScene={handleOpenInEditor}
                   onClose={() => setPovPreviewSceneId(null)}
                 />
+                {povDetailSectionId && (() => {
+                  const pp = projectData.plotPoints.find(p => p.id === povDetailSectionId);
+                  if (!pp) return null;
+                  const sectionScenes = projectData.scenes.filter(s => s.plotPointId === pp.id).sort((a, b) => a.sceneNumber - b.sceneNumber);
+                  const bullpenScenes = projectData.scenes.filter(s => s.characterId === selectedCharacterId && !s.plotPointId).sort((a, b) => a.sceneNumber - b.sceneNumber);
+                  return (
+                    <ArcDetailModal
+                      title={pp.title || 'Unnamed section'}
+                      subtitle="Section"
+                      fields={buildSectionDetailFields(pp, arcFieldDefs, arcFieldValues, handleSavePlotPointArcFields, handleSaveArcFieldValues, arcFieldSections)}
+                      arcFieldDefs={arcFieldDefs}
+                      onSaveDefs={handleSaveArcFieldDefs}
+                      onClose={() => setPovDetailSectionId(null)}
+                      storageKey="arc-field-order:section"
+                      fieldSections={arcFieldSections}
+                      onSaveAllSections={(sections) => {
+                        setArcFieldSections(sections);
+                        dataService.setArcUiPref('arc-field-sections', JSON.stringify(sections));
+                      }}
+                      scenes={sectionScenes}
+                      bullpenScenes={bullpenScenes}
+                      onReorderScenes={orderedIds => handleArcReorderScenesInSection(pp.id, orderedIds)}
+                      onAddScene={() => handleAddSceneToSection(pp.id)}
+                      onSendToBullpen={handleSendSceneToBullpen}
+                      onPullFromBullpen={sceneId => handleAssignSceneToSection(sceneId, pp.id)}
+                      draftContent={draftContent}
+                      onDraftChange={handleDraftChange}
+                      onGoToScene={handleOpenInEditor}
+                    />
+                  );
+                })()}
                 </div>
 
                 <BullpenPanel
