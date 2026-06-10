@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology, ArcFieldDef } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology, ArcFieldDef, ArcTemplate } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -226,6 +226,19 @@ function App() {
   const [arcFieldDefs, setArcFieldDefs] = useState<ArcFieldDef[]>([]);
   const [arcFieldValues, setArcFieldValues] = useState<Record<string, Record<string, string | string[]>>>({});
   const [arcFieldSections, setArcFieldSections] = useState<Record<string, string>>({});
+  const [arcTemplates, setArcTemplates] = useState<ArcTemplate[]>([]);
+  const [hiddenArcBuiltins_section, setHiddenArcBuiltins_section] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('arc-hidden-builtin-ids:section');
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
+  const [hiddenArcCustoms_section, setHiddenArcCustoms_section] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('arc-hidden-custom-ids:section');
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
   const [showCompileModal, setShowCompileModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -1152,6 +1165,9 @@ function App() {
     dataService.getArcUiPref('arc-field-sections').then((raw: string | null) => {
       try { if (raw) setArcFieldSections(JSON.parse(raw)); } catch { /* ignore */ }
     });
+    dataService.getArcUiPref('arc-templates').then((raw: string | null) => {
+      try { if (raw) setArcTemplates(JSON.parse(raw) as ArcTemplate[]); } catch { /* ignore */ }
+    });
 
     // Derive backward-compat scene metadata state from unified arc tables (post-migration)
     const sceneDefs = loadedArcFieldDefs.filter(d => d.scope === 'scene');
@@ -1806,6 +1822,38 @@ function App() {
     } catch {
       addToast('Could not save field definitions');
     }
+  }, []);
+
+  const handleSaveArcTemplate = useCallback((draft: Omit<ArcTemplate, 'id'>) => {
+    const next = [...arcTemplates, { ...draft, id: crypto.randomUUID() }];
+    setArcTemplates(next);
+    dataService.setArcUiPref('arc-templates', JSON.stringify(next)).catch(() => {});
+  }, [arcTemplates]);
+
+  const handleDeleteArcTemplate = useCallback((id: string) => {
+    const next = arcTemplates.filter(t => t.id !== id);
+    setArcTemplates(next);
+    dataService.setArcUiPref('arc-templates', JSON.stringify(next)).catch(() => {});
+  }, [arcTemplates]);
+
+  const handleToggleArcBuiltin_section = useCallback((id: string) => {
+    setHiddenArcBuiltins_section(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem('arc-hidden-builtin-ids:section', JSON.stringify([...next])); } catch { /* ignore */ }
+      dataService.setArcUiPref('arc-hidden-builtin-ids:section', JSON.stringify([...next])).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const handleToggleArcCustom_section = useCallback((id: string) => {
+    setHiddenArcCustoms_section(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem('arc-hidden-custom-ids:section', JSON.stringify([...next])); } catch { /* ignore */ }
+      dataService.setArcUiPref('arc-hidden-custom-ids:section', JSON.stringify([...next])).catch(() => {});
+      return next;
+    });
   }, []);
 
   const handleSaveArcFieldValues = useCallback(async (entityType: 'act' | 'section' | 'scene', entityId: string, values: Record<string, string | string[]>) => {
@@ -4119,16 +4167,24 @@ function App() {
                     <ArcDetailModal
                       title={pp.title || 'Unnamed section'}
                       subtitle="Section"
+                      entityType="section"
                       fields={buildSectionDetailFields(pp, arcFieldDefs, arcFieldValues, handleSavePlotPointArcFields, handleSaveArcFieldValues, arcFieldSections)}
                       arcFieldDefs={arcFieldDefs}
                       onSaveDefs={handleSaveArcFieldDefs}
                       onClose={() => setPovDetailSectionId(null)}
                       storageKey="arc-field-order:section"
+                      hiddenBuiltinIds={hiddenArcBuiltins_section}
+                      onToggleBuiltin={handleToggleArcBuiltin_section}
+                      hiddenCustomIds={hiddenArcCustoms_section}
+                      onToggleCustom={handleToggleArcCustom_section}
                       fieldSections={arcFieldSections}
                       onSaveAllSections={(sections) => {
                         setArcFieldSections(sections);
                         dataService.setArcUiPref('arc-field-sections', JSON.stringify(sections));
                       }}
+                      templates={arcTemplates}
+                      onSaveTemplate={handleSaveArcTemplate}
+                      onDeleteTemplate={handleDeleteArcTemplate}
                       scenes={sectionScenes}
                       bullpenScenes={bullpenScenes}
                       onReorderScenes={orderedIds => handleArcReorderScenesInSection(pp.id, orderedIds)}
@@ -4138,6 +4194,22 @@ function App() {
                       draftContent={draftContent}
                       onDraftChange={handleDraftChange}
                       onGoToScene={handleOpenInEditor}
+                      sceneArcFieldDefs={arcFieldDefs}
+                      sceneArcFieldValues={arcFieldValues}
+                      onSaveSceneBuiltins={(sceneId, partial) => {
+                        const { notes, ...rest } = partial as { notes?: string[] } & Record<string, unknown>;
+                        if (notes) handleSaveSceneNotes(sceneId, notes);
+                        if (Object.keys(rest).length > 0) handleSaveSceneArcFields(sceneId, rest as any);
+                      }}
+                      onSaveSceneArcFields={(sceneId, values) => handleSaveArcFieldValues('scene', sceneId, values)}
+                      hiddenBuiltinIds_scene={hiddenArcBuiltins_section}
+                      onToggleBuiltin_scene={handleToggleArcBuiltin_section}
+                      hiddenCustomIds_scene={hiddenArcCustoms_section}
+                      onToggleCustom_scene={handleToggleArcCustom_section}
+                      fieldSections_scene={arcFieldSections}
+                      templates_scene={arcTemplates}
+                      onSaveTemplate_scene={handleSaveArcTemplate}
+                      onDeleteTemplate_scene={handleDeleteArcTemplate}
                     />
                   );
                 })()}

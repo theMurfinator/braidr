@@ -96,6 +96,16 @@ export interface ArcFieldDef {
   scope?: 'arc' | 'scene';              // defaults to 'arc' if absent
 }
 
+export interface ArcTemplate {
+  id: string;
+  name: string;
+  entityType: 'act' | 'section' | 'scene';
+  fieldOrder: string[];
+  hiddenBuiltinIds: string[];
+  hiddenCustomIds: string[];
+  dividers: { id: string; label: string; afterId: string | '__start__' }[];
+}
+
 export interface DraftVersion {
   version: number;
   content: string;

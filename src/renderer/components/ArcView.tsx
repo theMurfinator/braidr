@@ -3,7 +3,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '../dnd';
 import ScenePreviewPanel from './ScenePreviewPanel';
-import { Character, Act, PlotPoint, Scene, CharacterPsychology, ArcFieldDef } from '../../shared/types';
+import { Character, Act, PlotPoint, Scene, CharacterPsychology, ArcFieldDef, ArcTemplate } from '../../shared/types';
 import ArcDetailModal, { type DetailField, type FieldRender } from './ArcDetailModal';
 import { dataService } from '../services/dataService';
 
@@ -118,6 +118,38 @@ function buildActDetailFields(
   return [...builtins, ...custom];
 }
 
+export function buildSceneDetailFields(
+  scene: Scene,
+  arcFieldDefs: ArcFieldDef[],
+  arcFieldValues: Record<string, Record<string, string | string[]>>,
+  onSaveSceneBuiltins: (id: string, partial: Partial<Scene>) => void,
+  onSaveSceneArcFields: (id: string, values: Record<string, string | string[]>) => void,
+  fieldSections: Record<string, string>,
+): DetailField[] {
+  const sceneValues = arcFieldValues[`scene:${scene.id}`] ?? {};
+  const sceneDefs = arcFieldDefs.filter(d => d.scope === 'scene');
+  const builtins: DetailField[] = [
+    { id: 'synopsis', label: 'Synopsis', icon: BUILTIN_ICONS.description, render: { kind: 'text' }, value: scene.notes?.join('\n') ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { notes: (v as string).split('\n').filter(Boolean) }), builtin: true, section: fieldSections['synopsis'] },
+    { id: 'beginning', label: 'Beginning', icon: BUILTIN_ICONS.beginning, render: { kind: 'text' }, value: scene.startingState ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { startingState: v as string }), builtin: true, section: fieldSections['beginning'] },
+    { id: 'ending', label: 'Ending', icon: BUILTIN_ICONS.ending, render: { kind: 'text' }, value: scene.endingState ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { endingState: v as string }), builtin: true, section: fieldSections['ending'] },
+    { id: 'turningPoint', label: 'Turning point', icon: BUILTIN_ICONS.turningPoint, render: { kind: 'text' }, value: scene.transformation ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { transformation: v as string }), builtin: true, section: fieldSections['turningPoint'] },
+    { id: 'dilemma', label: 'Dilemma', icon: BUILTIN_ICONS.dilemma, render: { kind: 'text' }, value: scene.dilemma ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { dilemma: v as string }), builtin: true, section: fieldSections['dilemma'] },
+    { id: 'propellingAction', label: 'Propelling Action', icon: BUILTIN_ICONS.propellingAction, render: { kind: 'text' }, value: scene.propellingAction ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { propellingAction: v as string }), builtin: true, section: fieldSections['propellingAction'] },
+    { id: 'polarity', label: 'Polarity shift', icon: BUILTIN_ICONS.polarity, render: { kind: 'polarity' }, value: scene.polarity ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { polarity: v as string }), builtin: true, section: fieldSections['polarity'] },
+  ];
+  const custom: DetailField[] = sceneDefs.map(def => ({
+    id: def.id,
+    label: def.label,
+    icon: '·',
+    render: renderForDef(def),
+    value: sceneValues[def.id] ?? (def.type === 'multiselect' ? [] : ''),
+    onChange: (v: string | string[]) => onSaveSceneArcFields(scene.id, { ...sceneValues, [def.id]: v }),
+    builtin: false,
+    section: fieldSections[def.id],
+  }));
+  return [...builtins, ...custom];
+}
+
 export function buildSectionDetailFields(
   pp: PlotPoint,
   arcFieldDefs: ArcFieldDef[],
@@ -149,27 +181,31 @@ export function buildSectionDetailFields(
   return [...builtins, ...custom];
 }
 
-// Hidden builtin field IDs — persisted per view.
-const ARC_HIDDEN_BUILTINS_KEY = 'arc-hidden-builtin-ids';
-function loadHiddenBuiltins(): Set<string> {
+// Hidden field IDs — persisted per entity type so act/section/scene can differ.
+function loadHiddenBuiltins(entityType: 'act' | 'section' | 'scene'): Set<string> {
   try {
-    const raw = localStorage.getItem(ARC_HIDDEN_BUILTINS_KEY);
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    const raw = localStorage.getItem(`arc-hidden-builtin-ids:${entityType}`);
+    if (raw) return new Set(JSON.parse(raw) as string[]);
+    // Migrate legacy key (shared set) on first per-type load
+    const legacy = localStorage.getItem('arc-hidden-builtin-ids');
+    return legacy ? new Set(JSON.parse(legacy) as string[]) : new Set();
   } catch { return new Set(); }
 }
-function saveHiddenBuiltins(ids: Set<string>) {
-  try { localStorage.setItem(ARC_HIDDEN_BUILTINS_KEY, JSON.stringify([...ids])); } catch { /* ignore */ }
+function saveHiddenBuiltins(entityType: 'act' | 'section' | 'scene', ids: Set<string>) {
+  try { localStorage.setItem(`arc-hidden-builtin-ids:${entityType}`, JSON.stringify([...ids])); } catch { /* ignore */ }
+  dataService.setArcUiPref(`arc-hidden-builtin-ids:${entityType}`, JSON.stringify([...ids])).catch(() => {});
 }
-
-const ARC_HIDDEN_CUSTOM_KEY = 'arc-hidden-custom-ids';
-function loadHiddenCustoms(): Set<string> {
+function loadHiddenCustoms(entityType: 'act' | 'section' | 'scene'): Set<string> {
   try {
-    const raw = localStorage.getItem(ARC_HIDDEN_CUSTOM_KEY);
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    const raw = localStorage.getItem(`arc-hidden-custom-ids:${entityType}`);
+    if (raw) return new Set(JSON.parse(raw) as string[]);
+    const legacy = localStorage.getItem('arc-hidden-custom-ids');
+    return legacy ? new Set(JSON.parse(legacy) as string[]) : new Set();
   } catch { return new Set(); }
 }
-function saveHiddenCustoms(ids: Set<string>) {
-  try { localStorage.setItem(ARC_HIDDEN_CUSTOM_KEY, JSON.stringify([...ids])); } catch { /* ignore */ }
+function saveHiddenCustoms(entityType: 'act' | 'section' | 'scene', ids: Set<string>) {
+  try { localStorage.setItem(`arc-hidden-custom-ids:${entityType}`, JSON.stringify([...ids])); } catch { /* ignore */ }
+  dataService.setArcUiPref(`arc-hidden-custom-ids:${entityType}`, JSON.stringify([...ids])).catch(() => {});
 }
 
 // Arc view layout state (hide-acts/sections toggles + which acts/sections are
@@ -446,7 +482,7 @@ interface ArcViewProps {
   onAddSceneToSection?: (sectionId: string) => void;
   onAssignSceneToSection?: (sceneId: string, sectionId: string) => void;
   onSaveArcFieldDefs: (defs: ArcFieldDef[]) => void;
-  onSaveArcFieldValues: (entityType: 'act' | 'section', entityId: string, values: Record<string, string | string[]>) => void;
+  onSaveArcFieldValues: (entityType: 'act' | 'section' | 'scene', entityId: string, values: Record<string, string | string[]>) => void;
   arcFieldSections: Record<string, string>;
   onSaveArcFieldSections: (sections: Record<string, string>) => void;
 }
@@ -568,8 +604,37 @@ export default function ArcView({
   onAssignSceneToSection,
 }: ArcViewProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(loadArcViewPref().collapsed));
-  const [hiddenBuiltinIds, setHiddenBuiltinIds] = useState<Set<string>>(() => loadHiddenBuiltins());
-  const [hiddenCustomIds, setHiddenCustomIds] = useState<Set<string>>(() => loadHiddenCustoms());
+  // Hidden fields are per-entity-type so act/section/scene templates can differ.
+  const [hiddenBuiltinIds_act, setHiddenBuiltinIds_act] = useState<Set<string>>(() => loadHiddenBuiltins('act'));
+  const [hiddenCustomIds_act, setHiddenCustomIds_act] = useState<Set<string>>(() => loadHiddenCustoms('act'));
+  const [hiddenBuiltinIds_section, setHiddenBuiltinIds_section] = useState<Set<string>>(() => loadHiddenBuiltins('section'));
+  const [hiddenCustomIds_section, setHiddenCustomIds_section] = useState<Set<string>>(() => loadHiddenCustoms('section'));
+  const [hiddenBuiltinIds_scene, setHiddenBuiltinIds_scene] = useState<Set<string>>(() => loadHiddenBuiltins('scene'));
+  const [hiddenCustomIds_scene, setHiddenCustomIds_scene] = useState<Set<string>>(() => loadHiddenCustoms('scene'));
+
+  // Templates — loaded from DB on mount, saved on change.
+  const [arcTemplates, setArcTemplates] = useState<ArcTemplate[]>([]);
+  useEffect(() => {
+    dataService.getArcUiPref('arc-templates').then(raw => {
+      if (!raw) return;
+      try { setArcTemplates(JSON.parse(raw) as ArcTemplate[]); } catch { /* ignore */ }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function saveTemplates(templates: ArcTemplate[]) {
+    setArcTemplates(templates);
+    dataService.setArcUiPref('arc-templates', JSON.stringify(templates)).catch(() => {});
+  }
+
+  function handleSaveTemplate(draft: Omit<ArcTemplate, 'id'>) {
+    const next = [...arcTemplates, { ...draft, id: crypto.randomUUID() }];
+    saveTemplates(next);
+  }
+  function handleDeleteTemplate(id: string) {
+    saveTemplates(arcTemplates.filter(t => t.id !== id));
+  }
+
   function handleSectionChange(id: string, section: string) {
     const next = section.trim()
       ? { ...arcFieldSections, [id]: section.trim() }
@@ -687,22 +752,50 @@ export default function ArcView({
     onSavePsychology({ ...(psych || emptyPsych(selectedCharacterId)), ...update });
   };
 
-  function handleToggleBuiltin(id: string) {
-    setHiddenBuiltinIds(prev => {
+  function handleToggleBuiltin(entityType: 'act' | 'section' | 'scene', id: string) {
+    const setter = entityType === 'act' ? setHiddenBuiltinIds_act : entityType === 'section' ? setHiddenBuiltinIds_section : setHiddenBuiltinIds_scene;
+    setter(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
-      saveHiddenBuiltins(next);
+      saveHiddenBuiltins(entityType, next);
       return next;
     });
   }
 
-  function handleToggleCustom(id: string) {
-    setHiddenCustomIds(prev => {
+  function handleToggleCustom(entityType: 'act' | 'section' | 'scene', id: string) {
+    const setter = entityType === 'act' ? setHiddenCustomIds_act : entityType === 'section' ? setHiddenCustomIds_section : setHiddenCustomIds_scene;
+    setter(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
-      saveHiddenCustoms(next);
+      saveHiddenCustoms(entityType, next);
       return next;
     });
+  }
+
+  function handleApplyTemplate(template: ArcTemplate) {
+    if (template.entityType === 'act') {
+      const hb = new Set(template.hiddenBuiltinIds);
+      const hc = new Set(template.hiddenCustomIds);
+      setHiddenBuiltinIds_act(hb);
+      setHiddenCustomIds_act(hc);
+      saveHiddenBuiltins('act', hb);
+      saveHiddenCustoms('act', hc);
+    } else if (template.entityType === 'section') {
+      const hb = new Set(template.hiddenBuiltinIds);
+      const hc = new Set(template.hiddenCustomIds);
+      setHiddenBuiltinIds_section(hb);
+      setHiddenCustomIds_section(hc);
+      saveHiddenBuiltins('section', hb);
+      saveHiddenCustoms('section', hc);
+    } else if (template.entityType === 'scene') {
+      const hb = new Set(template.hiddenBuiltinIds);
+      const hc = new Set(template.hiddenCustomIds);
+      setHiddenBuiltinIds_scene(hb);
+      setHiddenCustomIds_scene(hc);
+      saveHiddenBuiltins('scene', hb);
+      saveHiddenCustoms('scene', hc);
+    }
+    // Field order + dividers are applied by ArcDetailModal internally via onApplyTemplate
   }
 
   const sortedActs = [...acts].sort((a, b) => a.order - b.order);
@@ -1130,13 +1223,18 @@ export default function ArcView({
               onSaveDefs={onSaveArcFieldDefs}
               onClose={() => setOpenModal(null)}
               storageKey="arc-field-order:act"
-              hiddenBuiltinIds={hiddenBuiltinIds}
-              onToggleBuiltin={handleToggleBuiltin}
-              hiddenCustomIds={hiddenCustomIds}
-              onToggleCustom={handleToggleCustom}
+              entityType="act"
+              hiddenBuiltinIds={hiddenBuiltinIds_act}
+              onToggleBuiltin={id => handleToggleBuiltin('act', id)}
+              hiddenCustomIds={hiddenCustomIds_act}
+              onToggleCustom={id => handleToggleCustom('act', id)}
               fieldSections={arcFieldSections}
               onSectionChange={handleSectionChange}
               onSaveAllSections={onSaveArcFieldSections}
+              templates={arcTemplates}
+              onSaveTemplate={handleSaveTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
+              onApplyTemplate={handleApplyTemplate}
               scenes={actScenes}
               characters={characters}
               characterColors={characterColors}
@@ -1157,13 +1255,18 @@ export default function ArcView({
               onSaveDefs={onSaveArcFieldDefs}
               onClose={() => setOpenModal(null)}
               storageKey="arc-field-order:section"
-              hiddenBuiltinIds={hiddenBuiltinIds}
-              onToggleBuiltin={handleToggleBuiltin}
-              hiddenCustomIds={hiddenCustomIds}
-              onToggleCustom={handleToggleCustom}
+              entityType="section"
+              hiddenBuiltinIds={hiddenBuiltinIds_section}
+              onToggleBuiltin={id => handleToggleBuiltin('section', id)}
+              hiddenCustomIds={hiddenCustomIds_section}
+              onToggleCustom={id => handleToggleCustom('section', id)}
               fieldSections={arcFieldSections}
               onSectionChange={handleSectionChange}
               onSaveAllSections={onSaveArcFieldSections}
+              templates={arcTemplates}
+              onSaveTemplate={handleSaveTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
+              onApplyTemplate={handleApplyTemplate}
               scenes={sectionScenes}
               bullpenScenes={bullpenScenes}
               characters={characters}
@@ -1175,6 +1278,22 @@ export default function ArcView({
               draftContent={draftContent}
               onDraftChange={onDraftChange}
               onGoToScene={onGoToScene}
+              sceneArcFieldDefs={arcFieldDefs}
+              sceneArcFieldValues={arcFieldValues}
+              onSaveSceneBuiltins={(sceneId, partial) => {
+                const { notes, ...rest } = partial as { notes?: string[] } & Record<string, unknown>;
+                if (notes) onSaveSceneNotes(sceneId, notes);
+                if (Object.keys(rest).length > 0) onSaveSceneArcFields(sceneId, rest as any);
+              }}
+              onSaveSceneArcFields={(sceneId, values) => onSaveArcFieldValues('scene', sceneId, values)}
+              hiddenBuiltinIds_scene={hiddenBuiltinIds_scene}
+              onToggleBuiltin_scene={id => handleToggleBuiltin('scene', id)}
+              hiddenCustomIds_scene={hiddenCustomIds_scene}
+              onToggleCustom_scene={id => handleToggleCustom('scene', id)}
+              fieldSections_scene={arcFieldSections}
+              templates_scene={arcTemplates}
+              onSaveTemplate_scene={handleSaveTemplate}
+              onDeleteTemplate_scene={handleDeleteTemplate}
             />
           );
         }

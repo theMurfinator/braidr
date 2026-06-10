@@ -20974,6 +20974,16 @@ textarea.table-cell-input {
 .arc-dm-scene-text-panel {
   display: flex; flex-direction: column; height: 100%; overflow: hidden;
 }
+.arc-dm-scene-field-panel {
+  display: flex; flex-direction: column; height: 100%; overflow: hidden;
+}
+.arc-dm-scene-field-title {
+  flex: 1; font-size: 13px; font-weight: 600; color: var(--text-primary);
+  padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.arc-dm-body--scene-fields {
+  flex: 1; overflow-y: auto; padding: 8px 0;
+}
 .arc-dm-scene-text-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 4px 8px 4px 4px; border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -21075,6 +21085,80 @@ textarea.table-cell-input {
   padding: 4px 12px; font-size: 12px; color: var(--text-secondary); cursor: pointer;
 }
 .arc-dm-manage-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.arc-dm-templates-btn {
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 4px 12px; font-size: 12px; color: var(--text-secondary); cursor: pointer;
+  margin-left: auto;
+}
+.arc-dm-templates-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
+/* ── Template panel ───────────────────────────────────────────────────────── */
+.arc-dm-template-panel {
+  display: flex; flex-direction: column; gap: 0; flex: 1; overflow: hidden;
+}
+.arc-dm-template-panel-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.arc-dm-back-btn {
+  background: none; border: none; cursor: pointer; font-size: 13px;
+  color: var(--text-secondary); padding: 2px 6px; border-radius: var(--radius-sm);
+}
+.arc-dm-back-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.arc-dm-template-panel-title {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+}
+.arc-dm-field-picker-section,
+.arc-dm-template-list-section {
+  padding: 12px 20px; overflow-y: auto;
+  border-bottom: 1px solid var(--border);
+}
+.arc-dm-picker-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+  color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;
+}
+.arc-dm-field-toggle {
+  display: flex; align-items: center; gap: 8px; padding: 4px 0;
+  cursor: pointer; font-size: 13px; color: var(--text-primary);
+}
+.arc-dm-field-toggle input[type="checkbox"] { cursor: pointer; accent-color: var(--accent); }
+.arc-dm-toggle-icon { font-size: 14px; width: 18px; text-align: center; }
+.arc-dm-toggle-label { flex: 1; }
+.arc-dm-template-empty {
+  font-size: 12px; color: var(--text-muted); padding: 4px 0;
+}
+.arc-dm-template-row {
+  display: flex; align-items: center; gap: 8px; padding: 5px 0;
+}
+.arc-dm-template-name {
+  flex: 1; font-size: 13px; color: var(--text-primary); font-weight: 500;
+}
+.arc-dm-template-apply-btn {
+  background: var(--accent); color: #fff; border: none;
+  border-radius: var(--radius-sm); padding: 3px 10px; font-size: 12px; cursor: pointer;
+}
+.arc-dm-template-apply-btn:hover { opacity: 0.85; }
+.arc-dm-template-delete-btn {
+  background: none; border: none; cursor: pointer; font-size: 16px;
+  color: var(--text-muted); padding: 0 4px; line-height: 1;
+}
+.arc-dm-template-delete-btn:hover { color: #ef4444; }
+.arc-dm-template-save-row {
+  display: flex; gap: 8px; margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.arc-dm-template-name-input {
+  flex: 1; padding: 5px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-primary); color: var(--text-primary); font-size: 12px; font-family: inherit;
+}
+.arc-dm-template-name-input:focus { outline: none; border-color: var(--accent); }
+.arc-dm-template-save-btn {
+  background: var(--accent); color: #fff; border: none;
+  border-radius: var(--radius-sm); padding: 5px 14px; font-size: 12px; cursor: pointer;
+  white-space: nowrap;
+}
+.arc-dm-template-save-btn:disabled { opacity: 0.4; cursor: default; }
+.arc-dm-template-save-btn:not(:disabled):hover { opacity: 0.85; }
 .arc-dm-textarea {
   width: 100%; padding: 2px 0; border: none; border-radius: 0;
   font-size: 13px; color: var(--text-primary); background: transparent; line-height: 1.5;

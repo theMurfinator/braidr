@@ -10,7 +10,7 @@ import Heading from '@tiptap/extension-heading';
 import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import Placeholder from '@tiptap/extension-placeholder';
 import ArcFieldManager from './ArcFieldManager';
-import type { ArcFieldDef, Scene, Character } from '../../shared/types';
+import type { ArcFieldDef, ArcTemplate, Scene, Character } from '../../shared/types';
 import { dataService } from '../services/dataService';
 
 // ── Public types (used by ArcView descriptor builders) ────────────────────────
@@ -41,6 +41,7 @@ function isDivider(item: OrderedItem): item is SectionDivider { return (item as 
 interface ArcDetailModalProps {
   title: string;
   subtitle?: string;
+  entityType?: 'act' | 'section' | 'scene';
   fields: DetailField[];
   arcFieldDefs: ArcFieldDef[];
   onSaveDefs: (defs: ArcFieldDef[]) => void;
@@ -53,6 +54,10 @@ interface ArcDetailModalProps {
   fieldSections?: Record<string, string>;
   onSectionChange?: (id: string, section: string) => void;
   onSaveAllSections?: (sections: Record<string, string>) => void;
+  templates?: ArcTemplate[];
+  onSaveTemplate?: (template: Omit<ArcTemplate, 'id'>) => void;
+  onDeleteTemplate?: (id: string) => void;
+  onApplyTemplate?: (template: ArcTemplate) => void;
   scenes?: Scene[];
   bullpenScenes?: Scene[];
   characters?: Character[];
@@ -64,6 +69,19 @@ interface ArcDetailModalProps {
   draftContent?: Record<string, string>;
   onDraftChange?: (sceneId: string, html: string) => void;
   onGoToScene?: (sceneId: string) => void;
+  // Scene-level field detail (when scenes are shown inside section modal)
+  sceneArcFieldDefs?: ArcFieldDef[];
+  sceneArcFieldValues?: Record<string, Record<string, string | string[]>>;
+  onSaveSceneBuiltins?: (sceneId: string, partial: Partial<Scene>) => void;
+  onSaveSceneArcFields?: (sceneId: string, values: Record<string, string | string[]>) => void;
+  hiddenBuiltinIds_scene?: Set<string>;
+  onToggleBuiltin_scene?: (id: string) => void;
+  hiddenCustomIds_scene?: Set<string>;
+  onToggleCustom_scene?: (id: string) => void;
+  fieldSections_scene?: Record<string, string>;
+  templates_scene?: ArcTemplate[];
+  onSaveTemplate_scene?: (template: Omit<ArcTemplate, 'id'>) => void;
+  onDeleteTemplate_scene?: (id: string) => void;
 }
 
 // ── Polarity picker (mirrored from ArcView) ───────────────────────────────────
@@ -554,9 +572,211 @@ function SceneTextPanel({ scene, draftContent, onDraftChange, onGoToScene, onBac
   );
 }
 
+// ── Scene field panel (same ClickUp-style layout as act/section fields) ───────
+function SceneFieldPanel({
+  scene,
+  fields,
+  arcFieldDefs,
+  onSaveDefs,
+  hiddenBuiltinIds,
+  onToggleBuiltin,
+  hiddenCustomIds,
+  onToggleCustom,
+  templates,
+  onSaveTemplate,
+  onDeleteTemplate,
+  onBack,
+  onGoToScene,
+}: {
+  scene: Scene;
+  fields: DetailField[];
+  arcFieldDefs: ArcFieldDef[];
+  onSaveDefs: (defs: ArcFieldDef[]) => void;
+  hiddenBuiltinIds?: Set<string>;
+  onToggleBuiltin?: (id: string) => void;
+  hiddenCustomIds?: Set<string>;
+  onToggleCustom?: (id: string) => void;
+  templates?: ArcTemplate[];
+  onSaveTemplate?: (t: Omit<ArcTemplate, 'id'>) => void;
+  onDeleteTemplate?: (id: string) => void;
+  onBack: () => void;
+  onGoToScene?: (id: string) => void;
+}) {
+  const SCENE_ORDER_KEY = 'arc-field-order:scene';
+  const [orderedItems, setOrderedItems] = useState<OrderedItem[]>(() => {
+    try {
+      const savedOrder = localStorage.getItem(SCENE_ORDER_KEY);
+      if (savedOrder) {
+        const ids: string[] = JSON.parse(savedOrder);
+        const byId = Object.fromEntries(fields.map(f => [f.id, f]));
+        const ordered = ids.map(id => byId[id]).filter(Boolean) as DetailField[];
+        const inOrder = new Set(ids);
+        for (const f of fields) if (!inOrder.has(f.id)) ordered.push(f);
+        return ordered;
+      }
+    } catch { /* ignore */ }
+    return fields;
+  });
+  // Re-sync when fields identity changes (scene switches)
+  useEffect(() => {
+    setOrderedItems(prev => {
+      const byId = Object.fromEntries(fields.map(f => [f.id, f]));
+      const result = prev
+        .filter(i => !isDivider(i))
+        .map(i => byId[(i as DetailField).id])
+        .filter(Boolean) as DetailField[];
+      for (const f of fields) if (!result.find(r => r.id === f.id)) result.push(f);
+      return result;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene.id]);
+
+  const [showManager, setShowManager] = useState(false);
+  const [showTemplatePanel, setShowTemplatePanel] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+
+  const builtinRefs = fields.filter(f => f.builtin).map(f => ({ id: f.id, label: f.label }));
+
+  function saveOrder(items: OrderedItem[]) {
+    const ids = items.filter(i => !isDivider(i)).map(i => (i as DetailField).id);
+    try { localStorage.setItem(SCENE_ORDER_KEY, JSON.stringify(ids)); } catch { /* ignore */ }
+    dataService.setArcUiPref(SCENE_ORDER_KEY, JSON.stringify(ids)).catch(() => {});
+  }
+
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = orderedItems.findIndex(i => (isDivider(i) ? i.id : (i as DetailField).id) === active.id);
+    const newIdx = orderedItems.findIndex(i => (isDivider(i) ? i.id : (i as DetailField).id) === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const next = arrayMove(orderedItems, oldIdx, newIdx);
+    setOrderedItems(next);
+    saveOrder(next);
+  }
+
+  function handleSaveCurrentAsTemplate() {
+    if (!newTemplateName.trim() || !onSaveTemplate) return;
+    const fieldOrder = orderedItems.filter(i => !isDivider(i)).map(i => (i as DetailField).id);
+    onSaveTemplate({
+      name: newTemplateName.trim(),
+      entityType: 'scene',
+      fieldOrder,
+      hiddenBuiltinIds: [...(hiddenBuiltinIds ?? [])],
+      hiddenCustomIds: [...(hiddenCustomIds ?? [])],
+      dividers: [],
+    });
+    setNewTemplateName('');
+  }
+
+  function handleApplyTemplate(template: ArcTemplate) {
+    const fieldMap = Object.fromEntries(fields.map(f => [f.id, f]));
+    const ordered = template.fieldOrder.map(id => fieldMap[id]).filter(Boolean) as DetailField[];
+    const inTemplate = new Set(template.fieldOrder);
+    for (const f of fields) if (!inTemplate.has(f.id)) ordered.push(f);
+    setOrderedItems(ordered);
+    saveOrder(ordered);
+    setShowTemplatePanel(false);
+  }
+
+  const visibleItems = orderedItems.filter(item => {
+    if (isDivider(item)) return false;
+    const f = item as DetailField;
+    if (f.builtin && hiddenBuiltinIds?.has(f.id)) return false;
+    if (!f.builtin && hiddenCustomIds?.has(f.id)) return false;
+    return true;
+  });
+
+  return (
+    <div className="arc-dm-scene-field-panel">
+      <div className="arc-dm-scene-text-header">
+        <button className="arc-dm-scene-detail-back" onClick={onBack}>← Back</button>
+        <span className="arc-dm-scene-field-title">{scene.title || 'Untitled scene'}</span>
+        {onGoToScene && (
+          <button className="arc-dm-scene-text-goto" onClick={() => onGoToScene(scene.id)}>Full Editor →</button>
+        )}
+      </div>
+      {showTemplatePanel ? (
+        <div className="arc-dm-template-panel" style={{ flex: 1, overflow: 'hidden' }}>
+          <div className="arc-dm-template-panel-header">
+            <button className="arc-dm-back-btn" onClick={() => setShowTemplatePanel(false)} type="button">← Back</button>
+            <span className="arc-dm-template-panel-title">Fields &amp; Templates</span>
+          </div>
+          <div className="arc-dm-field-picker-section">
+            <div className="arc-dm-picker-label">VISIBLE FIELDS</div>
+            {fields.map(f => (
+              <label key={f.id} className="arc-dm-field-toggle">
+                <input
+                  type="checkbox"
+                  checked={f.builtin ? !hiddenBuiltinIds?.has(f.id) : !hiddenCustomIds?.has(f.id)}
+                  onChange={() => f.builtin ? onToggleBuiltin?.(f.id) : onToggleCustom?.(f.id)}
+                />
+                <span className="arc-dm-toggle-label">{f.label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="arc-dm-template-list-section">
+            <div className="arc-dm-picker-label">TEMPLATES</div>
+            {(templates ?? []).filter(t => t.entityType === 'scene').length === 0 && (
+              <div className="arc-dm-template-empty">No saved templates yet</div>
+            )}
+            {(templates ?? []).filter(t => t.entityType === 'scene').map(t => (
+              <div key={t.id} className="arc-dm-template-row">
+                <span className="arc-dm-template-name">{t.name}</span>
+                <button className="arc-dm-template-apply-btn" onClick={() => handleApplyTemplate(t)} type="button">Apply</button>
+                <button className="arc-dm-template-delete-btn" onClick={() => onDeleteTemplate?.(t.id)} type="button">&times;</button>
+              </div>
+            ))}
+            {onSaveTemplate && (
+              <div className="arc-dm-template-save-row">
+                <input type="text" className="arc-dm-template-name-input" placeholder="Template name..." value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newTemplateName.trim()) handleSaveCurrentAsTemplate(); }} />
+                <button className="arc-dm-template-save-btn" disabled={!newTemplateName.trim()} onClick={handleSaveCurrentAsTemplate} type="button">Save</button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : showManager ? (
+        <ArcFieldManager
+          defs={arcFieldDefs}
+          onSave={defs => onSaveDefs(defs)}
+          onBack={() => setShowManager(false)}
+          builtinFields={builtinRefs}
+          hiddenBuiltinIds={hiddenBuiltinIds}
+          onToggleBuiltin={onToggleBuiltin}
+          hiddenCustomIds={hiddenCustomIds}
+          onToggleCustom={onToggleCustom}
+        />
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={orderedItems.map(i => isDivider(i) ? i.id : (i as DetailField).id)} strategy={verticalListSortingStrategy}>
+            <div className="arc-dm-body">
+              {visibleItems.map(item => (
+                <FieldRow
+                  key={(item as DetailField).id}
+                  field={item as DetailField}
+                  sortable={true}
+                  onHide={undefined}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+      {!showManager && !showTemplatePanel && (
+        <div className="arc-dm-footer">
+          <button className="arc-dm-templates-btn" onClick={() => setShowTemplatePanel(true)} type="button">&#9776; Fields &amp; Templates</button>
+          <button className="arc-dm-manage-btn" onClick={() => setShowManager(true)} type="button">&#9881; Manage fields</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ArcDetailModal({
   title,
   subtitle,
+  entityType,
   fields,
   arcFieldDefs,
   onSaveDefs,
@@ -569,6 +789,10 @@ export default function ArcDetailModal({
   fieldSections,
   onSectionChange: _onSectionChange,
   onSaveAllSections,
+  templates,
+  onSaveTemplate,
+  onDeleteTemplate,
+  onApplyTemplate,
   scenes,
   bullpenScenes,
   characters: _characters,
@@ -580,8 +804,22 @@ export default function ArcDetailModal({
   draftContent,
   onDraftChange,
   onGoToScene,
+  sceneArcFieldDefs,
+  sceneArcFieldValues,
+  onSaveSceneBuiltins,
+  onSaveSceneArcFields,
+  hiddenBuiltinIds_scene,
+  onToggleBuiltin_scene,
+  hiddenCustomIds_scene,
+  onToggleCustom_scene,
+  fieldSections_scene,
+  templates_scene,
+  onSaveTemplate_scene,
+  onDeleteTemplate_scene,
 }: ArcDetailModalProps) {
   const [showManager, setShowManager] = useState(false);
+  const [showTemplatePanel, setShowTemplatePanel] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
   const overlayRef = useRef<HTMLDivElement>(null);
   const builtinRefs = fields.filter(f => f.builtin).map(f => ({ id: f.id, label: f.label }));
 
@@ -592,6 +830,36 @@ export default function ArcDetailModal({
     if (selectedSceneId && !orderedScenes.find(s => s.id === selectedSceneId)) setSelectedSceneId(null);
   }, [orderedScenes, selectedSceneId]);
   const selectedScene = selectedSceneId ? orderedScenes.find(s => s.id === selectedSceneId) ?? null : null;
+
+  function buildSceneFields(scene: Scene): DetailField[] {
+    if (!sceneArcFieldDefs || !onSaveSceneBuiltins || !onSaveSceneArcFields) return [];
+    const sceneValues = sceneArcFieldValues?.[`scene:${scene.id}`] ?? {};
+    const builtins: DetailField[] = [
+      { id: 'synopsis', label: 'Synopsis', icon: '≡', render: { kind: 'text' }, value: scene.notes?.join('\n') ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { notes: (v as string).split('\n').filter(Boolean) }), builtin: true, section: fieldSections_scene?.['synopsis'] },
+      { id: 'beginning', label: 'Beginning', icon: '→', render: { kind: 'text' }, value: scene.startingState ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { startingState: v as string }), builtin: true, section: fieldSections_scene?.['beginning'] },
+      { id: 'ending', label: 'Ending', icon: '←', render: { kind: 'text' }, value: scene.endingState ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { endingState: v as string }), builtin: true, section: fieldSections_scene?.['ending'] },
+      { id: 'turningPoint', label: 'Turning point', icon: '↺', render: { kind: 'text' }, value: scene.transformation ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { transformation: v as string }), builtin: true, section: fieldSections_scene?.['turningPoint'] },
+      { id: 'dilemma', label: 'Dilemma', icon: '?', render: { kind: 'text' }, value: scene.dilemma ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { dilemma: v as string }), builtin: true, section: fieldSections_scene?.['dilemma'] },
+      { id: 'propellingAction', label: 'Propelling Action', icon: '▶', render: { kind: 'text' }, value: scene.propellingAction ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { propellingAction: v as string }), builtin: true, section: fieldSections_scene?.['propellingAction'] },
+      { id: 'polarity', label: 'Polarity shift', icon: '±', render: { kind: 'polarity' }, value: scene.polarity ?? '', onChange: v => onSaveSceneBuiltins(scene.id, { polarity: v as string }), builtin: true, section: fieldSections_scene?.['polarity'] },
+    ];
+    const custom: DetailField[] = sceneArcFieldDefs.filter(d => d.scope === 'scene').map(def => {
+      const renderDef = (): FieldRender => {
+        if (def.type === 'dropdown') return { kind: 'dropdown', options: def.options ?? [], colors: def.optionColors };
+        if (def.type === 'multiselect') return { kind: 'multiselect', options: def.options ?? [], colors: def.optionColors };
+        if (def.type === 'rating') return { kind: 'rating', max: def.ratingMax ?? 5 };
+        if (def.type === 'number') return { kind: 'number' };
+        return { kind: 'text' };
+      };
+      return {
+        id: def.id, label: def.label, icon: '·', render: renderDef(),
+        value: sceneValues[def.id] ?? (def.type === 'multiselect' ? [] : ''),
+        onChange: (v: string | string[]) => onSaveSceneArcFields(scene.id, { ...sceneValues, [def.id]: v }),
+        builtin: false, section: fieldSections_scene?.[def.id],
+      };
+    });
+    return [...builtins, ...custom];
+  }
 
   const scenesSensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   function handleScenesDragEnd(event: DragEndEvent) {
@@ -720,6 +988,53 @@ export default function ArcDetailModal({
     if (updatedDefs.some((d, i) => d.order !== arcFieldDefs[i]?.order)) onSaveDefs(updatedDefs);
   }
 
+  // ── Template helpers ──────────────────────────────────────────────────────────
+  function handleApplyTemplate(template: ArcTemplate) {
+    const fieldMap = Object.fromEntries(fields.map(f => [f.id, f]));
+    const baseFields = template.fieldOrder.map(id => fieldMap[id]).filter(Boolean) as DetailField[];
+    const inTemplate = new Set(template.fieldOrder);
+    for (const f of fields) if (!inTemplate.has(f.id)) baseFields.push(f);
+
+    const divBefore: Record<string, SectionDivider[]> = {};
+    for (const d of template.dividers) {
+      if (!divBefore[d.afterId]) divBefore[d.afterId] = [];
+      divBefore[d.afterId].push({ kind: 'divider', id: crypto.randomUUID(), label: d.label });
+    }
+    const result: OrderedItem[] = [];
+    for (const div of (divBefore['__start__'] ?? [])) result.push(div);
+    for (const f of baseFields) {
+      result.push(f);
+      for (const div of (divBefore[f.id] ?? [])) result.push(div);
+    }
+    setOrderedItems(result);
+    saveItems(result);
+    onApplyTemplate?.(template);
+    setShowTemplatePanel(false);
+  }
+
+  function handleSaveCurrentAsTemplate() {
+    if (!entityType || !newTemplateName.trim() || !onSaveTemplate) return;
+    const fieldOrder = orderedItems.filter(i => !isDivider(i)).map(i => i.id);
+    const dividers: ArcTemplate['dividers'] = [];
+    let lastFieldId: string | '__start__' = '__start__';
+    for (const item of orderedItems) {
+      if (isDivider(item)) {
+        dividers.push({ id: crypto.randomUUID(), label: item.label, afterId: lastFieldId });
+      } else {
+        lastFieldId = item.id;
+      }
+    }
+    onSaveTemplate({
+      name: newTemplateName.trim(),
+      entityType,
+      fieldOrder,
+      hiddenBuiltinIds: [...(hiddenBuiltinIds ?? [])],
+      hiddenCustomIds: [...(hiddenCustomIds ?? [])],
+      dividers,
+    });
+    setNewTemplateName('');
+  }
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -793,7 +1108,65 @@ export default function ArcDetailModal({
         <div className="arc-dm-columns">
           <div className="arc-dm-main">
             <div className="arc-dm-body">
-              {showManager ? (
+              {showTemplatePanel ? (
+                <div className="arc-dm-template-panel">
+                  <div className="arc-dm-template-panel-header">
+                    <button className="arc-dm-back-btn" onClick={() => setShowTemplatePanel(false)} type="button">← Back</button>
+                    <span className="arc-dm-template-panel-title">Fields &amp; Templates</span>
+                  </div>
+
+                  <div className="arc-dm-field-picker-section">
+                    <div className="arc-dm-picker-label">VISIBLE FIELDS</div>
+                    {fields.map(f => (
+                      <label key={f.id} className="arc-dm-field-toggle">
+                        <input
+                          type="checkbox"
+                          checked={f.builtin ? !hiddenBuiltinIds?.has(f.id) : !hiddenCustomIds?.has(f.id)}
+                          onChange={() => f.builtin ? onToggleBuiltin?.(f.id) : onToggleCustom?.(f.id)}
+                        />
+                        <span className="arc-dm-toggle-icon">{f.icon}</span>
+                        <span className="arc-dm-toggle-label">{f.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {entityType && (
+                    <div className="arc-dm-template-list-section">
+                      <div className="arc-dm-picker-label">TEMPLATES</div>
+                      {(templates ?? []).filter(t => t.entityType === entityType).length === 0 && (
+                        <div className="arc-dm-template-empty">No saved templates yet</div>
+                      )}
+                      {(templates ?? []).filter(t => t.entityType === entityType).map(t => (
+                        <div key={t.id} className="arc-dm-template-row">
+                          <span className="arc-dm-template-name">{t.name}</span>
+                          <button className="arc-dm-template-apply-btn" onClick={() => handleApplyTemplate(t)} type="button">Apply</button>
+                          <button className="arc-dm-template-delete-btn" onClick={() => onDeleteTemplate?.(t.id)} type="button" title="Delete template">&times;</button>
+                        </div>
+                      ))}
+                      {onSaveTemplate && (
+                        <div className="arc-dm-template-save-row">
+                          <input
+                            type="text"
+                            className="arc-dm-template-name-input"
+                            placeholder="Template name..."
+                            value={newTemplateName}
+                            onChange={e => setNewTemplateName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && newTemplateName.trim()) handleSaveCurrentAsTemplate(); }}
+                          />
+                          <button
+                            className="arc-dm-template-save-btn"
+                            disabled={!newTemplateName.trim()}
+                            onClick={handleSaveCurrentAsTemplate}
+                            type="button"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : showManager ? (
                 <ArcFieldManager
                   defs={arcFieldDefs}
                   onSave={defs => onSaveDefs(defs)}
@@ -845,7 +1218,7 @@ export default function ArcDetailModal({
                 </DndContext>
               )}
             </div>
-            {!showManager && (
+            {!showManager && !showTemplatePanel && (
               <div className="arc-dm-footer">
                 <button
                   className="arc-dm-add-section-btn"
@@ -858,6 +1231,9 @@ export default function ArcDetailModal({
                   type="button"
                 >
                   + Add section
+                </button>
+                <button className="arc-dm-templates-btn" onClick={() => setShowTemplatePanel(true)} type="button">
+                  &#9776; Fields &amp; Templates
                 </button>
                 <button className="arc-dm-manage-btn" onClick={() => setShowManager(true)} type="button">
                   &#9881; Manage fields
@@ -879,6 +1255,27 @@ export default function ArcDetailModal({
               </div>
               <div className="arc-dm-scenes-list">
                 {selectedScene ? (
+                  sceneArcFieldDefs && onSaveSceneBuiltins && onSaveSceneArcFields ? (
+                    <SceneFieldPanel
+                      key={selectedScene.id}
+                      scene={selectedScene}
+                      fields={buildSceneFields(selectedScene)}
+                      arcFieldDefs={sceneArcFieldDefs}
+                      onSaveDefs={arcDefs => {
+                        const nonScene = arcFieldDefs.filter(d => d.scope !== 'scene');
+                        onSaveDefs([...nonScene, ...arcDefs.filter(d => d.scope === 'scene')]);
+                      }}
+                      hiddenBuiltinIds={hiddenBuiltinIds_scene}
+                      onToggleBuiltin={onToggleBuiltin_scene}
+                      hiddenCustomIds={hiddenCustomIds_scene}
+                      onToggleCustom={onToggleCustom_scene}
+                      templates={templates_scene}
+                      onSaveTemplate={onSaveTemplate_scene}
+                      onDeleteTemplate={onDeleteTemplate_scene}
+                      onBack={() => setSelectedSceneId(null)}
+                      onGoToScene={onGoToScene}
+                    />
+                  ) : (
                   <SceneTextPanel
                     key={selectedScene.id}
                     scene={selectedScene}
@@ -887,6 +1284,7 @@ export default function ArcDetailModal({
                     onGoToScene={onGoToScene}
                     onBack={() => setSelectedSceneId(null)}
                   />
+                  )
                 ) : (
                   <DndContext sensors={scenesSensors} collisionDetection={closestCenter} onDragEnd={handleScenesDragEnd}>
                     <SortableContext items={orderedScenes.map(s => s.id)} strategy={verticalListSortingStrategy}>
