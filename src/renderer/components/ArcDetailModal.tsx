@@ -627,16 +627,31 @@ export default function ArcDetailModal({
     return fields;
   });
 
-  // Load dividers from SQLite and merge into item list
+  // Load field order + dividers from SQLite (syncs across machines, overrides localStorage).
   useEffect(() => {
     if (!storageKey) return;
-    dataService.getArcUiPref(`arc-dividers:${storageKey}`).then((raw: string | null) => {
-      if (!raw) return;
-      try {
-        const saved: { id: string; label: string; afterId: string | '__start__' }[] = JSON.parse(raw);
-        setOrderedItems(prev => {
+    Promise.all([
+      dataService.getArcUiPref(`arc-field-order:${storageKey}`),
+      dataService.getArcUiPref(`arc-dividers:${storageKey}`),
+    ]).then(([orderRaw, dividersRaw]) => {
+      setOrderedItems(prev => {
+        // Apply DB field order if present
+        let baseFields = prev.filter(i => !isDivider(i)) as DetailField[];
+        if (orderRaw) {
+          try {
+            const savedIds: string[] = JSON.parse(orderRaw);
+            const byId = Object.fromEntries(baseFields.map(f => [f.id, f]));
+            const ordered = savedIds.map(id => byId[id]).filter(Boolean) as DetailField[];
+            const savedSet = new Set(savedIds);
+            for (const f of baseFields) if (!savedSet.has(f.id)) ordered.push(f);
+            baseFields = ordered;
+          } catch { /* ignore */ }
+        }
+        // Merge dividers in
+        if (!dividersRaw) return baseFields;
+        try {
+          const saved: { id: string; label: string; afterId: string | '__start__' }[] = JSON.parse(dividersRaw);
           const result: OrderedItem[] = [];
-          // Insert dividers before the field they were saved after
           const dividersBefore: Record<string, SectionDivider[]> = {};
           for (const d of saved) {
             const key = d.afterId;
@@ -644,16 +659,15 @@ export default function ArcDetailModal({
             dividersBefore[key].push({ kind: 'divider', id: d.id, label: d.label });
           }
           for (const div of (dividersBefore['__start__'] ?? [])) result.push(div);
-          for (const item of prev) {
-            if (!isDivider(item)) {
-              result.push(item);
-              for (const div of (dividersBefore[item.id] ?? [])) result.push(div);
-            }
+          for (const item of baseFields) {
+            result.push(item);
+            for (const div of (dividersBefore[item.id] ?? [])) result.push(div);
           }
           return result;
-        });
-      } catch { /* ignore */ }
-    });
+        } catch { /* ignore */ }
+        return baseFields;
+      });
+    }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
@@ -680,8 +694,10 @@ export default function ArcDetailModal({
 
   function saveItems(items: OrderedItem[]) {
     if (!storageKey) return;
-    // Persist field order in localStorage (backward compat)
-    localStorage.setItem(storageKey, JSON.stringify(items.filter(i => !isDivider(i)).map(i => i.id)));
+    const fieldIds = items.filter(i => !isDivider(i)).map(i => i.id);
+    // Persist field order to both localStorage (fast local read) and DB (cross-machine sync)
+    localStorage.setItem(storageKey, JSON.stringify(fieldIds));
+    dataService.setArcUiPref(`arc-field-order:${storageKey}`, JSON.stringify(fieldIds)).catch(() => {});
     // Persist divider positions in SQLite
     const divPositions: { id: string; label: string; afterId: string | '__start__' }[] = [];
     let lastFieldId: string | '__start__' = '__start__';
@@ -712,12 +728,42 @@ export default function ArcDetailModal({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIdx = orderedItems.findIndex(i => i.id === active.id);
-    const newIdx = orderedItems.findIndex(i => i.id === over.id);
-    if (oldIdx < 0 || newIdx < 0) return;
-    const newOrder = arrayMove(orderedItems, oldIdx, newIdx);
-    setOrderedItems(newOrder);
-    saveItems(newOrder);
+
+    const activeItem = orderedItems.find(i => i.id === active.id);
+    if (!activeItem) return;
+
+    // When dragging a section divider, move the entire section block (divider + all
+    // fields beneath it, up to the next divider) so fields stay grouped with their header.
+    if (isDivider(activeItem)) {
+      const oldIdx = orderedItems.findIndex(i => i.id === active.id);
+      const targetIdx = orderedItems.findIndex(i => i.id === over.id);
+      if (targetIdx < 0) return;
+
+      // Collect the section block: this divider + fields until the next divider
+      let blockEnd = oldIdx + 1;
+      while (blockEnd < orderedItems.length && !isDivider(orderedItems[blockEnd])) blockEnd++;
+      const sectionBlock = orderedItems.slice(oldIdx, blockEnd);
+
+      // Build the list without the section block
+      const without = [...orderedItems.slice(0, oldIdx), ...orderedItems.slice(blockEnd)];
+
+      // Find the target item's position in the reduced list
+      const overInWithout = without.findIndex(i => i.id === over.id);
+      if (overInWithout < 0) return; // over.id was inside the dragged block — no-op
+
+      // Moving down → insert after the target; moving up → insert before
+      const insertPos = targetIdx > oldIdx ? overInWithout + 1 : overInWithout;
+      const newOrder = [...without.slice(0, insertPos), ...sectionBlock, ...without.slice(insertPos)];
+      setOrderedItems(newOrder);
+      saveItems(newOrder);
+    } else {
+      const oldIdx = orderedItems.findIndex(i => i.id === active.id);
+      const newIdx = orderedItems.findIndex(i => i.id === over.id);
+      if (oldIdx < 0 || newIdx < 0) return;
+      const newOrder = arrayMove(orderedItems, oldIdx, newIdx);
+      setOrderedItems(newOrder);
+      saveItems(newOrder);
+    }
   }
 
   useEffect(() => {

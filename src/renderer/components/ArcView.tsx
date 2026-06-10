@@ -5,6 +5,7 @@ import { SortableItem } from '../dnd';
 import ScenePreviewPanel from './ScenePreviewPanel';
 import { Character, Act, PlotPoint, Scene, CharacterPsychology, ArcFieldDef } from '../../shared/types';
 import ArcDetailModal, { type DetailField, type FieldRender } from './ArcDetailModal';
+import { dataService } from '../services/dataService';
 
 // ── Arc column model ─────────────────────────────────────────────────────────
 // The arc table's content columns (everything right of the pinned Name column).
@@ -69,7 +70,9 @@ function loadArcColPref(allIds: string[]): ArcColPref {
   return { order: [...allIds], hidden: [], widths: {} };
 }
 function saveArcColPref(order: string[], hidden: Set<string>, widths: Record<string, number>) {
-  try { localStorage.setItem(ARC_COLS_LS_KEY, JSON.stringify({ order, hidden: [...hidden], widths })); } catch { /* ignore */ }
+  const pref = { order, hidden: [...hidden], widths };
+  try { localStorage.setItem(ARC_COLS_LS_KEY, JSON.stringify(pref)); } catch { /* ignore */ }
+  dataService.setArcUiPref('arc-columns', JSON.stringify(pref)).catch(() => {});
 }
 const arcCapitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -597,7 +600,35 @@ export default function ArcView({
   const [showColMenu, setShowColMenu] = useState(false);
   const colMenuRef = useRef<HTMLDivElement>(null);
 
-  // Persist column layout (view preference — local to this device, all projects)
+  // On mount: restore column layout from DB (overrides localStorage so prefs sync across machines).
+  const colPrefInitializedRef = useRef(false);
+  useEffect(() => {
+    if (colPrefInitializedRef.current) return;
+    colPrefInitializedRef.current = true;
+    dataService.getArcUiPref('arc-columns').then(raw => {
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw) as Partial<ArcColPref>;
+        const allIds = [...ARC_COL_IDS, ...arcFieldDefs.map(d => `cf:${d.id}`)];
+        const known = new Set(allIds);
+        const order = (saved.order ?? []).filter(id => known.has(id));
+        for (const id of allIds) if (!order.includes(id)) order.push(id);
+        const hidden = (saved.hidden ?? []).filter(id => known.has(id));
+        const widths: Record<string, number> = {};
+        for (const [id, w] of Object.entries(saved.widths ?? {})) {
+          if ((known.has(id) || id === ARC_NAME_COL_ID) && typeof w === 'number' && isFinite(w)) {
+            widths[id] = Math.max(ARC_MIN_COL_WIDTH, Math.round(w));
+          }
+        }
+        setColumnOrder(order);
+        setHiddenCols(new Set(hidden));
+        setColumnWidths(widths);
+      } catch { /* ignore corrupt pref */ }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist column layout to both localStorage (fast local read) and DB (cross-machine sync).
   useEffect(() => { saveArcColPref(columnOrder, hiddenCols, columnWidths); }, [columnOrder, hiddenCols, columnWidths]);
   // Persist hide-acts/sections toggles + collapsed acts/sections, so the view
   // reopens exactly as it was left.
