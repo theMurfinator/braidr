@@ -20,6 +20,7 @@ interface PovOutlineViewProps {
   onPreview?: (sceneId: string) => void;
   onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
   onDeleteSection?: (sectionId: string) => void;
+  onOpenSectionDetails?: (sectionId: string) => void;
   getCharacterName?: (characterId: string) => string;
   chapters?: Chapter[];
   onAssignSceneToChapter?: (sceneId: string, chapterId: string | null, sceneOrder: number) => void;
@@ -39,6 +40,7 @@ interface SectionHeaderProps {
   onToggleSynopsisMode: (sectionId: string) => void;
   onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
   onDeleteSection?: (sectionId: string) => void;
+  onOpenDetails?: (sectionId: string) => void;
   dragHandleProps?: Record<string, unknown>;
 }
 
@@ -50,6 +52,7 @@ function SectionHeader({
   onToggleSynopsisMode,
   onSectionChange,
   onDeleteSection,
+  onOpenDetails,
   dragHandleProps,
 }: SectionHeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -170,6 +173,9 @@ function SectionHeader({
             <>({sceneCount}/{section.expectedSceneCount ?? '?'})</>
           )}
         </span>
+        {onOpenDetails && (
+          <button className="section-expand-btn" onClick={(e) => { e.stopPropagation(); onOpenDetails(section.id); }} title="Open section details">{'⊞'}</button>
+        )}
         {onDeleteSection && (
           <button className="section-delete-btn" onClick={() => onDeleteSection(section.id)} title="Delete section">{'×'}</button>
         )}
@@ -231,6 +237,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     onPreview,
     onSectionChange,
     onDeleteSection,
+    onOpenSectionDetails,
     getCharacterName,
     chapters,
     povReorderedScenes,
@@ -290,6 +297,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                         onToggleSynopsisMode={onToggleSynopsisMode}
                         onSectionChange={onSectionChange}
                         onDeleteSection={onDeleteSection}
+                        onOpenDetails={onOpenSectionDetails}
                         dragHandleProps={{ ...sectionSortable.attributes, ...sectionSortable.listeners }}
                       />
                     )}
