@@ -1089,7 +1089,6 @@ export default function TableView({
                 onDragEnd={canDrag ? () => { setDragRowId(null); setDragOverRowId(null); } : undefined}
                 onClick={() => {
                   setSelectedSceneId(scene.id);
-                  setShowPovPanel(true);
                   onSceneClick(sceneKey);
                 }}
               >

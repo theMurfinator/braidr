@@ -43,7 +43,12 @@ export default function FloatingEditor({
 }: FloatingEditorProps) {
   const [localNotes, setLocalNotes] = useState<string[]>(scene.notes);
   const [localWordCount, setLocalWordCount] = useState<string>(scene.wordCount?.toString() || '');
-  const [localScratchpad, setLocalScratchpad] = useState(scratchpadContentProp || '');
+  // Strip any residual HTML from scratchpad content (previously stored via TipTap)
+  const stripHtml = (html: string) => html
+    .replace(/<\/p>/gi, '\n').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n').trim();
+  const [localScratchpad, setLocalScratchpad] = useState(stripHtml(scratchpadContentProp || ''));
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [tagFilter, setTagFilter] = useState('');
   const [newTagCategory, setNewTagCategory] = useState<'people' | 'locations' | 'arcs' | 'things' | 'time'>('people');

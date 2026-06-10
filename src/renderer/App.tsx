@@ -2821,6 +2821,11 @@ function App() {
             const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
             const wordCount = text ? text.split(/\s+/).length : 0;
             sessionTrackerRef.current.endSession(wordCount);
+            // onSessionEnd updates analyticsRef.current synchronously but its saveAnalytics
+            // is fire-and-forget — await it explicitly so the snapshot survives the close.
+            if (projectData && analyticsRef.current) {
+              await saveAnalytics(projectData.projectPath, analyticsRef.current);
+            }
           }
         }
         if (projectData) {
