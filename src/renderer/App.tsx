@@ -44,6 +44,7 @@ import { useAutoScrollOnDrag } from './hooks/useAutoScrollOnDrag';
 import { DndContext, DragOverlay, closestCenter, DragStartEvent, DragEndEvent, DragCancelEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useSortableSensors, DragPreviewCard } from './dnd';
+import { arcCollisionDetection, resolveArcDrop } from './utils/arcDnd';
 import BraidedListView from './components/BraidedListView';
 import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
@@ -2329,42 +2330,49 @@ function App() {
     if (!over || !projectData || !selectedCharacterId) return;
     const activeId = String(active.id);
     const overId = String(over.id);
-    if (activeId === overId) return;
 
     const activeScene = projectData.scenes.find(s => s.id === activeId);
     if (!activeScene) return;
 
-    if (overId === 'bullpen') {
-      if (activeScene.plotPointId) handleSetAside(activeId);
-      return;
-    }
+    const overType = (over.data.current as Record<string, unknown> | undefined)?.type as string | undefined;
+    const action = resolveArcDrop({
+      activeId,
+      activeHasSection: !!activeScene.plotPointId,
+      overId,
+      overType,
+    });
 
-    let targetSectionId: string | null = null;
-    let targetSceneNumber = 1;
-
-    if (overId.startsWith('section-empty:')) {
-      targetSectionId = overId.slice('section-empty:'.length);
-      targetSceneNumber = 1;
-    } else {
-      const overType = (over.data.current as Record<string, unknown> | undefined)?.type;
-      if (overType === 'arc-scene') {
-        const overScene = projectData.scenes.find(s => s.id === overId);
+    switch (action.kind) {
+      case 'setAside':
+        handleSetAside(activeId);
+        return;
+      case 'assignToSection':
+        handleAssignSceneToSection(activeId, action.sectionId);
+        return;
+      case 'dropAtSectionStart':
+        draggedArcSceneRef.current = activeScene;
+        handleArcSceneDrop(1, action.sectionId);
+        draggedArcSceneRef.current = null;
+        return;
+      case 'reorderAtScene': {
+        const overScene = projectData.scenes.find(s => s.id === action.overSceneId);
         if (!overScene?.plotPointId) return;
-        targetSectionId = overScene.plotPointId;
+        const targetSectionId = overScene.plotPointId;
         const sectionScenes = projectData.scenes
           .filter(s => s.plotPointId === targetSectionId)
           .sort((a, b) => a.sceneNumber - b.sceneNumber);
         const activeIdx = sectionScenes.findIndex(s => s.id === activeId);
-        const overIdx = sectionScenes.findIndex(s => s.id === overId);
+        const overIdx = sectionScenes.findIndex(s => s.id === action.overSceneId);
         const dropsAfter = activeIdx < 0 || (activeIdx >= 0 && overIdx >= 0 && activeIdx < overIdx);
-        targetSceneNumber = dropsAfter ? overScene.sceneNumber + 1 : overScene.sceneNumber;
+        const targetSceneNumber = dropsAfter ? overScene.sceneNumber + 1 : overScene.sceneNumber;
+        draggedArcSceneRef.current = activeScene;
+        handleArcSceneDrop(targetSceneNumber, targetSectionId);
+        draggedArcSceneRef.current = null;
+        return;
       }
+      default:
+        return;
     }
-
-    if (!targetSectionId) return;
-    draggedArcSceneRef.current = activeScene;
-    handleArcSceneDrop(targetSceneNumber, targetSectionId);
-    draggedArcSceneRef.current = null;
   };
 
   const handleSetAside = async (sceneId: string) => {
@@ -4020,7 +4028,7 @@ function App() {
               selectedCharacterId ? (
                 <DndContext
                   sensors={arcSensors}
-                  collisionDetection={closestCenter}
+                  collisionDetection={arcCollisionDetection}
                   onDragStart={handleArcDndStart}
                   onDragEnd={handleArcDndEnd}
                   onDragCancel={handleArcDndCancel}
