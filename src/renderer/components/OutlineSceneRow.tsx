@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { Scene } from '../../shared/types';
 
+function stripHtml(html: string): string {
+  if (!html || !html.includes('<')) return html;
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  return d.textContent ?? '';
+}
+
 interface OutlineSceneRowProps {
   scene: Scene;
   displayNumber?: number;
@@ -74,9 +81,9 @@ function OutlineSceneRow({
     }
   };
 
-  const [synopsisValue, setSynopsisValue] = useState(scene.notes.join('\n'));
+  const [synopsisValue, setSynopsisValue] = useState(() => scene.notes.map(stripHtml).join('\n'));
   const notesKey = JSON.stringify(scene.notes);
-  useEffect(() => { setSynopsisValue(scene.notes.join('\n')); }, [notesKey]);
+  useEffect(() => { setSynopsisValue(scene.notes.map(stripHtml).join('\n')); }, [notesKey]);
 
   const showSynopsis = expandMode ? expanded : synopsisVisible;
 

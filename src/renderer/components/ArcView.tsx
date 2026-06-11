@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableItem } from '../dnd';
@@ -251,11 +251,19 @@ function emptyPsych(characterId: string): CharacterPsychology {
   };
 }
 
+function stripHtml(html: string): string {
+  if (!html || !html.includes('<')) return html;
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  return d.textContent ?? '';
+}
+
 function EditableCell({ value, placeholder, onChange, multiline = false, className }: {
   value: string; placeholder: string; onChange: (v: string) => void; multiline?: boolean; className?: string;
 }) {
+  const clean = stripHtml(value);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
+  const [draft, setDraft] = useState(clean);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   const autoResize = (el: HTMLTextAreaElement) => {
@@ -271,7 +279,7 @@ function EditableCell({ value, placeholder, onChange, multiline = false, classNa
     }
   }, [editing]);
 
-  const commit = () => { setEditing(false); if (draft !== value) onChange(draft); };
+  const commit = () => { setEditing(false); if (draft !== clean) onChange(draft); };
   // Tab / Shift+Tab moves to the next / previous editable cell (spreadsheet-style).
   // Cells are found in DOM order via the shared `arc-nav-cell` class, which is
   // row-major — so it skips the polarity picker and read-only word-count cell.
@@ -295,8 +303,8 @@ function EditableCell({ value, placeholder, onChange, multiline = false, classNa
           className="arc-editable-input arc-nav-cell"
           style={{ width: '100%', resize: 'none', overflow: 'hidden', minHeight: '2.4em' }}
           onChange={e => { setDraft(e.target.value); autoResize(e.target); }}
-          onBlur={() => { setEditing(false); if (draft !== value) onChange(draft); }}
-          onKeyDown={e => { if (e.key === 'Escape') { setEditing(false); setDraft(value); } handleTab(e); }}
+          onBlur={() => { setEditing(false); if (draft !== clean) onChange(draft); }}
+          onKeyDown={e => { if (e.key === 'Escape') { setEditing(false); setDraft(clean); } handleTab(e); }}
           autoFocus
         />
       );
@@ -308,10 +316,10 @@ function EditableCell({ value, placeholder, onChange, multiline = false, classNa
         className="arc-editable-input arc-nav-cell"
         style={{ width: '100%' }}
         onChange={e => setDraft(e.target.value)}
-        onBlur={() => { setEditing(false); if (draft !== value) onChange(draft); }}
+        onBlur={() => { setEditing(false); if (draft !== clean) onChange(draft); }}
         onKeyDown={e => {
-          if (e.key === 'Escape') { setEditing(false); setDraft(value); }
-          if (e.key === 'Enter') { setEditing(false); if (draft !== value) onChange(draft); }
+          if (e.key === 'Escape') { setEditing(false); setDraft(clean); }
+          if (e.key === 'Enter') { setEditing(false); if (draft !== clean) onChange(draft); }
           handleTab(e);
         }}
         autoFocus
@@ -323,11 +331,11 @@ function EditableCell({ value, placeholder, onChange, multiline = false, classNa
     <span
       className={`arc-editable-display arc-nav-cell${className ? ` ${className}` : ''}`}
       tabIndex={-1}
-      onClick={() => { setEditing(true); setDraft(value); }}
-      onFocus={() => { if (!editing) { setEditing(true); setDraft(value); } }}
-      style={{ color: value ? 'inherit' : 'var(--text-muted)', fontStyle: value ? 'normal' : 'italic' }}
+      onClick={() => { setEditing(true); setDraft(clean); }}
+      onFocus={() => { if (!editing) { setEditing(true); setDraft(clean); } }}
+      style={{ color: clean ? 'inherit' : 'var(--text-muted)', fontStyle: clean ? 'normal' : 'italic' }}
     >
-      {value || placeholder}
+      {clean || placeholder}
     </span>
   );
 }
@@ -799,6 +807,29 @@ export default function ArcView({
   }
 
   const sortedActs = [...acts].sort((a, b) => a.order - b.order);
+
+  // POV scene numbers: match the POV view exactly. The POV view numbers only the
+  // section-placed scenes sequentially (1-based) in section order — unassigned
+  // (bullpen) scenes are skipped and don't consume a number. We replicate that
+  // here so the arc view's far-left number equals "Noah Scene #N" in POV.
+  const povSceneNumbers = useMemo(() => {
+    const bySection = new Map<string, Scene[]>();
+    for (const scene of scenes) {
+      if (!scene.plotPointId) continue;
+      const list = bySection.get(scene.plotPointId) ?? [];
+      list.push(scene);
+      bySection.set(scene.plotPointId, list);
+    }
+    for (const list of bySection.values()) list.sort((a, b) => a.sceneNumber - b.sceneNumber);
+    const sortedSections = [...plotPoints].sort((a, b) => a.order - b.order);
+    const map = new Map<string, number>();
+    let n = 0;
+    for (const section of sortedSections) {
+      for (const sc of bySection.get(section.id) ?? []) map.set(sc.id, ++n);
+    }
+    return map;
+  }, [scenes, plotPoints]);
+
   // "Collapse all" targets every act and every section (plot point under an act).
   // The novel row is left expanded so collapsing reveals the act outline.
   const collapsibleIds = [
@@ -994,6 +1025,7 @@ export default function ArcView({
           className="arc-row arc-scene arc-grid arc-scene-draggable"
           onContextMenu={e => { e.preventDefault(); setSceneContextMenu({ x: e.clientX, y: e.clientY, sceneId: scene.id }); }}>
           <div className="arc-name-cell" style={{ paddingLeft: 104 }}>
+            <span className="arc-pov-num">{povSceneNumbers.get(scene.id) ?? ''}</span>
             <span className="arc-drag-handle" {...attributes} {...listeners} title="Drag to reorder">⠿</span>
             <div className="arc-name-inner">
               <EditableCell className="arc-scene-title" value={scene.title || ''} placeholder="Scene title..."

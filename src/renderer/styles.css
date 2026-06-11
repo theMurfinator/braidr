@@ -21421,6 +21421,18 @@ textarea.table-cell-input {
   color: var(--text-secondary);
 }
 
+.arc-pov-num {
+  width: 24px;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding-top: 5px;
+  padding-right: 4px;
+  user-select: none;
+  line-height: 1;
+}
 .arc-drag-handle {
   width: 16px;
   flex-shrink: 0;
