@@ -28,6 +28,7 @@ The character-arc planning view. An outline-table for one character, organized N
 - **Right-click a section** — move to act, return to bullpen, or delete
 - Acts/Sections toggles and collapsible groups
 - Companion **Bullpen panel** for parking sections and scenes that aren't yet placed
+- **Drag scenes within the Bullpen panel** — drop a scene onto a section to file it there, onto another scene to reorder, or onto empty panel space to set it aside. Works for act-less sections, which live entirely in the Bullpen.
 
 ### Braided Timeline — List View
 All characters' scenes combined into reading/chronological order. The "meta" view of the whole novel.

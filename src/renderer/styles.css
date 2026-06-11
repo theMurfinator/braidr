@@ -21921,7 +21921,12 @@ textarea.table-cell-input {
   cursor: pointer;
   user-select: none;
 }
-.arc-bullpen-section-group { margin-bottom: 2px; }
+.arc-bullpen-section-group { margin-bottom: 2px; border-radius: 6px; }
+.arc-bullpen-section-group.drag-over {
+  outline: 2px solid var(--accent, #6366f1);
+  outline-offset: -2px;
+  background: var(--bg-hover);
+}
 .arc-bullpen-clickable { cursor: pointer; flex: 1; }
 .arc-bullpen-row.active { background: var(--bg-hover); box-shadow: inset 2px 0 0 var(--accent, #6b8afd); }
 .arc-bullpen-drag {
