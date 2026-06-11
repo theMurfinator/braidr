@@ -44,6 +44,13 @@ interface SectionHeaderProps {
   dragHandleProps?: Record<string, unknown>;
 }
 
+function stripHtml(html: string): string {
+  if (!html || !html.includes('<')) return html;
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  return d.textContent ?? '';
+}
+
 function SectionHeader({
   section,
   sceneCount,
@@ -60,14 +67,14 @@ function SectionHeader({
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [editTitle, setEditTitle] = useState(section.title || 'New Section');
   const [editCount, setEditCount] = useState<string>(section.expectedSceneCount?.toString() || '');
-  const [editDesc, setEditDesc] = useState(section.description || '');
+  const [editDesc, setEditDesc] = useState(() => stripHtml(section.description || ''));
   const titleInputRef = useRef<HTMLInputElement>(null);
   const countInputRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { setEditTitle(section.title || 'New Section'); }, [section.title]);
   useEffect(() => { setEditCount(section.expectedSceneCount?.toString() || ''); }, [section.expectedSceneCount]);
-  useEffect(() => { setEditDesc(section.description || ''); }, [section.description]);
+  useEffect(() => { setEditDesc(stripHtml(section.description || '')); }, [section.description]);
 
   useEffect(() => {
     if (isEditingTitle && titleInputRef.current) {
