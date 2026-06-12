@@ -79,6 +79,7 @@ interface Window {
     branchesMerge: (projectPath: string, branchName: string, sceneIds: string[]) => Promise<any>;
     branchesCompare: (projectPath: string, leftBranch: string | null, rightBranch: string | null) => Promise<any>;
     branchesGetSceneDraft: (projectPath: string, branchName: string | null, sceneId: string) => Promise<any>;
+    braidrMutate: (braidrPath: string, name: string, args: unknown) => Promise<any>;
     branchesReadPositions: (projectPath: string, branchName: string) => Promise<any>;
     branchesSavePositions: (projectPath: string, branchName: string, positions: Record<string, number>) => Promise<any>;
     // Lock
