@@ -67,6 +67,39 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 4,
+    name: 'field substrate (TO-BE §4: one field system, derived until cutover)',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS field_defs (
+          id TEXT PRIMARY KEY,
+          label TEXT NOT NULL,
+          field_type TEXT NOT NULL DEFAULT 'text',
+          options TEXT,
+          option_colors TEXT,
+          rating_max INTEGER,
+          display_order INTEGER NOT NULL DEFAULT 0,
+          builtin INTEGER NOT NULL DEFAULT 0,
+          deleted_at INTEGER,
+          created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS field_attachments (
+          field_id TEXT NOT NULL REFERENCES field_defs(id) ON DELETE CASCADE,
+          level_key TEXT NOT NULL,
+          PRIMARY KEY (field_id, level_key)
+        );
+        CREATE TABLE IF NOT EXISTS field_values (
+          field_id TEXT NOT NULL REFERENCES field_defs(id) ON DELETE CASCADE,
+          entity_type TEXT NOT NULL,
+          entity_id TEXT NOT NULL,
+          value TEXT NOT NULL,
+          PRIMARY KEY (field_id, entity_type, entity_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_field_values_entity ON field_values(entity_type, entity_id);
+      `);
+    },
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS.reduce((v, m) => Math.max(v, m.version), 1);
