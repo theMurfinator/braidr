@@ -100,6 +100,13 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 5,
+    name: 'scenes.outline_key (TO-BE §2: fractional order within parent node)',
+    up: (db) => {
+      db.exec('ALTER TABLE scenes ADD COLUMN outline_key TEXT');
+    },
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS.reduce((v, m) => Math.max(v, m.version), 1);
