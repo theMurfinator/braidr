@@ -130,6 +130,13 @@ Description of what happens in this plot point section...
 - Team ID: CBMC9F64HB (hardcoded in `scripts/notarize.js` and workflow)
 - **Always read the release workflow and notarize script before giving release instructions**
 
+### Releasing on request
+When Brian says anything like "push for release", "merge to main", "ship it", "release this", or "update the app", do the full release sequence without asking:
+1. Commit any unstaged changes to the current feature branch (staging only relevant src files — never `git add -A`)
+2. Push the branch to origin
+3. Create a PR to main (if one doesn't exist) with `gh pr create`
+4. Merge it immediately with `gh pr merge <number> --squash`
+
 ## Documentation
 - **Always update `docs/features.md`** when adding, changing, or removing any user-facing feature. Keep it current — it is the canonical feature reference for the project.
 

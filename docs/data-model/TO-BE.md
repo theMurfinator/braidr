@@ -91,6 +91,13 @@ Built-in fields migrate in as defs: the structure six (from all four hardcoded s
 
 *(Supersedes rev. 1's "consolidate structure fields onto sections": same goal — one mechanism instead of four — but the mechanism is now level-attachable shared fields rather than section-only columns, which honors that the values legitimately exist at multiple levels. The arc-view observation that motivated it still stands: arc view = table view + tree grouping, and under this model any view is just the tree rendered at a chosen depth. The data layer must not grow view-specific read paths.)*
 
+## 4b. Tasks: subtasks + details page (added 2026-06-12)
+
+Two additions to the tasks domain, sequenced into Phase 4 (which rebuilds tasks first):
+
+- **Subtasks** — self-referential `tasks.parent_task_id` plus a fractional `order_key` among siblings, under the same containment discipline as the structure tree: a subtask always knows its parent, placement changes only through named moves, and soft-deleting a task soft-deletes its subtree. The Phase 4 task verbs are designed for this from day one: `task.create(parentId?)`, `task.move(parentId, afterId)`, `task.setFields`, `task.softDelete`/`restore`. Time rollups (the weekly-hours tracker) sum across subtrees.
+- **Task details page** — a full detail view per task (UX sibling of the arc metadata detail editor): fields, time entries, subtasks, scene links. Data-side it is *free* by construction — it selects the same single cards (task row + unified `field_values` + time entries) every other screen reads; no new storage, no sync concern.
+
 ## 5. Renderer store
 
 A normalized store (entities by id + key-ordered id lists per context) replaces App.tsx-as-database. **zustand** (confirmed 2026-06-12) — small, no boilerplate, plays well with the existing React tree.
@@ -133,7 +140,7 @@ Each phase ships independently, additive-first, with behavior-pinning tests befo
 1. **Infrastructure:** `braidr:mutate` channel, mutation registry + executor (budget enforcement, log table), `deleted_at` columns, `PRAGMA user_version` + ordered migration files (stamp current schema as v1). All additive; nothing existing changes behavior.
 2. **New substrate (additive):** create `structure_levels`, `structure_nodes`, `field_defs/attachments/values`; back-fill from `acts` + `plot_points` + `chapters` + `character_psychology` + the three old field systems + the hardcoded structure columns. Old tables stay authoritative; the substrate is kept in sync by a one-way refresh until read paths move. New mutations (§3) write the substrate *and* the legacy columns (dual-write) during transition.
 3. **Retire SAVE_CHARACTER** — the scarier Class B path, verb by verb against the new substrate: (a) outline reorder → `scene.move`/`node.move` on fractional keys (reorders trigger most bulk saves today); (b) field edits → `field.setValue`; (c) create/delete → narrow verbs with soft delete. When no caller remains, delete the DELETE+re-INSERT code and the plot-point landmine with it.
-4. **Retire SAVE_TIMELINE** — split the 20-key grab-bag by domain, **tasks first** (the table both data-loss incidents hit), then connections, world events, defs, views. The `shouldReplace` guard stays until the last replace path is gone.
+4. **Retire SAVE_TIMELINE** — split the 20-key grab-bag by domain, **tasks first** (the table both data-loss incidents hit), then connections, world events, defs, views. The `shouldReplace` guard stays until the last replace path is gone. The task rebuild includes the §4b additions (subtasks schema + verbs); the details page UI can follow separately once the verbs exist.
 5. **Cut over reads** — views select from the substrate; legacy tables (`acts`, `plot_points` as structure, `chapters`, `character_psychology` structure columns, old field tables) drop after their last reader.
 6. **Ordering cleanup** — drop legacy integer columns, derive all display numbers.
 7. **Renderer store** rollout runs in parallel with 3–6, view by view, consuming whatever mutations exist so far.
