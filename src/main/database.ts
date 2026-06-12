@@ -1407,7 +1407,7 @@ function randomId() {
 
 // ── Module-level instance management ──────────────────────────────────────────
 
-let openDbs = new Map<string, BraidrDB>();
+const openDbs = new Map<string, BraidrDB>();
 
 export function openDatabase(filePath: string): BraidrDB {
   const existing = openDbs.get(filePath);

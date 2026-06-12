@@ -99,7 +99,7 @@ function sortTasks(
   _characters: Character[],
 ): Task[] {
   const sorted = [...tasks].sort((a, b) => {
-    let cmp = 0;
+    let cmp: number;
     switch (sortBy) {
       case 'title':
         cmp = a.title.localeCompare(b.title);

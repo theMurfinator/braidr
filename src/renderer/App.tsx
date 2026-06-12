@@ -195,7 +195,7 @@ function App() {
       setBraidedSubMode(activeTab.params.subMode);
     }
   }, [activeTab]);
-  const [showRailsConnections, setShowRailsConnections] = useState(true);
+  const [showRailsConnections] = useState(true);
   const [listFloatingEditor, setListFloatingEditor] = useState<Scene | null>(null);
   const [listInboxCharFilter, setListInboxCharFilter] = useState<Record<string, string>>({});
   const [editorInitialSceneKey, setEditorInitialSceneKey] = useState<string | null>(null);
@@ -2156,8 +2156,8 @@ function App() {
       return;
     }
 
-    let targetSectionId: string | null = null;
-    let targetSceneNumber = 1;
+    let targetSectionId: string | null;
+    let targetSceneNumber: number;
 
     if (overId.startsWith('section-empty:')) {
       targetSectionId = overId.slice('section-empty:'.length);
@@ -4732,15 +4732,6 @@ function App() {
               >
                 Colors
               </button>
-              {braidedSubMode === 'rails' && (
-                <button
-                  className={`toolbar-btn ${showRailsConnections ? 'active' : ''}`}
-                  onClick={() => setShowRailsConnections(!showRailsConnections)}
-                  title="Toggle Connections"
-                >
-                  Links
-                </button>
-              )}
               <div className="toolbar-dropdown-container" ref={fieldsDropdownRef}>
                 <button
                   className={`toolbar-btn ${inlineMetadataFields.length > 0 ? 'active' : ''}`}

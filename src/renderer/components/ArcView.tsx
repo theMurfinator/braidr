@@ -627,7 +627,7 @@ export default function ArcView({
       if (!raw) return;
       try { setArcTemplates(JSON.parse(raw) as ArcTemplate[]); } catch { /* ignore */ }
     }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   function saveTemplates(templates: ArcTemplate[]) {
@@ -750,7 +750,8 @@ export default function ArcView({
   const toggleCollapsed = (id: string) => {
     setCollapsed(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };

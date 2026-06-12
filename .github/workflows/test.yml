@@ -26,5 +26,11 @@ jobs:
       - name: Build native modules for Node.js (test runtime)
         run: npm rebuild better-sqlite3
 
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
       - name: Run tests
         run: npx vitest run
