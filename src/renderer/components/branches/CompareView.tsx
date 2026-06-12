@@ -130,7 +130,8 @@ export function CompareView({ projectPath, branchIndex, characterColors, onClose
   function toggleAccept(sceneId: string) {
     setAcceptedIds(prev => {
       const next = new Set(prev);
-      next.has(sceneId) ? next.delete(sceneId) : next.add(sceneId);
+      if (next.has(sceneId)) next.delete(sceneId);
+      else next.add(sceneId);
       return next;
     });
   }

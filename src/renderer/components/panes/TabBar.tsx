@@ -11,6 +11,7 @@ interface TabBarProps {
 const VIEW_ICONS: Record<TabParams['type'], string> = {
   pov: 'M4 6h16M4 12h10M4 18h13',
   braided: 'M8 3v18M16 3v18M3 8h18M3 16h18',
+  arc: 'M3 18C5 8 19 8 21 18M7 18a5 5 0 0 1 10 0',
   editor: 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z',
   notes: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z',
   tasks: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',

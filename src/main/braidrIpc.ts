@@ -89,7 +89,7 @@ function attemptBraidrRecovery(
 
   for (const name of candidates) {
     const candidatePath = pathMod.join(backupDir, name);
-    let healthy = false;
+    let healthy: boolean;
     try {
       const test = new Database(candidatePath, { readonly: true });
       healthy = test.pragma('quick_check', { simple: true }) === 'ok';

@@ -923,7 +923,12 @@ export class CapacitorDataService implements DataService {
         rightTitle,
         leftPosition: leftPos,
         rightPosition: rightPos,
+        leftSceneNumber: l?.sceneNumber ?? null,
+        rightSceneNumber: r?.sceneNumber ?? null,
+        leftWordCount: null,
+        rightWordCount: null,
         changed,
+        changeType: !l ? 'added' : !r ? 'removed' : changed ? 'modified' : 'unchanged',
       });
     }
 
@@ -932,6 +937,20 @@ export class CapacitorDataService implements DataService {
       rightName: rightBranch ?? 'main',
       scenes: diffs,
     };
+  }
+
+  // Not supported on the Capacitor build (abandoned in favor of native SwiftUI);
+  // implemented to satisfy DataService with neutral values.
+  async getBranchSceneDraft(_projectPath: string, _branchName: string | null, _sceneId: string): Promise<string> {
+    return '';
+  }
+
+  async getArcUiPref(_key: string): Promise<string | null> {
+    return null;
+  }
+
+  async setArcUiPref(_key: string, _value: string): Promise<void> {
+    // no-op on Capacitor
   }
 
   async acquireProjectLock(projectPath: string, force?: boolean): Promise<{ acquired: boolean; heldBy?: string }> {

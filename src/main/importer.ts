@@ -143,8 +143,8 @@ function parseOutlineMd(content: string, fileName: string): ParsedCharacter {
       continue;
     }
 
-    if ((/^\s+[\d\-\*]\.\s/.test(line) || /^\s+\d+\.\s/.test(line)) && currentScene) {
-      sceneNotes.push(trimmed.replace(/^\s*[\d\-\*]+\.\s*/, ''));
+    if ((/^\s+[\d\-*]\.\s/.test(line) || /^\s+\d+\.\s/.test(line)) && currentScene) {
+      sceneNotes.push(trimmed.replace(/^\s*[\d\-*]+\.\s*/, ''));
       continue;
     }
 

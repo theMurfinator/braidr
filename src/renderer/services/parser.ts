@@ -102,7 +102,7 @@ function parseSceneLine(line: string): { sceneNumber: number; content: string; i
 
 // Check if a line is a sub-note (indented bullet)
 function isSubNote(line: string): boolean {
-  return /^\s+[\d\-\*]\.\s/.test(line) || /^\s+\d+\.\s/.test(line);
+  return /^\s+[\d\-*]\.\s/.test(line) || /^\s+\d+\.\s/.test(line);
 }
 
 // Parse an entire outline file
@@ -232,7 +232,7 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
 
     // Check for sub-note
     if (isSubNote(line) && currentScene) {
-      currentSceneNotes.push(trimmedLine.replace(/^\s*[\d\-\*]+\.\s*/, ''));
+      currentSceneNotes.push(trimmedLine.replace(/^\s*[\d\-*]+\.\s*/, ''));
       continue;
     }
 
