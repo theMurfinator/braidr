@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { BRANCHED_TABLES, SNAPSHOT_FORMAT_VERSION } from './branchTables';
 import { runMigrations } from './migrations';
 import { executeMutation, type ExecuteResult } from './mutations';
+import { refreshSubstrate } from './substrate';
 
 const SCHEMA_VERSION = 1;
 
@@ -411,6 +412,10 @@ export class BraidrDB {
     // Versioned migrations (user_version) take over from here; the ad-hoc
     // checks in migrate() are frozen as the v1 baseline. See migrations.ts.
     runMigrations(this.db, this.filePath, isFreshDb);
+
+    // Rebuild the derived structure tree from the (still authoritative)
+    // legacy tables. One-way until Phase 5 cutover. See substrate.ts.
+    refreshSubstrate(this.db);
   }
 
   private migrate() {
@@ -602,6 +607,21 @@ export class BraidrDB {
     return this.db
       .prepare('SELECT id, ts, name, args_json, inverse_json FROM mutation_log ORDER BY id DESC LIMIT ?')
       .all(limit) as { id: number; ts: number; name: string; args_json: string; inverse_json: string | null }[];
+  }
+
+  // ── Structure substrate (derived until Phase 5 cutover) ─────────────────
+
+  getStructureLevels(): { level_key: string; label: string; enabled: number; depth: number }[] {
+    return this.db
+      .prepare('SELECT level_key, label, enabled, depth FROM structure_levels ORDER BY depth')
+      .all() as { level_key: string; label: string; enabled: number; depth: number }[];
+  }
+
+  getStructureNodes(characterId?: string): { id: string; character_id: string; level_key: string; parent_id: string | null; order_key: string; title: string }[] {
+    const sql = 'SELECT id, character_id, level_key, parent_id, order_key, title FROM structure_nodes' +
+      (characterId ? ' WHERE character_id = ?' : '') + ' ORDER BY parent_id, order_key';
+    const stmt = this.db.prepare(sql);
+    return (characterId ? stmt.all(characterId) : stmt.all()) as { id: string; character_id: string; level_key: string; parent_id: string | null; order_key: string; title: string }[];
   }
 
   close() {

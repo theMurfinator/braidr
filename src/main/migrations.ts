@@ -40,6 +40,33 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 3,
+    name: 'structure substrate (TO-BE §1: levels + nodes, derived until cutover)',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS structure_levels (
+          level_key TEXT PRIMARY KEY,
+          label TEXT NOT NULL,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          depth INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS structure_nodes (
+          id TEXT PRIMARY KEY,
+          character_id TEXT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+          level_key TEXT NOT NULL REFERENCES structure_levels(level_key),
+          parent_id TEXT REFERENCES structure_nodes(id) ON DELETE CASCADE,
+          order_key TEXT NOT NULL,
+          title TEXT NOT NULL DEFAULT '',
+          deleted_at INTEGER,
+          created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_structure_nodes_parent ON structure_nodes(parent_id);
+        CREATE INDEX IF NOT EXISTS idx_structure_nodes_character ON structure_nodes(character_id);
+        ALTER TABLE scenes ADD COLUMN parent_node_id TEXT REFERENCES structure_nodes(id) ON DELETE SET NULL;
+      `);
+    },
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS.reduce((v, m) => Math.max(v, m.version), 1);

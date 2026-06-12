@@ -48,6 +48,10 @@ describe('versioned migrations', () => {
     db.close();
     const raw = new Database(file);
     raw.exec('DROP TABLE mutation_log');
+    raw.exec('UPDATE scenes SET parent_node_id = NULL');
+    raw.exec('ALTER TABLE scenes DROP COLUMN parent_node_id');
+    raw.exec('DROP TABLE structure_nodes');
+    raw.exec('DROP TABLE structure_levels');
     raw.pragma('user_version = 0');
     raw.prepare("INSERT INTO characters (id, name, color, display_order, created_at) VALUES ('c1', 'Noah', '', 0, 0)").run();
     raw.close();
