@@ -208,7 +208,10 @@ registerMutation<SceneMoveArgs>({
       insertAt = idx + 1;
     } else {
       const firstInTarget = ordered.findIndex(s => s.plot_point_id === toPlotPointId);
-      insertAt = firstInTarget >= 0 ? firstInTarget : ordered.length;
+      // empty target section: global head, matching the renderer's
+      // handlePovSceneDrop (targetSceneNumber = 1) so dual-written numbers
+      // can never diverge from what the user is looking at
+      insertAt = firstInTarget >= 0 ? firstInTarget : 0;
     }
 
     const movingToBullpen = toPlotPointId === null;
