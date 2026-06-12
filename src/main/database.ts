@@ -624,6 +624,26 @@ export class BraidrDB {
     return (characterId ? stmt.all(characterId) : stmt.all()) as { id: string; character_id: string; level_key: string; parent_id: string | null; order_key: string; title: string }[];
   }
 
+  getFieldDefs(): { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; rating_max: number | null; display_order: number; builtin: number }[] {
+    return this.db
+      .prepare('SELECT id, label, field_type, options, option_colors, rating_max, display_order, builtin FROM field_defs ORDER BY builtin, display_order')
+      .all() as { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; rating_max: number | null; display_order: number; builtin: number }[];
+  }
+
+  getFieldAttachments(fieldId?: string): { field_id: string; level_key: string }[] {
+    const sql = 'SELECT field_id, level_key FROM field_attachments' + (fieldId ? ' WHERE field_id = ?' : '') + ' ORDER BY field_id, level_key';
+    const stmt = this.db.prepare(sql);
+    return (fieldId ? stmt.all(fieldId) : stmt.all()) as { field_id: string; level_key: string }[];
+  }
+
+  getFieldValues(entityType?: string, entityId?: string): { field_id: string; entity_type: string; entity_id: string; value: string }[] {
+    let sql = 'SELECT field_id, entity_type, entity_id, value FROM field_values';
+    const params: string[] = [];
+    if (entityType) { sql += ' WHERE entity_type = ?'; params.push(entityType); }
+    if (entityType && entityId) { sql += ' AND entity_id = ?'; params.push(entityId); }
+    return this.db.prepare(sql + ' ORDER BY field_id').all(...params) as { field_id: string; entity_type: string; entity_id: string; value: string }[];
+  }
+
   close() {
     // Switch back to DELETE mode, which forces a full WAL checkpoint and removes
     // the -wal/-shm files, so iCloud only needs to sync the single .braidr file.
