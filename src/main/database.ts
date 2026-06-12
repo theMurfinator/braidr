@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { BRANCHED_TABLES, SNAPSHOT_FORMAT_VERSION } from './branchTables';
 import { runMigrations } from './migrations';
+import { executeMutation, type ExecuteResult } from './mutations';
 
 const SCHEMA_VERSION = 1;
 
@@ -589,6 +590,18 @@ export class BraidrDB {
 
   backup(destPath: string): Promise<unknown> {
     return this.db.backup(destPath);
+  }
+
+  // ── Mutations (TO-BE §3): the one write path for all new code ───────────
+
+  mutate(name: string, args: unknown): ExecuteResult {
+    return executeMutation(this.db, name, args);
+  }
+
+  getMutationLog(limit = 100): { id: number; ts: number; name: string; args_json: string; inverse_json: string | null }[] {
+    return this.db
+      .prepare('SELECT id, ts, name, args_json, inverse_json FROM mutation_log ORDER BY id DESC LIMIT ?')
+      .all(limit) as { id: number; ts: number; name: string; args_json: string; inverse_json: string | null }[];
   }
 
   close() {

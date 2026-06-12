@@ -679,6 +679,19 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_READ_DRAFT, (_event, braidrPath: string, scen
   }
 });
 
+// TO-BE §3: the one write channel for all new code. Named mutations only;
+// the executor enforces deletion budgets and appends to mutation_log.
+ipcMain.handle(IPC_CHANNELS.BRAIDR_MUTATE, (_event, braidrPath: string, name: string, args: unknown) => {
+  try {
+    const db = getDb(braidrPath);
+    autoBackupBraidr(braidrPath, db);
+    const result = db.mutate(name, args);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});
+
 ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_DRAFT, (_event, braidrPath: string, sceneId: string, content: string) => {
   try {
     const db = getDb(braidrPath);

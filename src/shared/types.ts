@@ -552,6 +552,7 @@ export const IPC_CHANNELS = {
   SELECT_BRAIDR_FILE: 'select-braidr-file',
   // .braidr SQLite read/write operations
   BRAIDR_LOAD_PROJECT: 'braidr:load-project',
+  BRAIDR_MUTATE: 'braidr:mutate',
   BRAIDR_SAVE_TIMELINE: 'braidr:save-timeline',
   BRAIDR_SAVE_CHARACTER: 'braidr:save-character',
   BRAIDR_CREATE_CHARACTER: 'braidr:create-character',

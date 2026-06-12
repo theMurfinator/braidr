@@ -72,6 +72,9 @@ export interface DataService {
   saveArcFieldValues(entityType: 'act' | 'section' | 'scene', entityId: string, values: Record<string, string | string[]>): Promise<void>;
   getArcUiPref(key: string): Promise<string | null>;
   setArcUiPref(key: string, value: string): Promise<void>;
+  // Named mutations (docs/data-model/TO-BE.md §3) — the one write path for
+  // all new code; legacy save methods above retire one verb at a time
+  mutate(name: string, args: unknown): Promise<{ inverse: { name: string; args: unknown } | null }>;
 }
 
 // Local file system implementation (Electron) — SQLite .braidr format only
@@ -509,6 +512,13 @@ class ElectronDataService implements DataService {
   async setArcUiPref(key: string, value: string): Promise<void> {
     if (!this.braidrPath) return;
     await window.electronAPI.braidrSetArcUiPref(this.braidrPath, key, value);
+  }
+
+  async mutate(name: string, args: unknown): Promise<{ inverse: { name: string; args: unknown } | null }> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrMutate(this.braidrPath, name, args);
+    if (!result.success) throw new Error(result.error || `Mutation failed: ${name}`);
+    return result.data;
   }
 }
 

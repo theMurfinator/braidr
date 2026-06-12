@@ -953,6 +953,10 @@ export class CapacitorDataService implements DataService {
     // no-op on Capacitor
   }
 
+  async mutate(name: string, _args: unknown): Promise<{ inverse: { name: string; args: unknown } | null }> {
+    throw new Error(`Mutations are not supported on the Capacitor build: ${name}`);
+  }
+
   async acquireProjectLock(projectPath: string, force?: boolean): Promise<{ acquired: boolean; heldBy?: string }> {
     const { deviceId, deviceName } = await getCapacitorDeviceInfo();
     const read = async (): Promise<LockData | null> => {
