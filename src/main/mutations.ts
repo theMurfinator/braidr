@@ -133,6 +133,91 @@ function ensureSceneParentNode(
   }
 }
 
+interface NodeMoveArgs {
+  /** Substrate node id ("pp:<plotPointId>"); only plot_point nodes so far. */
+  nodeId: string;
+  /** Place directly after this sibling node; null = first among siblings. */
+  afterNodeId: string | null;
+}
+
+// node.move — section (plot point) reorder as one mutation (TO-BE §3).
+// Dual-write: legacy plot_points.display_order renumbered dense 0..N-1 per
+// character (authoritative; matches the renderer's arrayMove + index
+// reassignment), substrate order_key kept coherent for the session.
+// Other levels (arc, chapter) join when their reorder paths are wired.
+registerMutation<NodeMoveArgs>({
+  name: 'node.move',
+  deletionBudget: 0,
+  run(ctx, { nodeId, afterNodeId }) {
+    const db = ctx.db;
+    if (!nodeId.startsWith('pp:')) {
+      throw new Error(`node.move: only plot_point nodes are supported so far: ${nodeId}`);
+    }
+    const ppId = nodeId.slice(3);
+    const pp = db
+      .prepare('SELECT id, character_id, display_order FROM plot_points WHERE id = ?')
+      .get(ppId) as { id: string; character_id: string; display_order: number } | undefined;
+    if (!pp) throw new Error(`node.move: section not found: ${ppId}`);
+
+    const ordered = (db
+      .prepare('SELECT id, display_order FROM plot_points WHERE character_id = ? ORDER BY display_order, created_at')
+      .all(pp.character_id) as { id: string; display_order: number }[])
+      .filter(s => s.id !== ppId);
+
+    // inverse: the old predecessor among the character's sections
+    let oldPredecessor: string | null = null;
+    for (const s of ordered) {
+      if (s.display_order < pp.display_order) oldPredecessor = s.id;
+      else break;
+    }
+
+    let insertAt: number;
+    if (afterNodeId !== null) {
+      if (!afterNodeId.startsWith('pp:')) {
+        throw new Error(`node.move: afterNode must be a plot_point node: ${afterNodeId}`);
+      }
+      const afterPpId = afterNodeId.slice(3);
+      const idx = ordered.findIndex(s => s.id === afterPpId);
+      if (idx < 0) throw new Error(`node.move: afterNode not found among siblings: ${afterNodeId}`);
+      insertAt = idx + 1;
+    } else {
+      insertAt = 0;
+    }
+
+    ensureSceneParentNode(db, pp.character_id, ppId);
+    const keyOf = (id: string | null): string | null => {
+      if (id === null) return null;
+      const row = db.prepare('SELECT order_key FROM structure_nodes WHERE id = ?').get(`pp:${id}`) as { order_key: string } | undefined;
+      return row?.order_key ?? null;
+    };
+    const beforeId = insertAt > 0 ? ordered[insertAt - 1].id : null;
+    const afterId = insertAt < ordered.length ? ordered[insertAt].id : null;
+    let orderKey: string;
+    try {
+      orderKey = keyBetween(keyOf(beforeId), keyOf(afterId));
+    } catch {
+      // neighbors missing substrate nodes mid-session: any key is fine,
+      // the refresh re-derives from display_order on next open
+      orderKey = keyBetween(null, null);
+    }
+    db.prepare('UPDATE structure_nodes SET order_key = ? WHERE id = ?').run(orderKey, nodeId);
+
+    ordered.splice(insertAt, 0, { id: ppId, display_order: -1 });
+    const renumber = db.prepare('UPDATE plot_points SET display_order = ? WHERE id = ?');
+    ordered.forEach((s, i) => {
+      if (s.id === ppId || s.display_order !== i) renumber.run(i, s.id);
+    });
+
+    return {
+      name: 'node.move',
+      args: {
+        nodeId,
+        afterNodeId: oldPredecessor === null ? null : `pp:${oldPredecessor}`,
+      } satisfies NodeMoveArgs,
+    };
+  },
+});
+
 interface SceneMoveArgs {
   sceneId: string;
   /** Target section; null = the bullpen (TO-BE §1 invariant rule 2). */
