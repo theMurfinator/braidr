@@ -117,6 +117,17 @@ describe('scene.move', () => {
     re.close();
   });
 
+  it('moving into an empty section lands at the global head (renderer parity)', async () => {
+    const db = await seed(dir);
+    db.insertPlotPoint('C', 'noah', 'Empty section', null, null, 2);
+    db.mutate('scene.move', { sceneId: 's3', toPlotPointId: 'C', afterSceneId: null });
+    const s3 = outline(db).find(r => r.id === 's3')!;
+    expect(s3.plot_point_id).toBe('C');
+    expect(s3.scene_number).toBe(1);
+    expect(order(db)).toEqual(['s3', 's1', 's2', 's4', 's5']);
+    db.close();
+  });
+
   it('rejects cross-character moves and unknown targets', async () => {
     const db = await seed(dir);
     expect(() => db.mutate('scene.move', { sceneId: 's1', toPlotPointId: 'G', afterSceneId: null }))

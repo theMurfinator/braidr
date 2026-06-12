@@ -2081,15 +2081,22 @@ function App() {
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
 
-    // Save to file
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    // Persist as one named mutation (scene.move) instead of the legacy
+    // bulk saves \u2014 the first retired SAVE_CHARACTER trigger (TO-BE \u00a77 3a).
+    // afterSceneId = the new predecessor when it shares the target section;
+    // null = head of the target section (matches the mutation's semantics).
+    const predecessor = targetIndex > 0 ? charScenes[targetIndex - 1] : null;
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedScenes, sceneConnections);
+      await dataService.mutate('scene.move', {
+        sceneId: movedScene.id,
+        toPlotPointId: targetPlotPointId,
+        afterSceneId: predecessor && predecessor.plotPointId === targetPlotPointId ? predecessor.id : null,
+      });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
+
 
   const handlePovDndStart = (e: DragStartEvent) => {
     setPovActiveId(String(e.active.id));
