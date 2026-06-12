@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
 import { BRANCHED_TABLES, SNAPSHOT_FORMAT_VERSION } from './branchTables';
+import { runMigrations } from './migrations';
 
 const SCHEMA_VERSION = 1;
 
@@ -394,6 +395,10 @@ export class BraidrDB {
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');
 
+    const isFreshDb = (this.db
+      .prepare("SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'")
+      .get() as { n: number }).n === 0;
+
     this.db.exec(CREATE_SCHEMA);
     this.migrate();
 
@@ -401,6 +406,10 @@ export class BraidrDB {
     if (!row) {
       this.db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(SCHEMA_VERSION);
     }
+
+    // Versioned migrations (user_version) take over from here; the ad-hoc
+    // checks in migrate() are frozen as the v1 baseline. See migrations.ts.
+    runMigrations(this.db, this.filePath, isFreshDb);
   }
 
   private migrate() {
