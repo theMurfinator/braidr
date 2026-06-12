@@ -222,7 +222,12 @@ interface SceneMoveArgs {
   sceneId: string;
   /** Target section; null = the bullpen (TO-BE §1 invariant rule 2). */
   toPlotPointId: string | null;
-  /** Place directly after this scene in the target; null = first in target. */
+  /**
+   * Place directly after this scene in the character's global outline
+   * sequence (legacy scene_number order interleaves sections and bullpen);
+   * null = the very first position. Section membership comes solely from
+   * toPlotPointId.
+   */
   afterSceneId: string | null;
   /** Inverse-only: braid position to restore when leaving the bullpen. */
   timelinePosition?: number | null;
@@ -273,11 +278,10 @@ registerMutation<SceneMoveArgs>({
       .all(scene.character_id) as SceneOrderRow[])
       .filter(s => s.id !== sceneId);
 
-    // capture the inverse before anything changes: the old predecessor
-    // within the old container, and the old braid position
-    const oldSiblings = ordered.filter(s => s.plot_point_id === scene.plot_point_id);
+    // capture the inverse before anything changes: the old global
+    // predecessor, and the old braid position
     let oldPredecessor: string | null = null;
-    for (const s of oldSiblings) {
+    for (const s of ordered) {
       if (s.scene_number < scene.scene_number) oldPredecessor = s.id;
       else break;
     }
@@ -286,17 +290,10 @@ registerMutation<SceneMoveArgs>({
     let insertAt: number;
     if (afterSceneId !== null) {
       const idx = ordered.findIndex(s => s.id === afterSceneId);
-      if (idx < 0) throw new Error(`scene.move: afterScene not found: ${afterSceneId}`);
-      if (ordered[idx].plot_point_id !== toPlotPointId) {
-        throw new Error('scene.move: afterScene is not in the target section');
-      }
+      if (idx < 0) throw new Error(`scene.move: afterScene not found in this character's outline: ${afterSceneId}`);
       insertAt = idx + 1;
     } else {
-      const firstInTarget = ordered.findIndex(s => s.plot_point_id === toPlotPointId);
-      // empty target section: global head, matching the renderer's
-      // handlePovSceneDrop (targetSceneNumber = 1) so dual-written numbers
-      // can never diverge from what the user is looking at
-      insertAt = firstInTarget >= 0 ? firstInTarget : 0;
+      insertAt = 0;
     }
 
     const movingToBullpen = toPlotPointId === null;
@@ -304,14 +301,20 @@ registerMutation<SceneMoveArgs>({
       ? null
       : (timelinePosition !== undefined ? timelinePosition : scene.timeline_position);
 
-    // fractional key among the new siblings (substrate coherence)
     // Transition-era self-heal: a section created mid-session by a legacy
     // save path has no substrate node yet. Ensure the parent node exists
     // before pointing at it; the refresh on next open re-derives it anyway.
     ensureSceneParentNode(db, scene.character_id, toPlotPointId);
 
-    const before = insertAt > 0 && ordered[insertAt - 1].plot_point_id === toPlotPointId ? ordered[insertAt - 1].id : null;
-    const after = insertAt < ordered.length && ordered[insertAt].plot_point_id === toPlotPointId ? ordered[insertAt].id : null;
+    // fractional key among the nearest same-section siblings (substrate coherence)
+    let before: string | null = null;
+    for (let i = insertAt - 1; i >= 0; i--) {
+      if (ordered[i].plot_point_id === toPlotPointId) { before = ordered[i].id; break; }
+    }
+    let after: string | null = null;
+    for (let i = insertAt; i < ordered.length; i++) {
+      if (ordered[i].plot_point_id === toPlotPointId) { after = ordered[i].id; break; }
+    }
     const keyOf = (id: string | null): string | null =>
       id === null ? null : (db.prepare('SELECT outline_key FROM scenes WHERE id = ?').get(id) as { outline_key: string | null }).outline_key;
     const outlineKey = keyBetween(keyOf(before), keyOf(after));

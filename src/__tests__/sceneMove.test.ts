@@ -25,6 +25,7 @@ async function seed(dir: string): Promise<BraidrDB> {
   db.insertScene('s3', 'noah', 'B', 'three', '', 3, 30, false, null);
   db.insertScene('s4', 'noah', 'B', 'four', '', 4, 40, false, null);
   db.insertScene('s5', 'noah', null, 'bullpen idea', '', 5, null, false, null);
+  db.insertScene('g1', 'grace', 'G', 'grace scene', '', 1, 50, false, null);
   return db;
 }
 
@@ -63,11 +64,32 @@ describe('scene.move', () => {
     db.close();
   });
 
-  it('afterSceneId null drops the scene at the head of the target section', async () => {
+  it('afterSceneId null drops the scene at the global head', async () => {
     const db = await seed(dir);
     db.mutate('scene.move', { sceneId: 's4', toPlotPointId: 'A', afterSceneId: null });
     expect(order(db)).toEqual(['s4', 's1', 's2', 's3', 's5']);
     expect(outline(db).find(r => r.id === 's4')!.plot_point_id).toBe('A');
+    db.close();
+  });
+
+  it('setting aside keeps the global position while clearing braid + section', async () => {
+    const db = await seed(dir);
+    // exactly what handleSetAside dispatches: bullpen target, same predecessor
+    db.mutate('scene.move', { sceneId: 's2', toPlotPointId: null, afterSceneId: 's1' });
+    const s2 = outline(db).find(r => r.id === 's2')!;
+    expect(s2.plot_point_id).toBeNull();
+    expect(s2.timeline_position).toBeNull();
+    expect(order(db)).toEqual(['s1', 's2', 's3', 's4', 's5']);
+    db.close();
+  });
+
+  it('returning from the bullpen lands after the chosen predecessor in another section', async () => {
+    const db = await seed(dir);
+    // handleReturnFromBullpen: place s5 at the end of section B (after s4)
+    db.mutate('scene.move', { sceneId: 's5', toPlotPointId: 'B', afterSceneId: 's4' });
+    const s5 = outline(db).find(r => r.id === 's5')!;
+    expect(s5.plot_point_id).toBe('B');
+    expect(order(db)).toEqual(['s1', 's2', 's3', 's4', 's5']);
     db.close();
   });
 
@@ -134,8 +156,8 @@ describe('scene.move', () => {
       .toThrow(/another character/);
     expect(() => db.mutate('scene.move', { sceneId: 's1', toPlotPointId: 'nope', afterSceneId: null }))
       .toThrow(/section not found/);
-    expect(() => db.mutate('scene.move', { sceneId: 's1', toPlotPointId: 'B', afterSceneId: 's2' }))
-      .toThrow(/not in the target section/);
+    expect(() => db.mutate('scene.move', { sceneId: 's1', toPlotPointId: 'B', afterSceneId: 'g1' }))
+      .toThrow(/not found in this character/);
     // nothing changed
     expect(order(db)).toEqual(['s1', 's2', 's3', 's4', 's5']);
     db.close();

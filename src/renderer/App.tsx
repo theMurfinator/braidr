@@ -2083,14 +2083,14 @@ function App() {
 
     // Persist as one named mutation (scene.move) instead of the legacy
     // bulk saves \u2014 the first retired SAVE_CHARACTER trigger (TO-BE \u00a77 3a).
-    // afterSceneId = the new predecessor when it shares the target section;
-    // null = head of the target section (matches the mutation's semantics).
+    // afterSceneId = the new global predecessor in this character's outline
+    // sequence (null = very first), exactly where the renderer just put it.
     const predecessor = targetIndex > 0 ? charScenes[targetIndex - 1] : null;
     try {
       await dataService.mutate('scene.move', {
         sceneId: movedScene.id,
         toPlotPointId: targetPlotPointId,
-        afterSceneId: predecessor && predecessor.plotPointId === targetPlotPointId ? predecessor.id : null,
+        afterSceneId: predecessor ? predecessor.id : null,
       });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
@@ -2410,10 +2410,16 @@ function App() {
     const updatedData = { ...projectData, scenes: [...projectData.scenes] };
     setProjectData(updatedData);
 
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    // One scene.move to the bullpen \u2014 clears the braid position atomically
+    // (TO-BE \u00a71 rule 2) instead of the legacy bulk-save pair. The scene
+    // keeps its global outline position, as the renderer just did above.
+    const idx = charScenes.findIndex(s => s.id === sceneId);
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedData.scenes, sceneConnections);
+      await dataService.mutate('scene.move', {
+        sceneId,
+        toPlotPointId: null,
+        afterSceneId: idx > 0 ? charScenes[idx - 1].id : null,
+      });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
@@ -2465,9 +2471,14 @@ function App() {
     const updatedData = { ...projectData, scenes: [...projectData.scenes] };
     setProjectData(updatedData);
 
+    // One scene.move out of the bullpen into the target section, placed
+    // after the same predecessor the renderer chose above.
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedData.scenes, sceneConnections);
+      await dataService.mutate('scene.move', {
+        sceneId,
+        toPlotPointId: targetPlotPointId,
+        afterSceneId: insertAfterIdx > 0 ? otherCharScenes[insertAfterIdx - 1].id : null,
+      });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
