@@ -114,6 +114,54 @@ registerMutation<{ sceneId: string; title: string }>({
   },
 });
 
+interface SceneEditArgs {
+  sceneId: string;
+  title: string;
+  /** Outline body text; the legacy column is scenes.synopsis. */
+  content: string;
+  notes: string[];
+}
+
+// scene.edit — inline outline edits (title/body/sub-notes) as one mutation,
+// retiring the SAVE_CHARACTER trigger behind every view's scene editor
+// (TO-BE §7 phase 3b). The notes list is a value replace of the named
+// scene's wholly-owned scene_notes rows — the list IS the new value, like
+// a JSON column, not a reconciliation of independent entities, so it stays
+// within the "only touch rows you name" rule. The budget is sized for one
+// scene's notes (scoped DELETE by scene_id); a missing WHERE clause on a
+// real project would still blow it.
+registerMutation<SceneEditArgs>({
+  name: 'scene.edit',
+  deletionBudget: 100,
+  run(ctx, { sceneId, title, content, notes }) {
+    const db = ctx.db;
+    const row = db
+      .prepare('SELECT title, synopsis FROM scenes WHERE id = ?')
+      .get(sceneId) as { title: string; synopsis: string } | undefined;
+    if (!row) throw new Error(`scene.edit: scene not found: ${sceneId}`);
+    const oldNotes = (db
+      .prepare('SELECT content FROM scene_notes WHERE scene_id = ? ORDER BY display_order')
+      .all(sceneId) as { content: string }[]).map(n => n.content);
+
+    db.prepare('UPDATE scenes SET title = ?, synopsis = ?, updated_at = ? WHERE id = ?')
+      .run(title, content, Date.now(), sceneId);
+    ctx.delete('DELETE FROM scene_notes WHERE scene_id = ?', sceneId);
+    const insert = db.prepare(
+      'INSERT INTO scene_notes (id, scene_id, content, display_order) VALUES (?, ?, ?, ?)'
+    );
+    notes.forEach((c, i) => insert.run(newId(), sceneId, c, i));
+
+    return {
+      name: 'scene.edit',
+      args: { sceneId, title: row.title, content: row.synopsis, notes: oldNotes } satisfies SceneEditArgs,
+    };
+  },
+});
+
+function newId(): string {
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+}
+
 function ensureSceneParentNode(
   db: Database.Database,
   characterId: string,

@@ -2242,10 +2242,16 @@ function App() {
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
 
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    // Same scene.move as the POV drop (TO-BE §7 phase 3a): afterSceneId =
+    // the new global predecessor in this character's outline sequence,
+    // exactly where the renderer just put it.
+    const predecessor = targetIndex > 0 ? charScenes[targetIndex - 1] : null;
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedScenes, sceneConnections);
+      await dataService.mutate('scene.move', {
+        sceneId: movedScene.id,
+        toPlotPointId: targetPlotPointId,
+        afterSceneId: predecessor ? predecessor.id : null,
+      });
     } catch {
       addToast('Couldn\'t save your changes — check that the project folder still exists');
     }
@@ -2322,16 +2328,22 @@ function App() {
     if (draggedIndex < targetIndex) targetIndex -= 1;
     const [movedScene] = charScenes.splice(draggedIndex, 1);
     movedScene.plotPointId = sectionId;
-    charScenes.splice(Math.min(targetIndex, charScenes.length), 0, movedScene);
+    const insertIdx = Math.min(targetIndex, charScenes.length);
+    charScenes.splice(insertIdx, 0, movedScene);
     charScenes.forEach((s, idx) => { s.sceneNumber = idx + 1; });
     const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
     const updatedScenes = [...otherScenes, ...charScenes];
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    // One scene.move to the end of the target section (TO-BE §7 phase 3a);
+    // afterSceneId = the new global predecessor, as placed above.
+    const predecessor = insertIdx > 0 ? charScenes[insertIdx - 1] : null;
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedScenes, sceneConnections);
+      await dataService.mutate('scene.move', {
+        sceneId: movedScene.id,
+        toPlotPointId: sectionId,
+        afterSceneId: predecessor ? predecessor.id : null,
+      });
     } catch { addToast('Couldn\'t save your changes'); }
   };
 
@@ -2580,19 +2592,19 @@ function App() {
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
 
-    // Find the character for this scene and save
-    const scene = updatedScenes.find(s => s.id === sceneId);
-    if (scene) {
-      const character = projectData.characters.find(c => c.id === scene.characterId);
-      if (character) {
-        const charScenes = updatedScenes.filter(s => s.characterId === character.id);
-        const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
-        try {
-          await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-        } catch (err) {
-          addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-        }
-      }
+    // Persist as one named mutation (scene.edit) instead of the legacy
+    // bulk save \u2014 this one callback sits behind the inline scene editor
+    // in every view (POV, braided, bullpen, arc), so it retires the most
+    // frequent SAVE_CHARACTER trigger (TO-BE \u00a77 phase 3b).
+    try {
+      await dataService.mutate('scene.edit', {
+        sceneId,
+        title: newContent,
+        content: newContent,
+        notes: newNotes,
+      });
+    } catch {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 

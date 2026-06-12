@@ -76,6 +76,55 @@ describe('mutation executor', () => {
     db.close();
   });
 
+  it('scene.edit updates title/body/notes and its inverse restores all three', async () => {
+    const db = await freshDb(dir);
+    db.replaceSceneNotes('s1', ['first note', 'second note']);
+
+    const { inverse } = db.mutate('scene.edit', {
+      sceneId: 's1',
+      title: 'Edited title',
+      content: 'Edited title',
+      notes: ['only note'],
+    });
+
+    const row = db.prepare('SELECT title, synopsis FROM scenes WHERE id = ?').get('s1') as { title: string; synopsis: string };
+    expect(row.title).toBe('Edited title');
+    expect(row.synopsis).toBe('Edited title');
+    expect(db.getSceneNotes('s1').map(n => n.content)).toEqual(['only note']);
+
+    const log = db.getMutationLog();
+    expect(log).toHaveLength(1);
+    expect(log[0].name).toBe('scene.edit');
+
+    // undo restores the old title, body, and the full notes list in order
+    db.mutate(inverse!.name, inverse!.args);
+    const restored = db.prepare('SELECT title, synopsis FROM scenes WHERE id = ?').get('s1') as { title: string; synopsis: string };
+    expect(restored.title).toBe('Original title');
+    expect(restored.synopsis).toBe('');
+    expect(db.getSceneNotes('s1').map(n => n.content)).toEqual(['first note', 'second note']);
+    db.close();
+  });
+
+  it('scene.edit leaves other scenes’ notes untouched', async () => {
+    const db = await freshDb(dir);
+    db.replaceSceneNotes('s1', ['s1 note']);
+    db.replaceSceneNotes('s2', ['s2 note a', 's2 note b']);
+
+    db.mutate('scene.edit', { sceneId: 's1', title: 't', content: 't', notes: [] });
+
+    expect(db.getSceneNotes('s1')).toHaveLength(0);
+    expect(db.getSceneNotes('s2').map(n => n.content)).toEqual(['s2 note a', 's2 note b']);
+    db.close();
+  });
+
+  it('scene.edit on a missing scene throws and writes nothing', async () => {
+    const db = await freshDb(dir);
+    expect(() => db.mutate('scene.edit', { sceneId: 'nope', title: 'x', content: 'x', notes: [] }))
+      .toThrow(/scene not found/);
+    expect(db.getMutationLog()).toHaveLength(0);
+    db.close();
+  });
+
   it('duplicate registration is rejected', () => {
     expect(() => registerMutation({ name: 'scene.rename', deletionBudget: 0, run: () => null }))
       .toThrow(/already registered/);
