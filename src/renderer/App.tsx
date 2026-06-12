@@ -2119,14 +2119,18 @@ function App() {
     const updatedData = { ...projectData, plotPoints: updatedPlotPoints };
     setProjectData(updatedData);
 
-    const character = projectData.characters.find(c => c.id === selectedCharacterId);
-    if (character) {
-      const charScenes = projectData.scenes.filter(s => s.characterId === character.id);
-      try {
-        await dataService.saveCharacterOutline(character, updatedPlotPoints.filter(pp => pp.characterId === selectedCharacterId), charScenes);
-      } catch {
-        addToast("Couldn't save section order");
-      }
+    // Persist as one named mutation (node.move) instead of the legacy
+    // bulk save (TO-BE §7 phase 3a). afterNodeId = the new predecessor
+    // in the reordered list; null = moved to the front.
+    const movedIdx = reordered.findIndex(s => s.id === activeSectionId);
+    const predecessor = movedIdx > 0 ? reordered[movedIdx - 1] : null;
+    try {
+      await dataService.mutate('node.move', {
+        nodeId: `pp:${activeSectionId}`,
+        afterNodeId: predecessor ? `pp:${predecessor.id}` : null,
+      });
+    } catch {
+      addToast("Couldn't save section order");
     }
   };
 
