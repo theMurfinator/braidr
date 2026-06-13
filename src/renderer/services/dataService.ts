@@ -8,7 +8,8 @@ export interface DataService {
   selectBraidrFile(): Promise<string | null>;
   loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; arcFieldDefs: ArcFieldDef[]; arcFieldValues: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }>;
   createCharacter(folderPath: string, name: string): Promise<Character>;
-  saveTimeline(payload: SaveTimelinePayload): Promise<void>;
+  /** iOS/Capacitor path only — Electron uses named mutations instead. */
+  saveTimeline?(payload: SaveTimelinePayload): Promise<void>;
   getChapters(): Promise<Chapter[]>;
   saveChapter(chapter: Chapter): Promise<void>;
   deleteChapter(chapterId: string): Promise<void>;
@@ -108,12 +109,6 @@ class ElectronDataService implements DataService {
     const result = await window.electronAPI.braidrCreateCharacter(this.braidrPath, name);
     if (!result.success) throw new Error(result.error || 'Failed to create character');
     return result.character as Character;
-  }
-
-  async saveTimeline(payload: SaveTimelinePayload): Promise<void> {
-    if (!this.braidrPath) throw new Error('No project loaded');
-    const result = await window.electronAPI.braidrSaveTimeline(this.braidrPath, payload);
-    if (!result.success) throw new Error(result.error || 'Failed to save timeline');
   }
 
   async getChapters(): Promise<Chapter[]> {

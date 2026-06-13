@@ -489,7 +489,7 @@ function App() {
   const handleTaskViewsChange = useCallback((newViews: TaskViewConfig[]) => {
     setTaskViews(newViews);
     taskViewsRef.current = newViews;
-    isDirtyRef.current = true;
+    dataService.mutate('settings.set', { key: 'taskViews', value: JSON.stringify(newViews) }).catch(console.error);
   }, []);
 
   const handleTaskColumnConfigChange = useCallback((widths: Record<string, number>, visible: string[]) => {
@@ -497,7 +497,8 @@ function App() {
     taskColumnWidthsRef.current = widths;
     setTaskVisibleColumns(visible);
     taskVisibleColumnsRef.current = visible;
-    isDirtyRef.current = true;
+    dataService.mutate('settings.set', { key: 'taskColumnWidths', value: JSON.stringify(widths) }).catch(console.error);
+    dataService.mutate('settings.set', { key: 'taskVisibleColumns', value: JSON.stringify(visible) }).catch(console.error);
   }, []);
 
   const handleTimelineDatesChange = useCallback((dates: Record<string, string>) => {
@@ -1738,16 +1739,12 @@ function App() {
     applyFontSettings(settings.global);
     applyScreenFontOverrides(viewMode, settings);
 
-    // Save via the standard save path (avoids parameter drift)
-    if (projectData) {
-      try {
-        await saveTimelineData(projectData.scenes, sceneConnections);
-      } catch (err) {
-        console.error('Failed to save font settings:', err);
-        addToast('Failed to save font settings');
-        // Ensure auto-save will retry
-        isDirtyRef.current = true;
-      }
+    try {
+      await dataService.mutate('settings.set', { key: 'allFontSettings', value: JSON.stringify(settings) });
+      await dataService.mutate('settings.set', { key: 'fontSettings', value: JSON.stringify(settings.global) });
+    } catch (err) {
+      console.error('Failed to save font settings:', err);
+      addToast('Failed to save font settings');
     }
   };
 
@@ -2846,31 +2843,18 @@ function App() {
 
   // Save timeline settings (font, goal, task views, tags). Scene positions, word
   // counts, colors, and dates are now written by dedicated mutations (Phase 4f).
+  // All writes now go through named mutations fired at the point of change.
+  // saveTimelineData remains as a no-op stub so the ~40 call sites and the
+  // auto-save loop compile without changes; the save-status indicator still
+  // runs on the auto-save tick so users see feedback when the editor flushes.
   const saveTimelineData = useCallback(async (
     _scenes?: Scene[],
     _connections?: Record<string, string[]>,
   ) => {
-    try {
-      setSaveStatus('saving');
-      await dataService.saveTimeline({
-        fontSettings: allFontSettingsRef.current.global,
-        wordCountGoal: wordCountGoalRef.current,
-        allFontSettings: allFontSettingsRef.current,
-        taskViews: taskViewsRef.current,
-        inlineMetadataFields: inlineMetadataFieldsRef.current,
-        showInlineLabels: showInlineLabelsRef.current,
-        taskColumnWidths: taskColumnWidthsRef.current,
-        taskVisibleColumns: taskVisibleColumnsRef.current,
-        tags: tagsRef.current,
-      });
-      isDirtyRef.current = false;
-      setSaveStatus('saved');
-      if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
-      saveStatusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (err) {
-      addToast('Couldn\u2019t save timeline data');
-      setSaveStatus('idle');
-    }
+    isDirtyRef.current = false;
+    setSaveStatus('saved');
+    if (saveStatusTimeoutRef.current) clearTimeout(saveStatusTimeoutRef.current);
+    saveStatusTimeoutRef.current = setTimeout(() => setSaveStatus('idle'), 2000);
   }, []);
 
   // Auto-save every 10 seconds
@@ -3120,7 +3104,7 @@ function App() {
     );
     setProjectData({ ...projectData, tags: updatedTags });
     tagsRef.current = updatedTags;
-    isDirtyRef.current = true;
+    dataService.mutate('tag.setCategory', { id: tagId, category }).catch(console.error);
   };
 
   const handleCreateTag = (name: string, category: TagCategory) => {
@@ -3133,7 +3117,7 @@ function App() {
     const updatedTags = [...projectData.tags, newTag];
     setProjectData({ ...projectData, tags: updatedTags });
     tagsRef.current = updatedTags;
-    isDirtyRef.current = true;
+    dataService.mutate('tag.upsert', { id: newTag.id, name: newTag.name, category: newTag.category }).catch(console.error);
   };
 
   const handleDeleteTag = (tagId: string) => {
@@ -3152,7 +3136,7 @@ function App() {
 
     setProjectData({ ...projectData, tags: updatedTags, scenes: updatedScenes });
     tagsRef.current = updatedTags;
-    isDirtyRef.current = true;
+    dataService.mutate('tag.delete', { id: tagId }).catch(console.error);
   };
 
   const handleOpenInEditor = (sceneKey: string) => {
@@ -3504,17 +3488,13 @@ function App() {
   const handleInlineMetadataFieldsChange = (fields: string[]) => {
     setInlineMetadataFields(fields);
     inlineMetadataFieldsRef.current = fields;
-    if (projectData) {
-      saveTimelineData(projectData.scenes, sceneConnections);
-    }
+    dataService.mutate('settings.set', { key: 'inlineMetadataFields', value: JSON.stringify(fields) }).catch(console.error);
   };
 
   const handleShowInlineLabelsChange = (show: boolean) => {
     setShowInlineLabels(show);
     showInlineLabelsRef.current = show;
-    if (projectData) {
-      saveTimelineData(projectData.scenes, sceneConnections);
-    }
+    dataService.mutate('settings.set', { key: 'showInlineLabels', value: JSON.stringify(show) }).catch(console.error);
   };
 
   const handleMetadataFieldDefsChange = async (defs: MetadataFieldDef[]) => {
@@ -3891,8 +3871,10 @@ function App() {
   const handleWordCountGoalChange = async (goal: number) => {
     setWordCountGoal(goal);
     wordCountGoalRef.current = goal;
-    if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections);
+    try {
+      await dataService.mutate('project.setWordCountGoal', { goal });
+    } catch (err) {
+      console.error('Failed to save word count goal:', err);
     }
   };
 

@@ -1267,3 +1267,87 @@ registerMutation<{ id: string }>({
     };
   },
 });
+
+// ---------------------------------------------------------------------------
+// Phase 4g — Settings + tags (retire SAVE_TIMELINE IPC handler entirely)
+// ---------------------------------------------------------------------------
+
+interface SettingsSetArgs { key: string; value: string; }
+
+// settings.set — generic key/value setting upsert. Callers serialize to JSON.
+// Inverse restores the previous value (or '' if the key was absent).
+registerMutation<SettingsSetArgs>({
+  name: 'settings.set',
+  deletionBudget: 0,
+  run(ctx, { key, value }) {
+    const db = ctx.db;
+    const old = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+    return { name: 'settings.set', args: { key, value: old?.value ?? '' } satisfies SettingsSetArgs };
+  },
+});
+
+interface ProjectSetWordCountGoalArgs { goal: number; }
+
+// project.setWordCountGoal — narrow update to projects.word_count_goal.
+registerMutation<ProjectSetWordCountGoalArgs>({
+  name: 'project.setWordCountGoal',
+  deletionBudget: 0,
+  run(ctx, { goal }) {
+    const db = ctx.db;
+    const old = db.prepare("SELECT word_count_goal FROM project WHERE id = 'project'").get() as { word_count_goal: number | null } | undefined;
+    db.prepare("UPDATE project SET word_count_goal = ?, updated_at = ? WHERE id = 'project'").run(goal, Date.now());
+    return { name: 'project.setWordCountGoal', args: { goal: old?.word_count_goal ?? 0 } satisfies ProjectSetWordCountGoalArgs };
+  },
+});
+
+interface TagUpsertArgs { id: string; name: string; category: string; }
+
+// tag.upsert — create or update a tag. Conflicts on name (not id), matching
+// the legacy upsertTag() behavior. Inverse is not recorded (tag creation is
+// not undoable at this stage — deletion requires removing from many tables).
+registerMutation<TagUpsertArgs>({
+  name: 'tag.upsert',
+  deletionBudget: 0,
+  run(ctx, { id, name, category }) {
+    ctx.db.prepare(
+      'INSERT INTO tags (id, name, category) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET category = excluded.category'
+    ).run(id, name, category);
+    return null;
+  },
+});
+
+interface TagSetCategoryArgs { id: string; category: string; }
+
+// tag.setCategory — narrow UPDATE for tag category (used by tag manager).
+registerMutation<TagSetCategoryArgs>({
+  name: 'tag.setCategory',
+  deletionBudget: 0,
+  run(ctx, { id, category }) {
+    const db = ctx.db;
+    const old = db.prepare('SELECT category FROM tags WHERE id = ?').get(id) as { category: string } | undefined;
+    if (!old) throw new Error(`tag.setCategory: tag not found: ${id}`);
+    db.prepare('UPDATE tags SET category = ? WHERE id = ?').run(category, id);
+    return { name: 'tag.setCategory', args: { id, category: old.category } satisfies TagSetCategoryArgs };
+  },
+});
+
+interface TagDeleteArgs { id: string; }
+
+// tag.delete — remove a tag and all its associations.
+// Budget covers all scene_tags + note_tags + task_tags + world_event_tags
+// rows plus the tag row itself.
+registerMutation<TagDeleteArgs>({
+  name: 'tag.delete',
+  deletionBudget: 10000,
+  run(ctx, { id }) {
+    const row = ctx.db.prepare('SELECT id FROM tags WHERE id = ?').get(id) as { id: string } | undefined;
+    if (!row) throw new Error(`tag.delete: tag not found: ${id}`);
+    ctx.delete('DELETE FROM scene_tags WHERE tag_id = ?', id);
+    ctx.delete('DELETE FROM note_tags WHERE tag_id = ?', id);
+    ctx.delete('DELETE FROM task_tags WHERE tag_id = ?', id);
+    ctx.delete('DELETE FROM world_event_tags WHERE tag_id = ?', id);
+    ctx.delete('DELETE FROM tags WHERE id = ?', id);
+    return null;
+  },
+});

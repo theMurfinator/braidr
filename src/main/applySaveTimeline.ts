@@ -1,52 +1,15 @@
-import type {
-  TaskViewConfig, Tag, FontSettings, AllFontSettings,
-} from '../shared/types';
+// Phase 4g: all writes formerly here are now named mutations.
+// This file is kept as a stub until the BRAIDR_SAVE_TIMELINE IPC handler
+// is removed and the braidrSaveTimeline preload binding is cleaned up.
+
 import type { BraidrDB } from './database';
 
 export interface SaveTimelinePayload {
-  fontSettings?: FontSettings;
-  allFontSettings?: AllFontSettings;
-  wordCountGoal?: number;
-  taskViews?: TaskViewConfig[];
-  taskColumnWidths?: Record<string, number>;
-  taskVisibleColumns?: string[];
-  inlineMetadataFields?: string[];
-  showInlineLabels?: boolean;
-  tags?: Tag[];
+  // All fields removed in Phase 4g — writes go through named mutations.
+  // The type is kept so the IPC handler compiles; its argument is now ignored.
+  [key: string]: unknown;
 }
 
-export function applySaveTimeline(db: BraidrDB, payload: SaveTimelinePayload): void {
-  db.transaction(() => {
-    // Scene positions, word counts, character colors, and timeline dates are now
-    // managed via mutations (Phase 4f/4e): scenes.setBraidedPositions,
-    // scene.setWordCount, character.setColor, scene.setDate.
-
-    // Font settings
-    if (payload.fontSettings !== undefined) {
-      db.setSetting('fontSettings', JSON.stringify(payload.fontSettings));
-    }
-    if (payload.allFontSettings !== undefined) {
-      db.setSetting('allFontSettings', JSON.stringify(payload.allFontSettings));
-    }
-
-    // Word count goal
-    if (payload.wordCountGoal !== undefined) {
-      const proj = db.getProject();
-      db.upsertProject(proj?.name || 'Untitled', payload.wordCountGoal);
-    }
-
-    // Task view settings
-    if (payload.taskViews !== undefined) db.setSetting('taskViews', JSON.stringify(payload.taskViews));
-    if (payload.taskColumnWidths !== undefined) db.setSetting('taskColumnWidths', JSON.stringify(payload.taskColumnWidths));
-    if (payload.taskVisibleColumns !== undefined) db.setSetting('taskVisibleColumns', JSON.stringify(payload.taskVisibleColumns));
-    if (payload.inlineMetadataFields !== undefined) db.setSetting('inlineMetadataFields', JSON.stringify(payload.inlineMetadataFields));
-    if (payload.showInlineLabels !== undefined) db.setSetting('showInlineLabels', JSON.stringify(payload.showInlineLabels));
-
-    // Tags (upsert all known tags)
-    if (payload.tags !== undefined) {
-      for (const tag of payload.tags) {
-        db.upsertTag(tag.id, tag.name, tag.category);
-      }
-    }
-  });
+export function applySaveTimeline(_db: BraidrDB, _payload: SaveTimelinePayload): void {
+  // No-op: all settings/tag writes are now mutations wired at the point of change.
 }
