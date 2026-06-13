@@ -501,15 +501,38 @@ function App() {
   }, []);
 
   const handleTimelineDatesChange = useCallback((dates: Record<string, string>) => {
+    const oldDates = timelineDatesRef.current;
+    const endDates = timelineEndDatesRef.current;
     setTimelineDates(dates);
     timelineDatesRef.current = dates;
     isDirtyRef.current = true;
+    const allIds = new Set([...Object.keys(oldDates), ...Object.keys(dates)]);
+    for (const sceneId of allIds) {
+      if (oldDates[sceneId] !== dates[sceneId]) {
+        dataService.mutate('scene.setDate', {
+          sceneId,
+          startDate: dates[sceneId] ?? null,
+          endDate: endDates[sceneId] ?? null,
+        });
+      }
+    }
   }, []);
 
   const handleTimelineEndDatesChange = useCallback((dates: Record<string, string>) => {
+    const oldEndDates = timelineEndDatesRef.current;
+    const startDates = timelineDatesRef.current;
     setTimelineEndDates(dates);
     timelineEndDatesRef.current = dates;
     isDirtyRef.current = true;
+    const allIds = new Set([...Object.keys(oldEndDates), ...Object.keys(dates)]);
+    for (const sceneId of allIds) {
+      if (oldEndDates[sceneId] !== dates[sceneId]) {
+        const startDate = startDates[sceneId] ?? null;
+        if (startDate !== null) {
+          dataService.mutate('scene.setDate', { sceneId, startDate, endDate: dates[sceneId] ?? null });
+        }
+      }
+    }
   }, []);
 
   const handleWorldEventsChange = useCallback((events: WorldEvent[]) => {
@@ -2604,9 +2627,7 @@ function App() {
     const newColors = { ...characterColors, [characterId]: color };
     setCharacterColors(newColors);
     characterColorsRef.current = newColors;
-    if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections);
-    }
+    await dataService.mutate('character.setColor', { characterId, color });
   };
 
   const handleSceneChange = async (sceneId: string, newContent: string, newNotes: string[]) => {
@@ -2859,10 +2880,8 @@ function App() {
       }
       await dataService.saveTimeline({
         positions, clearedPositions,
-        characterColors: characterColorsRef.current,
         wordCounts: sceneWordCounts,
         fontSettings: allFontSettingsRef.current.global,
-        // Scene metadata now managed via braidrSaveArcFieldDefs/braidrSaveArcFieldValues — no-op in applySaveTimeline
         wordCountGoal: wordCountGoalRef.current,
         allFontSettings: allFontSettingsRef.current,
         taskViews: taskViewsRef.current,
@@ -2870,8 +2889,6 @@ function App() {
         showInlineLabels: showInlineLabelsRef.current,
         taskColumnWidths: taskColumnWidthsRef.current,
         taskVisibleColumns: taskVisibleColumnsRef.current,
-        timelineDates: timelineDatesRef.current,
-        timelineEndDates: timelineEndDatesRef.current,
         tags: tagsRef.current,
       });
       isDirtyRef.current = false;

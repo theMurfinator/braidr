@@ -1049,6 +1049,47 @@ registerMutation<ActDeleteArgs>({
 });
 
 // ---------------------------------------------------------------------------
+// Phase 4e — Character color + scene dates (retire last typed SAVE_TIMELINE fields)
+// ---------------------------------------------------------------------------
+
+interface CharacterSetColorArgs { characterId: string; color: string; }
+
+registerMutation<CharacterSetColorArgs>({
+  name: 'character.setColor',
+  deletionBudget: 0,
+  run(ctx, { characterId, color }) {
+    const db = ctx.db;
+    const row = db.prepare('SELECT color FROM characters WHERE id = ?').get(characterId) as { color: string | null } | undefined;
+    if (!row) throw new Error(`character.setColor: character not found: ${characterId}`);
+    db.prepare('UPDATE characters SET color = ? WHERE id = ?').run(color, characterId);
+    return { name: 'character.setColor', args: { characterId, color: row.color ?? '' } satisfies CharacterSetColorArgs };
+  },
+});
+
+interface SceneSetDateArgs { sceneId: string; startDate: string | null; endDate: string | null; }
+
+registerMutation<SceneSetDateArgs>({
+  name: 'scene.setDate',
+  deletionBudget: 1,
+  run(ctx, { sceneId, startDate, endDate }) {
+    const db = ctx.db;
+    const old = db.prepare('SELECT date, end_date FROM scene_dates WHERE scene_id = ?').get(sceneId) as { date: string; end_date: string | null } | undefined;
+    if (startDate !== null) {
+      db.prepare(`
+        INSERT INTO scene_dates (scene_id, date, end_date) VALUES (?, ?, ?)
+        ON CONFLICT(scene_id) DO UPDATE SET date = excluded.date, end_date = excluded.end_date
+      `).run(sceneId, startDate, endDate);
+    } else {
+      ctx.delete('DELETE FROM scene_dates WHERE scene_id = ?', sceneId);
+    }
+    return {
+      name: 'scene.setDate',
+      args: { sceneId, startDate: old?.date ?? null, endDate: old?.end_date ?? null } satisfies SceneSetDateArgs,
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Phase 4b — Connections (retire SAVE_TIMELINE connections bulk-replace)
 // ---------------------------------------------------------------------------
 
