@@ -1488,15 +1488,8 @@ function App() {
     const updatedData = { ...projectData, characters: updatedCharacters };
     setProjectData(updatedData);
 
-    // Save the character file with new name in frontmatter
-    const charScenes = projectData.scenes.filter(s => s.characterId === characterId);
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === characterId);
     try {
-      await dataService.saveCharacterOutline(
-        { ...character, name: newName.trim() },
-        charPlotPoints,
-        charScenes
-      );
+      await dataService.mutate('character.rename', { characterId, name: newName.trim() });
     } catch (err) {
       addToast('Couldn\u2019t save character rename');
     }
@@ -1904,14 +1897,13 @@ function App() {
     setProjectData({ ...projectData, scenes: updatedScenes });
     const scene = updatedScenes.find(s => s.id === sceneId);
     if (!scene) return;
-    const character = projectData.characters.find(c => c.id === scene.characterId);
-    if (!character) return;
     try {
-      await dataService.saveCharacterOutline(
-        character,
-        projectData.plotPoints.filter(p => p.characterId === character.id),
-        updatedScenes.filter(s => s.characterId === character.id),
-      );
+      await dataService.mutate('scene.edit', {
+        sceneId,
+        title: scene.title,
+        content: scene.content,
+        notes,
+      });
     } catch {
       addToast('Could not save synopsis');
     }
@@ -2764,11 +2756,8 @@ function App() {
     );
     setProjectData({ ...projectData, scenes: updatedScenes });
     try {
-      const character = projectData.characters.find(c => c.id === scene.characterId);
-      const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === scene.characterId);
-      if (character) {
-        await dataService.saveCharacterOutline(character, charPlotPoints, updatedScenes.filter(s => s.characterId === scene.characterId));
-      }
+      await dataService.mutate('scene.move', { sceneId, toPlotPointId: null, afterSceneId: null });
+      await saveTimelineData(updatedScenes, sceneConnections);
     } catch {
       addToast('Could not send scene to bullpen');
     }
@@ -3199,11 +3188,11 @@ function App() {
     const updatedData = { ...projectData, scenes: finalScenes };
     setProjectData(updatedData);
 
-    // Save character outline + timeline
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
-    const finalCharScenes = finalScenes.filter(s => s.characterId === characterId).sort((a, b) => a.sceneNumber - b.sceneNumber);
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, finalCharScenes);
+      await dataService.mutate('scene.create', {
+        id: newScene.id, characterId, plotPointId: plotPointId ?? null,
+        afterSceneId: null, title: 'New scene', content: 'New scene', tags: [characterTag],
+      });
       await saveTimelineData(finalScenes, sceneConnections);
       track('scene_created', { character_id: characterId, source: 'braided_insert' });
     } catch (err) {
@@ -3352,10 +3341,11 @@ function App() {
     const updatedDates = { ...timelineDatesRef.current, [newScene.id]: date };
     handleTimelineDatesChange(updatedDates);
 
-    // Save
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
+      await dataService.mutate('scene.create', {
+        id: newScene.id, characterId, plotPointId: plotPointId ?? null,
+        afterSceneId: null, title: 'New scene', content: 'New scene', tags: [characterTag],
+      });
       await saveTimelineData(updatedScenes, sceneConnections);
       track('scene_created', { character_id: characterId, source: 'timeline_insert' });
     } catch (err) {
@@ -3821,19 +3811,10 @@ function App() {
     setProjectData(updatedData);
     tagsRef.current = updatedTags;
 
-    // Save to file
-    const scene = updatedScenes.find(s => s.id === sceneId);
-    if (scene) {
-      const character = projectData.characters.find(c => c.id === scene.characterId);
-      if (character) {
-        const charScenes = updatedScenes.filter(s => s.characterId === character.id);
-        const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
-        try {
-          await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-        } catch (err) {
-          addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-        }
-      }
+    try {
+      await dataService.mutate('scene.setTags', { sceneId, tags: newTags });
+    } catch (err) {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -4455,15 +4436,6 @@ function App() {
       {/* Left sidebar navigation */}
       <nav className="app-sidebar" aria-label="Main navigation">
         <img src={braidrIcon} alt="Braidr" className="app-sidebar-logo" />
-        <button
-          className={`app-sidebar-btn ${viewMode === 'arc' ? 'active' : ''}`}
-          onClick={() => setViewMode('arc')}
-          title="Arc Planning"
-          aria-label="Arc view"
-        >
-          <span className="app-sidebar-icon">◈</span>
-          <span className="app-sidebar-label">Arc</span>
-        </button>
         <button
           className={`app-sidebar-btn ${viewMode === 'pov' ? 'active' : ''}`}
           onClick={() => setViewMode('pov')}

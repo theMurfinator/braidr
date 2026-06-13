@@ -730,3 +730,72 @@ registerMutation<SceneMoveArgs>({
     };
   },
 });
+
+// ---------------------------------------------------------------------------
+// character.rename — rename a character (TO-BE §7 phase 3b)
+// ---------------------------------------------------------------------------
+
+interface CharacterRenameArgs {
+  characterId: string;
+  name: string;
+}
+
+registerMutation<CharacterRenameArgs>({
+  name: 'character.rename',
+  deletionBudget: 0,
+  run(ctx, { characterId, name }) {
+    const db = ctx.db;
+    const row = db
+      .prepare('SELECT name FROM characters WHERE id = ?')
+      .get(characterId) as { name: string } | undefined;
+    if (!row) throw new Error(`character.rename: character not found: ${characterId}`);
+
+    db.prepare('UPDATE characters SET name = ? WHERE id = ?').run(name, characterId);
+    db.prepare('UPDATE structure_nodes SET title = ? WHERE id = ?').run(name, `novel:${characterId}`);
+
+    return { name: 'character.rename', args: { characterId, name: row.name } satisfies CharacterRenameArgs };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// scene.setTags — replace a scene's full tag set (TO-BE §7 phase 3b)
+// ---------------------------------------------------------------------------
+
+interface SceneSetTagsArgs {
+  sceneId: string;
+  tags: string[];
+}
+
+registerMutation<SceneSetTagsArgs>({
+  name: 'scene.setTags',
+  deletionBudget: 50,
+  run(ctx, { sceneId, tags }) {
+    const db = ctx.db;
+    const scene = db
+      .prepare('SELECT id FROM scenes WHERE id = ? AND deleted_at IS NULL')
+      .get(sceneId) as { id: string } | undefined;
+    if (!scene) throw new Error(`scene.setTags: scene not found: ${sceneId}`);
+
+    const oldTags = (db
+      .prepare('SELECT t.name FROM tags t JOIN scene_tags st ON st.tag_id = t.id WHERE st.scene_id = ?')
+      .all(sceneId) as { name: string }[]).map(r => r.name);
+
+    ctx.delete('DELETE FROM scene_tags WHERE scene_id = ?', sceneId);
+
+    if (tags.length > 0) {
+      const insertTag = db.prepare('INSERT OR IGNORE INTO tags (id, name, category) VALUES (?, ?, ?)');
+      const insertSceneTag = db.prepare('INSERT OR IGNORE INTO scene_tags (scene_id, tag_id) VALUES (?, ?)');
+      for (const tagName of tags) {
+        const existing = db.prepare('SELECT id FROM tags WHERE name = ?').get(tagName) as { id: string } | undefined;
+        const tagId = existing ? existing.id : (() => {
+          const tid = newId();
+          insertTag.run(tid, tagName, 'things');
+          return tid;
+        })();
+        insertSceneTag.run(sceneId, tagId);
+      }
+    }
+
+    return { name: 'scene.setTags', args: { sceneId, tags: oldTags } satisfies SceneSetTagsArgs };
+  },
+});
