@@ -322,3 +322,62 @@ describe('section.reorderScenes', () => {
     db.close();
   });
 });
+
+describe('scene.setWordCount mutation', () => {
+  let dir: string;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wc-')); });
+  afterEach(async () => { (await import('../main/database')).closeAllDatabases(); fs.rmSync(dir, { recursive: true, force: true }); });
+
+  it('sets the word count and returns an inverse that restores it', async () => {
+    const db = await freshDb(dir);
+    const { inverse } = db.mutate('scene.setWordCount', { sceneId: 's1', wordCount: 42 });
+    const row = db.prepare('SELECT word_count FROM scenes WHERE id = ?').get('s1') as { word_count: number };
+    expect(row.word_count).toBe(42);
+    expect(inverse).toMatchObject({ name: 'scene.setWordCount', args: { sceneId: 's1', wordCount: 0 } });
+    db.mutate(inverse!.name, inverse!.args);
+    expect((db.prepare('SELECT word_count FROM scenes WHERE id = ?').get('s1') as { word_count: number }).word_count).toBe(0);
+    db.close();
+  });
+
+  it('throws for an unknown sceneId', async () => {
+    const db = await freshDb(dir);
+    expect(() => db.mutate('scene.setWordCount', { sceneId: 'nope', wordCount: 5 })).toThrow(/scene not found/);
+    db.close();
+  });
+});
+
+describe('scenes.setBraidedPositions mutation', () => {
+  let dir: string;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'braid-')); });
+  afterEach(async () => { (await import('../main/database')).closeAllDatabases(); fs.rmSync(dir, { recursive: true, force: true }); });
+
+  it('sets multiple positions and returns an inverse that restores them', async () => {
+    const db = await freshDb(dir);
+    const updates = [{ sceneId: 's1', position: 2 }, { sceneId: 's2', position: 1 }];
+    const { inverse } = db.mutate('scenes.setBraidedPositions', { updates });
+    const rows = db.prepare('SELECT id, timeline_position FROM scenes ORDER BY id').all() as { id: string; timeline_position: number | null }[];
+    expect(rows.find(r => r.id === 's1')!.timeline_position).toBe(2);
+    expect(rows.find(r => r.id === 's2')!.timeline_position).toBe(1);
+    expect(inverse).toMatchObject({ name: 'scenes.setBraidedPositions' });
+    db.mutate(inverse!.name, inverse!.args);
+    const restored = db.prepare('SELECT id, timeline_position FROM scenes ORDER BY id').all() as { id: string; timeline_position: number | null }[];
+    expect(restored.find(r => r.id === 's1')!.timeline_position).toBeNull();
+    expect(restored.find(r => r.id === 's2')!.timeline_position).toBeNull();
+    db.close();
+  });
+
+  it('handles null position (send to inbox) with correct inverse', async () => {
+    const db = await freshDb(dir);
+    db.mutate('scenes.setBraidedPositions', { updates: [{ sceneId: 's1', position: 1 }, { sceneId: 's2', position: 2 }] });
+    const { inverse } = db.mutate('scenes.setBraidedPositions', { updates: [{ sceneId: 's1', position: null }] });
+    expect((db.prepare('SELECT timeline_position FROM scenes WHERE id = ?').get('s1') as { timeline_position: number | null }).timeline_position).toBeNull();
+    expect(inverse).toMatchObject({ name: 'scenes.setBraidedPositions', args: { updates: [{ sceneId: 's1', position: 1 }] } });
+    db.close();
+  });
+
+  it('skips unknown scene ids gracefully', async () => {
+    const db = await freshDb(dir);
+    expect(() => db.mutate('scenes.setBraidedPositions', { updates: [{ sceneId: 'ghost', position: 1 }] })).not.toThrow();
+    db.close();
+  });
+});

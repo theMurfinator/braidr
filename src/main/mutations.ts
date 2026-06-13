@@ -1049,6 +1049,48 @@ registerMutation<ActDeleteArgs>({
 });
 
 // ---------------------------------------------------------------------------
+// Phase 4f — Word count + braided positions (retire remaining scene UPDATEs from SAVE_TIMELINE)
+// ---------------------------------------------------------------------------
+
+interface SceneSetWordCountArgs { sceneId: string; wordCount: number; }
+
+registerMutation<SceneSetWordCountArgs>({
+  name: 'scene.setWordCount',
+  deletionBudget: 0,
+  run(ctx, { sceneId, wordCount }) {
+    const db = ctx.db;
+    const row = db.prepare('SELECT word_count FROM scenes WHERE id = ?').get(sceneId) as { word_count: number | null } | undefined;
+    if (!row) throw new Error(`scene.setWordCount: scene not found: ${sceneId}`);
+    db.prepare('UPDATE scenes SET word_count = ?, updated_at = ? WHERE id = ?').run(wordCount, Date.now(), sceneId);
+    return { name: 'scene.setWordCount', args: { sceneId, wordCount: row.word_count ?? 0 } satisfies SceneSetWordCountArgs };
+  },
+});
+
+interface BraidedPositionUpdate { sceneId: string; position: number | null; }
+interface BraidedSetPositionsArgs { updates: BraidedPositionUpdate[]; }
+
+// scenes.setBraidedPositions — atomically reorder the braided timeline.
+// Sent by every braided drag/reorder handler with the full new position map;
+// records old values so the inverse restores them exactly.
+registerMutation<BraidedSetPositionsArgs>({
+  name: 'scenes.setBraidedPositions',
+  deletionBudget: 0,
+  run(ctx, { updates }) {
+    const db = ctx.db;
+    const stmt = db.prepare('UPDATE scenes SET timeline_position = ?, updated_at = ? WHERE id = ?');
+    const now = Date.now();
+    const oldUpdates: BraidedPositionUpdate[] = [];
+    for (const { sceneId, position } of updates) {
+      const row = db.prepare('SELECT timeline_position FROM scenes WHERE id = ?').get(sceneId) as { timeline_position: number | null } | undefined;
+      if (!row) continue;
+      oldUpdates.push({ sceneId, position: row.timeline_position });
+      stmt.run(position, now, sceneId);
+    }
+    return { name: 'scenes.setBraidedPositions', args: { updates: oldUpdates } satisfies BraidedSetPositionsArgs };
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Phase 4e — Character color + scene dates (retire last typed SAVE_TIMELINE fields)
 // ---------------------------------------------------------------------------
 
