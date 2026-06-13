@@ -9,14 +9,20 @@ async function open(dir: string): Promise<BraidrDB> {
   return new mod.BraidrDB(path.join(dir, 'node.braidr'));
 }
 
-/** Noah with sections A, B, C at display_order 0, 1, 2. */
+/** Noah with sections A, B, C at display_order 0, 1, 2.
+ *
+ * Close+reopen after inserting legacy data so the second open triggers the
+ * full substrate rebuild with all three plot points present in structure_nodes.
+ * (Phase 5a: first open seeds an empty tree; the seeded-but-empty guard causes
+ * the second open to re-seed from legacy tables.) */
 async function seed(dir: string): Promise<BraidrDB> {
-  const db = await open(dir);
-  db.insertCharacter('noah', 'Noah', null, 0);
-  db.insertPlotPoint('A', 'noah', 'Section A', null, null, 0);
-  db.insertPlotPoint('B', 'noah', 'Section B', null, null, 1);
-  db.insertPlotPoint('C', 'noah', 'Section C', null, null, 2);
-  return db;
+  const setup = await open(dir);
+  setup.insertCharacter('noah', 'Noah', null, 0);
+  setup.insertPlotPoint('A', 'noah', 'Section A', null, null, 0);
+  setup.insertPlotPoint('B', 'noah', 'Section B', null, null, 1);
+  setup.insertPlotPoint('C', 'noah', 'Section C', null, null, 2);
+  setup.close();
+  return open(dir);
 }
 
 function sectionOrder(db: BraidrDB): string[] {
