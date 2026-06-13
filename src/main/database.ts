@@ -741,9 +741,9 @@ export class BraidrDB {
 
   getScenes(characterId?: string) {
     if (characterId) {
-      return this.db.prepare('SELECT * FROM scenes WHERE character_id = ? ORDER BY scene_number').all(characterId) as SceneRow[];
+      return this.db.prepare('SELECT * FROM scenes WHERE character_id = ? AND deleted_at IS NULL ORDER BY scene_number').all(characterId) as SceneRow[];
     }
-    return this.db.prepare('SELECT * FROM scenes ORDER BY scene_number').all() as SceneRow[];
+    return this.db.prepare('SELECT * FROM scenes WHERE deleted_at IS NULL ORDER BY scene_number').all() as SceneRow[];
   }
 
   getScene(id: string) {

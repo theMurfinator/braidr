@@ -107,6 +107,13 @@ export const MIGRATIONS: Migration[] = [
       db.exec('ALTER TABLE scenes ADD COLUMN outline_key TEXT');
     },
   },
+  {
+    version: 6,
+    name: 'scenes.deleted_at (TO-BE §6: soft delete for user content)',
+    up: (db) => {
+      db.exec('ALTER TABLE scenes ADD COLUMN deleted_at INTEGER');
+    },
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS.reduce((v, m) => Math.max(v, m.version), 1);
