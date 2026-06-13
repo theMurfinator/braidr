@@ -213,8 +213,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       return { id: row.id, name: row.name, filePath: `__braidr__::${row.id}`, color: row.color || undefined };
     });
 
-    // Plot points
-    const ppRows = db.getPlotPoints();
+    // Plot points — ordered by the structure tree (Phase 5b authority flip)
+    const ppRows = db.getPlotPointsOrdered();
     const plotPoints: PlotPoint[] = ppRows.map(row => ({
       id: row.id,
       characterId: row.character_id,
@@ -571,7 +571,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
         showInlineLabels,
         timelineDates,
         worldEvents,
-        acts: db.getAllActs(),
+        acts: db.getActsOrdered(),
         _migrated: false,
       },
     };
@@ -964,7 +964,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_ASSIGN_SCENE_TO_CHAPTER, (
 ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_ACTS, (_event, braidrPath: string, characterId: string) => {
   try {
     const db = getDb(braidrPath);
-    return { success: true, data: db.getActs(characterId) };
+    return { success: true, data: db.getActsOrdered(characterId) };
   } catch (err) { return { success: false, error: String(err) }; }
 });
 

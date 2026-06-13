@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { keyBetween, seedKeys } from '../shared/fractionalIndex';
+import { plotPointFlatKey, type NodeOrder } from './substrate';
 
 // The mutation registry + executor (docs/data-model/TO-BE.md §3, §6).
 //
@@ -189,9 +190,13 @@ interface NodeMoveArgs {
 }
 
 // node.move — section (plot point) reorder as one mutation (TO-BE §3).
-// Dual-write: legacy plot_points.display_order renumbered dense 0..N-1 per
-// character (authoritative; matches the renderer's arrayMove + index
-// reassignment), substrate order_key kept coherent for the session.
+// The substrate is now authoritative for order (Phase 5b): the moved node
+// adopts the parent of the section it lands next to and gets a fractional
+// order_key among that parent's children. Because a flat drop position implies
+// membership, dragging a section into another act's run reparents it there
+// (and to the novel root / bullpen when it lands among act-less sections) —
+// the containment-as-backbone rule (TO-BE §1). The legacy plot_points columns
+// (display_order, act_id) are dual-written to match, dropped in Phase 6.
 // Other levels (arc, chapter) join when their reorder paths are wired.
 registerMutation<NodeMoveArgs>({
   name: 'node.move',
@@ -207,61 +212,94 @@ registerMutation<NodeMoveArgs>({
       .get(ppId) as { id: string; character_id: string; display_order: number } | undefined;
     if (!pp) throw new Error(`node.move: section not found: ${ppId}`);
 
-    const ordered = (db
-      .prepare('SELECT id, display_order FROM plot_points WHERE character_id = ? ORDER BY display_order, created_at')
-      .all(pp.character_id) as { id: string; display_order: number }[])
-      .filter(s => s.id !== ppId);
-
-    // inverse: the old predecessor among the character's sections
-    let oldPredecessor: string | null = null;
-    for (const s of ordered) {
-      if (s.display_order < pp.display_order) oldPredecessor = s.id;
-      else break;
-    }
-
-    let insertAt: number;
+    let afterPpId: string | null = null;
     if (afterNodeId !== null) {
       if (!afterNodeId.startsWith('pp:')) {
         throw new Error(`node.move: afterNode must be a plot_point node: ${afterNodeId}`);
       }
-      const afterPpId = afterNodeId.slice(3);
-      const idx = ordered.findIndex(s => s.id === afterPpId);
-      if (idx < 0) throw new Error(`node.move: afterNode not found among siblings: ${afterNodeId}`);
-      insertAt = idx + 1;
-    } else {
-      insertAt = 0;
+      afterPpId = afterNodeId.slice(3);
+      const sib = db
+        .prepare('SELECT 1 FROM plot_points WHERE id = ? AND character_id = ?')
+        .get(afterPpId, pp.character_id);
+      if (!sib) throw new Error(`node.move: afterNode not found among siblings: ${afterNodeId}`);
     }
 
     ensureSceneParentNode(db, pp.character_id, ppId);
-    const keyOf = (id: string | null): string | null => {
-      if (id === null) return null;
-      const row = db.prepare('SELECT order_key FROM structure_nodes WHERE id = ?').get(`pp:${id}`) as { order_key: string } | undefined;
-      return row?.order_key ?? null;
-    };
-    const beforeId = insertAt > 0 ? ordered[insertAt - 1].id : null;
-    const afterId = insertAt < ordered.length ? ordered[insertAt].id : null;
-    let orderKey: string;
-    try {
-      orderKey = keyBetween(keyOf(beforeId), keyOf(afterId));
-    } catch {
-      // neighbors missing substrate nodes mid-session: any key is fine,
-      // the refresh re-derives from display_order on next open
-      orderKey = keyBetween(null, null);
-    }
-    db.prepare('UPDATE structure_nodes SET order_key = ? WHERE id = ?').run(orderKey, nodeId);
 
-    ordered.splice(insertAt, 0, { id: ppId, display_order: -1 });
+    // Tree state for this character (arc + plot_point nodes).
+    const loadNodes = () => {
+      const rows = db
+        .prepare("SELECT id, parent_id, order_key FROM structure_nodes WHERE character_id = ? AND level_key IN ('arc', 'plot_point')")
+        .all(pp.character_id) as { id: string; parent_id: string | null; order_key: string }[];
+      return new Map<string, NodeOrder>(rows.map(r => [r.id, { parent_id: r.parent_id, order_key: r.order_key }]));
+    };
+    const charPps = db
+      .prepare('SELECT id, display_order FROM plot_points WHERE character_id = ?')
+      .all(pp.character_id) as { id: string; display_order: number }[];
+
+    // Flat (depth-first) section order from the tree; missing nodes fall back to
+    // the end by legacy display_order so nothing is ever lost.
+    const sortFlat = (ids: { id: string; display_order: number }[], map: Map<string, NodeOrder>): string[] =>
+      ids
+        .map(p => {
+          const flat = plotPointFlatKey(`pp:${p.id}`, map);
+          return { id: p.id, missing: flat ? 0 : 1, b: flat?.[0] ?? '', w: flat?.[1] ?? '', fb: p.display_order };
+        })
+        .sort((a, b) =>
+          a.missing - b.missing ||
+          (a.b < b.b ? -1 : a.b > b.b ? 1 : 0) ||
+          (a.w < b.w ? -1 : a.w > b.w ? 1 : 0) ||
+          a.fb - b.fb
+        )
+        .map(x => x.id);
+
+    const before = loadNodes();
+    // inverse target: X's flat predecessor in the pre-move arrangement
+    const oldFull = sortFlat(charPps, before);
+    const oldIdx = oldFull.indexOf(ppId);
+    const oldPredecessor = oldIdx > 0 ? `pp:${oldFull[oldIdx - 1]}` : null;
+
+    // New parent = the parent of the section X lands next to; for a front move,
+    // the parent of the current first flat section (so X becomes truly first).
+    const flatWithoutX = oldFull.filter(id => id !== ppId);
+    let parentId: string;
+    if (afterPpId !== null) {
+      parentId = before.get(`pp:${afterPpId}`)?.parent_id ?? `novel:${pp.character_id}`;
+    } else {
+      parentId = flatWithoutX.length > 0
+        ? (before.get(`pp:${flatWithoutX[0]}`)?.parent_id ?? `novel:${pp.character_id}`)
+        : `novel:${pp.character_id}`;
+    }
+
+    // Siblings under the new parent (any level), excluding X, by order_key.
+    const siblings = [...before.entries()]
+      .filter(([id, n]) => n.parent_id === parentId && id !== nodeId)
+      .sort((a, b) => (a[1].order_key < b[1].order_key ? -1 : a[1].order_key > b[1].order_key ? 1 : 0));
+    let prevKey: string | null;
+    let nextKey: string | null;
+    if (afterPpId !== null) {
+      const idx = siblings.findIndex(([id]) => id === `pp:${afterPpId}`);
+      prevKey = idx >= 0 ? siblings[idx][1].order_key : null;
+      nextKey = idx >= 0 ? (siblings[idx + 1]?.[1].order_key ?? null) : (siblings[0]?.[1].order_key ?? null);
+    } else {
+      prevKey = null;
+      nextKey = siblings[0]?.[1].order_key ?? null;
+    }
+    const orderKey = keyBetween(prevKey, nextKey);
+
+    const newActId = parentId.startsWith('act:') ? parentId.slice(4) : null;
+    db.prepare('UPDATE structure_nodes SET parent_id = ?, order_key = ? WHERE id = ?').run(parentId, orderKey, nodeId);
+    db.prepare('UPDATE plot_points SET act_id = ? WHERE id = ?').run(newActId, ppId);
+
+    // Renumber legacy display_order to the new flat tree order (dual-write).
+    const after = loadNodes();
+    const newFull = sortFlat(charPps, after);
     const renumber = db.prepare('UPDATE plot_points SET display_order = ? WHERE id = ?');
-    ordered.forEach((s, i) => {
-      if (s.id === ppId || s.display_order !== i) renumber.run(i, s.id);
-    });
+    newFull.forEach((id, i) => renumber.run(i, id));
 
     return {
       name: 'node.move',
-      args: {
-        nodeId,
-        afterNodeId: oldPredecessor === null ? null : `pp:${oldPredecessor}`,
-      } satisfies NodeMoveArgs,
+      args: { nodeId, afterNodeId: oldPredecessor } satisfies NodeMoveArgs,
     };
   },
 });
