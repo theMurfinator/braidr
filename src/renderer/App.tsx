@@ -1819,11 +1819,18 @@ function App() {
       return idx >= 0 ? prev.map(a => a.id === act.id ? act : a) : [...prev, act];
     });
     await dataService.saveAct(act);
+    dataService.mutate('act.upsert', {
+      id: act.id, characterId: act.characterId, name: act.name, synopsis: act.synopsis,
+      startingState: act.startingState, endingState: act.endingState, polarity: act.polarity,
+      transformation: act.transformation, dilemma: act.dilemma, propellingAction: act.propellingAction,
+      displayOrder: act.order,
+    }).catch(() => {});
   }, []);
 
   const handleDeleteAct = useCallback(async (actId: string) => {
     setActs(prev => prev.filter(a => a.id !== actId));
     await dataService.deleteAct(actId);
+    dataService.mutate('act.delete', { id: actId }).catch(() => {});
     if (!projectData) return;
     // Sections in the deleted act simply lose their act (actId → null). Act is
     // optional for placement, so their scenes stay in play, in POV, and braided;

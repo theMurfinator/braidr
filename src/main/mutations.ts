@@ -965,6 +965,90 @@ registerMutation<TaskSetTimeEntriesArgs>({
 });
 
 // ---------------------------------------------------------------------------
+// Acts — dual-write to legacy `acts` table + substrate `structure_nodes`
+// (arc-level nodes).  Same pattern as node.create / node.delete for sections.
+// ---------------------------------------------------------------------------
+
+interface ActUpsertArgs {
+  id: string;
+  characterId: string;
+  name: string;
+  synopsis: string;
+  startingState: string;
+  endingState: string;
+  polarity: string;
+  transformation: string;
+  dilemma: string;
+  propellingAction: string;
+  displayOrder: number;
+}
+
+interface ActDeleteArgs { id: string; }
+
+registerMutation<ActUpsertArgs>({
+  name: 'act.upsert',
+  deletionBudget: 0,
+  run(ctx, args) {
+    const db = ctx.db;
+    const now = Date.now();
+    const existing = db
+      .prepare('SELECT name, synopsis, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, display_order FROM acts WHERE id = ?')
+      .get(args.id) as { name: string; synopsis: string; starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string; propelling_action: string; display_order: number } | undefined;
+
+    if (existing) {
+      db.prepare(`
+        UPDATE acts SET name = ?, synopsis = ?, starting_state = ?, ending_state = ?,
+          polarity = ?, transformation = ?, dilemma = ?, propelling_action = ?, display_order = ?
+        WHERE id = ?
+      `).run(args.name, args.synopsis, args.startingState, args.endingState, args.polarity, args.transformation, args.dilemma, args.propellingAction, args.displayOrder, args.id);
+      db.prepare('UPDATE structure_nodes SET title = ? WHERE id = ?').run(args.name, `act:${args.id}`);
+      return {
+        name: 'act.upsert',
+        args: { id: args.id, characterId: args.characterId, name: existing.name, synopsis: existing.synopsis, startingState: existing.starting_state, endingState: existing.ending_state, polarity: existing.polarity, transformation: existing.transformation, dilemma: existing.dilemma, propellingAction: existing.propelling_action, displayOrder: existing.display_order } satisfies ActUpsertArgs,
+      };
+    } else {
+      db.prepare(`
+        INSERT INTO acts (id, character_id, name, synopsis, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, display_order, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(args.id, args.characterId, args.name, args.synopsis, args.startingState, args.endingState, args.polarity, args.transformation, args.dilemma, args.propellingAction, args.displayOrder, now);
+
+      ensureSceneParentNode(db, args.characterId, null); // ensure novel root
+      const lastArc = db
+        .prepare("SELECT order_key FROM structure_nodes WHERE character_id = ? AND level_key = 'arc' ORDER BY order_key DESC LIMIT 1")
+        .get(args.characterId) as { order_key: string } | undefined;
+      const orderKey = keyBetween(lastArc?.order_key ?? null, null);
+      db.prepare(
+        'INSERT OR IGNORE INTO structure_nodes (id, character_id, level_key, parent_id, order_key, title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(`act:${args.id}`, args.characterId, 'arc', `novel:${args.characterId}`, orderKey, args.name, now);
+
+      return { name: 'act.delete', args: { id: args.id } satisfies ActDeleteArgs };
+    }
+  },
+});
+
+registerMutation<ActDeleteArgs>({
+  name: 'act.delete',
+  deletionBudget: 2,
+  run(ctx, { id }) {
+    const db = ctx.db;
+    const act = db
+      .prepare('SELECT id, character_id, name, synopsis, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, display_order FROM acts WHERE id = ?')
+      .get(id) as { id: string; character_id: string; name: string; synopsis: string; starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string; propelling_action: string; display_order: number } | undefined;
+    if (!act) throw new Error(`act.delete: act not found: ${id}`);
+
+    // Reparent plot_point nodes to novel root BEFORE deleting arc node (otherwise ON DELETE CASCADE drops them too).
+    db.prepare("UPDATE structure_nodes SET parent_id = ? WHERE parent_id = ?").run(`novel:${act.character_id}`, `act:${id}`);
+    ctx.delete('DELETE FROM structure_nodes WHERE id = ?', `act:${id}`);
+    ctx.delete('DELETE FROM acts WHERE id = ?', id); // FK ON DELETE SET NULL handles plot_points.act_id
+
+    return {
+      name: 'act.upsert',
+      args: { id: act.id, characterId: act.character_id, name: act.name, synopsis: act.synopsis, startingState: act.starting_state, endingState: act.ending_state, polarity: act.polarity, transformation: act.transformation, dilemma: act.dilemma, propellingAction: act.propelling_action, displayOrder: act.display_order } satisfies ActUpsertArgs,
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Phase 4b — Connections (retire SAVE_TIMELINE connections bulk-replace)
 // ---------------------------------------------------------------------------
 
