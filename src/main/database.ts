@@ -413,8 +413,9 @@ export class BraidrDB {
     // checks in migrate() are frozen as the v1 baseline. See migrations.ts.
     runMigrations(this.db, this.filePath, isFreshDb);
 
-    // Rebuild the derived structure tree from the (still authoritative)
-    // legacy tables. One-way until Phase 5 cutover. See substrate.ts.
+    // Phase 5a: seed structure_nodes once from legacy tables, then let
+    // mutations own the tree. refreshFields() still runs every open.
+    // See substrate.ts for the seeding-flag logic.
     refreshSubstrate(this.db);
   }
 

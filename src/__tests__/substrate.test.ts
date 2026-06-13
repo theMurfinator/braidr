@@ -11,27 +11,37 @@ async function open(dir: string): Promise<BraidrDB> {
   return new mod.BraidrDB(path.join(dir, FILE));
 }
 
-/** Two characters; Noah has acts + plot points + scenes, Grace is bare. */
+/**
+ * Two characters; Noah has acts + plot points + scenes, Grace is bare.
+ *
+ * We insert legacy data then close+reopen so the second open triggers a full
+ * substrate rebuild with the data present (Phase 5a: the first open may happen
+ * before any characters exist, so the rebuilt tree is empty; the second open
+ * detects the empty structure_nodes and re-seeds from legacy tables).
+ */
 async function seed(dir: string): Promise<BraidrDB> {
-  const db = await open(dir);
-  db.insertCharacter('noah', 'Noah', null, 0);
-  db.insertCharacter('grace', 'Grace', null, 1);
-  db.upsertAct({
+  const setup = await open(dir);
+  setup.insertCharacter('noah', 'Noah', null, 0);
+  setup.insertCharacter('grace', 'Grace', null, 1);
+  setup.upsertAct({
     id: 'a1', character_id: 'noah', name: 'Act One', synopsis: '',
     starting_state: '', ending_state: '', polarity: '', transformation: '',
     dilemma: '', propelling_action: '', display_order: 0, created_at: 1,
   });
-  db.upsertAct({
+  setup.upsertAct({
     id: 'a2', character_id: 'noah', name: 'Act Two', synopsis: '',
     starting_state: '', ending_state: '', polarity: '', transformation: '',
     dilemma: '', propelling_action: '', display_order: 1, created_at: 2,
   });
-  db.insertPlotPoint('p1', 'noah', 'Hook', null, null, 0, 'a1');
-  db.insertPlotPoint('p2', 'noah', 'Setup', null, null, 1, 'a1');
-  db.insertPlotPoint('p3', 'noah', 'Loose ideas', null, null, 2, null, '', '', '', '', '', '', true);
-  db.insertScene('s1', 'noah', 'p1', 'Chasing Miguel', '', 1, null, false, null);
-  db.insertScene('s2', 'noah', null, 'Unplaced idea', '', 2, null, false, null);
-  return db;
+  setup.insertPlotPoint('p1', 'noah', 'Hook', null, null, 0, 'a1');
+  setup.insertPlotPoint('p2', 'noah', 'Setup', null, null, 1, 'a1');
+  setup.insertPlotPoint('p3', 'noah', 'Loose ideas', null, null, 2, null, '', '', '', '', '', '', true);
+  setup.insertScene('s1', 'noah', 'p1', 'Chasing Miguel', '', 1, null, false, null);
+  setup.insertScene('s2', 'noah', null, 'Unplaced idea', '', 2, null, false, null);
+  setup.close();
+  // Reopen: structure_nodes was seeded empty on first open, so the second open
+  // detects empty nodes + seeded flag and runs the full rebuild with legacy data.
+  return open(dir);
 }
 
 function sceneParent(db: BraidrDB, sceneId: string): string | null {
@@ -100,14 +110,45 @@ describe('structure substrate refresh', () => {
     second.close();
   });
 
-  it('legacy edits are reflected after reopen (legacy stays authoritative)', async () => {
+  it('after seeding, structure_nodes is stable across reopens (not rebuilt from legacy)', async () => {
+    // Phase 5a: once seeded, structure_nodes is maintained by mutations only.
+    // Direct legacy table writes are NOT reflected on the next open.
     const db = await seed(dir);
     db.close();
     const mid = await open(dir);
+    // Direct legacy write — bypasses mutations, so structure_nodes is NOT updated.
     mid.updatePlotPoint('p2', { actId: null });
     mid.close();
     const re = await open(dir);
-    expect(re.getStructureNodes().find(n => n.id === 'pp:p2')!.parent_id).toBe('novel:noah');
+    // parent_id still reflects the seeded value (act:a1), not the legacy edit.
+    expect(re.getStructureNodes().find(n => n.id === 'pp:p2')!.parent_id).toBe('act:a1');
+    re.close();
+  });
+
+  it('substrate_seeded flag is set after first open', async () => {
+    const db = await seed(dir);
+    const seeded = db.prepare("SELECT value FROM settings WHERE key = 'substrate_seeded'").get() as { value: string } | undefined;
+    expect(seeded?.value).toBe('1');
+    db.close();
+  });
+
+  it('mutation order_key updates survive a reopen (not reset by legacy rebuild)', async () => {
+    const db = await seed(dir);
+    // node.move swaps p1 and p2 within act:a1 via fractional key
+    db.mutate('node.move', { nodeId: 'pp:p2', afterNodeId: null }); // p2 moves to first
+    const beforeClose = db.getStructureNodes('noah')
+      .filter(n => n.parent_id === 'act:a1')
+      .sort((a, b) => (a.order_key < b.order_key ? -1 : 1))
+      .map(n => n.id);
+    expect(beforeClose[0]).toBe('pp:p2'); // p2 is now first
+    db.close();
+
+    const re = await open(dir);
+    const afterReopen = re.getStructureNodes('noah')
+      .filter(n => n.parent_id === 'act:a1')
+      .sort((a, b) => (a.order_key < b.order_key ? -1 : 1))
+      .map(n => n.id);
+    expect(afterReopen[0]).toBe('pp:p2'); // order preserved — not reset by refresh
     re.close();
   });
 
