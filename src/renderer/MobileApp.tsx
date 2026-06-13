@@ -369,9 +369,17 @@ export function MobileApp() {
     const updatedScenes = [...otherScenes, ...newCharScenes];
     setProjectData({ ...projectData, scenes: updatedScenes });
 
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    const afterSceneId = charScenes[insertAfterIndex]?.id ?? null;
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
+      await dataService.mutate('scene.create', {
+        id: newScene.id,
+        characterId: newScene.characterId,
+        plotPointId: newScene.plotPointId ?? null,
+        afterSceneId,
+        title: newScene.title,
+        content: newScene.content,
+        tags: newScene.tags,
+      });
       await saveTimelineData(updatedScenes, sceneConnections);
     } catch (err) {
       console.error('Failed to save after adding scene:', err);
@@ -391,10 +399,12 @@ export function MobileApp() {
     scene.notes = newNotes;
     isDirtyRef.current = true;
     setProjectData({ ...projectData });
-    const char = projectData.characters.find(c => c.id === scene.characterId);
-    const plotPoints = projectData.plotPoints.filter(p => p.characterId === scene.characterId);
-    const charScenes = projectData.scenes.filter(s => s.characterId === scene.characterId);
-    if (char) dataService.saveCharacterOutline(char, plotPoints, charScenes).catch(console.error);
+    dataService.mutate('scene.edit', {
+      sceneId: scene.id,
+      title: scene.title ?? '',
+      content: newContent,
+      notes: newNotes,
+    }).catch(console.error);
   }, [projectData]);
 
   // ── Welcome screen ────────────────────────────────────────────────────────

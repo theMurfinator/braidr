@@ -29,7 +29,7 @@ import {
   BranchSceneDiff,
   SaveTimelinePayload,
 } from '../../shared/types';
-import { parseOutlineFile, serializeOutline, createTagsFromStrings } from './parser';
+import { parseOutlineFile, createTagsFromStrings } from './parser';
 import { migrateSceneKeys } from './migration';
 import type { DataService } from './dataService';
 import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } from './projectLock';
@@ -430,31 +430,6 @@ export class CapacitorDataService implements DataService {
     };
   }
 
-  // ── Character I/O ───────────────────────────────────────────────────────
-
-  async saveCharacterOutline(
-    character: Character,
-    plotPoints: PlotPoint[],
-    scenes: Scene[],
-  ): Promise<void> {
-    const outline = this.outlineFiles.get(character.id);
-    if (!outline) {
-      throw new Error('Character outline not found');
-    }
-
-    outline.character = character;
-    outline.plotPoints = plotPoints.filter(p => p.characterId === character.id);
-    outline.scenes = scenes.filter(s => s.characterId === character.id);
-
-    const content = serializeOutline(outline);
-    let savePath = character.filePath;
-    if (this.activeBranch && this.projectPath) {
-      const fileName = character.filePath.split('/').pop() || '';
-      savePath = `${this.projectPath}/branches/${this.activeBranch}/${fileName}`;
-    }
-    await writeTextFile(savePath, content);
-    outline.rawContent = content;
-  }
 
   async createCharacter(folderPath: string, name: string): Promise<Character> {
     const character: Character = {

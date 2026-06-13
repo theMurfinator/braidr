@@ -3,7 +3,6 @@ import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, Re
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
-import { migrateNotesSceneLinks } from './services/migration';
 import PovOutlineView from './components/PovOutlineView';
 import BullpenPanel from './components/BullpenPanel';
 import ArcBullpenPanel from './components/ArcBullpenPanel';
@@ -1070,53 +1069,6 @@ function App() {
       addToast('Your project file was corrupted and was automatically restored from the most recent healthy backup.');
     }
 
-    // If legacy keys were migrated to stable IDs, persist the changes immediately
-    if (data._migrated) {
-      console.log('Migrating to stable scene IDs — saving .md files and timeline data');
-      // Save all character outlines to embed <!-- sid:xxx --> in .md files
-      for (const character of data.characters) {
-        const charScenes = data.scenes.filter(s => s.characterId === character.id);
-        const charPlotPoints = data.plotPoints.filter(p => p.characterId === character.id);
-        try {
-          await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-        } catch (err) {
-          console.error(`Failed to save migrated outline for ${character.name}:`, err);
-        }
-      }
-      // Save migrated timeline data (positions, connections, etc. now use scene.id keys)
-      const positions: Record<string, number> = {};
-      const wordCounts: Record<string, number> = {};
-      for (const scene of data.scenes) {
-        if (scene.timelinePosition !== null) positions[scene.id] = scene.timelinePosition;
-        if (scene.wordCount !== undefined) wordCounts[scene.id] = scene.wordCount;
-      }
-      try {
-        await dataService.saveTimeline({
-          positions, connections: data.connections,
-          characterColors: data.characterColors, wordCounts,
-          fontSettings: data.fontSettings, archivedScenes: data.archivedScenes,
-          metadataFieldDefs: data.metadataFieldDefs, sceneMetadata: data.sceneMetadata,
-          wordCountGoal: data.wordCountGoal, allFontSettings: data.allFontSettings,
-          tasks: data.tasks, taskFieldDefs: data.taskFieldDefs, taskViews: data.taskViews,
-          inlineMetadataFields: data.inlineMetadataFields, showInlineLabels: data.showInlineLabels,
-          taskColumnWidths: data.taskColumnWidths, taskVisibleColumns: data.taskVisibleColumns,
-          timelineDates: data.timelineDates, worldEvents: data.worldEvents,
-        });
-      } catch (err) {
-        console.error('Failed to save migrated timeline data:', err);
-      }
-      // Migrate notes sceneLinks from old keys to stable IDs
-      try {
-        const notesIdx = await dataService.loadNotesIndex(folderPath);
-        const notesMigration = migrateNotesSceneLinks(data.scenes, notesIdx);
-        if (notesMigration.migrated) {
-          await dataService.saveNotesIndex(folderPath, notesMigration.notesIndex);
-          console.log('Migrated notes sceneLinks to stable IDs');
-        }
-      } catch {
-        // Notes may not exist yet — that's fine
-      }
-    }
 
     // Derive project name from folder if not provided
     const name = projectName || folderPath.split('/').pop() || 'Untitled';

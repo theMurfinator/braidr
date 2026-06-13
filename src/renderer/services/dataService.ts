@@ -1,4 +1,4 @@
-import { Character, Scene, PlotPoint, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload, Act, CharacterPsychology, ArcFieldDef } from '../../shared/types';
+import { Character, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload, Act, CharacterPsychology, ArcFieldDef } from '../../shared/types';
 import { CapacitorDataService } from './capacitorDataService';
 import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } from './projectLock';
 
@@ -7,7 +7,6 @@ export interface DataService {
   selectProjectFolder(): Promise<string | null>;
   selectBraidrFile(): Promise<string | null>;
   loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; arcFieldDefs: ArcFieldDef[]; arcFieldValues: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }>;
-  saveCharacterOutline(character: Character, plotPoints: PlotPoint[], scenes: Scene[]): Promise<void>;
   createCharacter(folderPath: string, name: string): Promise<Character>;
   saveTimeline(payload: SaveTimelinePayload): Promise<void>;
   getChapters(): Promise<Chapter[]>;
@@ -103,11 +102,6 @@ class ElectronDataService implements DataService {
     throw new Error('Not a .braidr project. Please convert your project first.');
   }
 
-  async saveCharacterOutline(character: Character, plotPoints: PlotPoint[], scenes: Scene[]): Promise<void> {
-    if (!this.braidrPath) throw new Error('No project loaded');
-    const result = await window.electronAPI.braidrSaveCharacter(this.braidrPath, { character, plotPoints, scenes });
-    if (!result.success) throw new Error(result.error || 'Failed to save character');
-  }
 
   async createCharacter(_folderPath: string, name: string): Promise<Character> {
     if (!this.braidrPath) throw new Error('No project loaded');

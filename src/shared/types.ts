@@ -554,7 +554,6 @@ export const IPC_CHANNELS = {
   BRAIDR_LOAD_PROJECT: 'braidr:load-project',
   BRAIDR_MUTATE: 'braidr:mutate',
   BRAIDR_SAVE_TIMELINE: 'braidr:save-timeline',
-  BRAIDR_SAVE_CHARACTER: 'braidr:save-character',
   BRAIDR_CREATE_CHARACTER: 'braidr:create-character',
   BRAIDR_READ_DRAFT: 'braidr:read-draft',
   BRAIDR_SAVE_DRAFT: 'braidr:save-draft',
