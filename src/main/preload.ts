@@ -63,7 +63,6 @@ const IPC_CHANNELS = {
   BRAIDR_LOAD_PROJECT: 'braidr:load-project',
   BRAIDR_MUTATE: 'braidr:mutate',
   BRAIDR_SAVE_TIMELINE: 'braidr:save-timeline',
-  BRAIDR_SAVE_CHARACTER: 'braidr:save-character',
   BRAIDR_CREATE_CHARACTER: 'braidr:create-character',
   BRAIDR_READ_DRAFT: 'braidr:read-draft',
   BRAIDR_SAVE_DRAFT: 'braidr:save-draft',
@@ -269,8 +268,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, braidrPath),
   braidrSaveTimeline: (braidrPath: string, payload: any) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, braidrPath, payload),
-  braidrSaveCharacter: (braidrPath: string, payload: any) =>
-    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_CHARACTER, braidrPath, payload),
   braidrCreateCharacter: (braidrPath: string, name: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_CREATE_CHARACTER, braidrPath, name),
   braidrMutate: (braidrPath: string, name: string, args: unknown) =>

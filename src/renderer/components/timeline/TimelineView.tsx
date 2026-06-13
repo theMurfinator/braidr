@@ -56,6 +56,9 @@ interface TimelineViewProps {
   onTimelineDatesChange: (dates: Record<string, string>) => void;
   onTimelineEndDatesChange: (dates: Record<string, string>) => void;
   onWorldEventsChange: (events: WorldEvent[]) => void;
+  onWorldEventCreate?: (event: WorldEvent) => void;
+  onWorldEventUpdate?: (event: WorldEvent) => void;
+  onWorldEventDelete?: (eventId: string) => void;
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
   onTagsChange: (sceneId: string, tags: string[]) => void;
   onCreateTag: (name: string, category: TagCategory) => void;
@@ -77,6 +80,9 @@ export default function TimelineView({
   onTimelineDatesChange,
   onTimelineEndDatesChange,
   onWorldEventsChange,
+  onWorldEventCreate,
+  onWorldEventUpdate,
+  onWorldEventDelete,
   onSceneChange,
   onTagsChange,
   onCreateTag,
@@ -384,13 +390,16 @@ export default function TimelineView({
       e.id === id ? { ...e, ...patch, updatedAt: Date.now() } : e
     );
     onWorldEventsChange(updated);
-  }, [worldEvents, onWorldEventsChange]);
+    const updatedEvent = updated.find(e => e.id === id);
+    if (updatedEvent) onWorldEventUpdate?.(updatedEvent);
+  }, [worldEvents, onWorldEventsChange, onWorldEventUpdate]);
 
   const handleDeleteEvent = useCallback((id: string) => {
     if (!window.confirm('Delete this world event?')) return;
     onWorldEventsChange(worldEvents.filter(e => e.id !== id));
+    onWorldEventDelete?.(id);
     setSelectedEventId(null);
-  }, [worldEvents, onWorldEventsChange]);
+  }, [worldEvents, onWorldEventsChange, onWorldEventDelete]);
 
   const [linkDropdownOpen, setLinkDropdownOpen] = useState(false);
   const [linkSearch, setLinkSearch] = useState('');
@@ -780,6 +789,8 @@ export default function TimelineView({
           onSelectScene={setSelectedSceneKey}
           onSelectEvent={setSelectedEventId}
           onWorldEventsChange={onWorldEventsChange}
+          onWorldEventCreate={onWorldEventCreate}
+          onWorldEventUpdate={onWorldEventUpdate}
           onTimelineDatesChange={onTimelineDatesChange}
         />
       </div>

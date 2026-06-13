@@ -18,6 +18,53 @@ function randomId() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
 
+// Dual-write the six story-structure fields from a camelCase payload into
+// field_values so the substrate stays in sync without waiting for the next
+// refreshSubstrate() call (Phase 5 prerequisite).
+const STRUCTURE_SIX_CAMEL: ReadonlyArray<[string, string]> = [
+  ['startingState',    'builtin:starting_state'],
+  ['endingState',      'builtin:ending_state'],
+  ['polarity',         'builtin:polarity'],
+  ['transformation',   'builtin:transformation'],
+  ['dilemma',          'builtin:dilemma'],
+  ['propellingAction', 'builtin:propelling_action'],
+];
+
+// Subset used by character_psychology rows (novel_* column names).
+const STRUCTURE_SIX_PSYCH: ReadonlyArray<[string, string]> = [
+  ['novel_starting_state',    'builtin:starting_state'],
+  ['novel_ending_state',      'builtin:ending_state'],
+  ['novel_polarity',          'builtin:polarity'],
+  ['novel_transformation',    'builtin:transformation'],
+  ['novel_dilemma',           'builtin:dilemma'],
+  ['novel_propelling_action', 'builtin:propelling_action'],
+];
+
+function syncStructureSix(
+  db: BraidrDB,
+  entityType: 'scene' | 'node',
+  entityId: string,
+  fields: Record<string, unknown>,
+  keyMap: ReadonlyArray<[string, string]> = STRUCTURE_SIX_CAMEL,
+): void {
+  const upsert = db.prepare(
+    'INSERT OR REPLACE INTO field_values (field_id, entity_type, entity_id, value) VALUES (?, ?, ?, ?)',
+  );
+  const del = db.prepare(
+    'DELETE FROM field_values WHERE field_id = ? AND entity_type = ? AND entity_id = ?',
+  );
+  for (const [key, fieldId] of keyMap) {
+    if (!(key in fields)) continue;
+    const val = fields[key];
+    if (typeof val !== 'string') continue;
+    if (val === '') {
+      del.run(fieldId, entityType, entityId);
+    } else {
+      upsert.run(fieldId, entityType, entityId, JSON.stringify(val));
+    }
+  }
+}
+
 const lastBraidrBackupTime: Record<string, number> = {};
 const BRAIDR_BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 const BRAIDR_MAX_BACKUPS = 20;
@@ -549,90 +596,6 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, (_event, braidrPath: string, p
   }
 });
 
-// ── Save character outline ────────────────────────────────────────────────────
-
-ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_CHARACTER, (_event, braidrPath: string, payload: {
-  character: Character;
-  plotPoints: PlotPoint[];
-  scenes: Scene[];
-}) => {
-  try {
-    const db = getDb(braidrPath);
-    const { character, plotPoints, scenes } = payload;
-
-    db.transaction(() => {
-      // Update character (name, color)
-      db.updateCharacter(character.id, character.name, character.color ?? null, 0);
-
-      // Replace plot points for this character
-      db.prepare('DELETE FROM plot_points WHERE character_id = ?').run(character.id);
-      for (const pp of plotPoints) {
-        db.insertPlotPoint(
-          pp.id, pp.characterId, pp.title, pp.description || null,
-          pp.expectedSceneCount, pp.order, pp.actId ?? null,
-          pp.startingState, pp.endingState, pp.polarity, pp.transformation,
-          pp.dilemma, pp.propellingAction, pp.inBullpen ?? false, pp.synopsis ?? ''
-        );
-      }
-
-      // Get existing scene IDs for this character (to detect deletions)
-      const existingSceneIds = new Set(
-        (db.prepare('SELECT id FROM scenes WHERE character_id = ?').all(character.id) as { id: string }[]).map(r => r.id)
-      );
-      const incomingSceneIds = new Set(scenes.map(s => s.id));
-
-      // Delete scenes no longer present (user removed them from outline)
-      for (const existingId of existingSceneIds) {
-        if (!incomingSceneIds.has(existingId)) {
-          db.deleteScene(existingId);
-        }
-      }
-
-      // Upsert each scene
-      for (const scene of scenes) {
-        if (existingSceneIds.has(scene.id)) {
-          db.updateScene(scene.id, {
-            title: scene.title,
-            synopsis: scene.content,
-            sceneNumber: scene.sceneNumber,
-            isHighlighted: scene.isHighlighted,
-            wordCount: scene.wordCount ?? null,
-            plotPointId: scene.plotPointId,
-          });
-        } else {
-          db.insertScene(
-            scene.id, scene.characterId, scene.plotPointId,
-            scene.title, scene.content, scene.sceneNumber,
-            scene.timelinePosition, scene.isHighlighted, scene.wordCount ?? null
-          );
-        }
-
-        // Replace scene tags
-        if (scene.tags.length > 0) {
-          const tagIds = scene.tags.map(name => {
-            const row = db.prepare('SELECT id FROM tags WHERE name = ?').get(name) as { id: string } | undefined;
-            if (row) return row.id;
-            const newId = randomId();
-            db.upsertTag(newId, name, 'things');
-            return newId;
-          });
-          db.replaceSceneTags(scene.id, tagIds);
-        } else {
-          db.replaceSceneTags(scene.id, []);
-        }
-
-        // Replace scene notes
-        db.replaceSceneNotes(scene.id, scene.notes);
-      }
-    });
-
-    return { success: true };
-  } catch (error) {
-    console.error('[BRAIDR_SAVE_CHARACTER]', error);
-    return { success: false, error: String(error) };
-  }
-});
-
 // ── Create character ──────────────────────────────────────────────────────────
 
 ipcMain.handle(IPC_CHANNELS.BRAIDR_CREATE_CHARACTER, (_event, braidrPath: string, name: string) => {
@@ -1033,6 +996,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: s
   try {
     const db = getDb(braidrPath);
     db.updateScene(sceneId, fields);
+    syncStructureSix(db, 'scene', sceneId, fields as Record<string, unknown>);
     db.checkpoint();
     return { success: true };
   } catch (err) { return { success: false, error: String(err) }; }
@@ -1042,6 +1006,18 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS, (_event, braidrPa
   try {
     const db = getDb(braidrPath);
     db.updatePlotPoint(plotPointId, fields);
+    syncStructureSix(db, 'node', `pp:${plotPointId}`, fields as Record<string, unknown>);
+    const nodeId = `pp:${plotPointId}`;
+    if ('title' in fields && typeof fields.title === 'string') {
+      db.prepare('UPDATE structure_nodes SET title = ? WHERE id = ?').run(fields.title, nodeId);
+    }
+    if ('actId' in fields) {
+      const pp = db.prepare('SELECT character_id FROM plot_points WHERE id = ?').get(plotPointId) as { character_id: string } | undefined;
+      if (pp) {
+        const newParent = fields.actId ? `act:${fields.actId}` : `novel:${pp.character_id}`;
+        db.prepare('UPDATE structure_nodes SET parent_id = ? WHERE id = ?').run(newParent, nodeId);
+      }
+    }
     db.checkpoint();
     return { success: true };
   } catch (err) { return { success: false, error: String(err) }; }
@@ -1131,6 +1107,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_CHARACTER_PSYCHOLOGY, (_event, braidrPat
   try {
     const db = getDb(braidrPath);
     db.upsertCharacterPsychology(row);
+    syncStructureSix(db, 'node', `novel:${row.character_id}`, row as unknown as Record<string, unknown>, STRUCTURE_SIX_PSYCH);
     db.checkpoint();
     return { success: true };
   } catch (err) { return { success: false, error: String(err) }; }

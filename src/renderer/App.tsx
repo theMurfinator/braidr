@@ -3,7 +3,6 @@ import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, Re
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
-import { migrateNotesSceneLinks } from './services/migration';
 import PovOutlineView from './components/PovOutlineView';
 import BullpenPanel from './components/BullpenPanel';
 import ArcBullpenPanel from './components/ArcBullpenPanel';
@@ -502,21 +501,64 @@ function App() {
   }, []);
 
   const handleTimelineDatesChange = useCallback((dates: Record<string, string>) => {
+    const oldDates = timelineDatesRef.current;
+    const endDates = timelineEndDatesRef.current;
     setTimelineDates(dates);
     timelineDatesRef.current = dates;
     isDirtyRef.current = true;
+    const allIds = new Set([...Object.keys(oldDates), ...Object.keys(dates)]);
+    for (const sceneId of allIds) {
+      if (oldDates[sceneId] !== dates[sceneId]) {
+        dataService.mutate('scene.setDate', {
+          sceneId,
+          startDate: dates[sceneId] ?? null,
+          endDate: endDates[sceneId] ?? null,
+        });
+      }
+    }
   }, []);
 
   const handleTimelineEndDatesChange = useCallback((dates: Record<string, string>) => {
+    const oldEndDates = timelineEndDatesRef.current;
+    const startDates = timelineDatesRef.current;
     setTimelineEndDates(dates);
     timelineEndDatesRef.current = dates;
     isDirtyRef.current = true;
+    const allIds = new Set([...Object.keys(oldEndDates), ...Object.keys(dates)]);
+    for (const sceneId of allIds) {
+      if (oldEndDates[sceneId] !== dates[sceneId]) {
+        const startDate = startDates[sceneId] ?? null;
+        if (startDate !== null) {
+          dataService.mutate('scene.setDate', { sceneId, startDate, endDate: dates[sceneId] ?? null });
+        }
+      }
+    }
   }, []);
 
   const handleWorldEventsChange = useCallback((events: WorldEvent[]) => {
     setWorldEvents(events);
     worldEventsRef.current = events;
     isDirtyRef.current = true;
+  }, []);
+
+  const handleWorldEventCreate = useCallback((event: WorldEvent) => {
+    dataService.mutate('worldEvent.create', {
+      id: event.id, title: event.title, date: event.date, endDate: event.endDate ?? null,
+      description: event.description, tags: event.tags, linkedSceneIds: event.linkedSceneKeys,
+      linkedNoteIds: event.linkedNoteIds, createdAt: event.createdAt,
+    }).catch(() => {});
+  }, []);
+
+  const handleWorldEventUpdate = useCallback((event: WorldEvent) => {
+    dataService.mutate('worldEvent.update', {
+      id: event.id, title: event.title, date: event.date, endDate: event.endDate ?? null,
+      description: event.description, tags: event.tags, linkedSceneIds: event.linkedSceneKeys,
+      linkedNoteIds: event.linkedNoteIds,
+    }).catch(() => {});
+  }, []);
+
+  const handleWorldEventDelete = useCallback((eventId: string) => {
+    dataService.mutate('worldEvent.delete', { id: eventId }).catch(() => {});
   }, []);
 
   // Welcome screen state
@@ -1050,53 +1092,6 @@ function App() {
       addToast('Your project file was corrupted and was automatically restored from the most recent healthy backup.');
     }
 
-    // If legacy keys were migrated to stable IDs, persist the changes immediately
-    if (data._migrated) {
-      console.log('Migrating to stable scene IDs — saving .md files and timeline data');
-      // Save all character outlines to embed <!-- sid:xxx --> in .md files
-      for (const character of data.characters) {
-        const charScenes = data.scenes.filter(s => s.characterId === character.id);
-        const charPlotPoints = data.plotPoints.filter(p => p.characterId === character.id);
-        try {
-          await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-        } catch (err) {
-          console.error(`Failed to save migrated outline for ${character.name}:`, err);
-        }
-      }
-      // Save migrated timeline data (positions, connections, etc. now use scene.id keys)
-      const positions: Record<string, number> = {};
-      const wordCounts: Record<string, number> = {};
-      for (const scene of data.scenes) {
-        if (scene.timelinePosition !== null) positions[scene.id] = scene.timelinePosition;
-        if (scene.wordCount !== undefined) wordCounts[scene.id] = scene.wordCount;
-      }
-      try {
-        await dataService.saveTimeline({
-          positions, connections: data.connections,
-          characterColors: data.characterColors, wordCounts,
-          fontSettings: data.fontSettings, archivedScenes: data.archivedScenes,
-          metadataFieldDefs: data.metadataFieldDefs, sceneMetadata: data.sceneMetadata,
-          wordCountGoal: data.wordCountGoal, allFontSettings: data.allFontSettings,
-          tasks: data.tasks, taskFieldDefs: data.taskFieldDefs, taskViews: data.taskViews,
-          inlineMetadataFields: data.inlineMetadataFields, showInlineLabels: data.showInlineLabels,
-          taskColumnWidths: data.taskColumnWidths, taskVisibleColumns: data.taskVisibleColumns,
-          timelineDates: data.timelineDates, worldEvents: data.worldEvents,
-        });
-      } catch (err) {
-        console.error('Failed to save migrated timeline data:', err);
-      }
-      // Migrate notes sceneLinks from old keys to stable IDs
-      try {
-        const notesIdx = await dataService.loadNotesIndex(folderPath);
-        const notesMigration = migrateNotesSceneLinks(data.scenes, notesIdx);
-        if (notesMigration.migrated) {
-          await dataService.saveNotesIndex(folderPath, notesMigration.notesIndex);
-          console.log('Migrated notes sceneLinks to stable IDs');
-        }
-      } catch {
-        // Notes may not exist yet — that's fine
-      }
-    }
 
     // Derive project name from folder if not provided
     const name = projectName || folderPath.split('/').pop() || 'Untitled';
@@ -1782,6 +1777,7 @@ function App() {
     }
 
     setSceneConnections(newConnections);
+    dataService.mutate('connection.remove', { sourceId, targetId }).catch(() => {});
     await saveTimelineData(projectData.scenes, newConnections);
   };
 
@@ -1798,11 +1794,18 @@ function App() {
       return idx >= 0 ? prev.map(a => a.id === act.id ? act : a) : [...prev, act];
     });
     await dataService.saveAct(act);
+    dataService.mutate('act.upsert', {
+      id: act.id, characterId: act.characterId, name: act.name, synopsis: act.synopsis,
+      startingState: act.startingState, endingState: act.endingState, polarity: act.polarity,
+      transformation: act.transformation, dilemma: act.dilemma, propellingAction: act.propellingAction,
+      displayOrder: act.order,
+    }).catch(() => {});
   }, []);
 
   const handleDeleteAct = useCallback(async (actId: string) => {
     setActs(prev => prev.filter(a => a.id !== actId));
     await dataService.deleteAct(actId);
+    dataService.mutate('act.delete', { id: actId }).catch(() => {});
     if (!projectData) return;
     // Sections in the deleted act simply lose their act (actId → null). Act is
     // optional for placement, so their scenes stay in play, in POV, and braided;
@@ -2624,9 +2627,7 @@ function App() {
     const newColors = { ...characterColors, [characterId]: color };
     setCharacterColors(newColors);
     characterColorsRef.current = newColors;
-    if (projectData) {
-      await saveTimelineData(projectData.scenes, sceneConnections);
-    }
+    await dataService.mutate('character.setColor', { characterId, color });
   };
 
   const handleSceneChange = async (sceneId: string, newContent: string, newNotes: string[]) => {
@@ -2843,10 +2844,10 @@ function App() {
     }
   };
 
-  // Save timeline positions, connections, and chapters to file
+  // Save timeline positions and per-scene data. connections/archivedScenes/worldEvents retired to per-mutation paths (Phase 4).
   const saveTimelineData = useCallback(async (
     scenes: Scene[],
-    connections: Record<string, string[]>,
+    _connections?: Record<string, string[]>,
   ) => {
     const positions: Record<string, number> = {};
     const clearedPositions: string[] = [];
@@ -2877,14 +2878,10 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      // Connections are already keyed by scene.id at runtime — save directly
       await dataService.saveTimeline({
-        positions, clearedPositions, connections,
-        characterColors: characterColorsRef.current,
+        positions, clearedPositions,
         wordCounts: sceneWordCounts,
         fontSettings: allFontSettingsRef.current.global,
-        archivedScenes: archivedScenesRef.current,
-        // Scene metadata now managed via braidrSaveArcFieldDefs/braidrSaveArcFieldValues — no-op in applySaveTimeline
         wordCountGoal: wordCountGoalRef.current,
         allFontSettings: allFontSettingsRef.current,
         taskViews: taskViewsRef.current,
@@ -2892,9 +2889,6 @@ function App() {
         showInlineLabels: showInlineLabelsRef.current,
         taskColumnWidths: taskColumnWidthsRef.current,
         taskVisibleColumns: taskVisibleColumnsRef.current,
-        timelineDates: timelineDatesRef.current,
-        worldEvents: worldEventsRef.current,
-        timelineEndDates: timelineEndDatesRef.current,
         tags: tagsRef.current,
       });
       isDirtyRef.current = false;
@@ -4019,6 +4013,9 @@ function App() {
                 onTimelineDatesChange={handleTimelineDatesChange}
                 onTimelineEndDatesChange={handleTimelineEndDatesChange}
                 onWorldEventsChange={handleWorldEventsChange}
+                onWorldEventCreate={handleWorldEventCreate}
+                onWorldEventUpdate={handleWorldEventUpdate}
+                onWorldEventDelete={handleWorldEventDelete}
                 onSceneChange={handleSceneChange}
                 onTagsChange={handleTagsChange}
                 onCreateTag={handleCreateTag}
@@ -4413,6 +4410,7 @@ function App() {
                         [targetId]: [...targetConnections, connectionSource],
                       };
                       setSceneConnections(newConnections);
+                      dataService.mutate('connection.add', { sourceId: connectionSource, targetId }).catch(() => {});
                       saveTimelineData(projectData.scenes, newConnections);
                     }
                   }

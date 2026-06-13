@@ -12,6 +12,8 @@ interface TimelineSidebarProps {
   onSelectScene: (key: string | null) => void;
   onSelectEvent: (id: string | null) => void;
   onWorldEventsChange: (events: WorldEvent[]) => void;
+  onWorldEventCreate?: (event: WorldEvent) => void;
+  onWorldEventUpdate?: (event: WorldEvent) => void;
   onTimelineDatesChange: (dates: Record<string, string>) => void;
 }
 
@@ -26,6 +28,8 @@ export default function TimelineSidebar({
   onSelectScene,
   onSelectEvent,
   onWorldEventsChange,
+  onWorldEventCreate,
+  onWorldEventUpdate,
   onTimelineDatesChange,
 }: TimelineSidebarProps) {
 
@@ -116,6 +120,8 @@ export default function TimelineSidebar({
         ev.id === eventId ? { ...ev, date: '', updatedAt: Date.now() } : ev
       );
       onWorldEventsChange(updated);
+      const updatedEvent = updated.find(ev => ev.id === eventId);
+      if (updatedEvent) onWorldEventUpdate?.(updatedEvent);
       return;
     }
 
@@ -146,6 +152,7 @@ export default function TimelineSidebar({
       updatedAt: now,
     };
     onWorldEventsChange([...worldEvents, newEvent]);
+    onWorldEventCreate?.(newEvent);
     onSelectEvent(newEvent.id);
   }
 

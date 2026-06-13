@@ -193,7 +193,7 @@ export interface TimelineData {
 // file-only fields removed and the three required fields made non-optional.
 export type SaveTimelinePayload =
   Omit<TimelineData, 'connections' | 'draftContent' | 'drafts' | 'scratchpad' | 'sceneComments' | 'tableViews'> & {
-    connections: Record<string, string[]>;
+    connections?: Record<string, string[]>; // retired Phase 4b; managed via connection.add/remove mutations
     clearedPositions?: string[]; // scene IDs whose timeline_position should be set to null
   };
 
@@ -554,7 +554,6 @@ export const IPC_CHANNELS = {
   BRAIDR_LOAD_PROJECT: 'braidr:load-project',
   BRAIDR_MUTATE: 'braidr:mutate',
   BRAIDR_SAVE_TIMELINE: 'braidr:save-timeline',
-  BRAIDR_SAVE_CHARACTER: 'braidr:save-character',
   BRAIDR_CREATE_CHARACTER: 'braidr:create-character',
   BRAIDR_READ_DRAFT: 'braidr:read-draft',
   BRAIDR_SAVE_DRAFT: 'braidr:save-draft',

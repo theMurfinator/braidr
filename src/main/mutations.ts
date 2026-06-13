@@ -501,19 +501,29 @@ interface SceneRestoreArgs {
 }
 
 // scene.delete — soft-delete a scene (TO-BE §6: set deleted_at, renumber active).
-// The legacy archived_scenes row is still written by saveTimelineData (which
-// callers keep until SAVE_TIMELINE is retired in Phase 4).
+// Also writes to archived_scenes so the legacy read path stays coherent until Phase 5.
 registerMutation<SceneDeleteArgs>({
   name: 'scene.delete',
   deletionBudget: 0,
   run(ctx, { sceneId }) {
     const db = ctx.db;
     const scene = db
-      .prepare('SELECT id, character_id, plot_point_id, scene_number FROM scenes WHERE id = ? AND deleted_at IS NULL')
-      .get(sceneId) as { id: string; character_id: string; plot_point_id: string | null; scene_number: number } | undefined;
+      .prepare('SELECT id, character_id, plot_point_id, scene_number, title, synopsis, is_highlighted, word_count FROM scenes WHERE id = ? AND deleted_at IS NULL')
+      .get(sceneId) as { id: string; character_id: string; plot_point_id: string | null; scene_number: number; title: string; synopsis: string; is_highlighted: number; word_count: number | null } | undefined;
     if (!scene) throw new Error(`scene.delete: scene not found or already deleted: ${sceneId}`);
 
-    db.prepare('UPDATE scenes SET deleted_at = ? WHERE id = ?').run(Date.now(), sceneId);
+    const now = Date.now();
+    db.prepare('UPDATE scenes SET deleted_at = ? WHERE id = ?').run(now, sceneId);
+
+    // Sync archived_scenes so the legacy read path stays intact until Phase 5 cutover
+    const draftRow = db.prepare('SELECT content FROM scene_drafts WHERE scene_id = ?').get(sceneId) as { content: string } | undefined;
+    const tagNames = (db.prepare('SELECT t.name FROM scene_tags st JOIN tags t ON t.id = st.tag_id WHERE st.scene_id = ?').all(sceneId) as { name: string }[]).map(r => r.name);
+    const noteContents = (db.prepare('SELECT content FROM scene_notes WHERE scene_id = ? ORDER BY display_order').all(sceneId) as { content: string }[]).map(r => r.content);
+    db.prepare(`
+      INSERT OR IGNORE INTO archived_scenes
+        (id, character_id, original_plot_point_id, original_scene_number, title, synopsis, draft_content, tags, notes, is_highlighted, word_count, archived_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(sceneId, scene.character_id, scene.plot_point_id, scene.scene_number, scene.title, scene.synopsis, draftRow?.content ?? null, JSON.stringify(tagNames), JSON.stringify(noteContents), scene.is_highlighted, scene.word_count, now);
 
     // Renumber remaining active scenes for this character
     const remaining = db
@@ -535,13 +545,16 @@ registerMutation<SceneDeleteArgs>({
 // scene.restore — un-delete a scene, appending it at the end of the outline.
 registerMutation<SceneRestoreArgs>({
   name: 'scene.restore',
-  deletionBudget: 0,
+  deletionBudget: 1,
   run(ctx, { sceneId, toPlotPointId }) {
     const db = ctx.db;
     const scene = db
       .prepare('SELECT id, character_id FROM scenes WHERE id = ? AND deleted_at IS NOT NULL')
       .get(sceneId) as { id: string; character_id: string } | undefined;
     if (!scene) throw new Error(`scene.restore: scene not found or not deleted: ${sceneId}`);
+
+    // Remove from archived_scenes (Phase 4c legacy sync)
+    ctx.delete('DELETE FROM archived_scenes WHERE id = ?', sceneId);
 
     const maxRow = db
       .prepare('SELECT MAX(scene_number) as m FROM scenes WHERE character_id = ? AND deleted_at IS NULL')
@@ -948,5 +961,267 @@ registerMutation<TaskSetTimeEntriesArgs>({
     for (const e of entries) insert.run(e.id, taskId, e.startedAt, e.duration, e.description);
 
     return { name: 'task.setTimeEntries', args: { taskId, entries: oldEntries } satisfies TaskSetTimeEntriesArgs };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Acts — dual-write to legacy `acts` table + substrate `structure_nodes`
+// (arc-level nodes).  Same pattern as node.create / node.delete for sections.
+// ---------------------------------------------------------------------------
+
+interface ActUpsertArgs {
+  id: string;
+  characterId: string;
+  name: string;
+  synopsis: string;
+  startingState: string;
+  endingState: string;
+  polarity: string;
+  transformation: string;
+  dilemma: string;
+  propellingAction: string;
+  displayOrder: number;
+}
+
+interface ActDeleteArgs { id: string; }
+
+registerMutation<ActUpsertArgs>({
+  name: 'act.upsert',
+  deletionBudget: 0,
+  run(ctx, args) {
+    const db = ctx.db;
+    const now = Date.now();
+    const existing = db
+      .prepare('SELECT name, synopsis, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, display_order FROM acts WHERE id = ?')
+      .get(args.id) as { name: string; synopsis: string; starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string; propelling_action: string; display_order: number } | undefined;
+
+    if (existing) {
+      db.prepare(`
+        UPDATE acts SET name = ?, synopsis = ?, starting_state = ?, ending_state = ?,
+          polarity = ?, transformation = ?, dilemma = ?, propelling_action = ?, display_order = ?
+        WHERE id = ?
+      `).run(args.name, args.synopsis, args.startingState, args.endingState, args.polarity, args.transformation, args.dilemma, args.propellingAction, args.displayOrder, args.id);
+      db.prepare('UPDATE structure_nodes SET title = ? WHERE id = ?').run(args.name, `act:${args.id}`);
+      return {
+        name: 'act.upsert',
+        args: { id: args.id, characterId: args.characterId, name: existing.name, synopsis: existing.synopsis, startingState: existing.starting_state, endingState: existing.ending_state, polarity: existing.polarity, transformation: existing.transformation, dilemma: existing.dilemma, propellingAction: existing.propelling_action, displayOrder: existing.display_order } satisfies ActUpsertArgs,
+      };
+    } else {
+      db.prepare(`
+        INSERT INTO acts (id, character_id, name, synopsis, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, display_order, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(args.id, args.characterId, args.name, args.synopsis, args.startingState, args.endingState, args.polarity, args.transformation, args.dilemma, args.propellingAction, args.displayOrder, now);
+
+      ensureSceneParentNode(db, args.characterId, null); // ensure novel root
+      const lastArc = db
+        .prepare("SELECT order_key FROM structure_nodes WHERE character_id = ? AND level_key = 'arc' ORDER BY order_key DESC LIMIT 1")
+        .get(args.characterId) as { order_key: string } | undefined;
+      const orderKey = keyBetween(lastArc?.order_key ?? null, null);
+      db.prepare(
+        'INSERT OR IGNORE INTO structure_nodes (id, character_id, level_key, parent_id, order_key, title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(`act:${args.id}`, args.characterId, 'arc', `novel:${args.characterId}`, orderKey, args.name, now);
+
+      return { name: 'act.delete', args: { id: args.id } satisfies ActDeleteArgs };
+    }
+  },
+});
+
+registerMutation<ActDeleteArgs>({
+  name: 'act.delete',
+  deletionBudget: 2,
+  run(ctx, { id }) {
+    const db = ctx.db;
+    const act = db
+      .prepare('SELECT id, character_id, name, synopsis, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, display_order FROM acts WHERE id = ?')
+      .get(id) as { id: string; character_id: string; name: string; synopsis: string; starting_state: string; ending_state: string; polarity: string; transformation: string; dilemma: string; propelling_action: string; display_order: number } | undefined;
+    if (!act) throw new Error(`act.delete: act not found: ${id}`);
+
+    // Reparent plot_point nodes to novel root BEFORE deleting arc node (otherwise ON DELETE CASCADE drops them too).
+    db.prepare("UPDATE structure_nodes SET parent_id = ? WHERE parent_id = ?").run(`novel:${act.character_id}`, `act:${id}`);
+    ctx.delete('DELETE FROM structure_nodes WHERE id = ?', `act:${id}`);
+    ctx.delete('DELETE FROM acts WHERE id = ?', id); // FK ON DELETE SET NULL handles plot_points.act_id
+
+    return {
+      name: 'act.upsert',
+      args: { id: act.id, characterId: act.character_id, name: act.name, synopsis: act.synopsis, startingState: act.starting_state, endingState: act.ending_state, polarity: act.polarity, transformation: act.transformation, dilemma: act.dilemma, propellingAction: act.propelling_action, displayOrder: act.display_order } satisfies ActUpsertArgs,
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Phase 4e — Character color + scene dates (retire last typed SAVE_TIMELINE fields)
+// ---------------------------------------------------------------------------
+
+interface CharacterSetColorArgs { characterId: string; color: string; }
+
+registerMutation<CharacterSetColorArgs>({
+  name: 'character.setColor',
+  deletionBudget: 0,
+  run(ctx, { characterId, color }) {
+    const db = ctx.db;
+    const row = db.prepare('SELECT color FROM characters WHERE id = ?').get(characterId) as { color: string | null } | undefined;
+    if (!row) throw new Error(`character.setColor: character not found: ${characterId}`);
+    db.prepare('UPDATE characters SET color = ? WHERE id = ?').run(color, characterId);
+    return { name: 'character.setColor', args: { characterId, color: row.color ?? '' } satisfies CharacterSetColorArgs };
+  },
+});
+
+interface SceneSetDateArgs { sceneId: string; startDate: string | null; endDate: string | null; }
+
+registerMutation<SceneSetDateArgs>({
+  name: 'scene.setDate',
+  deletionBudget: 1,
+  run(ctx, { sceneId, startDate, endDate }) {
+    const db = ctx.db;
+    const old = db.prepare('SELECT date, end_date FROM scene_dates WHERE scene_id = ?').get(sceneId) as { date: string; end_date: string | null } | undefined;
+    if (startDate !== null) {
+      db.prepare(`
+        INSERT INTO scene_dates (scene_id, date, end_date) VALUES (?, ?, ?)
+        ON CONFLICT(scene_id) DO UPDATE SET date = excluded.date, end_date = excluded.end_date
+      `).run(sceneId, startDate, endDate);
+    } else {
+      ctx.delete('DELETE FROM scene_dates WHERE scene_id = ?', sceneId);
+    }
+    return {
+      name: 'scene.setDate',
+      args: { sceneId, startDate: old?.date ?? null, endDate: old?.end_date ?? null } satisfies SceneSetDateArgs,
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Phase 4b — Connections (retire SAVE_TIMELINE connections bulk-replace)
+// ---------------------------------------------------------------------------
+
+interface ConnectionAddArgs { sourceId: string; targetId: string; }
+interface ConnectionRemoveArgs { sourceId: string; targetId: string; }
+
+registerMutation<ConnectionAddArgs>({
+  name: 'connection.add',
+  deletionBudget: 0,
+  run(ctx, { sourceId, targetId }) {
+    const db = ctx.db;
+    const exists = db.prepare('SELECT 1 FROM scene_connections WHERE source_scene_id = ? AND target_scene_id = ?').get(sourceId, targetId);
+    if (!exists) {
+      db.prepare('INSERT INTO scene_connections (id, source_scene_id, target_scene_id, label) VALUES (?, ?, ?, NULL)').run(newId(), sourceId, targetId);
+      db.prepare('INSERT INTO scene_connections (id, source_scene_id, target_scene_id, label) VALUES (?, ?, ?, NULL)').run(newId(), targetId, sourceId);
+    }
+    return { name: 'connection.remove', args: { sourceId, targetId } satisfies ConnectionRemoveArgs };
+  },
+});
+
+registerMutation<ConnectionRemoveArgs>({
+  name: 'connection.remove',
+  deletionBudget: 2,
+  run(ctx, { sourceId, targetId }) {
+    ctx.delete('DELETE FROM scene_connections WHERE source_scene_id = ? AND target_scene_id = ?', sourceId, targetId);
+    ctx.delete('DELETE FROM scene_connections WHERE source_scene_id = ? AND target_scene_id = ?', targetId, sourceId);
+    return { name: 'connection.add', args: { sourceId, targetId } satisfies ConnectionAddArgs };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Phase 4d — World events (retire SAVE_TIMELINE worldEvents bulk-replace)
+// ---------------------------------------------------------------------------
+
+interface WorldEventCreateArgs {
+  id: string;
+  title: string;
+  date: string;
+  endDate: string | null;
+  description: string;
+  tags: string[];
+  linkedSceneIds: string[];
+  linkedNoteIds: string[];
+  createdAt: number;
+}
+
+interface WorldEventUpdateArgs {
+  id: string;
+  title: string;
+  date: string;
+  endDate: string | null;
+  description: string;
+  tags: string[];
+  linkedSceneIds: string[];
+  linkedNoteIds: string[];
+}
+
+function resolveOrUpsertTag(db: Database.Database, name: string): string {
+  const existing = db.prepare('SELECT id FROM tags WHERE name = ?').get(name) as { id: string } | undefined;
+  if (existing) return existing.id;
+  const tid = newId();
+  db.prepare('INSERT OR IGNORE INTO tags (id, name, category) VALUES (?, ?, ?)').run(tid, name, 'things');
+  return tid;
+}
+
+function readWorldEventLinks(db: Database.Database, id: string) {
+  const tags = (db.prepare('SELECT t.name FROM world_event_tags wet JOIN tags t ON t.id = wet.tag_id WHERE wet.event_id = ?').all(id) as { name: string }[]).map(r => r.name);
+  const sceneIds = (db.prepare('SELECT scene_id FROM world_event_scene_links WHERE event_id = ?').all(id) as { scene_id: string }[]).map(r => r.scene_id);
+  const noteIds = (db.prepare('SELECT note_id FROM world_event_note_links WHERE event_id = ?').all(id) as { note_id: string }[]).map(r => r.note_id);
+  return { tags, sceneIds, noteIds };
+}
+
+function replaceWorldEventLinks(ctx: MutationContext, id: string, tags: string[], sceneIds: string[], noteIds: string[]) {
+  const db = ctx.db;
+  ctx.delete('DELETE FROM world_event_tags WHERE event_id = ?', id);
+  const insertWETag = db.prepare('INSERT OR IGNORE INTO world_event_tags (event_id, tag_id) VALUES (?, ?)');
+  for (const name of tags) insertWETag.run(id, resolveOrUpsertTag(db, name));
+
+  ctx.delete('DELETE FROM world_event_scene_links WHERE event_id = ?', id);
+  const insertSceneLink = db.prepare('INSERT OR IGNORE INTO world_event_scene_links (event_id, scene_id) VALUES (?, ?)');
+  for (const sid of sceneIds) insertSceneLink.run(id, sid);
+
+  ctx.delete('DELETE FROM world_event_note_links WHERE event_id = ?', id);
+  const insertNoteLink = db.prepare('INSERT OR IGNORE INTO world_event_note_links (event_id, note_id) VALUES (?, ?)');
+  for (const nid of noteIds) insertNoteLink.run(id, nid);
+}
+
+registerMutation<WorldEventCreateArgs>({
+  name: 'worldEvent.create',
+  deletionBudget: 0,
+  run(ctx, { id, title, date, endDate, description, tags, linkedSceneIds, linkedNoteIds, createdAt }) {
+    const db = ctx.db;
+    const now = Date.now();
+    db.prepare('INSERT INTO world_events (id, title, date, end_date, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, title, date, endDate, description, createdAt, now);
+    replaceWorldEventLinks(ctx, id, tags, linkedSceneIds, linkedNoteIds);
+    return { name: 'worldEvent.delete', args: { id } };
+  },
+});
+
+registerMutation<WorldEventUpdateArgs>({
+  name: 'worldEvent.update',
+  deletionBudget: 500,
+  run(ctx, { id, title, date, endDate, description, tags, linkedSceneIds, linkedNoteIds }) {
+    const db = ctx.db;
+    const old = db.prepare('SELECT title, date, end_date, description FROM world_events WHERE id = ?').get(id) as { title: string; date: string; end_date: string | null; description: string } | undefined;
+    if (!old) throw new Error(`worldEvent.update: event not found: ${id}`);
+    const oldLinks = readWorldEventLinks(db, id);
+
+    db.prepare('UPDATE world_events SET title = ?, date = ?, end_date = ?, description = ?, updated_at = ? WHERE id = ?').run(title, date, endDate, description, Date.now(), id);
+    replaceWorldEventLinks(ctx, id, tags, linkedSceneIds, linkedNoteIds);
+
+    return {
+      name: 'worldEvent.update',
+      args: { id, title: old.title, date: old.date, endDate: old.end_date, description: old.description, tags: oldLinks.tags, linkedSceneIds: oldLinks.sceneIds, linkedNoteIds: oldLinks.noteIds } satisfies WorldEventUpdateArgs,
+    };
+  },
+});
+
+registerMutation<{ id: string }>({
+  name: 'worldEvent.delete',
+  deletionBudget: 1,
+  run(ctx, { id }) {
+    const db = ctx.db;
+    const old = db.prepare('SELECT title, date, end_date, description, created_at FROM world_events WHERE id = ?').get(id) as { title: string; date: string; end_date: string | null; description: string; created_at: number } | undefined;
+    if (!old) throw new Error(`worldEvent.delete: event not found: ${id}`);
+    const oldLinks = readWorldEventLinks(db, id);
+
+    ctx.delete('DELETE FROM world_events WHERE id = ?', id);
+
+    return {
+      name: 'worldEvent.create',
+      args: { id, title: old.title, date: old.date, endDate: old.end_date, description: old.description, tags: oldLinks.tags, linkedSceneIds: oldLinks.sceneIds, linkedNoteIds: oldLinks.noteIds, createdAt: old.created_at } satisfies WorldEventCreateArgs,
+    };
   },
 });
