@@ -519,6 +519,26 @@ function App() {
     isDirtyRef.current = true;
   }, []);
 
+  const handleWorldEventCreate = useCallback((event: WorldEvent) => {
+    dataService.mutate('worldEvent.create', {
+      id: event.id, title: event.title, date: event.date, endDate: event.endDate ?? null,
+      description: event.description, tags: event.tags, linkedSceneIds: event.linkedSceneKeys,
+      linkedNoteIds: event.linkedNoteIds, createdAt: event.createdAt,
+    }).catch(() => {});
+  }, []);
+
+  const handleWorldEventUpdate = useCallback((event: WorldEvent) => {
+    dataService.mutate('worldEvent.update', {
+      id: event.id, title: event.title, date: event.date, endDate: event.endDate ?? null,
+      description: event.description, tags: event.tags, linkedSceneIds: event.linkedSceneKeys,
+      linkedNoteIds: event.linkedNoteIds,
+    }).catch(() => {});
+  }, []);
+
+  const handleWorldEventDelete = useCallback((eventId: string) => {
+    dataService.mutate('worldEvent.delete', { id: eventId }).catch(() => {});
+  }, []);
+
   // Welcome screen state
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [showNewProject, setShowNewProject] = useState(false);
@@ -1782,6 +1802,7 @@ function App() {
     }
 
     setSceneConnections(newConnections);
+    dataService.mutate('connection.remove', { sourceId, targetId }).catch(() => {});
     await saveTimelineData(projectData.scenes, newConnections);
   };
 
@@ -2843,10 +2864,10 @@ function App() {
     }
   };
 
-  // Save timeline positions, connections, and chapters to file
+  // Save timeline positions and per-scene data. connections/archivedScenes/worldEvents retired to per-mutation paths (Phase 4).
   const saveTimelineData = useCallback(async (
     scenes: Scene[],
-    connections: Record<string, string[]>,
+    _connections?: Record<string, string[]>,
   ) => {
     const positions: Record<string, number> = {};
     const clearedPositions: string[] = [];
@@ -2877,13 +2898,11 @@ function App() {
           metaForSave[key] = rest;
         }
       }
-      // Connections are already keyed by scene.id at runtime — save directly
       await dataService.saveTimeline({
-        positions, clearedPositions, connections,
+        positions, clearedPositions,
         characterColors: characterColorsRef.current,
         wordCounts: sceneWordCounts,
         fontSettings: allFontSettingsRef.current.global,
-        archivedScenes: archivedScenesRef.current,
         // Scene metadata now managed via braidrSaveArcFieldDefs/braidrSaveArcFieldValues — no-op in applySaveTimeline
         wordCountGoal: wordCountGoalRef.current,
         allFontSettings: allFontSettingsRef.current,
@@ -2893,7 +2912,6 @@ function App() {
         taskColumnWidths: taskColumnWidthsRef.current,
         taskVisibleColumns: taskVisibleColumnsRef.current,
         timelineDates: timelineDatesRef.current,
-        worldEvents: worldEventsRef.current,
         timelineEndDates: timelineEndDatesRef.current,
         tags: tagsRef.current,
       });
@@ -4019,6 +4037,9 @@ function App() {
                 onTimelineDatesChange={handleTimelineDatesChange}
                 onTimelineEndDatesChange={handleTimelineEndDatesChange}
                 onWorldEventsChange={handleWorldEventsChange}
+                onWorldEventCreate={handleWorldEventCreate}
+                onWorldEventUpdate={handleWorldEventUpdate}
+                onWorldEventDelete={handleWorldEventDelete}
                 onSceneChange={handleSceneChange}
                 onTagsChange={handleTagsChange}
                 onCreateTag={handleCreateTag}
@@ -4413,6 +4434,7 @@ function App() {
                         [targetId]: [...targetConnections, connectionSource],
                       };
                       setSceneConnections(newConnections);
+                      dataService.mutate('connection.add', { sourceId: connectionSource, targetId }).catch(() => {});
                       saveTimelineData(projectData.scenes, newConnections);
                     }
                   }

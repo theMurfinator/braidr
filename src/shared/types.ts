@@ -193,7 +193,7 @@ export interface TimelineData {
 // file-only fields removed and the three required fields made non-optional.
 export type SaveTimelinePayload =
   Omit<TimelineData, 'connections' | 'draftContent' | 'drafts' | 'scratchpad' | 'sceneComments' | 'tableViews'> & {
-    connections: Record<string, string[]>;
+    connections?: Record<string, string[]>; // retired Phase 4b; managed via connection.add/remove mutations
     clearedPositions?: string[]; // scene IDs whose timeline_position should be set to null
   };
 

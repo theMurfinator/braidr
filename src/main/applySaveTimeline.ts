@@ -90,16 +90,7 @@ export function applySaveTimeline(db: BraidrDB, payload: SaveTimelinePayload): v
       }
     }
 
-    // Connections
-    if (payload.connections) {
-      const rows: { id: string; source_scene_id: string; target_scene_id: string; label: null }[] = [];
-      for (const [src, targets] of Object.entries(payload.connections)) {
-        for (const tgt of targets) {
-          rows.push({ id: randomId(), source_scene_id: src, target_scene_id: tgt, label: null });
-        }
-      }
-      db.replaceSceneConnections(rows);
-    }
+    // Connections are now managed via connection.add / connection.remove mutations (Phase 4b).
 
     // Character colors
     if (payload.characterColors) {
@@ -117,26 +108,7 @@ export function applySaveTimeline(db: BraidrDB, payload: SaveTimelinePayload): v
       db.setSetting('allFontSettings', JSON.stringify(payload.allFontSettings));
     }
 
-    // Archived scenes (bulk replace — guarded)
-    if (payload.archivedScenes !== undefined && shouldReplace(db, payload.archivedScenes.length, 'archived_scenes')) {
-      db.prepare('DELETE FROM archived_scenes').run();
-      for (const arc of payload.archivedScenes) {
-        db.insertArchivedScene({
-          id: arc.id,
-          character_id: arc.characterId,
-          original_plot_point_id: arc.plotPointId ?? null,
-          original_scene_number: arc.originalSceneNumber,
-          title: arc.title,
-          synopsis: arc.content,
-          draft_content: arc.draftContent ?? null,
-          tags: JSON.stringify(arc.tags),
-          notes: JSON.stringify(arc.notes),
-          is_highlighted: arc.isHighlighted ? 1 : 0,
-          word_count: arc.wordCount ?? null,
-          archived_at: arc.archivedAt,
-        });
-      }
-    }
+    // Archived scenes are now managed via scene.delete / scene.restore mutations (Phase 4c).
 
     // Scene metadata is now managed via braidrSaveArcFieldDefs/braidrSaveArcFieldValues.
     // These blocks are intentional no-ops — we no longer write the legacy tables from saveTimeline.
@@ -216,25 +188,7 @@ export function applySaveTimeline(db: BraidrDB, payload: SaveTimelinePayload): v
       }
     }
 
-    // World events (bulk replace — guarded)
-    if (payload.worldEvents !== undefined && shouldReplace(db, payload.worldEvents.length, 'world_events')) {
-      db.prepare('DELETE FROM world_events').run();
-      for (const we of payload.worldEvents) {
-        db.insertWorldEvent(we.id, we.title, we.date, we.endDate ?? null, we.description);
-        if (we.tags.length > 0) {
-          const tagIds = we.tags.map(name => {
-            const row = db.prepare('SELECT id FROM tags WHERE name = ?').get(name) as { id: string } | undefined;
-            if (row) return row.id;
-            const newId = randomId();
-            db.upsertTag(newId, name, 'things');
-            return newId;
-          });
-          db.replaceWorldEventTags(we.id, tagIds);
-        }
-        db.replaceWorldEventSceneLinks(we.id, we.linkedSceneKeys);
-        db.replaceWorldEventNoteLinks(we.id, we.linkedNoteIds);
-      }
-    }
+    // World events are now managed via worldEvent.create / worldEvent.update / worldEvent.delete mutations (Phase 4d).
 
     // Tags (upsert all known tags)
     if (payload.tags !== undefined) {
