@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { BRANCHED_TABLES, SNAPSHOT_FORMAT_VERSION } from './branchTables';
 import { runMigrations } from './migrations';
 import { executeMutation, type ExecuteResult } from './mutations';
-import { refreshSubstrate } from './substrate';
+import { refreshSubstrate, plotPointFlatKey, type NodeOrder } from './substrate';
 
 const SCHEMA_VERSION = 1;
 
@@ -706,6 +706,53 @@ export class BraidrDB {
     return this.db.prepare('SELECT * FROM plot_points ORDER BY display_order').all() as PlotPointRow[];
   }
 
+  // Plot points in the order the structure tree dictates (TO-BE §2/§5: the
+  // substrate is authoritative for ordering; flat numbers are derived). The
+  // POV view's flat per-character section list is the depth-first walk of the
+  // tree, so we sort each character's plot points by (their branch among the
+  // root children, then their position within that branch) and stamp the
+  // resulting index back onto display_order — the only field the renderer reads
+  // for order. The legacy display_order column itself stays dual-written until
+  // Phase 6 drops it. A plot point whose node is missing (shouldn't happen
+  // post-seed) falls back to the end, ordered by its legacy display_order, so
+  // nothing is ever dropped.
+  getPlotPointsOrdered(characterId?: string): PlotPointRow[] {
+    const rows = (characterId
+      ? this.db.prepare('SELECT * FROM plot_points WHERE character_id = ?').all(characterId)
+      : this.db.prepare('SELECT * FROM plot_points').all()) as PlotPointRow[];
+
+    const nodes = this.db
+      .prepare("SELECT id, parent_id, order_key FROM structure_nodes WHERE level_key IN ('arc', 'plot_point')")
+      .all() as { id: string; parent_id: string | null; order_key: string }[];
+    const nodeById = new Map<string, NodeOrder>(nodes.map(n => [n.id, n]));
+
+    // (missing-flag, branchKey, withinKey, legacy fallback)
+    const keyOf = (pp: PlotPointRow): [number, string, string, number] => {
+      const flat = plotPointFlatKey(`pp:${pp.id}`, nodeById);
+      if (!flat) return [1, '', '', pp.display_order];
+      return [0, flat[0], flat[1], 0];
+    };
+
+    const byChar = new Map<string, PlotPointRow[]>();
+    for (const r of rows) {
+      const list = byChar.get(r.character_id);
+      if (list) list.push(r); else byChar.set(r.character_id, [r]);
+    }
+
+    const out: PlotPointRow[] = [];
+    for (const list of byChar.values()) {
+      const keyed = list.map(r => ({ r, k: keyOf(r) }));
+      keyed.sort((a, b) =>
+        a.k[0] - b.k[0] ||
+        (a.k[1] < b.k[1] ? -1 : a.k[1] > b.k[1] ? 1 : 0) ||
+        (a.k[2] < b.k[2] ? -1 : a.k[2] > b.k[2] ? 1 : 0) ||
+        a.k[3] - b.k[3]
+      );
+      keyed.forEach(({ r }, i) => out.push({ ...r, display_order: i }));
+    }
+    return out;
+  }
+
   insertPlotPoint(id: string, characterId: string, title: string, description: string | null, expectedSceneCount: number | null, displayOrder: number, actId: string | null = null, startingState = '', endingState = '', polarity = '', transformation = '', dilemma = '', propellingAction = '', inBullpen = false, synopsis = '') {
     this.db.prepare(`
       INSERT INTO plot_points (id, character_id, title, description, expected_scene_count, display_order, act_id, starting_state, ending_state, polarity, transformation, dilemma, propelling_action, in_bullpen, synopsis, created_at)
@@ -1050,6 +1097,45 @@ export class BraidrDB {
 
   getAllActs(): ActRow[] {
     return this.db.prepare('SELECT * FROM acts ORDER BY character_id, display_order').all() as ActRow[];
+  }
+
+  // Acts ordered by the structure tree (TO-BE §2/§5). Act nodes are children of
+  // the character's novel root; sorting by their order_key gives the canonical
+  // act order, and we stamp the per-character index onto display_order (the
+  // field the renderer reads as `order`). Acts with no node fall back to the end
+  // by legacy display_order so none are dropped. Behaviour-equivalent to the
+  // legacy order today (acts dual-write display_order and never collide), but
+  // the substrate is now the authority.
+  getActsOrdered(characterId?: string): ActRow[] {
+    const rows = (characterId
+      ? this.db.prepare('SELECT * FROM acts WHERE character_id = ?').all(characterId)
+      : this.db.prepare('SELECT * FROM acts').all()) as ActRow[];
+
+    const nodes = this.db
+      .prepare("SELECT id, order_key FROM structure_nodes WHERE level_key = 'arc'")
+      .all() as { id: string; order_key: string }[];
+    const keyById = new Map(nodes.map(n => [n.id, n.order_key]));
+
+    const byChar = new Map<string, ActRow[]>();
+    for (const r of rows) {
+      const list = byChar.get(r.character_id);
+      if (list) list.push(r); else byChar.set(r.character_id, [r]);
+    }
+
+    const out: ActRow[] = [];
+    for (const list of byChar.values()) {
+      const keyed = list.map(r => {
+        const k = keyById.get(`act:${r.id}`);
+        return { r, missing: k === undefined ? 1 : 0, key: k ?? '', fallback: r.display_order };
+      });
+      keyed.sort((a, b) =>
+        a.missing - b.missing ||
+        (a.key < b.key ? -1 : a.key > b.key ? 1 : 0) ||
+        a.fallback - b.fallback
+      );
+      keyed.forEach(({ r }, i) => out.push({ ...r, display_order: i }));
+    }
+    return out;
   }
 
   upsertAct(row: ActRow) {
