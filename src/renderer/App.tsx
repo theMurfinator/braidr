@@ -2844,43 +2844,15 @@ function App() {
     }
   };
 
-  // Save timeline positions and per-scene data. connections/archivedScenes/worldEvents retired to per-mutation paths (Phase 4).
+  // Save timeline settings (font, goal, task views, tags). Scene positions, word
+  // counts, colors, and dates are now written by dedicated mutations (Phase 4f).
   const saveTimelineData = useCallback(async (
-    scenes: Scene[],
+    _scenes?: Scene[],
     _connections?: Record<string, string[]>,
   ) => {
-    const positions: Record<string, number> = {};
-    const clearedPositions: string[] = [];
-    const sceneWordCounts: Record<string, number> = {};
-
-    for (const scene of scenes) {
-      if (scene.timelinePosition !== null) {
-        positions[scene.id] = scene.timelinePosition;
-      } else {
-        clearedPositions.push(scene.id);
-      }
-      if (scene.wordCount !== undefined) {
-        sceneWordCounts[scene.id] = scene.wordCount;
-      }
-    }
-
     try {
       setSaveStatus('saving');
-      // Merge inline todos into sceneMetadata for persistence
-      const metaForSave = { ...sceneMetadataRef.current };
-      for (const [sk, todos] of Object.entries(inlineTodosRef.current)) {
-        if (!metaForSave[sk]) metaForSave[sk] = {};
-        metaForSave[sk] = { ...metaForSave[sk], _inlineTodos: JSON.stringify(todos) };
-      }
-      for (const key of Object.keys(metaForSave)) {
-        if (!inlineTodosRef.current[key] && metaForSave[key]?._inlineTodos) {
-          const { _inlineTodos, ...rest } = metaForSave[key];
-          metaForSave[key] = rest;
-        }
-      }
       await dataService.saveTimeline({
-        positions, clearedPositions,
-        wordCounts: sceneWordCounts,
         fontSettings: allFontSettingsRef.current.global,
         wordCountGoal: wordCountGoalRef.current,
         allFontSettings: allFontSettingsRef.current,
@@ -3031,7 +3003,9 @@ function App() {
     setDraggedScene(null);
     setDropTargetIndex(null);
 
-    await saveTimelineData(finalScenes, sceneConnections);
+    await dataService.mutate('scenes.setBraidedPositions', {
+      updates: [...newPositions.entries()].map(([sceneId, position]) => ({ sceneId, position })),
+    });
     track('scene_reordered', { view: 'braided' });
   };
 
@@ -3066,7 +3040,12 @@ function App() {
     setDraggedScene(null);
     setDropTargetIndex(null);
 
-    await saveTimelineData(finalScenes, sceneConnections);
+    const inboxSceneId = draggedScene.id;
+    const updates = [
+      { sceneId: inboxSceneId, position: null as null },
+      ...braidedScenes.map((s, i) => ({ sceneId: s.id, position: i + 1 })),
+    ];
+    await dataService.mutate('scenes.setBraidedPositions', { updates });
   };
 
   // dnd-kit handlers for BraidedListView (separate from HTML5 drag handlers used by RailsView)
@@ -3085,9 +3064,11 @@ function App() {
       return pos !== undefined ? { ...s, timelinePosition: pos } : s;
     });
     setProjectData({ ...projectData, scenes: finalScenes });
-    await saveTimelineData(finalScenes, sceneConnections);
+    await dataService.mutate('scenes.setBraidedPositions', {
+      updates: [...newPositions.entries()].map(([sceneId, position]) => ({ sceneId, position })),
+    });
     track('scene_reordered', { view: 'braided' });
-  }, [projectData, sceneConnections, saveTimelineData]);
+  }, [projectData, saveTimelineData]);
 
   const handleBraidedMoveToInbox = useCallback(async (sceneId: string) => {
     if (!projectData) return;
@@ -3102,8 +3083,12 @@ function App() {
       return idx !== -1 ? { ...scene, timelinePosition: idx + 1 } : scene;
     });
     setProjectData({ ...projectData, scenes: finalScenes });
-    await saveTimelineData(finalScenes, sceneConnections);
-  }, [projectData, sceneConnections, saveTimelineData]);
+    const updates = [
+      { sceneId, position: null as null },
+      ...braidedRemaining.map((s, i) => ({ sceneId: s.id, position: i + 1 })),
+    ];
+    await dataService.mutate('scenes.setBraidedPositions', { updates });
+  }, [projectData, saveTimelineData]);
 
   const handleBraidedMoveFromInbox = useCallback(async (sceneId: string, overSceneId: string) => {
     if (!projectData) return;
@@ -3122,8 +3107,10 @@ function App() {
       return pos !== undefined ? { ...s, timelinePosition: pos } : s;
     });
     setProjectData({ ...projectData, scenes: finalScenes });
-    await saveTimelineData(finalScenes, sceneConnections);
-  }, [projectData, sceneConnections, saveTimelineData]);
+    await dataService.mutate('scenes.setBraidedPositions', {
+      updates: [...newPositions.entries()].map(([sid, position]) => ({ sceneId: sid, position })),
+    });
+  }, [projectData, saveTimelineData]);
 
   // Tag management handlers
   const handleUpdateTag = (tagId: string, category: TagCategory) => {
@@ -3239,7 +3226,9 @@ function App() {
         id: newScene.id, characterId, plotPointId: plotPointId ?? null,
         afterSceneId: null, title: 'New scene', content: 'New scene', tags: [characterTag],
       });
-      await saveTimelineData(finalScenes, sceneConnections);
+      await dataService.mutate('scenes.setBraidedPositions', {
+        updates: [...positionMap.entries()].map(([sceneId, position]) => ({ sceneId, position })),
+      });
       track('scene_created', { character_id: characterId, source: 'braided_insert' });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
@@ -3338,10 +3327,12 @@ function App() {
       return pos !== -1 ? { ...s, timelinePosition: pos + 1 } : s;
     });
 
-    const updatedData = { ...projectData, scenes: updatedScenes };
-    setProjectData(updatedData);
-    saveTimelineData(updatedScenes, sceneConnections);
-  }, [projectData, sceneConnections, saveTimelineData]);
+    setProjectData({ ...projectData, scenes: updatedScenes });
+    const braidedUpdates = updatedScenes
+      .filter(s => s.timelinePosition !== null)
+      .map(s => ({ sceneId: s.id, position: s.timelinePosition as number }));
+    dataService.mutate('scenes.setBraidedPositions', { updates: braidedUpdates });
+  }, [projectData, saveTimelineData]);
 
   const handleInsertSceneOnTimeline = async (characterId: string, plotPointId: string, date: string): Promise<string | null> => {
     if (!projectData) return null;
@@ -3822,11 +3813,10 @@ function App() {
       scene.id === sceneId ? { ...scene, wordCount } : scene
     );
 
-    const updatedData = { ...projectData, scenes: updatedScenes };
-    setProjectData(updatedData);
-
-    // Save word count to timeline.json
-    await saveTimelineData(updatedScenes, sceneConnections);
+    setProjectData({ ...projectData, scenes: updatedScenes });
+    if (wordCount !== undefined) {
+      await dataService.mutate('scene.setWordCount', { sceneId, wordCount });
+    }
   };
 
   const handleTagsChange = async (sceneId: string, newTags: string[]) => {
