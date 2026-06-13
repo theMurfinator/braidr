@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { keyBetween } from '../shared/fractionalIndex';
+import { keyBetween, seedKeys } from '../shared/fractionalIndex';
 
 // The mutation registry + executor (docs/data-model/TO-BE.md §3, §6).
 //
@@ -114,6 +114,54 @@ registerMutation<{ sceneId: string; title: string }>({
   },
 });
 
+interface SceneEditArgs {
+  sceneId: string;
+  title: string;
+  /** Outline body text; the legacy column is scenes.synopsis. */
+  content: string;
+  notes: string[];
+}
+
+// scene.edit — inline outline edits (title/body/sub-notes) as one mutation,
+// retiring the SAVE_CHARACTER trigger behind every view's scene editor
+// (TO-BE §7 phase 3b). The notes list is a value replace of the named
+// scene's wholly-owned scene_notes rows — the list IS the new value, like
+// a JSON column, not a reconciliation of independent entities, so it stays
+// within the "only touch rows you name" rule. The budget is sized for one
+// scene's notes (scoped DELETE by scene_id); a missing WHERE clause on a
+// real project would still blow it.
+registerMutation<SceneEditArgs>({
+  name: 'scene.edit',
+  deletionBudget: 100,
+  run(ctx, { sceneId, title, content, notes }) {
+    const db = ctx.db;
+    const row = db
+      .prepare('SELECT title, synopsis FROM scenes WHERE id = ?')
+      .get(sceneId) as { title: string; synopsis: string } | undefined;
+    if (!row) throw new Error(`scene.edit: scene not found: ${sceneId}`);
+    const oldNotes = (db
+      .prepare('SELECT content FROM scene_notes WHERE scene_id = ? ORDER BY display_order')
+      .all(sceneId) as { content: string }[]).map(n => n.content);
+
+    db.prepare('UPDATE scenes SET title = ?, synopsis = ?, updated_at = ? WHERE id = ?')
+      .run(title, content, Date.now(), sceneId);
+    ctx.delete('DELETE FROM scene_notes WHERE scene_id = ?', sceneId);
+    const insert = db.prepare(
+      'INSERT INTO scene_notes (id, scene_id, content, display_order) VALUES (?, ?, ?, ?)'
+    );
+    notes.forEach((c, i) => insert.run(newId(), sceneId, c, i));
+
+    return {
+      name: 'scene.edit',
+      args: { sceneId, title: row.title, content: row.synopsis, notes: oldNotes } satisfies SceneEditArgs,
+    };
+  },
+});
+
+function newId(): string {
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+}
+
 function ensureSceneParentNode(
   db: Database.Database,
   characterId: string,
@@ -215,6 +263,344 @@ registerMutation<NodeMoveArgs>({
         afterNodeId: oldPredecessor === null ? null : `pp:${oldPredecessor}`,
       } satisfies NodeMoveArgs,
     };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Node verbs — sections (plot points), TO-BE §7 phase 3c.
+// ---------------------------------------------------------------------------
+
+interface NodeEditArgs {
+  /** 'pp:<plotPointId>' */
+  nodeId: string;
+  title: string;
+  description: string;
+  expectedSceneCount: number | null;
+}
+
+// node.edit — update a section's title/description/expectedSceneCount.
+// Dual-write: legacy plot_points row + substrate structure_nodes title.
+registerMutation<NodeEditArgs>({
+  name: 'node.edit',
+  deletionBudget: 0,
+  run(ctx, { nodeId, title, description, expectedSceneCount }) {
+    const db = ctx.db;
+    if (!nodeId.startsWith('pp:')) {
+      throw new Error(`node.edit: only plot_point nodes supported: ${nodeId}`);
+    }
+    const ppId = nodeId.slice(3);
+    const row = db
+      .prepare('SELECT title, description, expected_scene_count FROM plot_points WHERE id = ?')
+      .get(ppId) as { title: string; description: string | null; expected_scene_count: number | null } | undefined;
+    if (!row) throw new Error(`node.edit: section not found: ${ppId}`);
+
+    db.prepare('UPDATE plot_points SET title = ?, description = ?, expected_scene_count = ? WHERE id = ?')
+      .run(title, description, expectedSceneCount, ppId);
+    db.prepare('UPDATE structure_nodes SET title = ? WHERE id = ?').run(title, nodeId);
+
+    return {
+      name: 'node.edit',
+      args: {
+        nodeId,
+        title: row.title,
+        description: row.description ?? '',
+        expectedSceneCount: row.expected_scene_count,
+      } satisfies NodeEditArgs,
+    };
+  },
+});
+
+interface NodeCreateArgs {
+  id: string;
+  characterId: string;
+  title: string;
+}
+
+// node.create — add a new section at the end of a character's outline.
+// Dual-write: insert into plot_points + structure_nodes.
+registerMutation<NodeCreateArgs>({
+  name: 'node.create',
+  deletionBudget: 0,
+  run(ctx, { id, characterId, title }) {
+    const db = ctx.db;
+    const now = Date.now();
+    const maxRow = db
+      .prepare('SELECT MAX(display_order) as m FROM plot_points WHERE character_id = ?')
+      .get(characterId) as { m: number | null };
+    const displayOrder = (maxRow.m ?? -1) + 1;
+
+    db.prepare(`
+      INSERT INTO plot_points
+        (id, character_id, title, description, expected_scene_count, display_order, in_bullpen, synopsis, created_at)
+      VALUES (?, ?, ?, '', NULL, ?, 0, '', ?)
+    `).run(id, characterId, title, displayOrder, now);
+
+    const novelNode = `novel:${characterId}`;
+    ensureSceneParentNode(db, characterId, null);
+    const lastSibling = db
+      .prepare(
+        `SELECT order_key FROM structure_nodes
+         WHERE character_id = ? AND level_key = 'plot_point' AND parent_id = ?
+         ORDER BY order_key DESC LIMIT 1`
+      )
+      .get(characterId, novelNode) as { order_key: string } | undefined;
+    const orderKey = keyBetween(lastSibling?.order_key ?? null, null);
+    db.prepare(
+      'INSERT OR IGNORE INTO structure_nodes (id, character_id, level_key, parent_id, order_key, title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(`pp:${id}`, characterId, 'plot_point', novelNode, orderKey, title, now);
+
+    return { name: 'node.delete', args: { nodeId: `pp:${id}` } };
+  },
+});
+
+interface NodeDeleteArgs {
+  /** 'pp:<plotPointId>' */
+  nodeId: string;
+}
+
+// node.delete — remove a section and send its scenes to the character bullpen.
+// Dual-write: hard-delete plot_point (legacy) + structure_node; clear
+// plot_point_id / timeline_position on affected scenes.
+// Budget 2: one plot_points row + one structure_nodes row.
+registerMutation<NodeDeleteArgs>({
+  name: 'node.delete',
+  deletionBudget: 2,
+  run(ctx, { nodeId }) {
+    const db = ctx.db;
+    if (!nodeId.startsWith('pp:')) {
+      throw new Error(`node.delete: only plot_point nodes supported: ${nodeId}`);
+    }
+    const ppId = nodeId.slice(3);
+    const pp = db
+      .prepare('SELECT id, character_id FROM plot_points WHERE id = ?')
+      .get(ppId) as { id: string; character_id: string } | undefined;
+    if (!pp) throw new Error(`node.delete: section not found: ${ppId}`);
+
+    const now = Date.now();
+
+    // Move affected scenes to bullpen: NULL parent_node_id (same as ON DELETE SET NULL;
+    // substrate rebuilds on next open).
+    db.prepare(
+      'UPDATE scenes SET plot_point_id = NULL, timeline_position = NULL, parent_node_id = NULL, updated_at = ? WHERE plot_point_id = ? AND deleted_at IS NULL'
+    ).run(now, ppId);
+
+    ctx.delete('DELETE FROM plot_points WHERE id = ?', ppId);
+    ctx.delete('DELETE FROM structure_nodes WHERE id = ?', nodeId);
+
+    // Renumber remaining sections: dense 0..N-1
+    const remaining = db
+      .prepare('SELECT id FROM plot_points WHERE character_id = ? ORDER BY display_order, created_at')
+      .all(pp.character_id) as { id: string }[];
+    const renumber = db.prepare('UPDATE plot_points SET display_order = ? WHERE id = ?');
+    remaining.forEach((s, i) => renumber.run(i, s.id));
+
+    return null;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Scene create/delete/restore — TO-BE §7 phase 3c (soft delete via §6).
+// ---------------------------------------------------------------------------
+
+interface SceneCreateArgs {
+  id: string;
+  characterId: string;
+  /** Section assignment; null = bullpen. */
+  plotPointId: string | null;
+  /** Global outline predecessor; null = append at end of character's outline. */
+  afterSceneId: string | null;
+  title: string;
+  /** Stored in scenes.synopsis (legacy column name). */
+  content: string;
+  tags: string[];
+}
+
+// scene.create — insert a new scene into the character's outline.
+// Dual-write: INSERT into scenes + scene_drafts; fractional outline_key for
+// substrate coherence. Tags resolved from the tags master table (upserted as
+// 'things' category if new, matching the legacy saveCharacterOutline path).
+registerMutation<SceneCreateArgs>({
+  name: 'scene.create',
+  deletionBudget: 0,
+  run(ctx, { id, characterId, plotPointId, afterSceneId, title, content, tags }) {
+    const db = ctx.db;
+    const now = Date.now();
+
+    const ordered = db
+      .prepare(
+        'SELECT id, plot_point_id, scene_number, outline_key FROM scenes WHERE character_id = ? AND deleted_at IS NULL ORDER BY scene_number, created_at'
+      )
+      .all(characterId) as (SceneOrderRow & { outline_key: string | null })[];
+
+    let insertAt: number;
+    if (afterSceneId !== null) {
+      const idx = ordered.findIndex(s => s.id === afterSceneId);
+      if (idx < 0) throw new Error(`scene.create: afterScene not found: ${afterSceneId}`);
+      insertAt = idx + 1;
+    } else {
+      insertAt = ordered.length;
+    }
+
+    ensureSceneParentNode(db, characterId, plotPointId);
+    let before: string | null = null;
+    for (let i = insertAt - 1; i >= 0; i--) {
+      if (ordered[i].plot_point_id === plotPointId) { before = ordered[i].id; break; }
+    }
+    let after: string | null = null;
+    for (let i = insertAt; i < ordered.length; i++) {
+      if (ordered[i].plot_point_id === plotPointId) { after = ordered[i].id; break; }
+    }
+    const keyOf = (sid: string | null): string | null =>
+      sid === null ? null : (ordered.find(s => s.id === sid)?.outline_key ?? null);
+    const outlineKey = keyBetween(keyOf(before), keyOf(after));
+    const parentNode = plotPointId ? `pp:${plotPointId}` : `novel:${characterId}`;
+
+    db.prepare(`
+      INSERT INTO scenes
+        (id, character_id, plot_point_id, title, synopsis, scene_number, timeline_position, is_highlighted, word_count, created_at, updated_at, parent_node_id, outline_key)
+      VALUES (?, ?, ?, ?, ?, ?, NULL, 0, NULL, ?, ?, ?, ?)
+    `).run(id, characterId, plotPointId, title, content, ordered.length + 1, now, now, parentNode, outlineKey);
+
+    db.prepare('INSERT INTO scene_drafts (id, scene_id, content, updated_at) VALUES (?, ?, ?, ?)')
+      .run(newId(), id, '', now);
+
+    if (tags.length > 0) {
+      const insertTag = db.prepare('INSERT OR IGNORE INTO tags (id, name, category) VALUES (?, ?, ?)');
+      const insertSceneTag = db.prepare('INSERT OR IGNORE INTO scene_tags (scene_id, tag_id) VALUES (?, ?)');
+      for (const tagName of tags) {
+        const existing = db.prepare('SELECT id FROM tags WHERE name = ?').get(tagName) as { id: string } | undefined;
+        const tagId = existing ? existing.id : (() => {
+          const tid = newId();
+          insertTag.run(tid, tagName, 'things');
+          return tid;
+        })();
+        insertSceneTag.run(id, tagId);
+      }
+    }
+
+    // Splice into global outline and dense-renumber
+    ordered.splice(insertAt, 0, { id, plot_point_id: plotPointId, scene_number: 0, timeline_position: null, outline_key: outlineKey });
+    const renumber = db.prepare('UPDATE scenes SET scene_number = ? WHERE id = ?');
+    ordered.forEach((s, i) => {
+      const n = i + 1;
+      if (s.id === id || s.scene_number !== n) renumber.run(n, s.id);
+    });
+
+    return { name: 'scene.delete', args: { sceneId: id } };
+  },
+});
+
+interface SceneDeleteArgs {
+  sceneId: string;
+}
+
+interface SceneRestoreArgs {
+  sceneId: string;
+  /** Renderer-computed: original section if still present, else first section or null. */
+  toPlotPointId: string | null;
+}
+
+// scene.delete — soft-delete a scene (TO-BE §6: set deleted_at, renumber active).
+// The legacy archived_scenes row is still written by saveTimelineData (which
+// callers keep until SAVE_TIMELINE is retired in Phase 4).
+registerMutation<SceneDeleteArgs>({
+  name: 'scene.delete',
+  deletionBudget: 0,
+  run(ctx, { sceneId }) {
+    const db = ctx.db;
+    const scene = db
+      .prepare('SELECT id, character_id, plot_point_id, scene_number FROM scenes WHERE id = ? AND deleted_at IS NULL')
+      .get(sceneId) as { id: string; character_id: string; plot_point_id: string | null; scene_number: number } | undefined;
+    if (!scene) throw new Error(`scene.delete: scene not found or already deleted: ${sceneId}`);
+
+    db.prepare('UPDATE scenes SET deleted_at = ? WHERE id = ?').run(Date.now(), sceneId);
+
+    // Renumber remaining active scenes for this character
+    const remaining = db
+      .prepare('SELECT id, scene_number FROM scenes WHERE character_id = ? AND deleted_at IS NULL ORDER BY scene_number, created_at')
+      .all(scene.character_id) as { id: string; scene_number: number }[];
+    const renumber = db.prepare('UPDATE scenes SET scene_number = ? WHERE id = ?');
+    remaining.forEach((s, i) => {
+      const n = i + 1;
+      if (s.scene_number !== n) renumber.run(n, s.id);
+    });
+
+    return {
+      name: 'scene.restore',
+      args: { sceneId, toPlotPointId: scene.plot_point_id } satisfies SceneRestoreArgs,
+    };
+  },
+});
+
+// scene.restore — un-delete a scene, appending it at the end of the outline.
+registerMutation<SceneRestoreArgs>({
+  name: 'scene.restore',
+  deletionBudget: 0,
+  run(ctx, { sceneId, toPlotPointId }) {
+    const db = ctx.db;
+    const scene = db
+      .prepare('SELECT id, character_id FROM scenes WHERE id = ? AND deleted_at IS NOT NULL')
+      .get(sceneId) as { id: string; character_id: string } | undefined;
+    if (!scene) throw new Error(`scene.restore: scene not found or not deleted: ${sceneId}`);
+
+    const maxRow = db
+      .prepare('SELECT MAX(scene_number) as m FROM scenes WHERE character_id = ? AND deleted_at IS NULL')
+      .get(scene.character_id) as { m: number | null };
+    const newSceneNumber = (maxRow.m ?? 0) + 1;
+    // parent_node_id left NULL; substrate rebuilds from legacy on next open.
+    db.prepare(
+      'UPDATE scenes SET deleted_at = NULL, scene_number = ?, plot_point_id = ?, parent_node_id = NULL, updated_at = ? WHERE id = ?'
+    ).run(newSceneNumber, toPlotPointId, Date.now(), sceneId);
+
+    return { name: 'scene.delete', args: { sceneId } satisfies SceneDeleteArgs };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Section scene reorder — within-section sort (redistributes the fixed set
+// of scene_numbers already assigned to this section; does NOT splice globally).
+// This diverges from scene.move's splice-renumber when section scenes
+// interleave with other characters' scenes in global numbering.
+// ---------------------------------------------------------------------------
+
+interface SectionReorderArgs {
+  sectionId: string;
+  /** New order of scene IDs within the section. */
+  orderedIds: string[];
+}
+
+registerMutation<SectionReorderArgs>({
+  name: 'section.reorderScenes',
+  deletionBudget: 0,
+  run(ctx, { sectionId, orderedIds }) {
+    const db = ctx.db;
+    const pp = db
+      .prepare('SELECT character_id FROM plot_points WHERE id = ?')
+      .get(sectionId) as { character_id: string } | undefined;
+    if (!pp) throw new Error(`section.reorderScenes: section not found: ${sectionId}`);
+
+    const sectionScenes = (db
+      .prepare('SELECT id, scene_number FROM scenes WHERE plot_point_id = ? AND deleted_at IS NULL ORDER BY scene_number, created_at')
+      .all(sectionId) as { id: string; scene_number: number }[]);
+    const oldOrdered = sectionScenes.map(s => s.id);
+    const sectionNumbers = sectionScenes.map(s => s.scene_number);
+
+    if (orderedIds.length !== sectionScenes.length) {
+      throw new Error(
+        `section.reorderScenes: length mismatch (got ${orderedIds.length}, expected ${sectionScenes.length})`
+      );
+    }
+
+    // Redistribute the fixed pool of scene_numbers across the new ordering.
+    // Substrate: generate fresh keys for the section (authoritative order is
+    // scene_number; substrate is refreshed on next open anyway).
+    const freshKeys = seedKeys(orderedIds.length);
+    const apply = db.prepare('UPDATE scenes SET scene_number = ?, outline_key = ? WHERE id = ?');
+    orderedIds.forEach((sceneId, newPos) => {
+      apply.run(sectionNumbers[newPos], freshKeys[newPos], sceneId);
+    });
+
+    return { name: 'section.reorderScenes', args: { sectionId, orderedIds: oldOrdered } satisfies SectionReorderArgs };
   },
 });
 

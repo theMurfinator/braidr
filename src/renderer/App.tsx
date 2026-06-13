@@ -2242,10 +2242,16 @@ function App() {
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
 
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    // Same scene.move as the POV drop (TO-BE §7 phase 3a): afterSceneId =
+    // the new global predecessor in this character's outline sequence,
+    // exactly where the renderer just put it.
+    const predecessor = targetIndex > 0 ? charScenes[targetIndex - 1] : null;
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedScenes, sceneConnections);
+      await dataService.mutate('scene.move', {
+        sceneId: movedScene.id,
+        toPlotPointId: targetPlotPointId,
+        afterSceneId: predecessor ? predecessor.id : null,
+      });
     } catch {
       addToast('Couldn\'t save your changes — check that the project folder still exists');
     }
@@ -2270,9 +2276,8 @@ function App() {
     const updatedScenes = [...otherScenes, ...updated];
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, updated);
+      await dataService.mutate('section.reorderScenes', { sectionId, orderedIds });
       await saveTimelineData(updatedScenes, sceneConnections);
     } catch {
       addToast('Couldn\'t save your changes — check that the project folder still exists');
@@ -2299,9 +2304,11 @@ function App() {
     const updatedScenes = [...otherScenes, ...newCharScenes];
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
+      await dataService.mutate('scene.create', {
+        id: newScene.id, characterId: selectedCharacterId, plotPointId: sectionId,
+        afterSceneId: null, title: '', content: '', tags: [],
+      });
       await saveTimelineData(updatedScenes, sceneConnections);
     } catch { addToast('Couldn\'t save your changes'); }
   };
@@ -2322,16 +2329,22 @@ function App() {
     if (draggedIndex < targetIndex) targetIndex -= 1;
     const [movedScene] = charScenes.splice(draggedIndex, 1);
     movedScene.plotPointId = sectionId;
-    charScenes.splice(Math.min(targetIndex, charScenes.length), 0, movedScene);
+    const insertIdx = Math.min(targetIndex, charScenes.length);
+    charScenes.splice(insertIdx, 0, movedScene);
     charScenes.forEach((s, idx) => { s.sceneNumber = idx + 1; });
     const otherScenes = projectData.scenes.filter(s => s.characterId !== selectedCharacterId);
     const updatedScenes = [...otherScenes, ...charScenes];
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
+    // One scene.move to the end of the target section (TO-BE §7 phase 3a);
+    // afterSceneId = the new global predecessor, as placed above.
+    const predecessor = insertIdx > 0 ? charScenes[insertIdx - 1] : null;
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-      await saveTimelineData(updatedScenes, sceneConnections);
+      await dataService.mutate('scene.move', {
+        sceneId: movedScene.id,
+        toPlotPointId: sectionId,
+        afterSceneId: predecessor ? predecessor.id : null,
+      });
     } catch { addToast('Couldn\'t save your changes'); }
   };
 
@@ -2538,9 +2551,12 @@ function App() {
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
 
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, newCharScenes);
+      await dataService.mutate('scene.create', {
+        id: newScene.id, characterId: selectedCharacterId, plotPointId: null,
+        afterSceneId: null, title: 'New scene', content: 'New scene',
+        tags: [characterTag],
+      });
       await saveTimelineData(updatedScenes, sceneConnections);
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
@@ -2580,19 +2596,19 @@ function App() {
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
 
-    // Find the character for this scene and save
-    const scene = updatedScenes.find(s => s.id === sceneId);
-    if (scene) {
-      const character = projectData.characters.find(c => c.id === scene.characterId);
-      if (character) {
-        const charScenes = updatedScenes.filter(s => s.characterId === character.id);
-        const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
-        try {
-          await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-        } catch (err) {
-          addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-        }
-      }
+    // Persist as one named mutation (scene.edit) instead of the legacy
+    // bulk save \u2014 this one callback sits behind the inline scene editor
+    // in every view (POV, braided, bullpen, arc), so it retires the most
+    // frequent SAVE_CHARACTER trigger (TO-BE \u00a77 phase 3b).
+    try {
+      await dataService.mutate('scene.edit', {
+        sceneId,
+        title: newContent,
+        content: newContent,
+        notes: newNotes,
+      });
+    } catch {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -2609,18 +2625,18 @@ function App() {
     const updatedData = { ...projectData, plotPoints: updatedPlotPoints };
     setProjectData(updatedData);
 
-    // Find the character for this plot point and save
     const plotPoint = updatedPlotPoints.find(p => p.id === plotPointId);
     if (plotPoint) {
-      const character = projectData.characters.find(c => c.id === plotPoint.characterId);
-      if (character) {
-        const charScenes = projectData.scenes.filter(s => s.characterId === character.id);
-        const charPlotPoints = updatedPlotPoints.filter(p => p.characterId === character.id);
-        try {
-          await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-        } catch (err) {
-          addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-        }
+      const newExpectedSceneCount = expectedSceneCount !== undefined ? expectedSceneCount : plotPoint.expectedSceneCount;
+      try {
+        await dataService.mutate('node.edit', {
+          nodeId: `pp:${plotPointId}`,
+          title: newTitle,
+          description: newDescription,
+          expectedSceneCount: newExpectedSceneCount ?? null,
+        });
+      } catch (err) {
+        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
       }
     }
   };
@@ -2659,11 +2675,8 @@ function App() {
     const updatedData = { ...projectData, plotPoints: updatedPlotPoints };
     setProjectData(updatedData);
 
-    // Save to file
-    const charScenes = projectData.scenes.filter(s => s.characterId === character.id);
-    const allCharPlotPoints = updatedPlotPoints.filter(p => p.characterId === character.id);
     try {
-      await dataService.saveCharacterOutline(character, allCharPlotPoints, charScenes);
+      await dataService.mutate('node.create', { id: newPlotPoint.id, characterId: selectedCharacterId, title: 'New Section' });
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
@@ -2694,9 +2707,8 @@ function App() {
     };
     const updatedPlotPoints = [...projectData.plotPoints, newPlotPoint];
     setProjectData({ ...projectData, plotPoints: updatedPlotPoints });
-    const charScenes = projectData.scenes.filter(s => s.characterId === character.id);
     try {
-      await dataService.saveCharacterOutline(character, updatedPlotPoints.filter(p => p.characterId === character.id), charScenes);
+      await dataService.mutate('node.create', { id: newPlotPoint.id, characterId: selectedCharacterId, title: 'New Section' });
     } catch {
       addToast('Could not save your changes');
     }
@@ -2728,9 +2740,12 @@ function App() {
     };
     const updatedScenes = [...projectData.scenes, newScene];
     setProjectData({ ...projectData, scenes: updatedScenes });
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, updatedScenes.filter(s => s.characterId === selectedCharacterId));
+      await dataService.mutate('scene.create', {
+        id: newScene.id, characterId: selectedCharacterId, plotPointId: null,
+        afterSceneId: null, title: 'New scene', content: 'New scene',
+        tags: [character.name.toLowerCase().replace(/\s+/g, '_')],
+      });
       await saveTimelineData(updatedScenes, sceneConnections);
     } catch {
       addToast('Could not save your changes');
@@ -2777,17 +2792,11 @@ function App() {
     const updatedData = { ...projectData, scenes: updatedScenes, plotPoints: updatedPlotPoints };
     setProjectData(updatedData);
 
-    // Save to file
-    const character = projectData.characters.find(c => c.id === plotPoint.characterId);
-    if (character) {
-      const charScenes = updatedScenes.filter(s => s.characterId === character.id);
-      const charPlotPoints = updatedPlotPoints.filter(p => p.characterId === character.id);
-      try {
-        await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-        await saveTimelineData(updatedScenes, sceneConnections);
-      } catch (err) {
-        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-      }
+    try {
+      await dataService.mutate('node.delete', { nodeId: `pp:${plotPointId}` });
+      await saveTimelineData(updatedScenes, sceneConnections);
+    } catch (err) {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -3235,10 +3244,12 @@ function App() {
     const updatedScenes = [...projectData.scenes, newScene];
     setProjectData({ ...projectData, scenes: updatedScenes });
 
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
-    const finalCharScenes = updatedScenes.filter(s => s.characterId === characterId).sort((a, b) => a.sceneNumber - b.sceneNumber);
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, finalCharScenes);
+      await dataService.mutate('scene.create', {
+        id: newScene.id, characterId, plotPointId: null,
+        afterSceneId: null, title: 'New scene', content: 'New scene',
+        tags: [character.name.toLowerCase().replace(/\s+/g, '_')],
+      });
       await saveTimelineData(updatedScenes, sceneConnections);
       track('scene_created', { character_id: characterId, source: 'toolbar_inbox' });
     } catch (_err) {
@@ -3564,16 +3575,11 @@ function App() {
     }
     setSceneConnections(newConnections);
 
-    // Save to file
-    const character = projectData.characters.find(c => c.id === scene.characterId);
-    if (character) {
-      const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
-      try {
-        await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
-        await saveTimelineData(updatedScenes, newConnections);
-      } catch (err) {
-        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-      }
+    try {
+      await dataService.mutate('scene.delete', { sceneId });
+      await saveTimelineData(updatedScenes, newConnections);
+    } catch (err) {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -3625,17 +3631,11 @@ function App() {
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
 
-    // Save to file
-    const character = projectData.characters.find(c => c.id === archived.characterId);
-    if (character) {
-      const updatedCharPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
-      const updatedCharScenes = updatedScenes.filter(s => s.characterId === character.id);
-      try {
-        await dataService.saveCharacterOutline(character, updatedCharPlotPoints, updatedCharScenes);
-        await saveTimelineData(updatedScenes, sceneConnections);
-      } catch (err) {
-        addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
-      }
+    try {
+      await dataService.mutate('scene.restore', { sceneId: archived.id, toPlotPointId: targetPlotPointId });
+      await saveTimelineData(updatedScenes, sceneConnections);
+    } catch (err) {
+      addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
     }
   };
 
@@ -3766,10 +3766,13 @@ function App() {
     const updatedData = { ...projectData, scenes: updatedScenes };
     setProjectData(updatedData);
 
-    // Save to file
-    const charPlotPoints = projectData.plotPoints.filter(p => p.characterId === character.id);
     try {
-      await dataService.saveCharacterOutline(character, charPlotPoints, charScenes);
+      await dataService.mutate('scene.create', {
+        id: duplicateScene.id, characterId: scene.characterId,
+        plotPointId: scene.plotPointId, afterSceneId: sceneId,
+        title: duplicateScene.title, content: duplicateScene.content,
+        tags: duplicateScene.tags,
+      });
       await saveTimelineData(updatedScenes, sceneConnections);
     } catch (err) {
       addToast('Couldn\u2019t save your changes \u2014 check that the project folder still exists');
