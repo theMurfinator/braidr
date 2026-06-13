@@ -52,6 +52,9 @@ describe('versioned migrations', () => {
     raw.exec('ALTER TABLE scenes DROP COLUMN parent_node_id');
     raw.exec('ALTER TABLE scenes DROP COLUMN outline_key');
     raw.exec('ALTER TABLE scenes DROP COLUMN deleted_at');
+    raw.exec('ALTER TABLE tasks DROP COLUMN parent_task_id');
+    raw.exec('ALTER TABLE tasks DROP COLUMN order_key');
+    raw.exec('ALTER TABLE tasks DROP COLUMN deleted_at');
     raw.exec('DROP TABLE structure_nodes');
     raw.exec('DROP TABLE structure_levels');
     raw.exec('DROP TABLE field_values');

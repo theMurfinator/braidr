@@ -54,6 +54,11 @@ interface TasksViewProps {
   onTasksChange: (tasks: Task[]) => void;
   onTaskFieldDefsChange: (defs: TaskFieldDef[]) => void;
   onTaskViewsChange: (views: TaskViewConfig[]) => void;
+  onCreateTask?: (task: Task) => void;
+  onUpdateTask?: (task: Task) => void;
+  onDeleteTask?: (taskId: string) => void;
+  onDuplicateTask?: (task: Task) => void;
+  onTimeEntriesChanged?: (taskId: string, entries: TimeEntry[]) => void;
   initialColumnWidths?: Record<string, number>;
   initialVisibleColumns?: string[];
   onColumnConfigChange?: (widths: Record<string, number>, visible: string[]) => void;
@@ -84,6 +89,11 @@ export default function TasksView({
   onTasksChange,
   onTaskFieldDefsChange,
   onTaskViewsChange,
+  onCreateTask,
+  onUpdateTask,
+  onDeleteTask,
+  onDuplicateTask,
+  onTimeEntriesChanged,
   initialColumnWidths,
   initialVisibleColumns,
   onColumnConfigChange,
@@ -121,6 +131,8 @@ export default function TasksView({
         : t
     );
     onTasksChange(updated);
+    const task = updated.find(t => t.id === taskId);
+    if (task) onTimeEntriesChanged?.(taskId, task.timeEntries);
   };
 
   const handleUpdateTimeEntry = (taskId: string, entryId: string, updates: Partial<Pick<TimeEntry, 'duration' | 'description'>>) => {
@@ -130,6 +142,8 @@ export default function TasksView({
         : t
     );
     onTasksChange(updated);
+    const task = updated.find(t => t.id === taskId);
+    if (task) onTimeEntriesChanged?.(taskId, task.timeEntries);
   };
 
   const handleDeleteTimeEntry = (taskId: string, entryId: string) => {
@@ -139,6 +153,8 @@ export default function TasksView({
         : t
     );
     onTasksChange(updated);
+    const task = updated.find(t => t.id === taskId);
+    if (task) onTimeEntriesChanged?.(taskId, task.timeEntries);
   };
 
   // Get active timer task title
@@ -290,6 +306,10 @@ export default function TasksView({
           taskFieldDefs={taskFieldDefs}
           onTasksChange={onTasksChange}
           onTaskFieldDefsChange={onTaskFieldDefsChange}
+          onCreateTask={onCreateTask}
+          onUpdateTask={onUpdateTask}
+          onDeleteTask={onDeleteTask}
+          onDuplicateTask={onDuplicateTask}
           groupBy={groupBy}
           sortBy={sortBy}
           sortDir={sortDir}

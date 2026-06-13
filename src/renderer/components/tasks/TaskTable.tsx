@@ -24,6 +24,10 @@ interface TaskTableProps {
   taskFieldDefs: TaskFieldDef[];
   onTasksChange: (tasks: Task[]) => void;
   onTaskFieldDefsChange: (defs: TaskFieldDef[]) => void;
+  onCreateTask?: (task: Task) => void;
+  onUpdateTask?: (task: Task) => void;
+  onDeleteTask?: (taskId: string) => void;
+  onDuplicateTask?: (task: Task) => void;
   groupBy?: string;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
@@ -147,6 +151,10 @@ export default function TaskTable({
   taskFieldDefs,
   onTasksChange,
   onTaskFieldDefsChange,
+  onCreateTask,
+  onUpdateTask,
+  onDeleteTask,
+  onDuplicateTask,
   groupBy,
   sortBy,
   sortDir = 'asc',
@@ -227,14 +235,17 @@ export default function TaskTable({
       customFields: {},
     };
     onTasksChange([...tasks, newTask]);
+    onCreateTask?.(newTask);
   }
 
   function handleTaskUpdate(updated: Task) {
     onTasksChange(tasks.map((t) => (t.id === updated.id ? updated : t)));
+    onUpdateTask?.(updated);
   }
 
   function handleDeleteTask(taskId: string) {
     onTasksChange(tasks.filter(t => t.id !== taskId));
+    onDeleteTask?.(taskId);
   }
 
   function handleDuplicateTask(taskId: string) {
@@ -250,6 +261,7 @@ export default function TaskTable({
       timeEntries: [],
     };
     onTasksChange([...tasks, duplicate]);
+    onDuplicateTask?.(duplicate);
   }
 
   function toggleGroupCollapse(label: string) {

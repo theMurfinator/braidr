@@ -1229,7 +1229,7 @@ export class BraidrDB {
   // ── Tasks ─────────────────────────────────────────────────────────────────
 
   getTasks() {
-    return this.db.prepare('SELECT * FROM tasks ORDER BY display_order').all() as TaskRow[];
+    return this.db.prepare('SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY display_order').all() as TaskRow[];
   }
 
   insertTask(id: string, fields: {

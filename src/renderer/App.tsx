@@ -427,6 +427,60 @@ function App() {
     isDirtyRef.current = true;
   }, []);
 
+  const handleCreateTask = useCallback((task: Task) => {
+    dataService.mutate('task.create', {
+      id: task.id, title: task.title, parentTaskId: null,
+      orderKey: null, displayOrder: task.order,
+    }).catch(() => {/* state already updated; toast if needed */});
+  }, []);
+
+  const handleUpdateTask = useCallback((task: Task) => {
+    dataService.mutate('task.setFields', {
+      taskId: task.id,
+      title: task.title,
+      description: task.description ?? null,
+      status: task.status,
+      priority: task.priority,
+      sceneId: task.sceneKey ?? null,
+      timeEstimate: task.timeEstimate ?? null,
+      dueDate: task.dueDate ?? null,
+      tags: task.tags,
+      characterIds: task.characterIds,
+      customFields: task.customFields,
+    }).then(() => {
+      // Sync time entries separately if they exist
+      if (task.timeEntries.length > 0 || true) {
+        dataService.mutate('task.setTimeEntries', {
+          taskId: task.id,
+          entries: task.timeEntries.map(e => ({
+            id: e.id, startedAt: e.startedAt, duration: e.duration,
+            description: e.description ?? null,
+          })),
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleDeleteTask = useCallback((taskId: string) => {
+    dataService.mutate('task.softDelete', { taskId }).catch(() => {});
+  }, []);
+
+  const handleDuplicateTask = useCallback((task: Task) => {
+    dataService.mutate('task.create', {
+      id: task.id, title: task.title, parentTaskId: null,
+      orderKey: null, displayOrder: task.order,
+    }).then(() =>
+      dataService.mutate('task.setFields', {
+        taskId: task.id,
+        title: task.title, description: task.description ?? null,
+        status: task.status, priority: task.priority,
+        sceneId: task.sceneKey ?? null, timeEstimate: task.timeEstimate ?? null,
+        dueDate: task.dueDate ?? null, tags: task.tags,
+        characterIds: task.characterIds, customFields: task.customFields,
+      })
+    ).catch(() => {});
+  }, []);
+
   const handleTaskFieldDefsChange = useCallback((newDefs: TaskFieldDef[]) => {
     setTaskFieldDefs(newDefs);
     taskFieldDefsRef.current = newDefs;
@@ -2833,8 +2887,6 @@ function App() {
         // Scene metadata now managed via braidrSaveArcFieldDefs/braidrSaveArcFieldValues — no-op in applySaveTimeline
         wordCountGoal: wordCountGoalRef.current,
         allFontSettings: allFontSettingsRef.current,
-        tasks: tasksRef.current,
-        taskFieldDefs: taskFieldDefsRef.current,
         taskViews: taskViewsRef.current,
         inlineMetadataFields: inlineMetadataFieldsRef.current,
         showInlineLabels: showInlineLabelsRef.current,
@@ -3935,6 +3987,16 @@ function App() {
                 onTasksChange={handleTasksChange}
                 onTaskFieldDefsChange={handleTaskFieldDefsChange}
                 onTaskViewsChange={handleTaskViewsChange}
+                onCreateTask={handleCreateTask}
+                onUpdateTask={handleUpdateTask}
+                onDeleteTask={handleDeleteTask}
+                onDuplicateTask={handleDuplicateTask}
+                onTimeEntriesChanged={(taskId, entries) => {
+                  dataService.mutate('task.setTimeEntries', {
+                    taskId,
+                    entries: entries.map(e => ({ id: e.id, startedAt: e.startedAt, duration: e.duration, description: e.description ?? null })),
+                  }).catch(() => {});
+                }}
                 initialColumnWidths={taskColumnWidths}
                 initialVisibleColumns={taskVisibleColumns}
                 onColumnConfigChange={handleTaskColumnConfigChange}

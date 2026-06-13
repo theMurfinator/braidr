@@ -114,6 +114,17 @@ export const MIGRATIONS: Migration[] = [
       db.exec('ALTER TABLE scenes ADD COLUMN deleted_at INTEGER');
     },
   },
+  {
+    version: 7,
+    name: 'tasks subtask schema + soft delete (TO-BE §4b)',
+    up: (db) => {
+      db.exec(`
+        ALTER TABLE tasks ADD COLUMN parent_task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL;
+        ALTER TABLE tasks ADD COLUMN order_key TEXT;
+        ALTER TABLE tasks ADD COLUMN deleted_at INTEGER;
+      `);
+    },
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS.reduce((v, m) => Math.max(v, m.version), 1);

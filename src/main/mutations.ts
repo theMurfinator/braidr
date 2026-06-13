@@ -799,3 +799,154 @@ registerMutation<SceneSetTagsArgs>({
     return { name: 'scene.setTags', args: { sceneId, tags: oldTags } satisfies SceneSetTagsArgs };
   },
 });
+
+// ---------------------------------------------------------------------------
+// Task verbs — Phase 4a, includes §4b subtask schema from day one.
+// parent_task_id + order_key added in migration v7.
+// ---------------------------------------------------------------------------
+
+interface TaskCreateArgs {
+  id: string;
+  title: string;
+  parentTaskId: string | null;
+  /** Fractional key among siblings; null = append at end. */
+  orderKey: string | null;
+  displayOrder: number;
+}
+
+registerMutation<TaskCreateArgs>({
+  name: 'task.create',
+  deletionBudget: 0,
+  run(ctx, { id, title, parentTaskId, orderKey, displayOrder }) {
+    const db = ctx.db;
+    const now = Date.now();
+    db.prepare(`
+      INSERT INTO tasks (id, title, description, status, priority, display_order, order_key,
+        parent_task_id, created_at, updated_at)
+      VALUES (?, ?, NULL, 'open', 'none', ?, ?, ?, ?, ?)
+    `).run(id, title, displayOrder, orderKey, parentTaskId, now, now);
+
+    return { name: 'task.softDelete', args: { taskId: id } };
+  },
+});
+
+interface TaskSetFieldsArgs {
+  taskId: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  sceneId: string | null;
+  timeEstimate: number | null;
+  dueDate: number | null;
+  tags: string[];
+  characterIds: string[];
+  customFields: Record<string, unknown>;
+}
+
+interface TaskSetFieldsInverseArgs extends TaskSetFieldsArgs {
+  _oldEntries: Array<{ id: string; startedAt: number; duration: number; description: string | null }>;
+}
+
+// budget=50: tags DELETE (1) + per-tag inserts (0), character links DELETE (1), custom fields DELETE (1)
+registerMutation<TaskSetFieldsArgs>({
+  name: 'task.setFields',
+  deletionBudget: 50,
+  run(ctx, { taskId, title, description, status, priority, sceneId, timeEstimate, dueDate, tags, characterIds, customFields }) {
+    const db = ctx.db;
+    type TaskRow = { title: string; description: string | null; status: string; priority: string; scene_id: string | null; time_estimate: number | null; due_date: number | null };
+    const old = db.prepare('SELECT title, description, status, priority, scene_id, time_estimate, due_date FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId) as TaskRow | undefined;
+    if (!old) throw new Error(`task.setFields: task not found: ${taskId}`);
+
+    const oldTags = (db.prepare('SELECT t.name FROM tags t JOIN task_tags tt ON tt.tag_id = t.id WHERE tt.task_id = ?').all(taskId) as { name: string }[]).map(r => r.name);
+    const oldChars = (db.prepare('SELECT character_id FROM task_character_links WHERE task_id = ?').all(taskId) as { character_id: string }[]).map(r => r.character_id);
+    const oldCustom = (db.prepare('SELECT field_def_id, value FROM task_custom_field_values WHERE task_id = ?').all(taskId) as { field_def_id: string; value: string }[]);
+
+    db.prepare('UPDATE tasks SET title=?, description=?, status=?, priority=?, scene_id=?, time_estimate=?, due_date=?, updated_at=? WHERE id=?')
+      .run(title, description, status, priority, sceneId, timeEstimate, dueDate, Date.now(), taskId);
+
+    ctx.delete('DELETE FROM task_tags WHERE task_id = ?', taskId);
+    if (tags.length > 0) {
+      const insertTag = db.prepare('INSERT OR IGNORE INTO tags (id, name, category) VALUES (?, ?, ?)');
+      const insertTaskTag = db.prepare('INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)');
+      for (const name of tags) {
+        const existing = db.prepare('SELECT id FROM tags WHERE name = ?').get(name) as { id: string } | undefined;
+        const tagId = existing ? existing.id : (() => { const tid = newId(); insertTag.run(tid, name, 'things'); return tid; })();
+        insertTaskTag.run(taskId, tagId);
+      }
+    }
+
+    ctx.delete('DELETE FROM task_character_links WHERE task_id = ?', taskId);
+    const insertChar = db.prepare('INSERT OR IGNORE INTO task_character_links (task_id, character_id) VALUES (?, ?)');
+    for (const cid of characterIds) insertChar.run(taskId, cid);
+
+    ctx.delete('DELETE FROM task_custom_field_values WHERE task_id = ?', taskId);
+    const insertCF = db.prepare('INSERT INTO task_custom_field_values (task_id, field_def_id, value) VALUES (?, ?, ?)');
+    for (const [fieldId, val] of Object.entries(customFields)) insertCF.run(taskId, fieldId, JSON.stringify(val));
+
+    const oldCustomFields: Record<string, unknown> = {};
+    for (const { field_def_id, value } of oldCustom) oldCustomFields[field_def_id] = JSON.parse(value);
+
+    return {
+      name: 'task.setFields',
+      args: {
+        taskId, title: old.title, description: old.description,
+        status: old.status, priority: old.priority, sceneId: old.scene_id,
+        timeEstimate: old.time_estimate, dueDate: old.due_date,
+        tags: oldTags, characterIds: oldChars, customFields: oldCustomFields,
+      } satisfies TaskSetFieldsArgs,
+    };
+  },
+});
+
+interface TaskSoftDeleteArgs {
+  taskId: string;
+}
+
+registerMutation<TaskSoftDeleteArgs>({
+  name: 'task.softDelete',
+  deletionBudget: 0,
+  run(ctx, { taskId }) {
+    const db = ctx.db;
+    const row = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId) as { id: string } | undefined;
+    if (!row) throw new Error(`task.softDelete: task not found: ${taskId}`);
+    db.prepare('UPDATE tasks SET deleted_at = ?, updated_at = ? WHERE id = ?').run(Date.now(), Date.now(), taskId);
+    return { name: 'task.restore', args: { taskId } };
+  },
+});
+
+registerMutation<TaskSoftDeleteArgs>({
+  name: 'task.restore',
+  deletionBudget: 0,
+  run(ctx, { taskId }) {
+    const db = ctx.db;
+    const row = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NOT NULL').get(taskId) as { id: string } | undefined;
+    if (!row) throw new Error(`task.restore: task not found or not deleted: ${taskId}`);
+    db.prepare('UPDATE tasks SET deleted_at = NULL, updated_at = ? WHERE id = ?').run(Date.now(), taskId);
+    return { name: 'task.softDelete', args: { taskId } };
+  },
+});
+
+interface TaskSetTimeEntriesArgs {
+  taskId: string;
+  entries: Array<{ id: string; startedAt: number; duration: number; description: string | null }>;
+}
+
+registerMutation<TaskSetTimeEntriesArgs>({
+  name: 'task.setTimeEntries',
+  deletionBudget: 100,
+  run(ctx, { taskId, entries }) {
+    const db = ctx.db;
+    const row = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId) as { id: string } | undefined;
+    if (!row) throw new Error(`task.setTimeEntries: task not found: ${taskId}`);
+
+    const oldEntries = (db.prepare('SELECT id, started_at, duration, description FROM time_entries WHERE task_id = ?').all(taskId) as Array<{ id: string; started_at: number; duration: number; description: string | null }>)
+      .map(r => ({ id: r.id, startedAt: r.started_at, duration: r.duration, description: r.description }));
+
+    ctx.delete('DELETE FROM time_entries WHERE task_id = ?', taskId);
+    const insert = db.prepare('INSERT INTO time_entries (id, task_id, started_at, duration, description) VALUES (?, ?, ?, ?, ?)');
+    for (const e of entries) insert.run(e.id, taskId, e.startedAt, e.duration, e.description);
+
+    return { name: 'task.setTimeEntries', args: { taskId, entries: oldEntries } satisfies TaskSetTimeEntriesArgs };
+  },
+});
