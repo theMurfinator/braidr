@@ -381,3 +381,104 @@ describe('scenes.setBraidedPositions mutation', () => {
     db.close();
   });
 });
+
+describe('Phase 4g: settings.set / project.setWordCountGoal / tag mutations', () => {
+  let dir: string;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mut-')); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  async function freshSettingsDb(d: string) {
+    const mod = await import('../main/database');
+    const db = new mod.BraidrDB(path.join(d, 'settings.braidr'));
+    db.prepare("INSERT INTO project (id, name, word_count_goal, created_at, updated_at) VALUES ('project', 'Test', 0, 1, 1)").run();
+    return db;
+  }
+
+  it('settings.set writes key and inverse restores old value', async () => {
+    const db = await freshSettingsDb(dir);
+    db.prepare("INSERT INTO settings (key, value) VALUES ('myKey', 'old')").run();
+
+    const { inverse } = db.mutate('settings.set', { key: 'myKey', value: 'new' });
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'myKey'").get() as { value: string };
+    expect(row.value).toBe('new');
+
+    db.mutate(inverse!.name, inverse!.args);
+    const restored = db.prepare("SELECT value FROM settings WHERE key = 'myKey'").get() as { value: string };
+    expect(restored.value).toBe('old');
+    db.close();
+  });
+
+  it('settings.set creates key if absent, inverse restores empty string', async () => {
+    const db = await freshSettingsDb(dir);
+    const { inverse } = db.mutate('settings.set', { key: 'brand-new', value: '"hello"' });
+    expect((db.prepare("SELECT value FROM settings WHERE key = 'brand-new'").get() as any).value).toBe('"hello"');
+
+    db.mutate(inverse!.name, inverse!.args);
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'brand-new'").get() as { value: string };
+    expect(row.value).toBe('');
+    db.close();
+  });
+
+  it('project.setWordCountGoal updates goal and inverse restores old value', async () => {
+    const db = await freshSettingsDb(dir);
+
+    const { inverse } = db.mutate('project.setWordCountGoal', { goal: 80000 });
+    const row = db.prepare("SELECT word_count_goal FROM project WHERE id = 'project'").get() as { word_count_goal: number };
+    expect(row.word_count_goal).toBe(80000);
+
+    db.mutate(inverse!.name, inverse!.args);
+    const restored = db.prepare("SELECT word_count_goal FROM project WHERE id = 'project'").get() as { word_count_goal: number };
+    expect(restored.word_count_goal).toBe(0);
+    db.close();
+  });
+
+  it('tag.upsert creates a new tag', async () => {
+    const db = await freshSettingsDb(dir);
+    db.mutate('tag.upsert', { id: 't1', name: 'noah', category: 'people' });
+    const row = db.prepare("SELECT name, category FROM tags WHERE id = 't1'").get() as { name: string; category: string };
+    expect(row.name).toBe('noah');
+    expect(row.category).toBe('people');
+    db.close();
+  });
+
+  it('tag.upsert on existing name updates category', async () => {
+    const db = await freshSettingsDb(dir);
+    db.prepare("INSERT INTO tags (id, name, category) VALUES ('t1', 'den', 'people')").run();
+    db.mutate('tag.upsert', { id: 't1', name: 'den', category: 'locations' });
+    const row = db.prepare("SELECT category FROM tags WHERE name = 'den'").get() as { category: string };
+    expect(row.category).toBe('locations');
+    db.close();
+  });
+
+  it('tag.setCategory updates category and inverse restores it', async () => {
+    const db = await freshSettingsDb(dir);
+    db.prepare("INSERT INTO tags (id, name, category) VALUES ('t1', 'brooklyn', 'people')").run();
+
+    const { inverse } = db.mutate('tag.setCategory', { id: 't1', category: 'locations' });
+    expect((db.prepare("SELECT category FROM tags WHERE id = 't1'").get() as any).category).toBe('locations');
+
+    db.mutate(inverse!.name, inverse!.args);
+    expect((db.prepare("SELECT category FROM tags WHERE id = 't1'").get() as any).category).toBe('people');
+    db.close();
+  });
+
+  it('tag.delete removes tag and its scene_tags associations', async () => {
+    const db = await freshSettingsDb(dir);
+    db.insertCharacter('c1', 'Noah', null, 0);
+    db.insertScene('s1', 'c1', null, 'Scene 1', '', 1, null, false, null);
+    db.prepare("INSERT INTO tags (id, name, category) VALUES ('t1', 'noah', 'people')").run();
+    db.prepare("INSERT INTO scene_tags (scene_id, tag_id) VALUES ('s1', 't1')").run();
+
+    db.mutate('tag.delete', { id: 't1' });
+
+    expect(db.prepare("SELECT 1 FROM tags WHERE id = 't1'").get()).toBeUndefined();
+    expect(db.prepare("SELECT 1 FROM scene_tags WHERE tag_id = 't1'").get()).toBeUndefined();
+    db.close();
+  });
+
+  it('tag.delete on missing tag throws', async () => {
+    const db = await freshSettingsDb(dir);
+    expect(() => db.mutate('tag.delete', { id: 'nope' })).toThrow(/not found/);
+    db.close();
+  });
+});

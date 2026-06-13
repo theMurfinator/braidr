@@ -192,7 +192,7 @@ export function MobileApp() {
       if (scene.wordCount !== undefined) wordCounts[scene.id] = scene.wordCount;
     }
     try {
-      await dataService.saveTimeline({ positions, connections, characterColors: characterColorsRef.current, wordCounts });
+      await dataService.saveTimeline?.({ positions, connections, characterColors: characterColorsRef.current, wordCounts });
       isDirtyRef.current = false;
     } catch (err) { console.error('Failed to save timeline:', err); }
   }, []);

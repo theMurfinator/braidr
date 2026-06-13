@@ -7,7 +7,6 @@ import type {
   AllFontSettings,
 } from '../shared/types';
 import type { BraidrDB, ChapterRow, TableViewRow, ActRow, CharacterPsychologyRow } from './database';
-import { applySaveTimeline, type SaveTimelinePayload } from './applySaveTimeline';
 
 function getDb(braidrPath: string): BraidrDB {
   const { openDatabase } = require('./database') as typeof import('./database');
@@ -578,20 +577,6 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     };
   } catch (error) {
     console.error('[BRAIDR_LOAD_PROJECT]', error);
-    return { success: false, error: String(error) };
-  }
-});
-
-// ── Save timeline ─────────────────────────────────────────────────────────────
-
-ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TIMELINE, (_event, braidrPath: string, payload: SaveTimelinePayload) => {
-  try {
-    const db = getDb(braidrPath);
-    autoBackupBraidr(braidrPath, db);
-    applySaveTimeline(db, payload);
-    return { success: true };
-  } catch (error) {
-    console.error('[BRAIDR_SAVE_TIMELINE]', error);
     return { success: false, error: String(error) };
   }
 });
