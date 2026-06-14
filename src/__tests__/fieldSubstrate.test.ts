@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import type { BraidrDB } from '../main/database';
-import { fieldValuesToArcAndTaskMaps, fieldDefsToArcAndTaskDefs } from '../main/substrate';
+import { fieldValuesToArcAndTaskMaps, fieldDefsToArcAndTaskDefs, deriveSceneMetadataOverlay } from '../main/substrate';
 
 const FILE = 'fields.braidr';
 
@@ -387,5 +387,35 @@ describe('fieldDefsToArcAndTaskDefs (def read-cutover mapping)', () => {
     ]);
     const { arcFieldDefs } = fieldDefsToArcAndTaskDefs(defs, att);
     expect(arcFieldDefs.map(d => [d.id, d.scope])).toEqual([['a', 'arc'], ['b', 'scene']]);
+  });
+});
+
+// The scene-metadata overlay (metadataFieldDefs + sceneMetadata, used by
+// TableView/CompileModal/EditorView) is the SAME data as the scene-scoped arc
+// fields — the renderer persists both via saveArcFieldDefs(scope:'scene') /
+// saveArcFieldValues('scene',...). So it's derived from the unified arc maps,
+// not the stale importer-only legacy metadata tables.
+describe('deriveSceneMetadataOverlay', () => {
+  it('derives metadataFieldDefs from scene-scoped arc defs (drops arc-scoped, keeps _status)', () => {
+    const arcFieldDefs = [
+      { id: '_status', label: 'Status', type: 'dropdown', options: ['todo'], optionColors: { todo: '#999' }, ratingMax: undefined, order: -1, scope: 'scene' as const },
+      { id: 'mood', label: 'Mood', type: 'text', options: undefined, optionColors: undefined, ratingMax: undefined, order: 0, scope: 'scene' as const },
+      { id: 'theme', label: 'Theme', type: 'text', options: undefined, optionColors: undefined, ratingMax: undefined, order: 1, scope: 'arc' as const },
+    ];
+    const { metadataFieldDefs } = deriveSceneMetadataOverlay(arcFieldDefs, {});
+    expect(metadataFieldDefs).toEqual([
+      { id: '_status', label: 'Status', type: 'dropdown', options: ['todo'], optionColors: { todo: '#999' }, order: -1 },
+      { id: 'mood', label: 'Mood', type: 'text', options: undefined, optionColors: undefined, order: 0 },
+    ]);
+  });
+
+  it('derives sceneMetadata from scene: entries of arcFieldValues only', () => {
+    const arcFieldValues = {
+      'scene:s1': { mood: 'tense', _status: 'todo' },
+      'act:a1': { theme: 'grief' },
+      'section:p1': { theme: 'loss' },
+    };
+    const { sceneMetadata } = deriveSceneMetadataOverlay([], arcFieldValues);
+    expect(sceneMetadata).toEqual({ s1: { mood: 'tense', _status: 'todo' } });
   });
 });
