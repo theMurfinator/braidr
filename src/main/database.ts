@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { BRANCHED_TABLES, SNAPSHOT_FORMAT_VERSION } from './branchTables';
 import { runMigrations } from './migrations';
 import { executeMutation, type ExecuteResult } from './mutations';
-import { refreshSubstrate, plotPointFlatKey, syncTaskFieldValues, syncArcNodeFieldValues, syncSceneFieldValues, type NodeOrder } from './substrate';
+import { refreshSubstrate, plotPointFlatKey, syncTaskFieldValues, syncArcNodeFieldValues, syncSceneFieldValues, syncArcFieldDefs, syncTaskFieldDefs, type NodeOrder } from './substrate';
 
 const SCHEMA_VERSION = 1;
 
@@ -987,6 +987,7 @@ export class BraidrDB {
     this.db.prepare('DELETE FROM metadata_field_defs').run();
     const insert = this.db.prepare('INSERT INTO metadata_field_defs (id, label, field_type, options, option_colors, display_order) VALUES (?, ?, ?, ?, ?, ?)');
     for (const d of defs) insert.run(d.id, d.label, d.field_type, d.options, d.option_colors, d.display_order);
+    syncArcFieldDefs(this.db);
   }
 
   getSceneMetadataValues(sceneId: string) {
@@ -1038,16 +1039,32 @@ export class BraidrDB {
   }
 
   replaceArcFieldDefs(defs: ArcFieldDefRow[]) {
-    // Scope-aware replace: only delete/insert defs of the same scope as those being saved.
+    // Scope-aware replace: only touch defs of the same scope as those being saved.
     // This prevents arc-scoped saves from wiping scene-scoped defs and vice versa.
     // Filter inserts to matching scope so mixed-scope arrays from the renderer don't
     // cause UNIQUE constraint violations on defs from the other scope still in the DB.
+    //
+    // CRITICAL (data-loss guard): persisting defs are UPDATEd in place, NOT
+    // delete-then-reinserted. arc_field_values.field_def_id has ON DELETE CASCADE,
+    // so a blanket "DELETE WHERE scope=?" wipes every value of every field in the
+    // scope on each def-list save (rename/reorder/add). Only defs that are genuinely
+    // removed are DELETEd here, correctly cascading away their now-orphaned values.
     const scope = defs[0]?.scope ?? 'arc';
     const scopedDefs = defs.filter(d => (d.scope ?? 'arc') === scope);
     const insert = this.db.prepare('INSERT INTO arc_field_defs (id, label, field_type, options, option_colors, rating_max, display_order, scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const update = this.db.prepare('UPDATE arc_field_defs SET label = ?, field_type = ?, options = ?, option_colors = ?, rating_max = ?, display_order = ? WHERE id = ?');
     this.db.transaction(() => {
-      this.db.prepare('DELETE FROM arc_field_defs WHERE scope = ?').run(scope);
-      for (const d of scopedDefs) insert.run(d.id, d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order, d.scope ?? 'arc');
+      const existing = new Set(
+        (this.db.prepare('SELECT id FROM arc_field_defs WHERE scope = ?').all(scope) as { id: string }[]).map(r => r.id)
+      );
+      const keep = new Set(scopedDefs.map(d => d.id));
+      const del = this.db.prepare('DELETE FROM arc_field_defs WHERE id = ?');
+      for (const id of existing) if (!keep.has(id)) del.run(id); // cascades only removed defs' values
+      for (const d of scopedDefs) {
+        if (existing.has(d.id)) update.run(d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order, d.id);
+        else insert.run(d.id, d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order, d.scope ?? 'arc');
+      }
+      syncArcFieldDefs(this.db);
     })();
   }
 
@@ -1388,6 +1405,7 @@ export class BraidrDB {
     this.db.prepare('DELETE FROM task_field_defs').run();
     const insert = this.db.prepare('INSERT INTO task_field_defs (id, name, field_type, options, display_order) VALUES (?, ?, ?, ?, ?)');
     for (const d of defs) insert.run(d.id, d.name, d.field_type, d.options, d.display_order);
+    syncTaskFieldDefs(this.db);
   }
 
   getAllTaskCustomFieldValues() {

@@ -396,3 +396,82 @@ export function syncSceneFieldValues(db: Database.Database, sceneId: string): vo
     if (defExists(db, fieldId)) insertValue.run(fieldId, 'scene', sceneId, v.value);
   }
 }
+
+// ── Phase 5c-1 (B): within-session field_defs / field_attachments dual-writes ─
+//
+// Mirror the legacy def tables into the unified field_defs/field_attachments,
+// using the same id/level mapping refreshFields() uses. CRITICAL: defs that
+// persist are UPDATEd in place, never delete-then-reinsert — a DELETE on a
+// field_defs row cascades to its field_values (ON DELETE CASCADE), so reinsert
+// would silently wipe every value of a merely-renamed field. Only genuinely
+// removed defs are DELETEd, which correctly cascades their now-orphaned values.
+
+interface DesiredDef {
+  label: string; field_type: string; options: string | null;
+  option_colors: string | null; rating_max: number | null;
+  display_order: number; levels: string[];
+}
+
+function applyDefSync(db: Database.Database, prefix: string, desired: Map<string, DesiredDef>): void {
+  const now = Date.now();
+  const existing = new Set(
+    (db.prepare('SELECT id FROM field_defs WHERE id LIKE ?').all(`${prefix}%`) as { id: string }[]).map(r => r.id)
+  );
+  const del = db.prepare('DELETE FROM field_defs WHERE id = ?');
+  for (const id of existing) if (!desired.has(id)) del.run(id); // cascades values + attachments
+
+  const ins = db.prepare(
+    'INSERT INTO field_defs (id, label, field_type, options, option_colors, rating_max, display_order, builtin, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)'
+  );
+  const upd = db.prepare(
+    'UPDATE field_defs SET label = ?, field_type = ?, options = ?, option_colors = ?, rating_max = ?, display_order = ? WHERE id = ?'
+  );
+  const delAtt = db.prepare('DELETE FROM field_attachments WHERE field_id = ?');
+  const insAtt = db.prepare('INSERT OR IGNORE INTO field_attachments (field_id, level_key) VALUES (?, ?)');
+  for (const [id, d] of desired) {
+    if (existing.has(id)) upd.run(d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order, id);
+    else ins.run(id, d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order, now);
+    delAtt.run(id); // attachment set is small; reset to match (handles scope change)
+    for (const lvl of d.levels) insAtt.run(id, lvl);
+  }
+}
+
+// arc_field_defs (+ metadata_field_defs not shadowed by an arc def) → arcf:* defs
+export function syncArcFieldDefs(db: Database.Database): void {
+  const arcDefs = db.prepare('SELECT * FROM arc_field_defs ORDER BY display_order').all() as
+    { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; rating_max: number | null; display_order: number; scope: string }[];
+  const metaDefs = db.prepare('SELECT * FROM metadata_field_defs ORDER BY display_order').all() as
+    { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; display_order: number }[];
+  const arcIds = new Set(arcDefs.map(d => d.id));
+
+  const desired = new Map<string, DesiredDef>();
+  for (const d of arcDefs) {
+    desired.set(`arcf:${d.id}`, {
+      label: d.label, field_type: d.field_type, options: d.options, option_colors: d.option_colors,
+      rating_max: d.rating_max, display_order: d.display_order,
+      levels: d.scope === 'scene' ? ['scene'] : ['arc', 'plot_point', 'scene'],
+    });
+  }
+  for (const d of metaDefs) {
+    if (arcIds.has(d.id)) continue; // arc def shadows a same-id metadata def (refreshFields parity)
+    desired.set(`arcf:${d.id}`, {
+      label: d.label, field_type: d.field_type, options: d.options, option_colors: d.option_colors,
+      rating_max: null, display_order: d.display_order, levels: ['scene'],
+    });
+  }
+  applyDefSync(db, 'arcf:', desired);
+}
+
+// task_field_defs → taskf:* defs (label = def name; pseudo-level 'task')
+export function syncTaskFieldDefs(db: Database.Database): void {
+  const taskDefs = db.prepare('SELECT * FROM task_field_defs ORDER BY display_order').all() as
+    { id: string; name: string; field_type: string; options: string | null; display_order: number }[];
+  const desired = new Map<string, DesiredDef>();
+  for (const d of taskDefs) {
+    desired.set(`taskf:${d.id}`, {
+      label: d.name, field_type: d.field_type, options: d.options, option_colors: null,
+      rating_max: null, display_order: d.display_order, levels: ['task'],
+    });
+  }
+  applyDefSync(db, 'taskf:', desired);
+}

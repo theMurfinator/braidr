@@ -256,3 +256,61 @@ describe('field write dual-writes (within session)', () => {
     re.close();
   });
 });
+
+// Phase 5c-1 (B): field DEFINITION writes dual-write to field_defs +
+// field_attachments within the session, so adding/renaming/removing a custom
+// field is reflected without a reopen. Removing a def must cascade away its
+// field_values (the field is gone) — mirroring the legacy FK cascade.
+describe('field def dual-writes (within session)', () => {
+  let dir: string;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fldd-')); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  it('replaceArcFieldDefs adds a new arc def with arc-level attachments', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+
+    // replace the 'arc' scope with theme (kept) + a new 'pace' def
+    re.replaceArcFieldDefs([
+      { id: 'theme', label: 'Theme', field_type: 'text', options: null, option_colors: null, rating_max: null, display_order: 0, scope: 'arc' },
+      { id: 'pace', label: 'Pace', field_type: 'text', options: null, option_colors: null, rating_max: null, display_order: 1, scope: 'arc' },
+    ]);
+    const defs = new Map(re.getFieldDefs().map(d => [d.id, d]));
+    expect(defs.get('arcf:pace')).toMatchObject({ label: 'Pace', builtin: 0 });
+    expect(re.getFieldAttachments('arcf:pace').map(a => a.level_key).sort()).toEqual(['arc', 'plot_point', 'scene']);
+    expect(defs.has('arcf:theme')).toBe(true);
+    re.close();
+  });
+
+  it('replaceArcFieldDefs removing an arc def deletes it and cascades its field_values', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+    expect(value(re, 'arcf:theme', 'node', 'act:a1')).toBe('"grief"');
+
+    re.replaceArcFieldDefs([]); // scope defaults to 'arc' → removes all arc-scoped defs
+    const defs = new Map(re.getFieldDefs().map(d => [d.id, d]));
+    expect(defs.has('arcf:theme')).toBe(false);
+    expect(value(re, 'arcf:theme', 'node', 'act:a1')).toBeUndefined();
+    // the scene-scoped 'mood' def (different scope) must survive
+    expect(defs.has('arcf:mood')).toBe(true);
+    re.close();
+  });
+
+  it('replaceTaskFieldDefs syncs task defs to field_defs', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+    expect(new Map(re.getFieldDefs().map(d => [d.id, d])).has('taskf:sprint')).toBe(true);
+
+    re.replaceTaskFieldDefs([
+      { id: 'sprint', name: 'Sprint', field_type: 'text', options: null, display_order: 0 },
+      { id: 'effort', name: 'Effort', field_type: 'number', options: null, display_order: 1 },
+    ]);
+    const defs = new Map(re.getFieldDefs().map(d => [d.id, d]));
+    expect(defs.get('taskf:effort')).toMatchObject({ label: 'Effort', builtin: 0 });
+    expect(re.getFieldAttachments('taskf:effort').map(a => a.level_key)).toEqual(['task']);
+    re.close();
+  });
+});
