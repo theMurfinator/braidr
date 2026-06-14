@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import type { BraidrDB } from '../main/database';
-import { fieldValuesToArcAndTaskMaps } from '../main/substrate';
+import { fieldValuesToArcAndTaskMaps, fieldDefsToArcAndTaskDefs } from '../main/substrate';
 
 const FILE = 'fields.braidr';
 
@@ -349,5 +349,43 @@ describe('fieldValuesToArcAndTaskMaps (read-cutover mapping)', () => {
     ];
     const { arcFieldValues } = fieldValuesToArcAndTaskMaps(rows);
     expect(arcFieldValues).toEqual({ 'scene:s1': { mood: 'ok' } });
+  });
+});
+
+describe('fieldDefsToArcAndTaskDefs (def read-cutover mapping)', () => {
+  it('reconstructs arc defs (scope from attachments) + task defs, excludes builtins', () => {
+    const defs = [
+      { id: 'arcf:theme', label: 'Theme', field_type: 'text', options: null, option_colors: null, rating_max: null, display_order: 0, builtin: 0 },
+      { id: 'arcf:mood', label: 'Mood', field_type: 'select', options: '["a"]', option_colors: '{"a":"#f00"}', rating_max: null, display_order: 1, builtin: 0 },
+      { id: 'taskf:sprint', label: 'Sprint', field_type: 'text', options: null, option_colors: null, rating_max: null, display_order: 0, builtin: 0 },
+      { id: 'builtin:polarity', label: 'Polarity', field_type: 'text', options: null, option_colors: null, rating_max: null, display_order: 0, builtin: 1 },
+    ];
+    const att = new Map<string, string[]>([
+      ['arcf:theme', ['arc', 'plot_point', 'scene']],
+      ['arcf:mood', ['scene']],
+      ['taskf:sprint', ['task']],
+      ['builtin:polarity', ['arc', 'novel', 'plot_point', 'scene']],
+    ]);
+    const { arcFieldDefs, taskFieldDefs } = fieldDefsToArcAndTaskDefs(defs, att);
+    expect(arcFieldDefs).toEqual([
+      { id: 'theme', label: 'Theme', type: 'text', options: undefined, optionColors: undefined, ratingMax: undefined, order: 0, scope: 'arc' },
+      { id: 'mood', label: 'Mood', type: 'select', options: ['a'], optionColors: { a: '#f00' }, ratingMax: undefined, order: 1, scope: 'scene' },
+    ]);
+    expect(taskFieldDefs).toEqual([
+      { id: 'sprint', name: 'Sprint', type: 'text', options: undefined },
+    ]);
+  });
+
+  it('derives scope=arc when an arc-level attachment is present, else scene', () => {
+    const defs = [
+      { id: 'arcf:a', label: 'A', field_type: 'text', options: null, option_colors: null, rating_max: null, display_order: 0, builtin: 0 },
+      { id: 'arcf:b', label: 'B', field_type: 'text', options: null, option_colors: null, rating_max: null, display_order: 1, builtin: 0 },
+    ];
+    const att = new Map<string, string[]>([
+      ['arcf:a', ['arc', 'plot_point', 'scene']],
+      ['arcf:b', ['scene']],
+    ]);
+    const { arcFieldDefs } = fieldDefsToArcAndTaskDefs(defs, att);
+    expect(arcFieldDefs.map(d => [d.id, d.scope])).toEqual([['a', 'arc'], ['b', 'scene']]);
   });
 });

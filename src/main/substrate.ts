@@ -500,6 +500,52 @@ export function fieldValuesToArcAndTaskMaps(
   return { arcFieldValues, customFieldsByTask };
 }
 
+// Companion to fieldValuesToArcAndTaskMaps: reconstruct the renderer's
+// arcFieldDefs + taskFieldDefs lists from the unified field_defs +
+// field_attachments. arc scope is recovered from attachments (an 'arc'-level
+// attachment ⇒ scope 'arc', else 'scene' — matching how the sync helpers +
+// refreshFields attach them). builtin:* defs (the structure six) are excluded;
+// they are rendered as builtins separately, not as custom defs.
+function parseJsonOrUndef(s: string | null): unknown {
+  if (s == null) return undefined;
+  try { return JSON.parse(s); } catch { return undefined; }
+}
+
+export function fieldDefsToArcAndTaskDefs(
+  defs: { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; rating_max: number | null; display_order: number; builtin: number }[],
+  attachmentLevelsByField: Map<string, string[]>
+): {
+  arcFieldDefs: { id: string; label: string; type: string; options: unknown; optionColors: unknown; ratingMax: number | undefined; order: number; scope: 'arc' | 'scene' }[];
+  taskFieldDefs: { id: string; name: string; type: string; options: unknown }[];
+} {
+  const arcFieldDefs: ReturnType<typeof fieldDefsToArcAndTaskDefs>['arcFieldDefs'] = [];
+  const taskFieldDefs: ReturnType<typeof fieldDefsToArcAndTaskDefs>['taskFieldDefs'] = [];
+  for (const d of defs) {
+    if (d.builtin) continue;
+    if (d.id.startsWith('arcf:')) {
+      const levels = attachmentLevelsByField.get(d.id) ?? [];
+      arcFieldDefs.push({
+        id: d.id.slice('arcf:'.length),
+        label: d.label,
+        type: d.field_type,
+        options: parseJsonOrUndef(d.options),
+        optionColors: parseJsonOrUndef(d.option_colors),
+        ratingMax: d.rating_max ?? undefined,
+        order: d.display_order,
+        scope: levels.includes('arc') ? 'arc' : 'scene',
+      });
+    } else if (d.id.startsWith('taskf:')) {
+      taskFieldDefs.push({
+        id: d.id.slice('taskf:'.length),
+        name: d.label,
+        type: d.field_type,
+        options: parseJsonOrUndef(d.options),
+      });
+    }
+  }
+  return { arcFieldDefs, taskFieldDefs };
+}
+
 // task_field_defs → taskf:* defs (label = def name; pseudo-level 'task')
 export function syncTaskFieldDefs(db: Database.Database): void {
   const taskDefs = db.prepare('SELECT * FROM task_field_defs ORDER BY display_order').all() as
