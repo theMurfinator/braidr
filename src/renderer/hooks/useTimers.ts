@@ -10,6 +10,11 @@ interface UseTimersOptions {
   setTasks: Dispatch<SetStateAction<Task[]>>;
   tasksRef: MutableRefObject<Task[]>;
   isDirtyRef: MutableRefObject<boolean>;
+  // Persist a task's time entries immediately. Required: since SAVE_TIMELINE was
+  // retired (Phase 4g), isDirtyRef no longer triggers a bulk task save, so the
+  // task timer must persist its entry itself (mirrors the scene timer's
+  // saveAnalytics call).
+  persistTaskTimeEntries: (taskId: string, entries: TimeEntry[]) => void;
 }
 
 export function useTimers({
@@ -20,6 +25,7 @@ export function useTimers({
   setTasks,
   tasksRef,
   isDirtyRef,
+  persistTaskTimeEntries,
 }: UseTimersOptions) {
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerElapsed, setTimerElapsed] = useState(0);
@@ -191,21 +197,24 @@ export function useTimers({
       startedAt: taskTimerStartRef.current,
       duration,
     };
-    // Update refs synchronously before setTasks so any immediate saveTimelineData
-    // call (e.g. from "Close Project" or onAppClosing) reads the new entry.
+    // Update refs synchronously before setTasks so any immediate read sees it.
+    const current = tasksRef.current.find(t => t.id === currentTaskId);
+    const newEntries = [...(current?.timeEntries ?? []), entry];
     const updated = tasksRef.current.map(t =>
       t.id === currentTaskId
-        ? { ...t, timeEntries: [...t.timeEntries, entry], updatedAt: Date.now() }
+        ? { ...t, timeEntries: newEntries, updatedAt: Date.now() }
         : t
     );
     tasksRef.current = updated;
     isDirtyRef.current = true;
     setTasks(updated);
+    // Persist immediately — SAVE_TIMELINE is retired, so nothing else flushes this.
+    persistTaskTimeEntries(currentTaskId, newEntries);
     setTaskTimerTaskId(null);
     taskTimerStartRef.current = null;
     setTaskTimerElapsed(0);
     setTaskTimerRunning(false);
-  }, [setTasks, tasksRef, isDirtyRef]);
+  }, [setTasks, tasksRef, isDirtyRef, persistTaskTimeEntries]);
 
   const handleStartTaskTimer = useCallback((taskId: string) => {
     if (timerRunningRef.current) {

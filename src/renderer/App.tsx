@@ -336,6 +336,15 @@ function App() {
     setTasks,
     tasksRef,
     isDirtyRef,
+    persistTaskTimeEntries: (taskId, entries) => {
+      dataService.mutate('task.setTimeEntries', {
+        taskId,
+        entries: entries.map(e => ({
+          id: e.id, startedAt: e.startedAt, duration: e.duration,
+          description: e.description ?? null,
+        })),
+      }).catch(() => {});
+    },
   });
 
   // Timeline state
