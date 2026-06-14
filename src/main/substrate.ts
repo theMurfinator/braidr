@@ -462,6 +462,44 @@ export function syncArcFieldDefs(db: Database.Database): void {
   applyDefSync(db, 'arcf:', desired);
 }
 
+// ── Phase 5c step A: read cutover — field_values → legacy renderer shapes ─────
+//
+// LOAD_PROJECT builds its arcFieldValues + task customFields maps from these,
+// instead of the legacy arc_field_values / task_custom_field_values tables, so
+// field_values becomes the read authority. Pure translation (no DB) for easy
+// testing. Reverses the id/entity mapping the sync helpers + refreshFields use:
+//   arcf:<def> / node 'act:<id>'  -> arcFieldValues['act:<id>'][<def>]
+//   arcf:<def> / node 'pp:<id>'   -> arcFieldValues['section:<id>'][<def>]
+//   arcf:<def> / scene '<id>'     -> arcFieldValues['scene:<id>'][<def>]
+//   taskf:<def> / task '<id>'     -> customFieldsByTask['<id>'][<def>]
+// builtin:* rows (the structure six) are excluded — they're read elsewhere.
+export function fieldValuesToArcAndTaskMaps(
+  rows: { field_id: string; entity_type: string; entity_id: string; value: string }[]
+): {
+  arcFieldValues: Record<string, Record<string, unknown>>;
+  customFieldsByTask: Record<string, Record<string, unknown>>;
+} {
+  const arcFieldValues: Record<string, Record<string, unknown>> = {};
+  const customFieldsByTask: Record<string, Record<string, unknown>> = {};
+  for (const r of rows) {
+    let parsed: unknown;
+    try { parsed = JSON.parse(r.value); } catch { continue; } // skip malformed
+
+    if (r.field_id.startsWith('arcf:')) {
+      const defId = r.field_id.slice('arcf:'.length);
+      let key: string | null = null;
+      if (r.entity_type === 'scene') key = `scene:${r.entity_id}`;
+      else if (r.entity_type === 'node' && r.entity_id.startsWith('act:')) key = `act:${r.entity_id.slice('act:'.length)}`;
+      else if (r.entity_type === 'node' && r.entity_id.startsWith('pp:')) key = `section:${r.entity_id.slice('pp:'.length)}`;
+      if (key) (arcFieldValues[key] ??= {})[defId] = parsed;
+    } else if (r.field_id.startsWith('taskf:') && r.entity_type === 'task') {
+      const defId = r.field_id.slice('taskf:'.length);
+      (customFieldsByTask[r.entity_id] ??= {})[defId] = parsed;
+    }
+  }
+  return { arcFieldValues, customFieldsByTask };
+}
+
 // task_field_defs → taskf:* defs (label = def name; pseudo-level 'task')
 export function syncTaskFieldDefs(db: Database.Database): void {
   const taskDefs = db.prepare('SELECT * FROM task_field_defs ORDER BY display_order').all() as

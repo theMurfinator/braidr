@@ -7,6 +7,7 @@ import type {
   AllFontSettings,
 } from '../shared/types';
 import type { BraidrDB, ChapterRow, TableViewRow, ActRow, CharacterPsychologyRow } from './database';
+import { fieldValuesToArcAndTaskMaps } from './substrate';
 
 function getDb(braidrPath: string): BraidrDB {
   const { openDatabase } = require('./database') as typeof import('./database');
@@ -377,16 +378,14 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       scope: (row.scope as 'arc' | 'scene') ?? 'arc',
     }));
 
-    // Arc field values (bulk) -> keyed by "<entity_type>:<entity_id>"
-    const arcValueRows = db.getAllArcFieldValues();
-    const arcFieldValues: Record<string, Record<string, string | string[]>> = {};
-    for (const row of arcValueRows) {
-      try {
-        (arcFieldValues[`${row.entity_type}:${row.entity_id}`] ??= {})[row.field_def_id] = JSON.parse(row.value);
-      } catch {
-        // Malformed arc value -- skip rather than crash
-      }
-    }
+    // Field VALUES read authority (Phase 5c step A): arc field values + task
+    // custom fields now come from the unified field_values table, reshaped to
+    // the renderer's legacy maps. Legacy arc_field_values / task_custom_field_
+    // values stay dual-written + rebuilt-on-open as the safety net.
+    const { arcFieldValues, customFieldsByTask } = fieldValuesToArcAndTaskMaps(db.getFieldValues()) as {
+      arcFieldValues: Record<string, Record<string, string | string[]>>;
+      customFieldsByTask: Record<string, Record<string, unknown>>;
+    };
 
     // Draft versions (bulk)
     const dvRows = db.prepare(
@@ -417,17 +416,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       (sceneComments[row.scene_id] ??= []).push({ id: row.id, text: row.text, createdAt: row.created_at });
     }
 
-    // Tasks
+    // Tasks (customFieldsByTask computed above from field_values)
     const taskRows = db.getTasks();
-    const allTCFV = db.getAllTaskCustomFieldValues();
-    const customFieldsByTask: Record<string, Record<string, unknown>> = {};
-    for (const v of allTCFV) {
-      try {
-        (customFieldsByTask[v.task_id] ??= {})[v.field_def_id] = JSON.parse(v.value);
-      } catch {
-        // Malformed custom field value — skip
-      }
-    }
     const taskTagRows = db.prepare(`
       SELECT tt.task_id, t.name FROM task_tags tt JOIN tags t ON t.id = tt.tag_id
     `).all() as { task_id: string; name: string }[];

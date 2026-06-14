@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import type { BraidrDB } from '../main/database';
+import { fieldValuesToArcAndTaskMaps } from '../main/substrate';
 
 const FILE = 'fields.braidr';
 
@@ -312,5 +313,41 @@ describe('field def dual-writes (within session)', () => {
     expect(defs.get('taskf:effort')).toMatchObject({ label: 'Effort', builtin: 0 });
     expect(re.getFieldAttachments('taskf:effort').map(a => a.level_key)).toEqual(['task']);
     re.close();
+  });
+});
+
+// Phase 5c step A (read cutover): the LOAD_PROJECT handler builds its
+// arcFieldValues + task customFields maps from field_values instead of the
+// legacy tables. This pure helper does the id/shape translation back to the
+// renderer's expected shapes (arcf:<def>/node act:/pp: -> "act:"/"section:";
+// arcf:<def>/scene -> "scene:"; taskf:<def>/task -> task map). builtin:* rows
+// (the structure six) are NOT part of these maps and must be excluded.
+describe('fieldValuesToArcAndTaskMaps (read-cutover mapping)', () => {
+  it('reshapes arcf node/scene + taskf rows; excludes builtins', () => {
+    const rows = [
+      { field_id: 'arcf:theme', entity_type: 'node', entity_id: 'act:a1', value: '"grief"' },
+      { field_id: 'arcf:theme', entity_type: 'node', entity_id: 'pp:p1', value: '"loss"' },
+      { field_id: 'arcf:mood', entity_type: 'scene', entity_id: 's1', value: '"tense"' },
+      { field_id: 'arcf:tags', entity_type: 'scene', entity_id: 's1', value: '["a","b"]' },
+      { field_id: 'taskf:sprint', entity_type: 'task', entity_id: 't1', value: '"june"' },
+      { field_id: 'builtin:polarity', entity_type: 'node', entity_id: 'pp:p1', value: '"+"' },
+      { field_id: 'builtin:starting_state', entity_type: 'scene', entity_id: 's1', value: '"lost"' },
+    ];
+    const { arcFieldValues, customFieldsByTask } = fieldValuesToArcAndTaskMaps(rows);
+    expect(arcFieldValues).toEqual({
+      'act:a1': { theme: 'grief' },
+      'section:p1': { theme: 'loss' },
+      'scene:s1': { mood: 'tense', tags: ['a', 'b'] },
+    });
+    expect(customFieldsByTask).toEqual({ t1: { sprint: 'june' } });
+  });
+
+  it('skips malformed JSON values without crashing', () => {
+    const rows = [
+      { field_id: 'arcf:theme', entity_type: 'scene', entity_id: 's1', value: 'not json' },
+      { field_id: 'arcf:mood', entity_type: 'scene', entity_id: 's1', value: '"ok"' },
+    ];
+    const { arcFieldValues } = fieldValuesToArcAndTaskMaps(rows);
+    expect(arcFieldValues).toEqual({ 'scene:s1': { mood: 'ok' } });
   });
 });
