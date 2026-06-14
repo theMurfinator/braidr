@@ -500,6 +500,34 @@ export function fieldValuesToArcAndTaskMaps(
   return { arcFieldValues, customFieldsByTask };
 }
 
+// Phase 5 (final): read the built-in "structure six" from field_values instead
+// of the legacy columns on scenes/acts/plot_points/character_psychology. Returns
+// a lookup keyed "<entity_type>:<entity_id>" → { <snake_col>: value } for the
+// six builtin fields, so each read site overlays the same source. Values are
+// JSON-encoded in field_values; empties were never written (so missing = '').
+const STRUCTURE_SIX_COLS = [
+  'starting_state', 'ending_state', 'polarity', 'transformation', 'dilemma', 'propelling_action',
+];
+export function structureSixLookup(
+  rows: { field_id: string; entity_type: string; entity_id: string; value: string }[]
+): Map<string, Record<string, string>> {
+  const cols = new Set(STRUCTURE_SIX_COLS);
+  const map = new Map<string, Record<string, string>>();
+  for (const r of rows) {
+    if (!r.field_id.startsWith('builtin:')) continue;
+    const col = r.field_id.slice('builtin:'.length);
+    if (!cols.has(col)) continue;
+    let v: unknown;
+    try { v = JSON.parse(r.value); } catch { continue; }
+    if (typeof v !== 'string') continue;
+    const key = `${r.entity_type}:${r.entity_id}`;
+    const obj = map.get(key) ?? {};
+    obj[col] = v;
+    map.set(key, obj);
+  }
+  return map;
+}
+
 // The scene-metadata overlay (metadataFieldDefs + sceneMetadata) is the SAME
 // data as the scene-scoped arc fields — the renderer persists both through
 // saveArcFieldDefs(scope:'scene') / saveArcFieldValues('scene',...). Derive it

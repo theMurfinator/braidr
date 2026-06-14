@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import type { BraidrDB } from '../main/database';
-import { fieldValuesToArcAndTaskMaps, fieldDefsToArcAndTaskDefs, deriveSceneMetadataOverlay } from '../main/substrate';
+import { fieldValuesToArcAndTaskMaps, fieldDefsToArcAndTaskDefs, deriveSceneMetadataOverlay, structureSixLookup } from '../main/substrate';
 
 const FILE = 'fields.braidr';
 
@@ -417,5 +417,22 @@ describe('deriveSceneMetadataOverlay', () => {
     };
     const { sceneMetadata } = deriveSceneMetadataOverlay([], arcFieldValues);
     expect(sceneMetadata).toEqual({ s1: { mood: 'tense', _status: 'todo' } });
+  });
+});
+
+describe('structureSixLookup (builtin structure-six read cutover)', () => {
+  it('keys builtin six by entity, parses values, ignores non-builtins', () => {
+    const rows = [
+      { field_id: 'builtin:starting_state', entity_type: 'scene', entity_id: 's1', value: '"lost"' },
+      { field_id: 'builtin:polarity', entity_type: 'node', entity_id: 'pp:p1', value: '"+"' },
+      { field_id: 'builtin:ending_state', entity_type: 'node', entity_id: 'act:a1', value: '"found"' },
+      { field_id: 'builtin:dilemma', entity_type: 'node', entity_id: 'novel:noah', value: '"stay or go"' },
+      { field_id: 'arcf:theme', entity_type: 'scene', entity_id: 's1', value: '"x"' },
+    ];
+    const m = structureSixLookup(rows);
+    expect(m.get('scene:s1')).toEqual({ starting_state: 'lost' });
+    expect(m.get('node:pp:p1')).toEqual({ polarity: '+' });
+    expect(m.get('node:act:a1')).toEqual({ ending_state: 'found' });
+    expect(m.get('node:novel:noah')).toEqual({ dilemma: 'stay or go' });
   });
 });
