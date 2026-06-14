@@ -500,6 +500,28 @@ export function fieldValuesToArcAndTaskMaps(
   return { arcFieldValues, customFieldsByTask };
 }
 
+// The scene-metadata overlay (metadataFieldDefs + sceneMetadata) is the SAME
+// data as the scene-scoped arc fields — the renderer persists both through
+// saveArcFieldDefs(scope:'scene') / saveArcFieldValues('scene',...). Derive it
+// from the already-reconstructed arc maps rather than the legacy metadata tables
+// (importer-only, hence stale for any field edited after import).
+export function deriveSceneMetadataOverlay(
+  arcFieldDefs: { id: string; label: string; type: string; options?: unknown; optionColors?: unknown; order: number; scope?: string }[],
+  arcFieldValues: Record<string, Record<string, unknown>>
+): {
+  metadataFieldDefs: { id: string; label: string; type: string; options: unknown; optionColors: unknown; order: number }[];
+  sceneMetadata: Record<string, Record<string, unknown>>;
+} {
+  const metadataFieldDefs = arcFieldDefs
+    .filter(d => d.scope === 'scene')
+    .map(d => ({ id: d.id, label: d.label, type: d.type, options: d.options, optionColors: d.optionColors, order: d.order }));
+  const sceneMetadata: Record<string, Record<string, unknown>> = {};
+  for (const [key, vals] of Object.entries(arcFieldValues)) {
+    if (key.startsWith('scene:')) sceneMetadata[key.slice('scene:'.length)] = vals;
+  }
+  return { metadataFieldDefs, sceneMetadata };
+}
+
 // Companion to fieldValuesToArcAndTaskMaps: reconstruct the renderer's
 // arcFieldDefs + taskFieldDefs lists from the unified field_defs +
 // field_attachments. arc scope is recovered from attachments (an 'arc'-level

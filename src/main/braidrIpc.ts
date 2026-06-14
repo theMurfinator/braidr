@@ -7,7 +7,7 @@ import type {
   AllFontSettings,
 } from '../shared/types';
 import type { BraidrDB, ChapterRow, TableViewRow, ActRow, CharacterPsychologyRow } from './database';
-import { fieldValuesToArcAndTaskMaps, fieldDefsToArcAndTaskDefs } from './substrate';
+import { fieldValuesToArcAndTaskMaps, fieldDefsToArcAndTaskDefs, deriveSceneMetadataOverlay } from './substrate';
 
 function getDb(braidrPath: string): BraidrDB {
   const { openDatabase } = require('./database') as typeof import('./database');
@@ -338,38 +338,16 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       if (row.content) draftContent[row.scene_id] = row.content;
     }
 
-    // Metadata field defs
-    const mfdRows = db.getMetadataFieldDefs();
-    const metadataFieldDefs: MetadataFieldDef[] = mfdRows.map(row => ({
-      id: row.id,
-      label: row.label,
-      type: row.field_type as MetadataFieldDef['type'],
-      options: row.options ? (() => { try { return JSON.parse(row.options!); } catch { return undefined; } })() : undefined,
-      optionColors: row.option_colors ? (() => { try { return JSON.parse(row.option_colors!); } catch { return undefined; } })() : undefined,
-      order: row.display_order,
-    }));
-
-    // Scene metadata values (bulk)
-    const metaValueRows = db.getAllSceneMetadataValues();
-    const sceneMetadata: Record<string, Record<string, string | string[]>> = {};
-    for (const row of metaValueRows) {
-      try {
-        (sceneMetadata[row.scene_id] ??= {})[row.field_def_id] = JSON.parse(row.value);
-      } catch {
-        // Malformed metadata value — skip rather than crash
-      }
-    }
-
     // One-time idempotent migration: copy legacy scene metadata into arc tables
+    // (keeps the legacy safety-net tables consistent for old imported projects).
     try { db.migrateSceneMetadataToArcTables(); } catch (e) {
       console.error('[BRAIDR_LOAD_PROJECT] scene metadata migration failed (non-fatal)', e);
     }
 
     // Field DEFS read authority (Phase 5c step A): arc + task custom field defs
     // now come from the unified field_defs/field_attachments (arc scope recovered
-    // from attachments). metadataFieldDefs stays on its legacy table — a
-    // backward-compat overlay, still dual-maintained. Legacy arc_field_defs /
-    // task_field_defs remain rebuilt-on-open as the safety net.
+    // from attachments). Legacy arc_field_defs / task_field_defs remain rebuilt-
+    // on-open as the safety net.
     const attLevels = new Map<string, string[]>();
     for (const a of db.getFieldAttachments()) {
       const list = attLevels.get(a.field_id);
@@ -387,6 +365,15 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     const { arcFieldValues, customFieldsByTask } = fieldValuesToArcAndTaskMaps(db.getFieldValues()) as {
       arcFieldValues: Record<string, Record<string, string | string[]>>;
       customFieldsByTask: Record<string, Record<string, unknown>>;
+    };
+
+    // Scene-metadata overlay (metadataFieldDefs + sceneMetadata, used by
+    // TableView/CompileModal/EditorView) is the same data as the scene-scoped
+    // arc fields — derived from the unified maps above, NOT the importer-only
+    // legacy metadata tables (which go stale for anything edited after import).
+    const { metadataFieldDefs, sceneMetadata } = deriveSceneMetadataOverlay(arcFieldDefs, arcFieldValues) as {
+      metadataFieldDefs: MetadataFieldDef[];
+      sceneMetadata: Record<string, Record<string, string | string[]>>;
     };
 
     // Draft versions (bulk)
