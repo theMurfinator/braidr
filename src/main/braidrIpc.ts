@@ -7,7 +7,7 @@ import type {
   AllFontSettings,
 } from '../shared/types';
 import type { BraidrDB, ChapterRow, TableViewRow, ActRow, CharacterPsychologyRow } from './database';
-import { fieldValuesToArcAndTaskMaps, fieldDefsToArcAndTaskDefs, deriveSceneMetadataOverlay } from './substrate';
+import { fieldValuesToArcAndTaskMaps, fieldDefsToArcAndTaskDefs, deriveSceneMetadataOverlay, structureSixLookup } from './substrate';
 
 function getDb(braidrPath: string): BraidrDB {
   const { openDatabase } = require('./database') as typeof import('./database');
@@ -215,24 +215,35 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     });
 
     // Plot points — ordered by the structure tree (Phase 5b authority flip)
+    // Built-in structure-six read authority (Phase 5 final): the six builtin
+    // fields are read from field_values, not the legacy columns. Computed once
+    // and overlaid on scenes/plot_points here (acts + psychology in their own
+    // handlers). Legacy columns retained + rebuilt-on-open as the safety net.
+    const fieldValueRows = db.getFieldValues();
+    const sixLookup = structureSixLookup(fieldValueRows);
+    const sixOf = (key: string) => sixLookup.get(key) ?? {};
+
     const ppRows = db.getPlotPointsOrdered();
-    const plotPoints: PlotPoint[] = ppRows.map(row => ({
-      id: row.id,
-      characterId: row.character_id,
-      actId: (row as any).act_id ?? null,
-      inBullpen: !!(row as any).in_bullpen,
-      title: row.title,
-      expectedSceneCount: row.expected_scene_count,
-      description: row.description || '',
-      synopsis: (row as any).synopsis ?? '',
-      order: row.display_order,
-      startingState: (row as any).starting_state ?? '',
-      endingState: (row as any).ending_state ?? '',
-      polarity: (row as any).polarity ?? '',
-      transformation: (row as any).transformation ?? '',
-      dilemma: (row as any).dilemma ?? '',
-      propellingAction: (row as any).propelling_action ?? '',
-    }));
+    const plotPoints: PlotPoint[] = ppRows.map(row => {
+      const six = sixOf(`node:pp:${row.id}`);
+      return {
+        id: row.id,
+        characterId: row.character_id,
+        actId: (row as any).act_id ?? null,
+        inBullpen: !!(row as any).in_bullpen,
+        title: row.title,
+        expectedSceneCount: row.expected_scene_count,
+        description: row.description || '',
+        synopsis: (row as any).synopsis ?? '',
+        order: row.display_order,
+        startingState: six.starting_state ?? '',
+        endingState: six.ending_state ?? '',
+        polarity: six.polarity ?? '',
+        transformation: six.transformation ?? '',
+        dilemma: six.dilemma ?? '',
+        propellingAction: six.propelling_action ?? '',
+      };
+    });
 
     // Tags
     const tagRows = db.getTags();
@@ -262,28 +273,31 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
 
     // Scenes
     const sceneRows = db.getScenes();
-    const scenes: Scene[] = sceneRows.map(row => ({
-      id: row.id,
-      characterId: row.character_id,
-      sceneNumber: row.scene_number,
-      title: row.title,
-      content: row.synopsis,
-      tags: sceneTags[row.id] || [],
-      timelinePosition: row.timeline_position,
-      isHighlighted: row.is_highlighted === 1,
-      notes: sceneNotes[row.id] || [],
-      plotPointId: row.plot_point_id,
-      wordCount: row.word_count ?? undefined,
-      chapterId: row.chapter_id,
-      sceneOrder: row.scene_order,
-      stationId: null,
-      polarity: (row as any).polarity ?? '',
-      transformation: (row as any).transformation ?? '',
-      dilemma: (row as any).dilemma ?? '',
-      propellingAction: (row as any).propelling_action ?? '',
-      startingState: (row as any).starting_state ?? '',
-      endingState: (row as any).ending_state ?? '',
-    }));
+    const scenes: Scene[] = sceneRows.map(row => {
+      const six = sixOf(`scene:${row.id}`);
+      return {
+        id: row.id,
+        characterId: row.character_id,
+        sceneNumber: row.scene_number,
+        title: row.title,
+        content: row.synopsis,
+        tags: sceneTags[row.id] || [],
+        timelinePosition: row.timeline_position,
+        isHighlighted: row.is_highlighted === 1,
+        notes: sceneNotes[row.id] || [],
+        plotPointId: row.plot_point_id,
+        wordCount: row.word_count ?? undefined,
+        chapterId: row.chapter_id,
+        sceneOrder: row.scene_order,
+        stationId: null,
+        polarity: six.polarity ?? '',
+        transformation: six.transformation ?? '',
+        dilemma: six.dilemma ?? '',
+        propellingAction: six.propelling_action ?? '',
+        startingState: six.starting_state ?? '',
+        endingState: six.ending_state ?? '',
+      };
+    });
 
     // Connections
     const connRows = db.getSceneConnections();
@@ -362,7 +376,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     // custom fields now come from the unified field_values table, reshaped to
     // the renderer's legacy maps. Legacy arc_field_values / task_custom_field_
     // values stay dual-written + rebuilt-on-open as the safety net.
-    const { arcFieldValues, customFieldsByTask } = fieldValuesToArcAndTaskMaps(db.getFieldValues()) as {
+    const { arcFieldValues, customFieldsByTask } = fieldValuesToArcAndTaskMaps(fieldValueRows) as {
       arcFieldValues: Record<string, Record<string, string | string[]>>;
       customFieldsByTask: Record<string, Record<string, unknown>>;
     };
@@ -936,7 +950,22 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_ASSIGN_SCENE_TO_CHAPTER, (
 ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_ACTS, (_event, braidrPath: string, characterId: string) => {
   try {
     const db = getDb(braidrPath);
-    return { success: true, data: db.getActsOrdered(characterId) };
+    // Structure-six read authority: overlay the six builtin columns from
+    // field_values onto each act row (legacy columns kept as safety net).
+    const six = structureSixLookup(db.getFieldValues());
+    const acts = db.getActsOrdered(characterId).map(row => {
+      const v = six.get(`node:act:${row.id}`);
+      return v ? {
+        ...row,
+        starting_state: v.starting_state ?? '',
+        ending_state: v.ending_state ?? '',
+        polarity: v.polarity ?? '',
+        transformation: v.transformation ?? '',
+        dilemma: v.dilemma ?? '',
+        propelling_action: v.propelling_action ?? '',
+      } : { ...row, starting_state: '', ending_state: '', polarity: '', transformation: '', dilemma: '', propelling_action: '' };
+    });
+    return { success: true, data: acts };
   } catch (err) { return { success: false, error: String(err) }; }
 });
 
@@ -1056,7 +1085,20 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_REORDER_ACTS, (_event, braidrPath: string, ch
 ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_CHARACTER_PSYCHOLOGY, (_event, braidrPath: string, characterId: string) => {
   try {
     const db = getDb(braidrPath);
-    return { success: true, data: db.getCharacterPsychology(characterId) ?? null };
+    const row = db.getCharacterPsychology(characterId);
+    if (!row) return { success: true, data: null };
+    // Structure-six read authority: overlay the novel-level builtin six from
+    // field_values onto the novel_* columns (legacy columns kept as safety net).
+    const v = structureSixLookup(db.getFieldValues()).get(`node:novel:${characterId}`) ?? {};
+    return { success: true, data: {
+      ...row,
+      novel_starting_state: v.starting_state ?? '',
+      novel_ending_state: v.ending_state ?? '',
+      novel_polarity: v.polarity ?? '',
+      novel_transformation: v.transformation ?? '',
+      novel_dilemma: v.dilemma ?? '',
+      novel_propelling_action: v.propelling_action ?? '',
+    } };
   } catch (err) { return { success: false, error: String(err) }; }
 });
 
