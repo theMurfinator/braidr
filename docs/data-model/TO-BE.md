@@ -136,15 +136,20 @@ Branches are the experimentation feature, and today they're the **worst Class B 
 
 Each phase ships independently, additive-first, with behavior-pinning tests before the old path is removed.
 
-0. **Guardrails (precondition):** typecheck + eslint gates in CI. No data-layer code before this.
-1. **Infrastructure:** `braidr:mutate` channel, mutation registry + executor (budget enforcement, log table), `deleted_at` columns, `PRAGMA user_version` + ordered migration files (stamp current schema as v1). All additive; nothing existing changes behavior.
-2. **New substrate (additive):** create `structure_levels`, `structure_nodes`, `field_defs/attachments/values`; back-fill from `acts` + `plot_points` + `chapters` + `character_psychology` + the three old field systems + the hardcoded structure columns. Old tables stay authoritative; the substrate is kept in sync by a one-way refresh until read paths move. New mutations (§3) write the substrate *and* the legacy columns (dual-write) during transition.
-3. **Retire SAVE_CHARACTER** — the scarier Class B path, verb by verb against the new substrate: (a) outline reorder → `scene.move`/`node.move` on fractional keys (reorders trigger most bulk saves today); (b) field edits → `field.setValue`; (c) create/delete → narrow verbs with soft delete. When no caller remains, delete the DELETE+re-INSERT code and the plot-point landmine with it.
-4. **Retire SAVE_TIMELINE** — split the 20-key grab-bag by domain, **tasks first** (the table both data-loss incidents hit), then connections, world events, defs, views. The `shouldReplace` guard stays until the last replace path is gone. The task rebuild includes the §4b additions (subtasks schema + verbs); the details page UI can follow separately once the verbs exist.
-5. **Cut over reads** — views select from the substrate; legacy tables (`acts`, `plot_points` as structure, `chapters`, `character_psychology` structure columns, old field tables) drop after their last reader.
-6. **Ordering cleanup** — drop legacy integer columns, derive all display numbers.
-7. **Renderer store** rollout runs in parallel with 3–6, view by view, consuming whatever mutations exist so far.
-8. **Branch rework** — last, per `BRANCHES.md` (§6b): its own UX-first design pass on top of the finished substrate; existing branch machinery untouched until then.
+*Progress (updated 2026-06-13): Phases 0–4 ✅ DONE. Phase 5 🔵 IN PROGRESS (5a + 5b shipped — structure reads now on the tree; field reads + legacy-table drop remain). Phases 6–8 ⬜ not started.*
+
+0. ✅ **Guardrails (precondition):** typecheck + eslint gates in CI. No data-layer code before this. — *Shipped PR #48 (v1.5.151).*
+1. ✅ **Infrastructure:** `braidr:mutate` channel, mutation registry + executor (budget enforcement, log table), `deleted_at` columns, `PRAGMA user_version` + ordered migration files (stamp current schema as v1). All additive; nothing existing changes behavior. — *Shipped PR #49.*
+2. ✅ **New substrate (additive):** create `structure_levels`, `structure_nodes`, `field_defs/attachments/values`; back-fill from `acts` + `plot_points` + `chapters` + `character_psychology` + the three old field systems + the hardcoded structure columns. Old tables stay authoritative; the substrate is kept in sync by a one-way refresh until read paths move. New mutations (§3) write the substrate *and* the legacy columns (dual-write) during transition. — *Shipped PRs #49–#50.*
+3. ✅ **Retire SAVE_CHARACTER** — the scarier Class B path, verb by verb against the new substrate: (a) outline reorder → `scene.move`/`node.move` on fractional keys (reorders trigger most bulk saves today); (b) field edits → `field.setValue`; (c) create/delete → narrow verbs with soft delete. When no caller remains, delete the DELETE+re-INSERT code and the plot-point landmine with it. — *Done (commit 1096fa3): SAVE_CHARACTER + the plot-point landmine deleted.*
+4. ✅ **Retire SAVE_TIMELINE** — split the 20-key grab-bag by domain, **tasks first** (the table both data-loss incidents hit), then connections, world events, defs, views. The `shouldReplace` guard stays until the last replace path is gone. The task rebuild includes the §4b additions (subtasks schema + verbs); the details page UI can follow separately once the verbs exist. — *Done through PR #58: SAVE_TIMELINE IPC handler retired entirely; all writes are point-of-change mutations. (Subtasks/§4b not yet built — tracked separately.)*
+5. 🔵 **Cut over reads** — views select from the substrate; legacy tables (`acts`, `plot_points` as structure, `chapters`, `character_psychology` structure columns, old field tables) drop after their last reader.
+   - ✅ **5a** (PR #59): `refreshSubstrate()` seeds `structure_nodes` once per project (not wipe-and-rebuild every open); mutation order_key edits now survive reopen.
+   - ✅ **5b** (PR #60): plot-point + act reads cut over to the tree — flat section order is the depth-first walk of `structure_nodes` (`getPlotPointsOrdered`/`getActsOrdered`), `node.move` owns `order_key` and reparents on cross-act drops. Verified behaviour-preserving on real projects. Legacy `display_order`/`act_id` still dual-written.
+   - ⬜ **5c remaining:** cut over **field reads** to `field_values` + finish the `syncStructureSix` dual-write so `refreshFields()`-every-open can stop and `refreshSubstrate()` can leave `initialize()`; then **drop the legacy structure tables/columns** once nothing reads them.
+6. ⬜ **Ordering cleanup** — drop legacy integer columns, derive all display numbers.
+7. ⬜ **Renderer store** rollout runs in parallel with 3–6, view by view, consuming whatever mutations exist so far.
+8. ⬜ **Branch rework** — last, per `BRANCHES.md` (§6b): its own UX-first design pass on top of the finished substrate; existing branch machinery untouched until then.
 
 ## UX/UI implications (recorded for the redesign, not in scope here)
 
@@ -160,4 +165,4 @@ Each phase ships independently, additive-first, with behavior-pinning tests befo
 3. ~~Store library~~ **zustand** (§5)
 4. ~~Chapter scope~~ **Per-character, no shared fallback** — omniscient writers model their narrator as one "character" (§1)
 
-**The spec is signed off. Next: Phase 0 (typecheck + eslint gates), then Phase 1 (mutation infrastructure).**
+**The spec is signed off. Status (2026-06-13): Phases 0–4 shipped; Phase 5 in progress (5a + 5b done — structure reads on the tree). Next: Phase 5c — cut over field reads to `field_values`, then drop the legacy structure tables/columns.**

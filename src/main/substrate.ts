@@ -314,3 +314,248 @@ function groupBy<T>(rows: T[], key: (row: T) => string): T[][] {
   }
   return [...groups.values()];
 }
+
+// ── Phase 5c-1: within-session field_values dual-writes ──────────────────────
+//
+// refreshFields() (above) rebuilds the entire field_values mirror on open from
+// the legacy field tables. These helpers keep the mirror in sync *within* a
+// session so a single legacy write is immediately reflected — the prerequisite
+// for retiring refreshFields()-every-open and, eventually, the legacy tables.
+//
+// Each helper re-derives the field_values rows for ONE entity from the legacy
+// table, using the exact same id/shape mapping refreshFields() uses, so the two
+// agree byte-for-byte. Values whose def is not yet in field_defs are skipped
+// (field_values.field_id is an FK); the def dual-write keeps defs present.
+
+function defExists(db: Database.Database, fieldId: string): boolean {
+  return !!db.prepare('SELECT 1 FROM field_defs WHERE id = ?').get(fieldId);
+}
+
+// task_custom_field_values → field_values (taskf:<def>, entity 'task'/<taskId>)
+export function syncTaskFieldValues(db: Database.Database, taskId: string): void {
+  db.prepare(
+    "DELETE FROM field_values WHERE entity_type = 'task' AND entity_id = ? AND field_id LIKE 'taskf:%'"
+  ).run(taskId);
+  const insertValue = db.prepare(
+    'INSERT OR REPLACE INTO field_values (field_id, entity_type, entity_id, value) VALUES (?, ?, ?, ?)'
+  );
+  const rows = db.prepare('SELECT field_def_id, value FROM task_custom_field_values WHERE task_id = ?').all(taskId) as
+    { field_def_id: string; value: string }[];
+  for (const v of rows) {
+    const fieldId = `taskf:${v.field_def_id}`;
+    if (defExists(db, fieldId)) insertValue.run(fieldId, 'task', taskId, v.value);
+  }
+}
+
+// arc_field_values for an act/section → field_values (arcf:<def>, entity
+// 'node'/<act:|pp:>). Only arcf:* rows on the node are recomputed; builtin
+// structure-six rows on the same node (written by syncStructureSix) are left
+// untouched. The scene entity is handled by syncSceneFieldValues, which must
+// reconcile arc-scene values with scene_metadata_values precedence.
+export function syncArcNodeFieldValues(db: Database.Database, entityType: 'act' | 'section', entityId: string): void {
+  const nodeId = entityType === 'act' ? `act:${entityId}` : `pp:${entityId}`;
+  db.prepare(
+    "DELETE FROM field_values WHERE entity_type = 'node' AND entity_id = ? AND field_id LIKE 'arcf:%'"
+  ).run(nodeId);
+  const insertValue = db.prepare(
+    'INSERT OR REPLACE INTO field_values (field_id, entity_type, entity_id, value) VALUES (?, ?, ?, ?)'
+  );
+  const rows = db.prepare('SELECT field_def_id, value FROM arc_field_values WHERE entity_type = ? AND entity_id = ?')
+    .all(entityType, entityId) as { field_def_id: string; value: string }[];
+  for (const v of rows) {
+    const fieldId = `arcf:${v.field_def_id}`;
+    if (defExists(db, fieldId)) insertValue.run(fieldId, 'node', nodeId, v.value);
+  }
+}
+
+// A scene's arcf:* field_values are fed by TWO legacy systems that share the
+// same (field, scene) key: arc_field_values (entity_type='scene') and
+// scene_metadata_values. They diverged historically; refreshFields() resolves
+// it by writing arc copies first, then metadata over the top — metadata wins.
+// This recomputes one scene's arcf:* rows with the same precedence, so either
+// write path (arc-scene or metadata) lands a consistent result. builtin:* scene
+// rows (the structure six, from the scenes table) are left untouched.
+export function syncSceneFieldValues(db: Database.Database, sceneId: string): void {
+  db.prepare(
+    "DELETE FROM field_values WHERE entity_type = 'scene' AND entity_id = ? AND field_id LIKE 'arcf:%'"
+  ).run(sceneId);
+  const insertValue = db.prepare(
+    'INSERT OR REPLACE INTO field_values (field_id, entity_type, entity_id, value) VALUES (?, ?, ?, ?)'
+  );
+  const arcRows = db.prepare("SELECT field_def_id, value FROM arc_field_values WHERE entity_type = 'scene' AND entity_id = ?")
+    .all(sceneId) as { field_def_id: string; value: string }[];
+  for (const v of arcRows) {
+    const fieldId = `arcf:${v.field_def_id}`;
+    if (defExists(db, fieldId)) insertValue.run(fieldId, 'scene', sceneId, v.value);
+  }
+  // metadata wins: written last so it overwrites any arc copy of the same field
+  const metaRows = db.prepare('SELECT field_def_id, value FROM scene_metadata_values WHERE scene_id = ?')
+    .all(sceneId) as { field_def_id: string; value: string }[];
+  for (const v of metaRows) {
+    const fieldId = `arcf:${v.field_def_id}`;
+    if (defExists(db, fieldId)) insertValue.run(fieldId, 'scene', sceneId, v.value);
+  }
+}
+
+// ── Phase 5c-1 (B): within-session field_defs / field_attachments dual-writes ─
+//
+// Mirror the legacy def tables into the unified field_defs/field_attachments,
+// using the same id/level mapping refreshFields() uses. CRITICAL: defs that
+// persist are UPDATEd in place, never delete-then-reinsert — a DELETE on a
+// field_defs row cascades to its field_values (ON DELETE CASCADE), so reinsert
+// would silently wipe every value of a merely-renamed field. Only genuinely
+// removed defs are DELETEd, which correctly cascades their now-orphaned values.
+
+interface DesiredDef {
+  label: string; field_type: string; options: string | null;
+  option_colors: string | null; rating_max: number | null;
+  display_order: number; levels: string[];
+}
+
+function applyDefSync(db: Database.Database, prefix: string, desired: Map<string, DesiredDef>): void {
+  const now = Date.now();
+  const existing = new Set(
+    (db.prepare('SELECT id FROM field_defs WHERE id LIKE ?').all(`${prefix}%`) as { id: string }[]).map(r => r.id)
+  );
+  const del = db.prepare('DELETE FROM field_defs WHERE id = ?');
+  for (const id of existing) if (!desired.has(id)) del.run(id); // cascades values + attachments
+
+  const ins = db.prepare(
+    'INSERT INTO field_defs (id, label, field_type, options, option_colors, rating_max, display_order, builtin, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)'
+  );
+  const upd = db.prepare(
+    'UPDATE field_defs SET label = ?, field_type = ?, options = ?, option_colors = ?, rating_max = ?, display_order = ? WHERE id = ?'
+  );
+  const delAtt = db.prepare('DELETE FROM field_attachments WHERE field_id = ?');
+  const insAtt = db.prepare('INSERT OR IGNORE INTO field_attachments (field_id, level_key) VALUES (?, ?)');
+  for (const [id, d] of desired) {
+    if (existing.has(id)) upd.run(d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order, id);
+    else ins.run(id, d.label, d.field_type, d.options, d.option_colors, d.rating_max, d.display_order, now);
+    delAtt.run(id); // attachment set is small; reset to match (handles scope change)
+    for (const lvl of d.levels) insAtt.run(id, lvl);
+  }
+}
+
+// arc_field_defs (+ metadata_field_defs not shadowed by an arc def) → arcf:* defs
+export function syncArcFieldDefs(db: Database.Database): void {
+  const arcDefs = db.prepare('SELECT * FROM arc_field_defs ORDER BY display_order').all() as
+    { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; rating_max: number | null; display_order: number; scope: string }[];
+  const metaDefs = db.prepare('SELECT * FROM metadata_field_defs ORDER BY display_order').all() as
+    { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; display_order: number }[];
+  const arcIds = new Set(arcDefs.map(d => d.id));
+
+  const desired = new Map<string, DesiredDef>();
+  for (const d of arcDefs) {
+    desired.set(`arcf:${d.id}`, {
+      label: d.label, field_type: d.field_type, options: d.options, option_colors: d.option_colors,
+      rating_max: d.rating_max, display_order: d.display_order,
+      levels: d.scope === 'scene' ? ['scene'] : ['arc', 'plot_point', 'scene'],
+    });
+  }
+  for (const d of metaDefs) {
+    if (arcIds.has(d.id)) continue; // arc def shadows a same-id metadata def (refreshFields parity)
+    desired.set(`arcf:${d.id}`, {
+      label: d.label, field_type: d.field_type, options: d.options, option_colors: d.option_colors,
+      rating_max: null, display_order: d.display_order, levels: ['scene'],
+    });
+  }
+  applyDefSync(db, 'arcf:', desired);
+}
+
+// ── Phase 5c step A: read cutover — field_values → legacy renderer shapes ─────
+//
+// LOAD_PROJECT builds its arcFieldValues + task customFields maps from these,
+// instead of the legacy arc_field_values / task_custom_field_values tables, so
+// field_values becomes the read authority. Pure translation (no DB) for easy
+// testing. Reverses the id/entity mapping the sync helpers + refreshFields use:
+//   arcf:<def> / node 'act:<id>'  -> arcFieldValues['act:<id>'][<def>]
+//   arcf:<def> / node 'pp:<id>'   -> arcFieldValues['section:<id>'][<def>]
+//   arcf:<def> / scene '<id>'     -> arcFieldValues['scene:<id>'][<def>]
+//   taskf:<def> / task '<id>'     -> customFieldsByTask['<id>'][<def>]
+// builtin:* rows (the structure six) are excluded — they're read elsewhere.
+export function fieldValuesToArcAndTaskMaps(
+  rows: { field_id: string; entity_type: string; entity_id: string; value: string }[]
+): {
+  arcFieldValues: Record<string, Record<string, unknown>>;
+  customFieldsByTask: Record<string, Record<string, unknown>>;
+} {
+  const arcFieldValues: Record<string, Record<string, unknown>> = {};
+  const customFieldsByTask: Record<string, Record<string, unknown>> = {};
+  for (const r of rows) {
+    let parsed: unknown;
+    try { parsed = JSON.parse(r.value); } catch { continue; } // skip malformed
+
+    if (r.field_id.startsWith('arcf:')) {
+      const defId = r.field_id.slice('arcf:'.length);
+      let key: string | null = null;
+      if (r.entity_type === 'scene') key = `scene:${r.entity_id}`;
+      else if (r.entity_type === 'node' && r.entity_id.startsWith('act:')) key = `act:${r.entity_id.slice('act:'.length)}`;
+      else if (r.entity_type === 'node' && r.entity_id.startsWith('pp:')) key = `section:${r.entity_id.slice('pp:'.length)}`;
+      if (key) (arcFieldValues[key] ??= {})[defId] = parsed;
+    } else if (r.field_id.startsWith('taskf:') && r.entity_type === 'task') {
+      const defId = r.field_id.slice('taskf:'.length);
+      (customFieldsByTask[r.entity_id] ??= {})[defId] = parsed;
+    }
+  }
+  return { arcFieldValues, customFieldsByTask };
+}
+
+// Companion to fieldValuesToArcAndTaskMaps: reconstruct the renderer's
+// arcFieldDefs + taskFieldDefs lists from the unified field_defs +
+// field_attachments. arc scope is recovered from attachments (an 'arc'-level
+// attachment ⇒ scope 'arc', else 'scene' — matching how the sync helpers +
+// refreshFields attach them). builtin:* defs (the structure six) are excluded;
+// they are rendered as builtins separately, not as custom defs.
+function parseJsonOrUndef(s: string | null): unknown {
+  if (s == null) return undefined;
+  try { return JSON.parse(s); } catch { return undefined; }
+}
+
+export function fieldDefsToArcAndTaskDefs(
+  defs: { id: string; label: string; field_type: string; options: string | null; option_colors: string | null; rating_max: number | null; display_order: number; builtin: number }[],
+  attachmentLevelsByField: Map<string, string[]>
+): {
+  arcFieldDefs: { id: string; label: string; type: string; options: unknown; optionColors: unknown; ratingMax: number | undefined; order: number; scope: 'arc' | 'scene' }[];
+  taskFieldDefs: { id: string; name: string; type: string; options: unknown }[];
+} {
+  const arcFieldDefs: ReturnType<typeof fieldDefsToArcAndTaskDefs>['arcFieldDefs'] = [];
+  const taskFieldDefs: ReturnType<typeof fieldDefsToArcAndTaskDefs>['taskFieldDefs'] = [];
+  for (const d of defs) {
+    if (d.builtin) continue;
+    if (d.id.startsWith('arcf:')) {
+      const levels = attachmentLevelsByField.get(d.id) ?? [];
+      arcFieldDefs.push({
+        id: d.id.slice('arcf:'.length),
+        label: d.label,
+        type: d.field_type,
+        options: parseJsonOrUndef(d.options),
+        optionColors: parseJsonOrUndef(d.option_colors),
+        ratingMax: d.rating_max ?? undefined,
+        order: d.display_order,
+        scope: levels.includes('arc') ? 'arc' : 'scene',
+      });
+    } else if (d.id.startsWith('taskf:')) {
+      taskFieldDefs.push({
+        id: d.id.slice('taskf:'.length),
+        name: d.label,
+        type: d.field_type,
+        options: parseJsonOrUndef(d.options),
+      });
+    }
+  }
+  return { arcFieldDefs, taskFieldDefs };
+}
+
+// task_field_defs → taskf:* defs (label = def name; pseudo-level 'task')
+export function syncTaskFieldDefs(db: Database.Database): void {
+  const taskDefs = db.prepare('SELECT * FROM task_field_defs ORDER BY display_order').all() as
+    { id: string; name: string; field_type: string; options: string | null; display_order: number }[];
+  const desired = new Map<string, DesiredDef>();
+  for (const d of taskDefs) {
+    desired.set(`taskf:${d.id}`, {
+      label: d.name, field_type: d.field_type, options: d.options, option_colors: null,
+      rating_max: null, display_order: d.display_order, levels: ['task'],
+    });
+  }
+  applyDefSync(db, 'taskf:', desired);
+}

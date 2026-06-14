@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import { keyBetween, seedKeys } from '../shared/fractionalIndex';
-import { plotPointFlatKey, type NodeOrder } from './substrate';
+import { plotPointFlatKey, syncTaskFieldValues, type NodeOrder } from './substrate';
 
 // The mutation registry + executor (docs/data-model/TO-BE.md §3, §6).
 //
@@ -934,6 +934,7 @@ registerMutation<TaskSetFieldsArgs>({
     ctx.delete('DELETE FROM task_custom_field_values WHERE task_id = ?', taskId);
     const insertCF = db.prepare('INSERT INTO task_custom_field_values (task_id, field_def_id, value) VALUES (?, ?, ?)');
     for (const [fieldId, val] of Object.entries(customFields)) insertCF.run(taskId, fieldId, JSON.stringify(val));
+    syncTaskFieldValues(db, taskId);
 
     const oldCustomFields: Record<string, unknown> = {};
     for (const { field_def_id, value } of oldCustom) oldCustomFields[field_def_id] = JSON.parse(value);

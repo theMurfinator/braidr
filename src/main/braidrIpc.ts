@@ -7,6 +7,7 @@ import type {
   AllFontSettings,
 } from '../shared/types';
 import type { BraidrDB, ChapterRow, TableViewRow, ActRow, CharacterPsychologyRow } from './database';
+import { fieldValuesToArcAndTaskMaps, fieldDefsToArcAndTaskDefs } from './substrate';
 
 function getDb(braidrPath: string): BraidrDB {
   const { openDatabase } = require('./database') as typeof import('./database');
@@ -364,29 +365,29 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       console.error('[BRAIDR_LOAD_PROJECT] scene metadata migration failed (non-fatal)', e);
     }
 
-    // Arc field defs (all scopes — arc + scene)
-    const arcDefRows = db.getArcFieldDefs();
-    const arcFieldDefs: ArcFieldDef[] = arcDefRows.map(row => ({
-      id: row.id,
-      label: row.label,
-      type: row.field_type as ArcFieldDef['type'],
-      options: row.options ? (() => { try { return JSON.parse(row.options!); } catch { return undefined; } })() : undefined,
-      optionColors: row.option_colors ? (() => { try { return JSON.parse(row.option_colors!); } catch { return undefined; } })() : undefined,
-      ratingMax: row.rating_max ?? undefined,
-      order: row.display_order,
-      scope: (row.scope as 'arc' | 'scene') ?? 'arc',
-    }));
-
-    // Arc field values (bulk) -> keyed by "<entity_type>:<entity_id>"
-    const arcValueRows = db.getAllArcFieldValues();
-    const arcFieldValues: Record<string, Record<string, string | string[]>> = {};
-    for (const row of arcValueRows) {
-      try {
-        (arcFieldValues[`${row.entity_type}:${row.entity_id}`] ??= {})[row.field_def_id] = JSON.parse(row.value);
-      } catch {
-        // Malformed arc value -- skip rather than crash
-      }
+    // Field DEFS read authority (Phase 5c step A): arc + task custom field defs
+    // now come from the unified field_defs/field_attachments (arc scope recovered
+    // from attachments). metadataFieldDefs stays on its legacy table — a
+    // backward-compat overlay, still dual-maintained. Legacy arc_field_defs /
+    // task_field_defs remain rebuilt-on-open as the safety net.
+    const attLevels = new Map<string, string[]>();
+    for (const a of db.getFieldAttachments()) {
+      const list = attLevels.get(a.field_id);
+      if (list) list.push(a.level_key); else attLevels.set(a.field_id, [a.level_key]);
     }
+    const { arcFieldDefs, taskFieldDefs } = fieldDefsToArcAndTaskDefs(db.getFieldDefs(), attLevels) as {
+      arcFieldDefs: ArcFieldDef[];
+      taskFieldDefs: TaskFieldDef[];
+    };
+
+    // Field VALUES read authority (Phase 5c step A): arc field values + task
+    // custom fields now come from the unified field_values table, reshaped to
+    // the renderer's legacy maps. Legacy arc_field_values / task_custom_field_
+    // values stay dual-written + rebuilt-on-open as the safety net.
+    const { arcFieldValues, customFieldsByTask } = fieldValuesToArcAndTaskMaps(db.getFieldValues()) as {
+      arcFieldValues: Record<string, Record<string, string | string[]>>;
+      customFieldsByTask: Record<string, Record<string, unknown>>;
+    };
 
     // Draft versions (bulk)
     const dvRows = db.prepare(
@@ -417,17 +418,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       (sceneComments[row.scene_id] ??= []).push({ id: row.id, text: row.text, createdAt: row.created_at });
     }
 
-    // Tasks
+    // Tasks (customFieldsByTask computed above from field_values)
     const taskRows = db.getTasks();
-    const allTCFV = db.getAllTaskCustomFieldValues();
-    const customFieldsByTask: Record<string, Record<string, unknown>> = {};
-    for (const v of allTCFV) {
-      try {
-        (customFieldsByTask[v.task_id] ??= {})[v.field_def_id] = JSON.parse(v.value);
-      } catch {
-        // Malformed custom field value — skip
-      }
-    }
     const taskTagRows = db.prepare(`
       SELECT tt.task_id, t.name FROM task_tags tt JOIN tags t ON t.id = tt.tag_id
     `).all() as { task_id: string; name: string }[];
@@ -467,14 +459,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       customFields: customFieldsByTask[row.id] || {},
     }));
 
-    // Task field defs
-    const tfdRows = db.getTaskFieldDefs();
-    const taskFieldDefs: TaskFieldDef[] = tfdRows.map(row => ({
-      id: row.id,
-      name: row.name,
-      type: row.field_type as TaskFieldDef['type'],
-      options: row.options ? (() => { try { return JSON.parse(row.options!); } catch { return undefined; } })() : undefined,
-    }));
+    // taskFieldDefs computed above from field_defs (read authority)
 
     // Settings
     let taskViews: TaskViewConfig[] = [];
