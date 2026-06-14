@@ -141,3 +141,118 @@ describe('field substrate refresh', () => {
     re.close();
   });
 });
+
+// Phase 5c-1: field writes dual-write to field_values within the same session,
+// so refreshFields() on open is no longer the only thing keeping field_values
+// in sync. Each test opens once (refresh populates field_values), then edits via
+// a legacy write path and asserts field_values reflects it WITHOUT reopening.
+describe('field write dual-writes (within session)', () => {
+  let dir: string;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fldw-')); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  it('replaceTaskCustomFieldValues updates field_values within the session', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+    expect(value(re, 'taskf:sprint', 'task', 't1')).toBe('"june"');
+
+    re.replaceTaskCustomFieldValues('t1', [{ field_def_id: 'sprint', value: '"july"' }]);
+    expect(value(re, 'taskf:sprint', 'task', 't1')).toBe('"july"');
+    re.close();
+  });
+
+  it('replaceTaskCustomFieldValues removes cleared values from field_values', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+    expect(value(re, 'taskf:sprint', 'task', 't1')).toBe('"june"');
+
+    re.replaceTaskCustomFieldValues('t1', []);
+    expect(value(re, 'taskf:sprint', 'task', 't1')).toBeUndefined();
+    re.close();
+  });
+
+  it('task.setFields mutation dual-writes custom fields to field_values', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+    expect(value(re, 'taskf:sprint', 'task', 't1')).toBe('"june"');
+
+    re.mutate('task.setFields', {
+      taskId: 't1', title: 'Fix ch. 3', description: null, status: 'open',
+      priority: 'none', sceneId: null, timeEstimate: null, dueDate: null,
+      tags: [], characterIds: [], customFields: { sprint: 'august' },
+    });
+    expect(value(re, 'taskf:sprint', 'task', 't1')).toBe('"august"');
+    re.close();
+  });
+
+  it('replaceArcFieldValues updates act + section node field_values within the session', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+    expect(value(re, 'arcf:theme', 'node', 'act:a1')).toBe('"grief"');
+    expect(value(re, 'arcf:theme', 'node', 'pp:p1')).toBe('"loss"');
+
+    re.replaceArcFieldValues('act', 'a1', [{ field_def_id: 'theme', value: '"war"' }]);
+    re.replaceArcFieldValues('section', 'p1', [{ field_def_id: 'theme', value: '"exile"' }]);
+    expect(value(re, 'arcf:theme', 'node', 'act:a1')).toBe('"war"');
+    expect(value(re, 'arcf:theme', 'node', 'pp:p1')).toBe('"exile"');
+    re.close();
+  });
+
+  it('replaceArcFieldValues removes cleared act values but leaves builtin node fields', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+    // act:a1 carries both an arc field (theme) and a builtin (starting_state='lost')
+    expect(value(re, 'arcf:theme', 'node', 'act:a1')).toBe('"grief"');
+    expect(value(re, 'builtin:starting_state', 'node', 'act:a1')).toBe(JSON.stringify('lost'));
+
+    re.replaceArcFieldValues('act', 'a1', []);
+    expect(value(re, 'arcf:theme', 'node', 'act:a1')).toBeUndefined();
+    // the builtin row must survive — only arcf:* rows are recomputed
+    expect(value(re, 'builtin:starting_state', 'node', 'act:a1')).toBe(JSON.stringify('lost'));
+    re.close();
+  });
+
+  it('replaceSceneMetadataValues updates scene field_values and wins over arc', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+    expect(value(re, 'arcf:mood', 'scene', 's1')).toBe('"tense"'); // metadata wins on open
+
+    re.replaceSceneMetadataValues('s1', [{ field_def_id: 'mood', value: '"calm"' }]);
+    expect(value(re, 'arcf:mood', 'scene', 's1')).toBe('"calm"');
+    re.close();
+  });
+
+  it('replaceArcFieldValues(scene) does not clobber a metadata-owned field', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+
+    re.replaceArcFieldValues('scene', 's1', [
+      { field_def_id: 'theme', value: '"newchase"' },
+      { field_def_id: 'mood', value: '"newstale"' },
+    ]);
+    // theme has no metadata copy → arc write shows through
+    expect(value(re, 'arcf:theme', 'scene', 's1')).toBe('"newchase"');
+    // mood IS owned by scene_metadata_values → metadata still wins
+    expect(value(re, 'arcf:mood', 'scene', 's1')).toBe('"tense"');
+    re.close();
+  });
+
+  it('clearing scene metadata reverts the field to its arc copy', async () => {
+    const db = await seed(dir);
+    db.close();
+    const re = await open(dir);
+    expect(value(re, 'arcf:mood', 'scene', 's1')).toBe('"tense"');
+
+    re.replaceSceneMetadataValues('s1', []);
+    // no metadata left → falls back to the arc-scene value
+    expect(value(re, 'arcf:mood', 'scene', 's1')).toBe('"stale copy"');
+    re.close();
+  });
+});

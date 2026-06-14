@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { BRANCHED_TABLES, SNAPSHOT_FORMAT_VERSION } from './branchTables';
 import { runMigrations } from './migrations';
 import { executeMutation, type ExecuteResult } from './mutations';
-import { refreshSubstrate, plotPointFlatKey, type NodeOrder } from './substrate';
+import { refreshSubstrate, plotPointFlatKey, syncTaskFieldValues, syncArcNodeFieldValues, syncSceneFieldValues, type NodeOrder } from './substrate';
 
 const SCHEMA_VERSION = 1;
 
@@ -997,6 +997,7 @@ export class BraidrDB {
     this.db.prepare('DELETE FROM scene_metadata_values WHERE scene_id = ?').run(sceneId);
     const insert = this.db.prepare('INSERT INTO scene_metadata_values (scene_id, field_def_id, value) VALUES (?, ?, ?)');
     for (const v of values) insert.run(sceneId, v.field_def_id, v.value);
+    syncSceneFieldValues(this.db, sceneId);
   }
 
   getAllSceneMetadataValues() {
@@ -1059,6 +1060,11 @@ export class BraidrDB {
     this.db.transaction(() => {
       this.db.prepare('DELETE FROM arc_field_values WHERE entity_type = ? AND entity_id = ?').run(entityType, entityId);
       for (const v of values) insert.run(entityType, entityId, v.field_def_id, v.value);
+      if (entityType === 'act' || entityType === 'section') {
+        syncArcNodeFieldValues(this.db, entityType, entityId);
+      } else if (entityType === 'scene') {
+        syncSceneFieldValues(this.db, entityId);
+      }
     })();
   }
 
@@ -1392,6 +1398,7 @@ export class BraidrDB {
     this.db.prepare('DELETE FROM task_custom_field_values WHERE task_id = ?').run(taskId);
     const insert = this.db.prepare('INSERT INTO task_custom_field_values (task_id, field_def_id, value) VALUES (?, ?, ?)');
     for (const v of values) insert.run(taskId, v.field_def_id, v.value);
+    syncTaskFieldValues(this.db, taskId);
   }
 
   // ── Writing Sessions ──────────────────────────────────────────────────────

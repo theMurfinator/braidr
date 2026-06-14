@@ -314,3 +314,85 @@ function groupBy<T>(rows: T[], key: (row: T) => string): T[][] {
   }
   return [...groups.values()];
 }
+
+// ── Phase 5c-1: within-session field_values dual-writes ──────────────────────
+//
+// refreshFields() (above) rebuilds the entire field_values mirror on open from
+// the legacy field tables. These helpers keep the mirror in sync *within* a
+// session so a single legacy write is immediately reflected — the prerequisite
+// for retiring refreshFields()-every-open and, eventually, the legacy tables.
+//
+// Each helper re-derives the field_values rows for ONE entity from the legacy
+// table, using the exact same id/shape mapping refreshFields() uses, so the two
+// agree byte-for-byte. Values whose def is not yet in field_defs are skipped
+// (field_values.field_id is an FK); the def dual-write keeps defs present.
+
+function defExists(db: Database.Database, fieldId: string): boolean {
+  return !!db.prepare('SELECT 1 FROM field_defs WHERE id = ?').get(fieldId);
+}
+
+// task_custom_field_values → field_values (taskf:<def>, entity 'task'/<taskId>)
+export function syncTaskFieldValues(db: Database.Database, taskId: string): void {
+  db.prepare(
+    "DELETE FROM field_values WHERE entity_type = 'task' AND entity_id = ? AND field_id LIKE 'taskf:%'"
+  ).run(taskId);
+  const insertValue = db.prepare(
+    'INSERT OR REPLACE INTO field_values (field_id, entity_type, entity_id, value) VALUES (?, ?, ?, ?)'
+  );
+  const rows = db.prepare('SELECT field_def_id, value FROM task_custom_field_values WHERE task_id = ?').all(taskId) as
+    { field_def_id: string; value: string }[];
+  for (const v of rows) {
+    const fieldId = `taskf:${v.field_def_id}`;
+    if (defExists(db, fieldId)) insertValue.run(fieldId, 'task', taskId, v.value);
+  }
+}
+
+// arc_field_values for an act/section → field_values (arcf:<def>, entity
+// 'node'/<act:|pp:>). Only arcf:* rows on the node are recomputed; builtin
+// structure-six rows on the same node (written by syncStructureSix) are left
+// untouched. The scene entity is handled by syncSceneFieldValues, which must
+// reconcile arc-scene values with scene_metadata_values precedence.
+export function syncArcNodeFieldValues(db: Database.Database, entityType: 'act' | 'section', entityId: string): void {
+  const nodeId = entityType === 'act' ? `act:${entityId}` : `pp:${entityId}`;
+  db.prepare(
+    "DELETE FROM field_values WHERE entity_type = 'node' AND entity_id = ? AND field_id LIKE 'arcf:%'"
+  ).run(nodeId);
+  const insertValue = db.prepare(
+    'INSERT OR REPLACE INTO field_values (field_id, entity_type, entity_id, value) VALUES (?, ?, ?, ?)'
+  );
+  const rows = db.prepare('SELECT field_def_id, value FROM arc_field_values WHERE entity_type = ? AND entity_id = ?')
+    .all(entityType, entityId) as { field_def_id: string; value: string }[];
+  for (const v of rows) {
+    const fieldId = `arcf:${v.field_def_id}`;
+    if (defExists(db, fieldId)) insertValue.run(fieldId, 'node', nodeId, v.value);
+  }
+}
+
+// A scene's arcf:* field_values are fed by TWO legacy systems that share the
+// same (field, scene) key: arc_field_values (entity_type='scene') and
+// scene_metadata_values. They diverged historically; refreshFields() resolves
+// it by writing arc copies first, then metadata over the top — metadata wins.
+// This recomputes one scene's arcf:* rows with the same precedence, so either
+// write path (arc-scene or metadata) lands a consistent result. builtin:* scene
+// rows (the structure six, from the scenes table) are left untouched.
+export function syncSceneFieldValues(db: Database.Database, sceneId: string): void {
+  db.prepare(
+    "DELETE FROM field_values WHERE entity_type = 'scene' AND entity_id = ? AND field_id LIKE 'arcf:%'"
+  ).run(sceneId);
+  const insertValue = db.prepare(
+    'INSERT OR REPLACE INTO field_values (field_id, entity_type, entity_id, value) VALUES (?, ?, ?, ?)'
+  );
+  const arcRows = db.prepare("SELECT field_def_id, value FROM arc_field_values WHERE entity_type = 'scene' AND entity_id = ?")
+    .all(sceneId) as { field_def_id: string; value: string }[];
+  for (const v of arcRows) {
+    const fieldId = `arcf:${v.field_def_id}`;
+    if (defExists(db, fieldId)) insertValue.run(fieldId, 'scene', sceneId, v.value);
+  }
+  // metadata wins: written last so it overwrites any arc copy of the same field
+  const metaRows = db.prepare('SELECT field_def_id, value FROM scene_metadata_values WHERE scene_id = ?')
+    .all(sceneId) as { field_def_id: string; value: string }[];
+  for (const v of metaRows) {
+    const fieldId = `arcf:${v.field_def_id}`;
+    if (defExists(db, fieldId)) insertValue.run(fieldId, 'scene', sceneId, v.value);
+  }
+}
