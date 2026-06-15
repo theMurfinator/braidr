@@ -1747,11 +1747,13 @@ function App() {
   // Reapply global + screen font settings whenever allFontSettings state changes
   // (covers HMR, Fast Refresh, or any state restoration that bypasses loadProjectFromPath)
   useEffect(() => {
-    if (Object.keys(allFontSettings.global).length > 0) {
+    const hasGlobal = Object.keys(allFontSettings.global).length > 0;
+    const hasScreenOverrides = !!allFontSettings.screens && Object.keys(allFontSettings.screens).length > 0;
+    if (hasGlobal || hasScreenOverrides) {
       applyFontSettings(allFontSettings.global);
       applyScreenFontOverrides(viewMode, allFontSettings);
     }
-  }, [allFontSettings]);
+  }, [allFontSettings, viewMode]);
 
   // Handle font settings change (now receives AllFontSettings)
   const handleFontSettingsChange = async (settings: AllFontSettings) => {
