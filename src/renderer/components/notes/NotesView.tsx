@@ -637,6 +637,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
         </div>
         {selectedNote && noteContentLoaded ? (
           <NoteEditor
+            key={selectedNote.id}
             noteId={selectedNote.id}
             title={selectedNote.title}
             content={noteContent}
