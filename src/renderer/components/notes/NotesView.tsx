@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { NoteMetadata, NotesIndex, ArchivedNote, Scene, Character, Tag } from '../../../shared/types';
+import { NoteMetadata, NotesIndex, ArchivedNote, Scene, Character, Tag, FontSettings, AllFontSettings } from '../../../shared/types';
 import { dataService } from '../../services/dataService';
 import { useToast } from '../ToastContext';
 import { track } from '../../utils/posthogTracker';
 import NotesSidebar from './NotesSidebar';
 import NoteEditor from './NoteEditor';
 import BacklinksPanel from './BacklinksPanel';
+import NotesFontEditor from './NotesFontEditor';
 
 interface NotesViewProps {
   projectPath: string;
@@ -15,6 +16,8 @@ interface NotesViewProps {
   initialNoteId?: string | null;
   onNoteNavigated?: () => void;
   storagePrefix?: string;
+  allFontSettings?: AllFontSettings;
+  onFontSettingsChange?: (s: AllFontSettings) => void;
 }
 
 // Remove wikilink spans with a given targetId from HTML
@@ -124,9 +127,26 @@ async function migrateNotesIndex(oldIndex: any, projectPath: string): Promise<No
   return { notes: newNotes, version: 2 };
 }
 
-export default function NotesView({ projectPath, scenes, characters, tags, initialNoteId, onNoteNavigated, storagePrefix }: NotesViewProps) {
+export default function NotesView({ projectPath, scenes, characters, tags, initialNoteId, onNoteNavigated, storagePrefix, allFontSettings: allFontSettingsProp, onFontSettingsChange }: NotesViewProps) {
   const sk = (key: string) => storagePrefix ? `${key}-${storagePrefix}` : key;
   const { addToast } = useToast();
+  const [showFontEditor, setShowFontEditor] = useState(false);
+
+  const allFontSettings: AllFontSettings = allFontSettingsProp ?? { global: {} };
+
+  const handleNotesFontChange = (patch: Partial<FontSettings>) => {
+    const current = allFontSettings.screens?.notes ?? {};
+    const updated: AllFontSettings = {
+      ...allFontSettings,
+      screens: { ...allFontSettings.screens, notes: { ...current, ...patch } },
+    };
+    onFontSettingsChange?.(updated);
+  };
+
+  const resolvedNotesFontSettings: FontSettings = {
+    ...allFontSettings.global,
+    ...(allFontSettings.screens?.notes ?? {}),
+  };
   const [notesIndex, setNotesIndex] = useState<NotesIndex>({ notes: [], version: 2 });
   const [selectedNoteId, _setSelectedNoteId] = useState<string | null>(
     () => localStorage.getItem('braidr-last-note-id')
@@ -611,6 +631,13 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             </svg>
           </button>
           <div className="notes-panel-toggle-spacer" />
+          <button
+            className={`notes-panel-toggle notes-font-btn${showFontEditor ? ' active' : ''}`}
+            onClick={() => setShowFontEditor(v => !v)}
+            title="Font settings for notes"
+          >
+            Aa
+          </button>
           <button className="notes-panel-toggle" onClick={() => setBacklinksPanelCollapsed(!backlinksPanelCollapsed)} title={backlinksPanelCollapsed ? 'Show links' : 'Hide links'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
               <rect x="0.75" y="0.75" width="16.5" height="12.5" rx="2.25" stroke="currentColor" strokeWidth="1.5"/>
@@ -618,6 +645,13 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             </svg>
           </button>
         </div>
+        {showFontEditor && (
+          <NotesFontEditor
+            settings={resolvedNotesFontSettings}
+            onChange={handleNotesFontChange}
+            onClose={() => setShowFontEditor(false)}
+          />
+        )}
         {selectedNote && noteContentLoaded ? (
           <NoteEditor
             noteId={selectedNote.id}

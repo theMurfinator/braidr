@@ -50,6 +50,12 @@ export interface FontSettings {
   bodySize?: number;
   bodyBold?: boolean;
   bodyColor?: string;
+  heading1?: string;
+  heading1Size?: number;
+  heading2?: string;
+  heading2Size?: number;
+  heading3?: string;
+  heading3Size?: number;
 }
 
 export type ScreenKey = 'pov' | 'braided' | 'editor' | 'notes';
