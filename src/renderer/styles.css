@@ -11211,29 +11211,21 @@ textarea.table-cell-input {
   color: var(--font-body-color, inherit);
 }
 
-/* SIZE: BlockNote sizes every heading with `font-size: var(--level)`, where
-   --level is an em value (3em/2em/1.3em) — that's why headings scaled with the
-   body font. Redefine --level itself to an explicit pixel size per level. This
-   uses BlockNote's OWN rule (no specificity fight) and is cascade-safe regardless
-   of which element carries data-level. */
-.note-editor-content [data-level="1"] { --level: var(--note-h1-size, var(--font-h1-size, 1.875rem)) !important; }
-.note-editor-content [data-level="2"] { --level: var(--note-h2-size, var(--font-h2-size, 1.5rem)) !important; }
-.note-editor-content [data-level="3"] { --level: var(--note-h3-size, var(--font-h3-size, 1.25rem)) !important; }
-
-/* FAMILY per heading level (falls back to body font when unset). */
-.note-editor-content [data-content-type="heading"][data-level="1"] {
+/* BlockNote renders heading text as literal h1/h2/h3 elements with class
+   .bn-inline-content (confirmed via DevTools). Target those exact elements.
+   Pixel sizes (not em) so headings never scale with the body font; !important
+   beats BlockNote's built-in heading sizing. */
+.note-editor-content h1.bn-inline-content {
+  font-size: var(--note-h1-size, var(--font-h1-size, 1.875rem)) !important;
   font-family: var(--note-h1-font, var(--font-h1, var(--note-body-font, var(--font-body, inherit)))) !important;
 }
-.note-editor-content [data-content-type="heading"][data-level="2"] {
+.note-editor-content h2.bn-inline-content {
+  font-size: var(--note-h2-size, var(--font-h2-size, 1.5rem)) !important;
   font-family: var(--note-h2-font, var(--font-h2, var(--note-body-font, var(--font-body, inherit)))) !important;
 }
-.note-editor-content [data-content-type="heading"][data-level="3"] {
+.note-editor-content h3.bn-inline-content {
+  font-size: var(--note-h3-size, var(--font-h3-size, 1.25rem)) !important;
   font-family: var(--note-h3-font, var(--font-h3, var(--note-body-font, var(--font-body, inherit)))) !important;
-}
-/* Neutralize any nested heading element (e.g. a real <h1> with a UA/em size)
-   so it inherits the block's size instead of compounding on top of it. */
-.note-editor-content [data-content-type="heading"] * {
-  font-size: inherit !important;
 }
 
 .note-editor-content .tiptap {
