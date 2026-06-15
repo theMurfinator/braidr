@@ -1,9 +1,16 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useCreateBlockNote, useEditorChange } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
+import { BlockNoteSchema } from '@blocknote/core';
+import { en } from '@blocknote/core/locales';
 import type { PartialBlock } from '@blocknote/core';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
+import {
+  withMultiColumn,
+  multiColumnDropCursor,
+  locales as multiColumnLocales,
+} from '@blocknote/xl-multi-column';
 import { isBlockJson } from '../../../shared/noteContent';
 import { NoteMetadata, Scene, Character, Tag } from '../../../shared/types';
 
@@ -59,7 +66,14 @@ export default function NoteEditor({
   const tagInputRef = useRef<HTMLInputElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
 
-  const editor = useCreateBlockNote();
+  const editor = useCreateBlockNote({
+    schema: withMultiColumn(BlockNoteSchema.create()),
+    dropCursor: multiColumnDropCursor,
+    dictionary: {
+      ...en,
+      multi_column: multiColumnLocales.en,
+    },
+  });
 
   // Apply the note's stored content to the editor whenever it changes (note
   // switch or async load). Content follows the prop reactively — relying on
