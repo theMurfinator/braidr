@@ -11083,6 +11083,17 @@ textarea.table-cell-input {
   color: var(--font-body-color, inherit);
 }
 
+/* Headings follow the title fonts, mirroring the pre-rebuild editor:
+   H1/H2 use the section-title font, H3 uses the scene-title font.
+   Override the inherited body font from .bn-default-styles above. */
+.note-editor-content .bn-block-content[data-content-type="heading"][data-level="1"],
+.note-editor-content .bn-block-content[data-content-type="heading"][data-level="2"] {
+  font-family: var(--font-section-title, var(--font-body, inherit));
+}
+.note-editor-content .bn-block-content[data-content-type="heading"][data-level="3"] {
+  font-family: var(--font-scene-title, var(--font-body, inherit));
+}
+
 .note-editor-content .tiptap {
   outline: none;
   font-family: var(--font-body);
