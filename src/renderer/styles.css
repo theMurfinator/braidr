@@ -11212,16 +11212,21 @@ textarea.table-cell-input {
 }
 
 .note-editor-content [data-content-type="heading"][data-level="1"] {
-  font-family: var(--note-h1-font, var(--note-body-font, var(--font-body, inherit))) !important;
-  font-size: var(--note-h1-size, var(--level)) !important;
+  font-family: var(--note-h1-font, var(--font-h1, var(--note-body-font, var(--font-body, inherit)))) !important;
+  font-size: var(--note-h1-size, var(--font-h1-size, 1.875rem)) !important;
 }
 .note-editor-content [data-content-type="heading"][data-level="2"] {
-  font-family: var(--note-h2-font, var(--note-body-font, var(--font-body, inherit))) !important;
-  font-size: var(--note-h2-size, var(--level)) !important;
+  font-family: var(--note-h2-font, var(--font-h2, var(--note-body-font, var(--font-body, inherit)))) !important;
+  font-size: var(--note-h2-size, var(--font-h2-size, 1.5rem)) !important;
 }
 .note-editor-content [data-content-type="heading"][data-level="3"] {
-  font-family: var(--note-h3-font, var(--note-body-font, var(--font-body, inherit))) !important;
-  font-size: var(--note-h3-size, var(--level)) !important;
+  font-family: var(--note-h3-font, var(--font-h3, var(--note-body-font, var(--font-body, inherit)))) !important;
+  font-size: var(--note-h3-size, var(--font-h3-size, 1.25rem)) !important;
+}
+/* Neutralize any nested heading element (e.g. a real <h1> with a UA/em size)
+   so it inherits the block's pixel size instead of compounding on top of it. */
+.note-editor-content [data-content-type="heading"] * {
+  font-size: inherit !important;
 }
 
 .note-editor-content .tiptap {
