@@ -11072,6 +11072,17 @@ textarea.table-cell-input {
   margin-bottom: 0.75rem;
 }
 
+/* Honor the app's font settings (FontPicker / per-screen "notes" font) in the
+   BlockNote editor, overriding its bundled Inter default. These CSS variables
+   are set by applyScreenFontOverrides() when the Notes screen is active. */
+.note-editor-content .bn-default-styles,
+.note-editor-content .bn-editor {
+  font-family: var(--font-body, inherit);
+  font-size: var(--font-body-size, 16px);
+  font-weight: var(--font-body-weight, 400);
+  color: var(--font-body-color, inherit);
+}
+
 .note-editor-content .tiptap {
   outline: none;
   font-family: var(--font-body);
