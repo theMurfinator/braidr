@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { NoteMetadata, NotesIndex, ArchivedNote, Scene, Character, Tag } from '../../../shared/types';
+import { NoteMetadata, NotesIndex, ArchivedNote, Scene, Character, Tag, FontSettings, AllFontSettings } from '../../../shared/types';
 import { dataService } from '../../services/dataService';
 import { useToast } from '../ToastContext';
 import { track } from '../../utils/posthogTracker';
 import NotesSidebar from './NotesSidebar';
 import NoteEditor from './NoteEditor';
 import BacklinksPanel from './BacklinksPanel';
+import NotesFontEditor from './NotesFontEditor';
 
 interface NotesViewProps {
   projectPath: string;
@@ -15,6 +16,8 @@ interface NotesViewProps {
   initialNoteId?: string | null;
   onNoteNavigated?: () => void;
   storagePrefix?: string;
+  allFontSettings?: AllFontSettings;
+  onFontSettingsChange?: (s: AllFontSettings) => void;
 }
 
 // Remove wikilink spans with a given targetId from HTML
@@ -38,17 +41,6 @@ function parseWikilinks(html: string): { noteLinks: string[]; sceneLinks: string
     else if (targetType === 'scene') sceneLinks.push(targetId);
   }
   return { noteLinks: [...new Set(noteLinks)], sceneLinks: [...new Set(sceneLinks)] };
-}
-
-// Parse inline hashtags from HTML content
-function parseHashtags(html: string): string[] {
-  const tags: string[] = [];
-  const regex = /data-type="hashtag"[^>]*data-tag="([^"]*)"/g;
-  let match;
-  while ((match = regex.exec(html)) !== null) {
-    tags.push(match[1]);
-  }
-  return [...new Set(tags)];
 }
 
 // Get all descendant IDs of a note
@@ -135,9 +127,26 @@ async function migrateNotesIndex(oldIndex: any, projectPath: string): Promise<No
   return { notes: newNotes, version: 2 };
 }
 
-export default function NotesView({ projectPath, scenes, characters, tags, initialNoteId, onNoteNavigated, storagePrefix }: NotesViewProps) {
+export default function NotesView({ projectPath, scenes, characters, tags, initialNoteId, onNoteNavigated, storagePrefix, allFontSettings: allFontSettingsProp, onFontSettingsChange }: NotesViewProps) {
   const sk = (key: string) => storagePrefix ? `${key}-${storagePrefix}` : key;
   const { addToast } = useToast();
+  const [showFontEditor, setShowFontEditor] = useState(false);
+
+  const allFontSettings: AllFontSettings = allFontSettingsProp ?? { global: {} };
+
+  const handleNotesFontChange = (patch: Partial<FontSettings>) => {
+    const current = allFontSettings.screens?.notes ?? {};
+    const updated: AllFontSettings = {
+      ...allFontSettings,
+      screens: { ...allFontSettings.screens, notes: { ...current, ...patch } },
+    };
+    onFontSettingsChange?.(updated);
+  };
+
+  const resolvedNotesFontSettings: FontSettings = {
+    ...allFontSettings.global,
+    ...(allFontSettings.screens?.notes ?? {}),
+  };
   const [notesIndex, setNotesIndex] = useState<NotesIndex>({ notes: [], version: 2 });
   const [selectedNoteId, _setSelectedNoteId] = useState<string | null>(
     () => localStorage.getItem('braidr-last-note-id')
@@ -462,26 +471,20 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     saveIndex(newIndex);
   }, [selectedNoteId, saveIndex]);
 
-  const handleContentChange = useCallback(async (html: string) => {
+  const handleContentChange = useCallback(async (content: string) => {
     if (!selectedNoteId) return;
     const note = indexRef.current.notes.find(n => n.id === selectedNoteId);
     if (!note) return;
 
-    // Parse wikilinks and hashtags from HTML
-    const { noteLinks, sceneLinks } = parseWikilinks(html);
-    const inlineTags = parseHashtags(html);
-
-    // Merge inline tags with existing tag-bar tags (tag bar tags are canonical)
-    const existingTags = note.tags || [];
-    const mergedTags = [...new Set([...existingTags, ...inlineTags])];
-
+    // Content is BlockNote JSON; we no longer derive links/tags by parsing it.
+    // Preserve the note's existing outgoingLinks/sceneLinks/tags untouched.
     try {
-      await dataService.saveNote(projectPath, note.fileName, html);
+      await dataService.saveNote(projectPath, note.fileName, content);
       const newIndex: NotesIndex = {
         ...indexRef.current,
         notes: indexRef.current.notes.map(n =>
           n.id === selectedNoteId
-            ? { ...n, modifiedAt: Date.now(), outgoingLinks: noteLinks, sceneLinks, tags: mergedTags }
+            ? { ...n, modifiedAt: Date.now() }
             : n
         ),
         version: 2,
@@ -628,6 +631,13 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             </svg>
           </button>
           <div className="notes-panel-toggle-spacer" />
+          <button
+            className={`notes-panel-toggle notes-font-btn${showFontEditor ? ' active' : ''}`}
+            onClick={() => setShowFontEditor(v => !v)}
+            title="Font settings for notes"
+          >
+            Aa
+          </button>
           <button className="notes-panel-toggle" onClick={() => setBacklinksPanelCollapsed(!backlinksPanelCollapsed)} title={backlinksPanelCollapsed ? 'Show links' : 'Hide links'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
               <rect x="0.75" y="0.75" width="16.5" height="12.5" rx="2.25" stroke="currentColor" strokeWidth="1.5"/>
@@ -635,9 +645,17 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             </svg>
           </button>
         </div>
+        {showFontEditor && (
+          <NotesFontEditor
+            settings={resolvedNotesFontSettings}
+            onChange={handleNotesFontChange}
+            onClose={() => setShowFontEditor(false)}
+          />
+        )}
         {selectedNote && noteContentLoaded ? (
           <NoteEditor
             noteId={selectedNote.id}
+            fontSettings={resolvedNotesFontSettings}
             title={selectedNote.title}
             content={noteContent}
             projectPath={projectPath}

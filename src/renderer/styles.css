@@ -10487,6 +10487,131 @@ textarea.table-cell-input {
   flex: 1;
 }
 
+/* "Aa Fonts" button active state */
+.notes-panel-toggle.notes-font-btn {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 4px 8px;
+}
+
+.notes-panel-toggle.notes-font-btn.active {
+  color: var(--accent, #0066cc);
+  background: var(--bg-tertiary);
+}
+
+/* NotesFontEditor popover */
+.notes-font-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  /* transparent overlay to catch outside clicks */
+}
+
+.notes-font-editor {
+  position: absolute;
+  top: 40px;
+  right: 48px;
+  width: 320px;
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  z-index: 901;
+  overflow: hidden;
+}
+
+.notes-font-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border, #e0e0e0);
+}
+
+.notes-font-editor-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a1a);
+  letter-spacing: 0.01em;
+}
+
+.notes-font-editor-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted, #888);
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.notes-font-editor-close:hover {
+  color: var(--text-primary, #1a1a1a);
+  background: var(--bg-tertiary, #f5f5f5);
+}
+
+.notes-font-editor-body {
+  padding: 10px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.notes-font-editor-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.notes-font-editor-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #888);
+}
+
+.notes-font-editor-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.notes-font-editor-family {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 6px;
+  background: var(--bg-secondary, #f9f9f9);
+  color: var(--text-primary, #1a1a1a);
+  cursor: pointer;
+}
+
+.notes-font-editor-size {
+  width: 68px;
+  flex-shrink: 0;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 6px;
+  background: var(--bg-secondary, #f9f9f9);
+  color: var(--text-primary, #1a1a1a);
+  cursor: pointer;
+}
+
+.notes-font-editor-preview {
+  color: var(--text-secondary, #444);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 2px 0 0;
+}
+
 /* Content width slider (shared between notes and editor) */
 .content-width-slider {
   display: flex;
@@ -11065,6 +11190,42 @@ textarea.table-cell-input {
   flex: 1;
   padding: 24px 0 0;
   position: relative;
+}
+
+/* Breathing room under inserted images (BlockNote image blocks) */
+.note-editor-content [data-content-type="image"] {
+  margin-bottom: 0.75rem;
+}
+
+/* Notes fonts. The --note-* variables are set INLINE on .note-editor-content
+   by NoteEditor (from the NotesFontEditor modal), so they apply deterministically
+   regardless of global font state. Each falls back to the global --font-* vars,
+   then to BlockNote's defaults. Body uses .bn-default-styles (more specific than
+   BlockNote's own Inter rule); headings use !important to beat BlockNote's
+   built-in em-based `font-size: var(--level)`. */
+.note-editor-content .bn-default-styles,
+.note-editor-content .bn-editor {
+  font-family: var(--note-body-font, var(--font-body, inherit));
+  font-size: var(--note-body-size, var(--font-body-size, 16px));
+  font-weight: var(--font-body-weight, 400);
+  color: var(--font-body-color, inherit);
+}
+
+/* BlockNote renders heading text as literal h1/h2/h3 elements with class
+   .bn-inline-content (confirmed via DevTools). Target those exact elements.
+   Pixel sizes (not em) so headings never scale with the body font; !important
+   beats BlockNote's built-in heading sizing. */
+.note-editor-content h1.bn-inline-content {
+  font-size: var(--note-h1-size, var(--font-h1-size, 1.875rem)) !important;
+  font-family: var(--note-h1-font, var(--font-h1, var(--note-body-font, var(--font-body, inherit)))) !important;
+}
+.note-editor-content h2.bn-inline-content {
+  font-size: var(--note-h2-size, var(--font-h2-size, 1.5rem)) !important;
+  font-family: var(--note-h2-font, var(--font-h2, var(--note-body-font, var(--font-body, inherit)))) !important;
+}
+.note-editor-content h3.bn-inline-content {
+  font-size: var(--note-h3-size, var(--font-h3-size, 1.25rem)) !important;
+  font-family: var(--note-h3-font, var(--font-h3, var(--note-body-font, var(--font-body, inherit)))) !important;
 }
 
 .note-editor-content .tiptap {

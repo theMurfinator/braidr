@@ -1665,6 +1665,12 @@ function App() {
       ['body', '--font-body'],
       ['bodySize', '--font-body-size', 'px'],
       ['bodyColor', '--font-body-color'],
+      ['heading1', '--font-h1'],
+      ['heading1Size', '--font-h1-size', 'px'],
+      ['heading2', '--font-h2'],
+      ['heading2Size', '--font-h2-size', 'px'],
+      ['heading3', '--font-h3'],
+      ['heading3Size', '--font-h3-size', 'px'],
     ];
     for (const [key, varName, suffix] of vars) {
       const val = settings[key];
@@ -1707,6 +1713,12 @@ function App() {
       ['body', '--font-body'],
       ['bodySize', '--font-body-size', 'px'],
       ['bodyColor', '--font-body-color'],
+      ['heading1', '--font-h1'],
+      ['heading1Size', '--font-h1-size', 'px'],
+      ['heading2', '--font-h2'],
+      ['heading2Size', '--font-h2-size', 'px'],
+      ['heading3', '--font-h3'],
+      ['heading3Size', '--font-h3-size', 'px'],
     ];
     for (const [key, varName, suffix] of vars) {
       const val = screenSettings[key];
@@ -1735,11 +1747,13 @@ function App() {
   // Reapply global + screen font settings whenever allFontSettings state changes
   // (covers HMR, Fast Refresh, or any state restoration that bypasses loadProjectFromPath)
   useEffect(() => {
-    if (Object.keys(allFontSettings.global).length > 0) {
+    const hasGlobal = Object.keys(allFontSettings.global).length > 0;
+    const hasScreenOverrides = !!allFontSettings.screens && Object.keys(allFontSettings.screens).length > 0;
+    if (hasGlobal || hasScreenOverrides) {
       applyFontSettings(allFontSettings.global);
       applyScreenFontOverrides(viewMode, allFontSettings);
     }
-  }, [allFontSettings]);
+  }, [allFontSettings, viewMode]);
 
   // Handle font settings change (now receives AllFontSettings)
   const handleFontSettingsChange = async (settings: AllFontSettings) => {
@@ -3950,6 +3964,8 @@ function App() {
                 initialNoteId={pendingNoteId}
                 onNoteNavigated={() => setPendingNoteId(null)}
                 storagePrefix={tabId}
+                allFontSettings={allFontSettings}
+                onFontSettingsChange={handleFontSettingsChange}
               />
             ) : mode === 'tasks' ? (
               <TasksView

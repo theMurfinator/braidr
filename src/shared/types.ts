@@ -50,6 +50,12 @@ export interface FontSettings {
   bodySize?: number;
   bodyBold?: boolean;
   bodyColor?: string;
+  heading1?: string;
+  heading1Size?: number;
+  heading2?: string;
+  heading2Size?: number;
+  heading3?: string;
+  heading3Size?: number;
 }
 
 export type ScreenKey = 'pov' | 'braided' | 'editor' | 'notes';
@@ -567,6 +573,7 @@ export const IPC_CHANNELS = {
   BRAIDR_SAVE_NOTES_INDEX: 'braidr:save-notes-index',
   BRAIDR_READ_NOTE: 'braidr:read-note',
   BRAIDR_SAVE_NOTE: 'braidr:save-note',
+  BRAIDR_SAVE_NOTE_IMAGE: 'braidr:save-note-image',
   BRAIDR_CREATE_NOTE: 'braidr:create-note',
   BRAIDR_DELETE_NOTE: 'braidr:delete-note',
   // Chapters

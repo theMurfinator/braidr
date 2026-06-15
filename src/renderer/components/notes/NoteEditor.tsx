@@ -1,30 +1,20 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
-import Heading from '@tiptap/extension-heading';
-import HorizontalRule from '@tiptap/extension-horizontal-rule';
-import TaskList from '@tiptap/extension-task-list';
-import TaskItem from '@tiptap/extension-task-item';
-import Image from '@tiptap/extension-image';
-import { Table } from '@tiptap/extension-table';
-import { ColoredTableRow } from '../../extensions/coloredTableRow';
-import { TableCell } from '@tiptap/extension-table-cell';
-import { TableHeader } from '@tiptap/extension-table-header';
-import { Wikilink } from '../../extensions/wikilink';
-import { Hashtag } from '../../extensions/hashtag';
-import { ColumnBlock, Column, ColumnBlockCommands } from '../../extensions/columns';
-import { SlashCommand } from '../../extensions/slashCommand';
-import { DragHandle } from '../../extensions/dragHandle';
-import { TodoWidget } from '../../extensions/todoWidget';
-import { createWikilinkSuggestion, WikilinkSuggestionItem } from './WikilinkSuggestion';
-import { createHashtagSuggestion } from './HashtagSuggestion';
-import { createSlashCommandSuggestion } from './SlashCommandList';
-import NoteToolbar from './NoteToolbar';
-import TableControls from './TableControls';
-import TableContextMenu from './TableContextMenu';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useCreateBlockNote, useEditorChange, getDefaultReactSlashMenuItems, SuggestionMenuController, FormattingToolbar, FormattingToolbarController, blockTypeSelectItems } from '@blocknote/react';
+import { BlockNoteView } from '@blocknote/mantine';
+import { BlockNoteSchema, filterSuggestionItems, combineByGroup } from '@blocknote/core';
+import { en } from '@blocknote/core/locales';
+import type { PartialBlock } from '@blocknote/core';
+import '@blocknote/core/fonts/inter.css';
+import '@blocknote/mantine/style.css';
+import {
+  withMultiColumn,
+  multiColumnDropCursor,
+  getMultiColumnSlashMenuItems,
+  locales as multiColumnLocales,
+} from '@blocknote/xl-multi-column';
+import { isBlockJson } from '../../../shared/noteContent';
+import { NoteMetadata, Scene, Character, Tag, FontSettings } from '../../../shared/types';
 import { dataService } from '../../services/dataService';
-import { NoteMetadata, Scene, Character, Tag } from '../../../shared/types';
 
 interface NoteEditorProps {
   noteId: string;
@@ -36,51 +26,47 @@ interface NoteEditorProps {
   characters: Character[];
   tags: string[];
   allTags: Tag[];
+  fontSettings?: FontSettings;
   onTitleChange: (title: string) => void;
   onContentChange: (html: string) => void;
   onNavigateNote: (noteId: string) => void;
   onTagsChange: (tags: string[]) => void;
 }
 
-function countWords(html: string): number {
-  const text = html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!text) return 0;
-  return text.split(/\s+/).length;
-}
-
-/** Extract inline hashtag names from editor HTML */
-function parseHashtags(html: string): string[] {
-  const tags: string[] = [];
-  const regex = /data-tag="([^"]+)"/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(html)) !== null) {
-    const tag = match[1];
-    if (tag && !tags.includes(tag)) {
-      tags.push(tag);
-    }
-  }
-  return tags;
-}
-
 export default function NoteEditor({
-  noteId,
+  noteId: _noteId,
   title,
   content,
-  projectPath,
-  allNotes,
-  scenes,
-  characters,
+  projectPath: _projectPath,
+  allNotes: _allNotes,
+  scenes: _scenes,
+  characters: _characters,
   tags,
   allTags,
+  fontSettings,
   onTitleChange,
   onContentChange,
-  onNavigateNote,
+  onNavigateNote: _onNavigateNote,
   onTagsChange,
 }: NoteEditorProps) {
-  const [wordCount, setWordCount] = useState(0);
-  const [headings, setHeadings] = useState<{ level: number; text: string; id: string }[]>([]);
+  // Notes fonts are applied as CSS variables scoped to this editor's container,
+  // so they apply deterministically regardless of global font state / viewMode.
+  const fontVars = useMemo(() => {
+    const fs = fontSettings || {};
+    const v: Record<string, string> = {};
+    if (fs.body) v['--note-body-font'] = fs.body;
+    if (fs.bodySize) v['--note-body-size'] = `${fs.bodySize}px`;
+    if (fs.heading1) v['--note-h1-font'] = fs.heading1;
+    if (fs.heading1Size) v['--note-h1-size'] = `${fs.heading1Size}px`;
+    if (fs.heading2) v['--note-h2-font'] = fs.heading2;
+    if (fs.heading2Size) v['--note-h2-size'] = `${fs.heading2Size}px`;
+    if (fs.heading3) v['--note-h3-font'] = fs.heading3;
+    if (fs.heading3Size) v['--note-h3-size'] = `${fs.heading3Size}px`;
+    return v as React.CSSProperties;
+  }, [fontSettings]);
+  const [wordCount] = useState(0);
+  const [headings] = useState<{ level: number; text: string; id: string }[]>([]);
   const [tocOpen, setTocOpen] = useState(false);
-  const [tableContextMenu, setTableContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [tagInput, setTagInput] = useState('');
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
   const [tagDropdownIndex, setTagDropdownIndex] = useState(0);
@@ -89,351 +75,117 @@ export default function NoteEditor({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingContentRef = useRef<string | null>(null);
   const settingContentRef = useRef(false);
-  const editorRef = useRef<any>(null);
+  // FROZEN to the mount-time onContentChange so every save (debounced, flushed,
+  // or migration) targets THIS note — never a later selection. NoteEditor is
+  // remounted per note by NotesView's load gate, so the mount value is always
+  // the handler bound to this note. Reassigning per-render caused cross-note
+  // saves (a switch rebound this to the new note before the old save flushed).
+  const onContentChangeRef = useRef(onContentChange);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Keep refs for suggestion items so they're always current
-  const allNotesRef = useRef(allNotes);
-  const scenesRef = useRef(scenes);
-  const charactersRef = useRef(characters);
-  const projectPathRef = useRef(projectPath);
-  const allTagsRef = useRef(allTags);
-  const tagsRef = useRef(tags);
-  const onTagsChangeRef = useRef(onTagsChange);
-  allNotesRef.current = allNotes;
-  scenesRef.current = scenes;
-  charactersRef.current = characters;
-  projectPathRef.current = projectPath;
-  allTagsRef.current = allTags;
-  tagsRef.current = tags;
-  onTagsChangeRef.current = onTagsChange;
-
-  // Build an image src URL using custom protocol (works in both dev and prod)
-  const buildImageSrc = useCallback((relativePath: string) => {
-    // relativePath is like "images/img_123_abc.png"
-    return `braidr-img://${projectPathRef.current}/notes/${relativePath}`;
-  }, []);
-
-  // Save an image from base64 data and insert it into the editor
-  const handleSaveAndInsertImage = useCallback(async (base64Data: string, fileName: string, editorInstance: any) => {
-    try {
-      const relativePath = await dataService.saveNoteImage(projectPathRef.current, base64Data, fileName);
-      const src = buildImageSrc(relativePath);
-      editorInstance.chain().focus().setImage({ src }).run();
-    } catch (error) {
-      console.error('Failed to save image:', error);
-    }
-  }, [buildImageSrc]);
-
-  // Open file picker and insert selected image
-  const handleInsertImageFromPicker = useCallback(async (editorInstance: any) => {
-    try {
-      const relativePath = await dataService.selectNoteImage(projectPathRef.current);
-      if (!relativePath) return;
-      const src = buildImageSrc(relativePath);
-      editorInstance.chain().focus().setImage({ src }).run();
-    } catch (error) {
-      console.error('Failed to insert image:', error);
-    }
-  }, [buildImageSrc]);
-
-  const slashCommandSuggestion = useMemo(() => createSlashCommandSuggestion(), []);
-
-  const wikilinkSuggestion = useMemo(() => createWikilinkSuggestion((query: string) => {
-    const q = query.toLowerCase();
-    const items: WikilinkSuggestionItem[] = [];
-
-    // Notes
-    for (const note of allNotesRef.current) {
-      if (note.id === noteId) continue; // don't link to self
-      if (note.title.toLowerCase().includes(q)) {
-        items.push({ id: note.id, label: note.title || 'Untitled', type: 'note' });
-      }
-    }
-
-    // Scenes
-    for (const scene of scenesRef.current) {
-      const character = charactersRef.current.find(c => c.id === scene.characterId);
-      const charName = character?.name || 'Unknown';
-      const cleanedContent = scene.content
-        .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
-        .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();
-      const label = cleanedContent || `${charName} Scene ${scene.sceneNumber}`;
-      if (label.toLowerCase().includes(q) || charName.toLowerCase().includes(q)) {
-        items.push({
-          id: scene.id,
-          label,
-          type: 'scene',
-          description: `${charName} · Scene ${scene.sceneNumber}`,
-        });
-      }
-    }
-
-    return items.slice(0, 12);
-  }), [noteId]);
-
-  const hashtagSuggestion = useMemo(() => createHashtagSuggestion((query: string) => {
-    const q = query.toLowerCase();
-    return allTagsRef.current
-      .filter(t => t.name.toLowerCase().includes(q))
-      .slice(0, 10)
-      .map(t => ({ name: t.name, category: t.category }));
-  }), []);
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: false,
-        horizontalRule: false,
-      }),
-      Heading.configure({ levels: [1, 2, 3] }),
-      HorizontalRule,
-      Placeholder.configure({
-        placeholder: '',
-      }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Image.configure({
-        inline: false,
-        allowBase64: false,
-        HTMLAttributes: {
-          class: 'note-image',
-        },
-      }),
-      Table.configure({ resizable: true }),
-      ColoredTableRow,
-      TableCell,
-      TableHeader,
-      Wikilink.configure({
-        suggestion: wikilinkSuggestion,
-        onNavigate: (targetId, targetType) => {
-          if (targetType === 'note') {
-            onNavigateNote(targetId);
-          }
-        },
-      }),
-      Hashtag.configure({
-        suggestion: hashtagSuggestion,
-      }),
-      ColumnBlock,
-      Column,
-      ColumnBlockCommands,
-      SlashCommand.configure({
-        suggestion: slashCommandSuggestion,
-      }),
-      DragHandle,
-      TodoWidget,
-    ],
-    content,
-    onUpdate: ({ editor }) => {
-      if (settingContentRef.current) return;
-      const html = editor.getHTML();
-      pendingContentRef.current = html;
-      setWordCount(countWords(html));
-
-      // Extract headings for TOC
-      const newHeadings: { level: number; text: string; id: string }[] = [];
-      editor.state.doc.descendants((node, pos) => {
-        if (node.type.name === 'heading') {
-          newHeadings.push({
-            level: node.attrs.level,
-            text: node.textContent,
-            id: `heading-${pos}`,
-          });
-        }
-      });
-      setHeadings(newHeadings);
-
-      // Merge inline hashtags into tag metadata
-      const inlineTags = parseHashtags(html);
-      if (inlineTags.length > 0) {
-        const currentTags = tagsRef.current;
-        const merged = [...currentTags];
-        let changed = false;
-        for (const t of inlineTags) {
-          if (!merged.includes(t)) {
-            merged.push(t);
-            changed = true;
-          }
-        }
-        if (changed) {
-          onTagsChangeRef.current(merged);
-        }
-      }
-
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        if (pendingContentRef.current !== null) {
-          onContentChange(pendingContentRef.current);
-          pendingContentRef.current = null;
-        }
-      }, 800);
+  const editor = useCreateBlockNote({
+    schema: withMultiColumn(BlockNoteSchema.create()),
+    dropCursor: multiColumnDropCursor,
+    dictionary: {
+      ...en,
+      multi_column: multiColumnLocales.en,
     },
-    editorProps: {
-      attributes: {
-        spellcheck: 'true',
-      },
-      handleDOMEvents: {
-        contextmenu: (_view, event) => {
-          // Check if right-click is inside a table
-          const target = event.target as HTMLElement;
-          if (target.closest('table')) {
-            event.preventDefault();
-            setTableContextMenu({ x: event.clientX, y: event.clientY });
-            return true;
-          }
-          return false;
-        },
-      },
-      handlePaste: (_view, event) => {
-        const items = event.clipboardData?.items;
-        if (!items) return false;
-
-        for (const item of Array.from(items)) {
-          if (item.type.startsWith('image/')) {
-            event.preventDefault();
-            const file = item.getAsFile();
-            if (!file) continue;
-
-            const reader = new FileReader();
-            reader.onload = () => {
-              const base64 = reader.result as string;
-              if (editorRef.current) {
-                handleSaveAndInsertImage(base64, file.name || 'pasted-image.png', editorRef.current);
-              }
-            };
-            reader.readAsDataURL(file);
-            return true;
-          }
-        }
-        return false;
-      },
-      handleDrop: (view, event) => {
-        // Only handle external file drops, not internal ProseMirror node drags
-        // Internal drags have types like 'text/html' but no real file objects with size > 0
-        const files = event.dataTransfer?.files;
-        if (!files || files.length === 0) return false;
-
-        const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/') && f.size > 0);
-        if (imageFiles.length === 0) return false;
-
-        event.preventDefault();
-
-        // Resolve drop position so images insert where the user dropped them
-        const dropPos = view.posAtCoords({ left: event.clientX, top: event.clientY });
-
-        for (const file of imageFiles) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const base64 = reader.result as string;
-            if (editorRef.current) {
-              // Save file first, then insert at the resolved position
-              const proj = projectPathRef.current;
-              dataService.saveNoteImage(proj, base64, file.name).then((relativePath) => {
-                const src = `braidr-img://${proj}/notes/${relativePath}`;
-                const ed = editorRef.current;
-                if (!ed) return;
-                try {
-                  if (dropPos?.pos != null) {
-                    // Find a valid position for a block node at or near the drop point
-                    const $pos = ed.state.doc.resolve(dropPos.pos);
-                    // Insert after the current block at the drop point
-                    const insertPos = $pos.after($pos.depth);
-                    ed.chain().focus().insertContentAt(insertPos, {
-                      type: 'image',
-                      attrs: { src },
-                    }).run();
-                  } else {
-                    ed.chain().focus().setImage({ src }).run();
-                  }
-                } catch {
-                  // Fallback: insert at cursor if position-based insert fails
-                  ed.chain().focus().setImage({ src }).run();
-                }
-              }).catch((error) => {
-                console.error('Failed to save image:', error);
-              });
-            }
-          };
-          reader.readAsDataURL(file);
-        }
-        return true;
-      },
-    },
-  }, [noteId]);
-
-  // Keep editor ref in sync for paste/drop handlers
-  useEffect(() => {
-    editorRef.current = editor;
-  }, [editor]);
-
-  // Keep TodoWidget storage in sync with scenes and characters
-  useEffect(() => {
-    if (editor) {
-      (editor.storage as any).todoWidget.scenes = scenes;
-      (editor.storage as any).todoWidget.characters = characters;
-    }
-  }, [editor, scenes, characters]);
-
-  // Update editor content when noteId or content changes (content loads async)
-  useEffect(() => {
-    if (editor && content !== undefined) {
-      // Avoid resetting if editor already has this content (during typing)
-      const currentHTML = editor.getHTML();
-      if (currentHTML === content) return;
-      settingContentRef.current = true;
-      try {
-        editor.commands.setContent(content);
-      } catch (e) {
-        console.error('Failed to load note content, falling back to plain text:', e);
-        // Strip HTML and load as plain text to recover from corrupted content
-        const plainText = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        editor.commands.setContent(`<p>${plainText}</p>`);
-      }
-      setWordCount(countWords(content));
-      // Extract headings for TOC on load
-      const newHeadings: { level: number; text: string; id: string }[] = [];
-      editor.state.doc.descendants((node, pos) => {
-        if (node.type.name === 'heading') {
-          newHeadings.push({
-            level: node.attrs.level,
-            text: node.textContent,
-            id: `heading-${pos}`,
-          });
-        }
+    uploadFile: async (file: File): Promise<string> => {
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
-      setHeadings(newHeadings);
-      settingContentRef.current = false;
-    }
-  }, [editor, noteId, content]);
+      const id = await dataService.saveNoteImage('', dataUrl, file.name);
+      return `braidr-img://${id}`;
+    },
+  });
 
-  // Flush pending content on unmount
+  // Curated slash menu: BlockNote defaults + multi-column (Columns) items,
+  // minus the cluttered/duplicate heading variants (toggle headings + H4-H6).
+  const HIDDEN_SLASH_KEYS = useMemo(
+    () => new Set(['toggle_heading', 'toggle_heading_2', 'toggle_heading_3', 'heading_4', 'heading_5', 'heading_6']),
+    [],
+  );
+  const getSlashItems = useCallback(async (query: string) => {
+    const defaults = getDefaultReactSlashMenuItems(editor).filter(
+      (item) => !('key' in item) || !HIDDEN_SLASH_KEYS.has((item as { key: string }).key),
+    );
+    const combined = combineByGroup(defaults, getMultiColumnSlashMenuItems(editor));
+    return filterSuggestionItems(combined, query);
+  }, [editor, HIDDEN_SLASH_KEYS]);
+
+  // Block-type dropdown in the formatting toolbar: keep Heading 1-3 only,
+  // drop H4-H6 and the toggle-heading variants (mirrors the slash-menu trim).
+  const blockTypeItems = useMemo(
+    () => blockTypeSelectItems(editor.dictionary).filter((item) => {
+      if (item.type === 'heading') {
+        if (item.props?.isToggleable) return false;
+        if (Number(item.props?.level ?? 1) > 3) return false;
+      }
+      return true;
+    }),
+    [editor],
+  );
+
+  // Apply the note's stored content to the editor whenever it changes (note
+  // switch or async load). Content follows the prop reactively — relying on
+  // mount-only initialContent fails when content arrives a tick after mount.
+  const appliedContentRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editor) return;
+    if (appliedContentRef.current === content) return; // already applied this exact content
+    appliedContentRef.current = content;
+    settingContentRef.current = true;
+    try {
+      if (isBlockJson(content)) {
+        editor.replaceBlocks(editor.document, JSON.parse(content) as PartialBlock[]);
+      } else if (content.trim()) {
+        // Legacy HTML: convert to blocks and persist as JSON (main backs up old HTML)
+        const blocks = editor.tryParseHTMLToBlocks(content);
+        editor.replaceBlocks(editor.document, blocks);
+        onContentChangeRef.current(JSON.stringify(editor.document));
+      } else {
+        editor.replaceBlocks(editor.document, [{ type: 'paragraph' } as PartialBlock]);
+      }
+    } catch (e) {
+      console.error('[NoteEditor] failed to apply note content:', e);
+    } finally {
+      setTimeout(() => { settingContentRef.current = false; }, 0);
+    }
+  }, [editor, content]);
+
+  // Save on change, debounced
+  useEditorChange((ed) => {
+    if (settingContentRef.current) return;
+    const json = JSON.stringify(ed.document);
+    pendingContentRef.current = json;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onContentChangeRef.current(json);
+      pendingContentRef.current = null;
+    }, 800);
+  }, editor);
+
+  // Flush any pending (sub-debounce) edit on unmount so fast note-switching
+  // never drops the last keystrokes. Saves to this note via the captured ref.
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (pendingContentRef.current !== null) {
-        onContentChange(pendingContentRef.current);
+        onContentChangeRef.current(pendingContentRef.current);
+        pendingContentRef.current = null;
       }
     };
   }, []);
 
-  // Listen for slash command image insertion
-  useEffect(() => {
-    const handleSlashImage = () => {
-      if (editorRef.current) {
-        handleInsertImageFromPicker(editorRef.current);
-      }
-    };
-    window.addEventListener('braidr-insert-image', handleSlashImage);
-    return () => window.removeEventListener('braidr-insert-image', handleSlashImage);
-  }, [handleInsertImageFromPicker]);
-
   const handleTitleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      editor?.commands.focus('start');
+      editor?.focus();
     }
   };
 
@@ -455,9 +207,9 @@ export default function NoteEditor({
     setTagDropdownIndex(0);
   };
 
-  const handleRemoveTag = (tagName: string) => {
+  const handleRemoveTag = useCallback((tagName: string) => {
     onTagsChange(tags.filter(t => t !== tagName));
-  };
+  }, [onTagsChange, tags]);
 
   const handleTagInputKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -496,20 +248,8 @@ export default function NoteEditor({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [tocOpen]);
 
-  const handleTocClick = (index: number) => {
-    if (!editor || !scrollableRef.current) return;
-    const editorElement = scrollableRef.current.querySelector('.note-editor-content .tiptap');
-    if (!editorElement) return;
-    const headingEls = editorElement.querySelectorAll('h1, h2, h3');
-    if (headingEls[index]) {
-      headingEls[index].scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
   return (
     <div className="note-editor">
-      <NoteToolbar editor={editor} onInsertImage={() => editor && handleInsertImageFromPicker(editor)} />
-      {editor && <TableControls editor={editor} />}
       <div className="note-editor-scrollable" ref={scrollableRef}>
         <div className="note-editor-header">
           <input
@@ -563,8 +303,13 @@ export default function NoteEditor({
             )}
           </div>
         </div>
-        <div className="note-editor-content">
-          <EditorContent editor={editor} />
+        <div className="note-editor-content" style={fontVars}>
+          <BlockNoteView editor={editor} slashMenu={false} formattingToolbar={false}>
+            <SuggestionMenuController triggerCharacter="/" getItems={getSlashItems} />
+            <FormattingToolbarController
+              formattingToolbar={() => <FormattingToolbar blockTypeSelectItems={blockTypeItems} />}
+            />
+          </BlockNoteView>
         </div>
       </div>
       {headings.length > 0 && (
@@ -587,7 +332,15 @@ export default function NoteEditor({
                   <li
                     key={h.id}
                     className={`note-toc-item note-toc-h${h.level}`}
-                    onClick={() => handleTocClick(i)}
+                    onClick={() => {
+                      if (!scrollableRef.current) return;
+                      const editorElement = scrollableRef.current.querySelector('.note-editor-content');
+                      if (!editorElement) return;
+                      const headingEls = editorElement.querySelectorAll('h1, h2, h3');
+                      if (headingEls[i]) {
+                        headingEls[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }}
                   >
                     {h.text || 'Untitled'}
                   </li>
@@ -600,14 +353,6 @@ export default function NoteEditor({
       <div className="note-editor-footer">
         <span className="note-editor-word-count">{wordCount} {wordCount === 1 ? 'word' : 'words'}</span>
       </div>
-      {tableContextMenu && editor && (
-        <TableContextMenu
-          editor={editor}
-          x={tableContextMenu.x}
-          y={tableContextMenu.y}
-          onClose={() => setTableContextMenu(null)}
-        />
-      )}
     </div>
   );
 }

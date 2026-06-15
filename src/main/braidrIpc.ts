@@ -827,9 +827,25 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_READ_NOTE, (_event, braidrPath: string, noteI
 ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_NOTE, (_event, braidrPath: string, noteId: string, content: string) => {
   try {
     const db = getDb(braidrPath);
-    db.updateNote(noteId, { content });
+    db.backupAndUpdateNoteContent(noteId, content);
     db.checkpoint();
     return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_NOTE_IMAGE, (_event, braidrPath: string, dataUrl: string) => {
+  try {
+    const db = getDb(braidrPath);
+    const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+    if (!match) return { success: false, error: 'Invalid image data' };
+    const mime = match[1];
+    const buffer = Buffer.from(match[2], 'base64');
+    const id = `img_${Date.now()}_${randomId().slice(0, 8)}`;
+    db.insertNoteImage(id, mime, buffer);
+    db.checkpoint();
+    return { success: true, data: id };
   } catch (error) {
     return { success: false, error: String(error) };
   }

@@ -238,12 +238,11 @@ class ElectronDataService implements DataService {
   }
 
   // Note images
-  async saveNoteImage(projectPath: string, imageData: string, fileName: string): Promise<string> {
-    const result = await window.electronAPI.saveNoteImage(projectPath, imageData, fileName);
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to save image');
-    }
-    return result.data!;
+  async saveNoteImage(_projectPath: string, imageData: string, _fileName: string): Promise<string> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrSaveNoteImage(this.braidrPath, imageData);
+    if (!result.success || !result.data) throw new Error(result.error || 'Failed to save image');
+    return result.data; // the image id
   }
 
   async selectNoteImage(projectPath: string): Promise<string | null> {
