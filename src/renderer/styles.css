@@ -11067,6 +11067,11 @@ textarea.table-cell-input {
   position: relative;
 }
 
+/* Breathing room under inserted images (BlockNote image blocks) */
+.note-editor-content [data-content-type="image"] {
+  margin-bottom: 0.75rem;
+}
+
 .note-editor-content .tiptap {
   outline: none;
   font-family: var(--font-body);

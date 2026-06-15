@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useCreateBlockNote, useEditorChange } from '@blocknote/react';
+import { useCreateBlockNote, useEditorChange, getDefaultReactSlashMenuItems, SuggestionMenuController } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
-import { BlockNoteSchema } from '@blocknote/core';
+import { BlockNoteSchema, filterSuggestionItems, combineByGroup } from '@blocknote/core';
 import { en } from '@blocknote/core/locales';
 import type { PartialBlock } from '@blocknote/core';
 import '@blocknote/core/fonts/inter.css';
@@ -9,6 +9,7 @@ import '@blocknote/mantine/style.css';
 import {
   withMultiColumn,
   multiColumnDropCursor,
+  getMultiColumnSlashMenuItems,
   locales as multiColumnLocales,
 } from '@blocknote/xl-multi-column';
 import { isBlockJson } from '../../../shared/noteContent';
@@ -85,6 +86,20 @@ export default function NoteEditor({
       return `braidr-img://${id}`;
     },
   });
+
+  // Curated slash menu: BlockNote defaults + multi-column (Columns) items,
+  // minus the cluttered/duplicate heading variants (toggle headings + H4-H6).
+  const HIDDEN_SLASH_KEYS = useMemo(
+    () => new Set(['toggle_heading', 'toggle_heading_2', 'toggle_heading_3', 'heading_4', 'heading_5', 'heading_6']),
+    [],
+  );
+  const getSlashItems = useCallback(async (query: string) => {
+    const defaults = getDefaultReactSlashMenuItems(editor).filter(
+      (item) => !('key' in item) || !HIDDEN_SLASH_KEYS.has((item as { key: string }).key),
+    );
+    const combined = combineByGroup(defaults, getMultiColumnSlashMenuItems(editor));
+    return filterSuggestionItems(combined, query);
+  }, [editor, HIDDEN_SLASH_KEYS]);
 
   // Apply the note's stored content to the editor whenever it changes (note
   // switch or async load). Content follows the prop reactively — relying on
@@ -259,7 +274,9 @@ export default function NoteEditor({
           </div>
         </div>
         <div className="note-editor-content">
-          <BlockNoteView editor={editor} />
+          <BlockNoteView editor={editor} slashMenu={false}>
+            <SuggestionMenuController triggerCharacter="/" getItems={getSlashItems} />
+          </BlockNoteView>
         </div>
       </div>
       {headings.length > 0 && (
