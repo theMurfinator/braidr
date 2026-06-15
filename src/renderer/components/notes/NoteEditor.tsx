@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useCreateBlockNote, useEditorChange, getDefaultReactSlashMenuItems, SuggestionMenuController } from '@blocknote/react';
+import { useCreateBlockNote, useEditorChange, getDefaultReactSlashMenuItems, SuggestionMenuController, FormattingToolbar, FormattingToolbarController, blockTypeSelectItems } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
 import { BlockNoteSchema, filterSuggestionItems, combineByGroup } from '@blocknote/core';
 import { en } from '@blocknote/core/locales';
@@ -100,6 +100,19 @@ export default function NoteEditor({
     const combined = combineByGroup(defaults, getMultiColumnSlashMenuItems(editor));
     return filterSuggestionItems(combined, query);
   }, [editor, HIDDEN_SLASH_KEYS]);
+
+  // Block-type dropdown in the formatting toolbar: keep Heading 1-3 only,
+  // drop H4-H6 and the toggle-heading variants (mirrors the slash-menu trim).
+  const blockTypeItems = useMemo(
+    () => blockTypeSelectItems(editor.dictionary).filter((item) => {
+      if (item.type === 'heading') {
+        if (item.props?.isToggleable) return false;
+        if (Number(item.props?.level ?? 1) > 3) return false;
+      }
+      return true;
+    }),
+    [editor],
+  );
 
   // Apply the note's stored content to the editor whenever it changes (note
   // switch or async load). Content follows the prop reactively — relying on
@@ -274,8 +287,11 @@ export default function NoteEditor({
           </div>
         </div>
         <div className="note-editor-content">
-          <BlockNoteView editor={editor} slashMenu={false}>
+          <BlockNoteView editor={editor} slashMenu={false} formattingToolbar={false}>
             <SuggestionMenuController triggerCharacter="/" getItems={getSlashItems} />
+            <FormattingToolbarController
+              formattingToolbar={() => <FormattingToolbar blockTypeSelectItems={blockTypeItems} />}
+            />
           </BlockNoteView>
         </div>
       </div>
