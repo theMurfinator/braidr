@@ -40,17 +40,6 @@ function parseWikilinks(html: string): { noteLinks: string[]; sceneLinks: string
   return { noteLinks: [...new Set(noteLinks)], sceneLinks: [...new Set(sceneLinks)] };
 }
 
-// Parse inline hashtags from HTML content
-function parseHashtags(html: string): string[] {
-  const tags: string[] = [];
-  const regex = /data-type="hashtag"[^>]*data-tag="([^"]*)"/g;
-  let match;
-  while ((match = regex.exec(html)) !== null) {
-    tags.push(match[1]);
-  }
-  return [...new Set(tags)];
-}
-
 // Get all descendant IDs of a note
 function getAllDescendantIds(notes: NoteMetadata[], ancestorId: string): string[] {
   const ids: string[] = [];
@@ -462,26 +451,20 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     saveIndex(newIndex);
   }, [selectedNoteId, saveIndex]);
 
-  const handleContentChange = useCallback(async (html: string) => {
+  const handleContentChange = useCallback(async (content: string) => {
     if (!selectedNoteId) return;
     const note = indexRef.current.notes.find(n => n.id === selectedNoteId);
     if (!note) return;
 
-    // Parse wikilinks and hashtags from HTML
-    const { noteLinks, sceneLinks } = parseWikilinks(html);
-    const inlineTags = parseHashtags(html);
-
-    // Merge inline tags with existing tag-bar tags (tag bar tags are canonical)
-    const existingTags = note.tags || [];
-    const mergedTags = [...new Set([...existingTags, ...inlineTags])];
-
+    // Content is BlockNote JSON; we no longer derive links/tags by parsing it.
+    // Preserve the note's existing outgoingLinks/sceneLinks/tags untouched.
     try {
-      await dataService.saveNote(projectPath, note.fileName, html);
+      await dataService.saveNote(projectPath, note.fileName, content);
       const newIndex: NotesIndex = {
         ...indexRef.current,
         notes: indexRef.current.notes.map(n =>
           n.id === selectedNoteId
-            ? { ...n, modifiedAt: Date.now(), outgoingLinks: noteLinks, sceneLinks, tags: mergedTags }
+            ? { ...n, modifiedAt: Date.now() }
             : n
         ),
         version: 2,

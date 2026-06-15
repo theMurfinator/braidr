@@ -47,7 +47,12 @@ export default function NoteEditor({
   const scrollableRef = useRef<HTMLDivElement>(null);
   const tocRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingContentRef = useRef<string | null>(null);
   const settingContentRef = useRef(false);
+  // Keep the latest onContentChange so the unmount flush saves to THIS note
+  // (the component is remounted per note via key, so this stays note-correct).
+  const onContentChangeRef = useRef(onContentChange);
+  onContentChangeRef.current = onContentChange;
   const titleInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
@@ -89,14 +94,23 @@ export default function NoteEditor({
   useEditorChange((ed) => {
     if (settingContentRef.current) return;
     const json = JSON.stringify(ed.document);
+    pendingContentRef.current = json;
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => onContentChange(json), 800);
+    debounceRef.current = setTimeout(() => {
+      onContentChangeRef.current(json);
+      pendingContentRef.current = null;
+    }, 800);
   }, editor);
 
-  // Flush pending debounce on unmount
+  // Flush any pending (sub-debounce) edit on unmount so fast note-switching
+  // never drops the last keystrokes. Saves to this note via the captured ref.
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (pendingContentRef.current !== null) {
+        onContentChangeRef.current(pendingContentRef.current);
+        pendingContentRef.current = null;
+      }
     };
   }, []);
 
