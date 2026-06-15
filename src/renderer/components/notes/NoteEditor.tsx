@@ -49,46 +49,44 @@ export default function NoteEditor({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingContentRef = useRef<string | null>(null);
   const settingContentRef = useRef(false);
-  // Keep the latest onContentChange so the unmount flush saves to THIS note
-  // (the component is remounted per note via key, so this stays note-correct).
+  // FROZEN to the mount-time onContentChange so every save (debounced, flushed,
+  // or migration) targets THIS note — never a later selection. NoteEditor is
+  // remounted per note by NotesView's load gate, so the mount value is always
+  // the handler bound to this note. Reassigning per-render caused cross-note
+  // saves (a switch rebound this to the new note before the old save flushed).
   const onContentChangeRef = useRef(onContentChange);
-  onContentChangeRef.current = onContentChange;
   const titleInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Compute initial blocks synchronously on mount only (component is remounted per note via key)
-  const initialBlocks = useMemo<PartialBlock[] | undefined>(() => {
-    if (isBlockJson(content)) {
-      try { return JSON.parse(content) as PartialBlock[]; } catch { return undefined; }
-    }
-    return undefined;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // mount-only
+  const editor = useCreateBlockNote();
 
-  const editor = useCreateBlockNote({ initialContent: initialBlocks });
-
-  // Convert legacy HTML content to BlockNote JSON on mount (once)
+  // Apply the note's stored content to the editor whenever it changes (note
+  // switch or async load). Content follows the prop reactively — relying on
+  // mount-only initialContent fails when content arrives a tick after mount.
+  const appliedContentRef = useRef<string | null>(null);
   useEffect(() => {
     if (!editor) return;
-    if (isBlockJson(content) || !content.trim()) return; // already JSON or empty: nothing to convert
-    let cancelled = false;
+    if (appliedContentRef.current === content) return; // already applied this exact content
+    appliedContentRef.current = content;
     settingContentRef.current = true;
     try {
-      // tryParseHTMLToBlocks is synchronous in this version of BlockNote
-      const blocks = editor.tryParseHTMLToBlocks(content);
-      if (!cancelled) {
+      if (isBlockJson(content)) {
+        editor.replaceBlocks(editor.document, JSON.parse(content) as PartialBlock[]);
+      } else if (content.trim()) {
+        // Legacy HTML: convert to blocks and persist as JSON (main backs up old HTML)
+        const blocks = editor.tryParseHTMLToBlocks(content);
         editor.replaceBlocks(editor.document, blocks);
-        onContentChange(JSON.stringify(editor.document)); // persist JSON (main process backs up old HTML)
+        onContentChangeRef.current(JSON.stringify(editor.document));
+      } else {
+        editor.replaceBlocks(editor.document, [{ type: 'paragraph' } as PartialBlock]);
       }
     } catch (e) {
-      console.error('Failed to migrate legacy note content to BlockNote:', e);
+      console.error('[NoteEditor] failed to apply note content:', e);
     } finally {
       setTimeout(() => { settingContentRef.current = false; }, 0);
     }
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor]);
+  }, [editor, content]);
 
   // Save on change, debounced
   useEditorChange((ed) => {
