@@ -13,6 +13,7 @@ import {
 } from '@blocknote/xl-multi-column';
 import { isBlockJson } from '../../../shared/noteContent';
 import { NoteMetadata, Scene, Character, Tag } from '../../../shared/types';
+import { dataService } from '../../services/dataService';
 
 interface NoteEditorProps {
   noteId: string;
@@ -72,6 +73,16 @@ export default function NoteEditor({
     dictionary: {
       ...en,
       multi_column: multiColumnLocales.en,
+    },
+    uploadFile: async (file: File): Promise<string> => {
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const id = await dataService.saveNoteImage('', dataUrl, file.name);
+      return `braidr-img://${id}`;
     },
   });
 

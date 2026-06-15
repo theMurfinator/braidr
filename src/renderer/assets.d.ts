@@ -117,6 +117,7 @@ interface Window {
     braidrSaveNotesIndex: (braidrPath: string, notesIndex: any) => Promise<any>;
     braidrReadNote: (braidrPath: string, noteId: string) => Promise<any>;
     braidrSaveNote: (braidrPath: string, noteId: string, content: string) => Promise<any>;
+    braidrSaveNoteImage: (braidrPath: string, dataUrl: string) => Promise<{ success: boolean; data?: string; error?: string }>;
     braidrCreateNote: (braidrPath: string, noteId: string, title: string, parentId: string | null) => Promise<any>;
     braidrDeleteNote: (braidrPath: string, noteId: string) => Promise<any>;
     braidrGetChapters: (braidrPath: string) => Promise<any>;

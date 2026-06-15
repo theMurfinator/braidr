@@ -76,6 +76,7 @@ const IPC_CHANNELS = {
   BRAIDR_SAVE_NOTES_INDEX: 'braidr:save-notes-index',
   BRAIDR_READ_NOTE: 'braidr:read-note',
   BRAIDR_SAVE_NOTE: 'braidr:save-note',
+  BRAIDR_SAVE_NOTE_IMAGE: 'braidr:save-note-image',
   BRAIDR_CREATE_NOTE: 'braidr:create-note',
   BRAIDR_DELETE_NOTE: 'braidr:delete-note',
   // Chapters
@@ -296,6 +297,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_READ_NOTE, braidrPath, noteId),
   braidrSaveNote: (braidrPath: string, noteId: string, content: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_NOTE, braidrPath, noteId, content),
+  braidrSaveNoteImage: (braidrPath: string, dataUrl: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_NOTE_IMAGE, braidrPath, dataUrl),
   braidrCreateNote: (braidrPath: string, noteId: string, title: string, parentId: string | null) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_CREATE_NOTE, braidrPath, noteId, title, parentId),
   braidrDeleteNote: (braidrPath: string, noteId: string) =>

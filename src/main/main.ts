@@ -475,12 +475,25 @@ function createWindow() {
 require('./braidrIpc');
 
 app.whenReady().then(() => {
-  // Register custom protocol for serving note images
-  // URL format: braidr-img:///path/to/project/notes/images/filename.png
+  // Register custom protocol for serving note images.
+  // New URL format: braidr-img://<imageId>  (id stored in the active project DB)
+  // Legacy URL format: braidr-img:///absolute/path/to/image  (leading slash = filesystem path)
   protocol.handle('braidr-img', (request) => {
-    // Strip the scheme to get the file path
-    const filePath = decodeURIComponent(request.url.replace('braidr-img://', ''));
-    return net.fetch(`file://${filePath}`);
+    const ref = decodeURIComponent(request.url.replace('braidr-img://', ''));
+    // Legacy URLs embedded an absolute filesystem path (leading slash)
+    if (ref.startsWith('/')) {
+      return net.fetch(`file://${ref}`);
+    }
+    // New scheme: ref is an image id stored in the active project's DB
+    try {
+      const { getActiveDatabase } = require('./database') as typeof import('./database');
+      const db = getActiveDatabase();
+      const img = db?.getNoteImage(ref);
+      if (!img) return new Response(null, { status: 404 });
+      return new Response(new Uint8Array(img.data), { headers: { 'content-type': img.mime } });
+    } catch (e) {
+      return new Response(null, { status: 500 });
+    }
   });
 
   // Validate environment variables
