@@ -827,7 +827,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_READ_NOTE, (_event, braidrPath: string, noteI
 ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_NOTE, (_event, braidrPath: string, noteId: string, content: string) => {
   try {
     const db = getDb(braidrPath);
-    db.updateNote(noteId, { content });
+    db.backupAndUpdateNoteContent(noteId, content);
     db.checkpoint();
     return { success: true };
   } catch (error) {
