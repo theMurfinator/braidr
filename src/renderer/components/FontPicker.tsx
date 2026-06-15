@@ -35,12 +35,13 @@ const DEFAULT_COLOR = '#1A1A1A';
 
 type TabKey = 'global' | ScreenKey;
 
+// Notes fonts are managed in the dedicated NotesFontEditor (the "Aa" button in
+// the Notes view), so the Notes tab is intentionally omitted here.
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'global', label: 'All Screens' },
   { key: 'pov', label: 'POV' },
   { key: 'braided', label: 'Timeline' },
   { key: 'editor', label: 'Editor' },
-  { key: 'notes', label: 'Notes' },
 ];
 
 // Define which font sections are visible per tab, with context-specific labels

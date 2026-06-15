@@ -655,6 +655,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
         {selectedNote && noteContentLoaded ? (
           <NoteEditor
             noteId={selectedNote.id}
+            fontSettings={resolvedNotesFontSettings}
             title={selectedNote.title}
             content={noteContent}
             projectPath={projectPath}

@@ -13,7 +13,7 @@ import {
   locales as multiColumnLocales,
 } from '@blocknote/xl-multi-column';
 import { isBlockJson } from '../../../shared/noteContent';
-import { NoteMetadata, Scene, Character, Tag } from '../../../shared/types';
+import { NoteMetadata, Scene, Character, Tag, FontSettings } from '../../../shared/types';
 import { dataService } from '../../services/dataService';
 
 interface NoteEditorProps {
@@ -26,6 +26,7 @@ interface NoteEditorProps {
   characters: Character[];
   tags: string[];
   allTags: Tag[];
+  fontSettings?: FontSettings;
   onTitleChange: (title: string) => void;
   onContentChange: (html: string) => void;
   onNavigateNote: (noteId: string) => void;
@@ -42,11 +43,27 @@ export default function NoteEditor({
   characters: _characters,
   tags,
   allTags,
+  fontSettings,
   onTitleChange,
   onContentChange,
   onNavigateNote: _onNavigateNote,
   onTagsChange,
 }: NoteEditorProps) {
+  // Notes fonts are applied as CSS variables scoped to this editor's container,
+  // so they apply deterministically regardless of global font state / viewMode.
+  const fontVars = useMemo(() => {
+    const fs = fontSettings || {};
+    const v: Record<string, string> = {};
+    if (fs.body) v['--note-body-font'] = fs.body;
+    if (fs.bodySize) v['--note-body-size'] = `${fs.bodySize}px`;
+    if (fs.heading1) v['--note-h1-font'] = fs.heading1;
+    if (fs.heading1Size) v['--note-h1-size'] = `${fs.heading1Size}px`;
+    if (fs.heading2) v['--note-h2-font'] = fs.heading2;
+    if (fs.heading2Size) v['--note-h2-size'] = `${fs.heading2Size}px`;
+    if (fs.heading3) v['--note-h3-font'] = fs.heading3;
+    if (fs.heading3Size) v['--note-h3-size'] = `${fs.heading3Size}px`;
+    return v as React.CSSProperties;
+  }, [fontSettings]);
   const [wordCount] = useState(0);
   const [headings] = useState<{ level: number; text: string; id: string }[]>([]);
   const [tocOpen, setTocOpen] = useState(false);
@@ -286,7 +303,7 @@ export default function NoteEditor({
             )}
           </div>
         </div>
-        <div className="note-editor-content">
+        <div className="note-editor-content" style={fontVars}>
           <BlockNoteView editor={editor} slashMenu={false} formattingToolbar={false}>
             <SuggestionMenuController triggerCharacter="/" getItems={getSlashItems} />
             <FormattingToolbarController
