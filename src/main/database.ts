@@ -5,6 +5,7 @@ import { BRANCHED_TABLES, SNAPSHOT_FORMAT_VERSION } from './branchTables';
 import { runMigrations } from './migrations';
 import { executeMutation, type ExecuteResult } from './mutations';
 import { refreshSubstrate, plotPointFlatKey, syncTaskFieldValues, syncArcNodeFieldValues, syncSceneFieldValues, syncArcFieldDefs, syncTaskFieldDefs, type NodeOrder } from './substrate';
+import { isBlockJson } from '../shared/noteContent';
 
 const SCHEMA_VERSION = 1;
 
@@ -196,6 +197,13 @@ const CREATE_SCHEMA = `
     display_order INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS note_content_backups (
+    id TEXT PRIMARY KEY,
+    note_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    backed_up_at INTEGER NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS note_tags (
@@ -1260,6 +1268,30 @@ export class BraidrDB {
 
   deleteNote(id: string) {
     this.db.prepare('DELETE FROM notes WHERE id = ?').run(id);
+  }
+
+  getNoteContentBackups(noteId: string) {
+    return this.db
+      .prepare('SELECT * FROM note_content_backups WHERE note_id = ? ORDER BY backed_up_at DESC')
+      .all(noteId) as { id: string; note_id: string; content: string; backed_up_at: number }[];
+  }
+
+  /**
+   * Save new note content. If the existing content is legacy HTML (non-empty,
+   * not block-JSON) and the incoming content IS block-JSON, back up the old
+   * HTML first so the migration is non-destructive.
+   */
+  backupAndUpdateNoteContent(noteId: string, newContent: string) {
+    const existing = this.getNote(noteId);
+    if (existing) {
+      const old = existing.content || '';
+      if (old.trim() && !isBlockJson(old) && isBlockJson(newContent)) {
+        this.db
+          .prepare('INSERT INTO note_content_backups (id, note_id, content, backed_up_at) VALUES (?, ?, ?, ?)')
+          .run(randomId(), noteId, old, Date.now());
+      }
+    }
+    this.updateNote(noteId, { content: newContent });
   }
 
   getNoteTags(noteId: string) {
