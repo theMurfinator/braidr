@@ -85,7 +85,18 @@ function OutlineSceneRow({
   const notesKey = JSON.stringify(scene.notes);
   useEffect(() => { setSynopsisValue(scene.notes.map(stripHtml).join('\n')); }, [notesKey]);
 
+  const synopsisRef = useRef<HTMLTextAreaElement>(null);
+
   const showSynopsis = expandMode ? expanded : synopsisVisible;
+
+  // Auto-size the synopsis textarea so the full text wraps and is visible
+  // without needing to focus/edit it.
+  useEffect(() => {
+    const el = synopsisRef.current;
+    if (!el || !showSynopsis) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, [synopsisValue, showSynopsis]);
 
   const handleRowClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.outline-scene-title-input, .outline-scene-synopsis-input, .outline-scene-action-btn, .outline-scene-drag-handle')) return;
@@ -196,6 +207,7 @@ function OutlineSceneRow({
       </div>
       <div className={`outline-scene-synopsis ${showSynopsis ? 'open' : ''}`}>
         <textarea
+          ref={synopsisRef}
           className="outline-scene-synopsis-input"
           value={synopsisValue}
           onChange={(e) => setSynopsisValue(e.target.value)}
