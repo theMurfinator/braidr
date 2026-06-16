@@ -10487,6 +10487,45 @@ textarea.table-cell-input {
   flex: 1;
 }
 
+.notes-width-toggle {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  margin-right: 8px;
+  padding: 2px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+}
+
+.notes-width-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 24px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1;
+  text-transform: capitalize;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.notes-width-toggle-btn:hover {
+  color: var(--text-secondary);
+}
+
+.notes-width-toggle-btn.active {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 /* "Aa Fonts" button active state */
 .notes-panel-toggle.notes-font-btn {
   font-size: 12px;
@@ -11152,9 +11191,21 @@ textarea.table-cell-input {
   flex-direction: column;
   overflow: hidden;
   width: 100%;
-  padding: 0 100px;
+  padding: 0 max(48px, calc((100% - 980px) / 2));
   box-sizing: border-box;
   position: relative;
+}
+
+.notes-width-narrow .note-editor {
+  padding-inline: max(32px, calc((100% - 720px) / 2));
+}
+
+.notes-width-wide .note-editor {
+  padding-inline: max(48px, calc((100% - 980px) / 2));
+}
+
+.notes-width-full .note-editor {
+  padding-inline: 32px;
 }
 
 .note-editor-scrollable {

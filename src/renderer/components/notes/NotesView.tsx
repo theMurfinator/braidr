@@ -8,6 +8,10 @@ import NoteEditor from './NoteEditor';
 import BacklinksPanel from './BacklinksPanel';
 import NotesFontEditor from './NotesFontEditor';
 
+type NotesWidthMode = 'narrow' | 'wide' | 'full';
+
+const NOTES_WIDTH_MODES: NotesWidthMode[] = ['narrow', 'wide', 'full'];
+
 interface NotesViewProps {
   projectPath: string;
   scenes: Scene[];
@@ -131,6 +135,10 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
   const sk = (key: string) => storagePrefix ? `${key}-${storagePrefix}` : key;
   const { addToast } = useToast();
   const [showFontEditor, setShowFontEditor] = useState(false);
+  const [notesWidthMode, setNotesWidthMode] = useState<NotesWidthMode>(() => {
+    const saved = localStorage.getItem(sk('braidr-notes-width-mode'));
+    return NOTES_WIDTH_MODES.includes(saved as NotesWidthMode) ? saved as NotesWidthMode : 'wide';
+  });
 
   const allFontSettings: AllFontSettings = allFontSettingsProp ?? { global: {} };
 
@@ -240,6 +248,10 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
   useEffect(() => {
     localStorage.setItem(sk('braidr-notes-backlinks-collapsed'), String(backlinksPanelCollapsed));
   }, [backlinksPanelCollapsed]);
+
+  useEffect(() => {
+    localStorage.setItem(sk('braidr-notes-width-mode'), notesWidthMode);
+  }, [notesWidthMode]);
 
   // Panel resize drag handling
   useEffect(() => {
@@ -622,7 +634,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
           <div className="notes-resize-handle" onMouseDown={(e) => handleResizeStart(e, 'sidebar')} />
         </>
       )}
-      <div className="notes-main">
+      <div className={`notes-main notes-width-${notesWidthMode}`}>
         <div className="notes-panel-toggles">
           <button className="notes-panel-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? 'Show notes list' : 'Hide notes list'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
@@ -631,6 +643,19 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             </svg>
           </button>
           <div className="notes-panel-toggle-spacer" />
+          <div className="notes-width-toggle" aria-label="Note width">
+            {NOTES_WIDTH_MODES.map(mode => (
+              <button
+                key={mode}
+                className={`notes-width-toggle-btn${notesWidthMode === mode ? ' active' : ''}`}
+                onClick={() => setNotesWidthMode(mode)}
+                title={`${mode.charAt(0).toUpperCase()}${mode.slice(1)} note width`}
+                aria-pressed={notesWidthMode === mode}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
           <button
             className={`notes-panel-toggle notes-font-btn${showFontEditor ? ' active' : ''}`}
             onClick={() => setShowFontEditor(v => !v)}
