@@ -28,7 +28,7 @@ interface TaskTableProps {
   onUpdateTask?: (task: Task) => void;
   onDeleteTask?: (taskId: string) => void;
   onDuplicateTask?: (task: Task) => void;
-  onCreateSubtask?: (parentId: string) => void;
+  onCreateSubtask?: (parentId: string) => string;
   onMoveSubtask?: (taskId: string, parentId: string | null, afterTaskId: string | null) => void;
   groupBy?: string;
   sortBy?: string;
@@ -245,7 +245,20 @@ export default function TaskTable({
   }
 
   function handleTaskUpdate(updated: Task) {
-    onTasksChange(tasks.map((t) => (t.id === updated.id ? updated : t)));
+    // Top-level tasks are updated directly; subtasks are nested inside a parent's
+    // .subtasks array, so we need to find and update them there.
+    const isTopLevel = tasks.some(t => t.id === updated.id);
+    if (isTopLevel) {
+      onTasksChange(tasks.map((t) => (t.id === updated.id ? updated : t)));
+    } else {
+      onTasksChange(tasks.map((t) => {
+        const idx = t.subtasks.findIndex(s => s.id === updated.id);
+        if (idx === -1) return t;
+        const subtasks = [...t.subtasks];
+        subtasks[idx] = updated;
+        return { ...t, subtasks };
+      }));
+    }
     onUpdateTask?.(updated);
   }
 
@@ -345,7 +358,7 @@ export default function TaskTable({
         onTaskUpdate={handleTaskUpdate}
         onDeleteTask={handleDeleteTask}
         onDuplicateTask={handleDuplicateTask}
-        onCreateSubtask={onCreateSubtask ?? (() => {})}
+        onCreateSubtask={onCreateSubtask ?? (() => '')}
         onMoveSubtask={onMoveSubtask ?? (() => {})}
         activeTimerTaskId={activeTimerTaskId}
         onStartTimer={onStartTimer}

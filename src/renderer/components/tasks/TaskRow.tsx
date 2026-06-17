@@ -30,6 +30,8 @@ interface TaskRowProps {
   rolledUpTime?: number;
   expandToggle?: React.ReactNode;
   subtaskBadge?: React.ReactNode;
+  onCreateSubtask?: () => string;
+  autoFocusTitle?: boolean;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -137,9 +139,11 @@ export default function TaskRow({
   rolledUpTime,
   expandToggle,
   subtaskBadge,
+  onCreateSubtask,
+  autoFocusTitle,
 }: TaskRowProps) {
   const isVisible = (colId: string) => !visibleColumns || visibleColumns.includes(colId);
-  const [editingColumn, setEditingColumn] = useState<string | null>(null);
+  const [editingColumn, setEditingColumn] = useState<string | null>(autoFocusTitle ? 'title' : null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTimePopover, setShowTimePopover] = useState(false);
   const [manualHours, setManualHours] = useState(0);
@@ -223,6 +227,13 @@ export default function TaskRow({
             <>
               {task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>}
               {subtaskBadge}
+              {onCreateSubtask && !isSubtask && (
+                <button
+                  className="task-add-subtask-inline"
+                  onClick={(e) => { e.stopPropagation(); onCreateSubtask(); }}
+                  title="Add subtask"
+                >+</button>
+              )}
             </>
           )}
         </div>

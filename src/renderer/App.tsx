@@ -501,6 +501,7 @@ function App() {
       orderKey: null,
       displayOrder: (parent?.subtasks.length ?? 0),
     }).catch(() => {});
+    return newId;
   }, [tasks]);
 
   const handleMoveTask = useCallback((taskId: string, parentId: string | null, afterTaskId: string | null) => {

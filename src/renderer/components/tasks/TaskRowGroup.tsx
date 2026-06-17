@@ -11,7 +11,7 @@ interface TaskRowGroupProps {
   onTaskUpdate: (updated: Task) => void;
   onDeleteTask: (taskId: string) => void;
   onDuplicateTask: (taskId: string) => void;
-  onCreateSubtask: (parentId: string) => void;
+  onCreateSubtask: (parentId: string) => string;
   onMoveSubtask: (taskId: string, parentId: string | null, afterTaskId: string | null) => void;
   activeTimerTaskId: string | null;
   onStartTimer: (taskId: string) => void;
@@ -44,6 +44,7 @@ export default function TaskRowGroup({
   const [expanded, setExpanded] = useState<boolean>(() => {
     try { return localStorage.getItem(storageKey) !== '0'; } catch { return true; }
   });
+  const [focusSubtaskId, setFocusSubtaskId] = useState<string | null>(null);
 
   const hasSubtasks = task.subtasks.length > 0;
   const rolledUpTime =
@@ -79,6 +80,13 @@ export default function TaskRowGroup({
         {...sharedProps}
         task={task}
         rolledUpTime={hasSubtasks ? rolledUpTime : undefined}
+        onCreateSubtask={() => {
+          const newId = onCreateSubtask(task.id);
+          setExpanded(true);
+          try { localStorage.setItem(storageKey, '1'); } catch { /* ignore */ }
+          setFocusSubtaskId(newId);
+          return newId;
+        }}
         expandToggle={
           hasSubtasks ? (
             <button
@@ -99,28 +107,15 @@ export default function TaskRowGroup({
         }
       />
 
-      {expanded && (
-        <>
-          {task.subtasks.map((sub) => (
-            <TaskRow
-              key={sub.id}
-              {...sharedProps}
-              task={sub}
-              isSubtask
-            />
-          ))}
-          <tr className="task-add-subtask-row">
-            <td colSpan={999}>
-              <button
-                className="task-add-subtask-btn"
-                onClick={() => onCreateSubtask(task.id)}
-              >
-                + Add subtask
-              </button>
-            </td>
-          </tr>
-        </>
-      )}
+      {expanded && task.subtasks.map((sub) => (
+        <TaskRow
+          key={sub.id}
+          {...sharedProps}
+          task={sub}
+          isSubtask
+          autoFocusTitle={sub.id === focusSubtaskId}
+        />
+      ))}
     </>
   );
 }

@@ -16100,22 +16100,26 @@ textarea.table-cell-input {
   padding-left: 36px;
 }
 
-.task-add-subtask-row td {
-  padding: 0;
-  border-bottom: none;
-}
-.task-add-subtask-btn {
+.task-add-subtask-inline {
+  opacity: 0;
   background: none;
-  border: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 12px;
-  padding: 4px 8px 4px 52px;
-  width: 100%;
-  text-align: left;
+  font-size: 13px;
+  line-height: 1;
+  padding: 1px 5px;
+  margin-left: 6px;
+  flex-shrink: 0;
+  transition: opacity 0.1s;
 }
-.task-add-subtask-btn:hover {
+tr:hover .task-add-subtask-inline {
+  opacity: 1;
+}
+.task-add-subtask-inline:hover {
   color: var(--text-primary);
+  border-color: var(--text-muted);
   background: var(--bg-hover);
 }
 

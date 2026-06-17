@@ -58,7 +58,7 @@ interface TasksViewProps {
   onUpdateTask?: (task: Task) => void;
   onDeleteTask?: (taskId: string) => void;
   onDuplicateTask?: (task: Task) => void;
-  onCreateSubtask?: (parentId: string) => void;
+  onCreateSubtask?: (parentId: string) => string;
   onMoveSubtask?: (taskId: string, parentId: string | null, afterTaskId: string | null) => void;
   onTimeEntriesChanged?: (taskId: string, entries: TimeEntry[]) => void;
   initialColumnWidths?: Record<string, number>;
