@@ -62,9 +62,9 @@ function BullpenContextMenu({ x, y, sections, onAssignToSection, onDelete, onClo
   );
 }
 
-function DraggableBullpenScene({ scene, prevSectionTitle, onContextMenu, children }: {
+function DraggableBullpenScene({ scene, nested, onContextMenu, children }: {
   scene: Scene;
-  prevSectionTitle?: string | null;
+  nested?: boolean;
   onContextMenu: (e: React.MouseEvent) => void;
   children?: React.ReactNode;
 }) {
@@ -72,13 +72,12 @@ function DraggableBullpenScene({ scene, prevSectionTitle, onContextMenu, childre
   return (
     <div
       ref={setNodeRef}
-      className="arc-bullpen-row"
+      className={`arc-bullpen-row${nested ? ' arc-bullpen-row-nested' : ''}`}
       style={{ opacity: isDragging ? 0.3 : 1 }}
       onContextMenu={onContextMenu}
     >
       <span className="arc-bullpen-drag" {...attributes} {...listeners}>⠿</span>
       <span className="arc-bullpen-label">{cleanSceneTitle(scene.title) || 'Untitled scene'}</span>
-      {prevSectionTitle && <span className="bullpen-prev-tag" title="Previous location">was: {prevSectionTitle}</span>}
       {children}
     </div>
   );
@@ -119,11 +118,52 @@ function BullpenPanel({
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
-  const sectionTitle = (id?: string): string | null => {
-    if (!id) return null;
-    const pp = plotPoints.find(p => p.id === id);
-    return pp ? (pp.title || 'Untitled section') : null;
-  };
+  // Group loose scenes by the section they were set aside from. Scenes whose
+  // origin is unknown or points to a since-deleted section fall under "No
+  // previous section". Groups are ordered by the origin section's outline order.
+  const NO_ORIGIN = '__none__';
+  const byOrigin = new Map<string, Scene[]>();
+  for (const s of scenes) {
+    const prev = previousPlotPointIds?.[s.id];
+    const key = prev && plotPoints.some(p => p.id === prev) ? prev : NO_ORIGIN;
+    const list = byOrigin.get(key); if (list) list.push(s); else byOrigin.set(key, [s]);
+  }
+  const originGroups = [...byOrigin.keys()]
+    .filter(k => k !== NO_ORIGIN)
+    .sort((a, b) => (plotPoints.find(p => p.id === a)?.order ?? 0) - (plotPoints.find(p => p.id === b)?.order ?? 0))
+    .map(k => ({ key: `from:${k}`, label: `From: ${plotPoints.find(p => p.id === k)?.title || 'Untitled section'}`, scenes: byOrigin.get(k)! }));
+  if (byOrigin.has(NO_ORIGIN)) {
+    originGroups.push({ key: 'from:none', label: 'No previous section', scenes: byOrigin.get(NO_ORIGIN)! });
+  }
+  // Only show the grouped layout once at least one origin is known; otherwise a
+  // single "No previous section" header is just noise, so render a flat list.
+  const showGroups = originGroups.some(g => g.key !== 'from:none');
+
+  const renderSceneRow = (scene: Scene, nested: boolean) => (
+    <DraggableBullpenScene
+      key={scene.id}
+      scene={scene}
+      nested={nested}
+      onContextMenu={e => { e.preventDefault(); setPickerSceneId(null); setContextMenu({ x: e.clientX, y: e.clientY, sceneId: scene.id }); }}
+    >
+      <span className="bullpen-scene-actions">
+        <button
+          className="outline-scene-action-btn bullpen-return-btn"
+          onClick={() => { setContextMenu(null); setPickerSceneId(pickerSceneId === scene.id ? null : scene.id); }}
+        >
+          Return
+        </button>
+        {pickerSceneId === scene.id && (
+          <SectionPickerDropdown
+            plotPoints={plotPoints}
+            previousPlotPointId={previousPlotPointIds?.[scene.id]}
+            onSelect={(plotPointId) => { onReturnScene(scene.id, plotPointId); setPickerSceneId(null); }}
+            onClose={() => setPickerSceneId(null)}
+          />
+        )}
+      </span>
+    </DraggableBullpenScene>
+  );
 
   if (collapsed) {
     return (
@@ -173,31 +213,20 @@ function BullpenPanel({
         {scenes.length === 0 && bullpenSections.length === 0 && (
           <div className="bullpen-empty">Scenes you set aside or create here will appear in this list.</div>
         )}
-        {scenes.map(scene => (
-          <DraggableBullpenScene
-            key={scene.id}
-            scene={scene}
-            prevSectionTitle={sectionTitle(previousPlotPointIds?.[scene.id])}
-            onContextMenu={e => { e.preventDefault(); setPickerSceneId(null); setContextMenu({ x: e.clientX, y: e.clientY, sceneId: scene.id }); }}
-          >
-            <span className="bullpen-scene-actions">
-              <button
-                className="outline-scene-action-btn bullpen-return-btn"
-                onClick={() => { setContextMenu(null); setPickerSceneId(pickerSceneId === scene.id ? null : scene.id); }}
-              >
-                Return
-              </button>
-              {pickerSceneId === scene.id && (
-                <SectionPickerDropdown
-                  plotPoints={plotPoints}
-                  previousPlotPointId={previousPlotPointIds?.[scene.id]}
-                  onSelect={(plotPointId) => { onReturnScene(scene.id, plotPointId); setPickerSceneId(null); }}
-                  onClose={() => setPickerSceneId(null)}
-                />
-              )}
-            </span>
-          </DraggableBullpenScene>
-        ))}
+        {!showGroups && scenes.map(scene => renderSceneRow(scene, false))}
+        {showGroups && originGroups.map(group => {
+          const expanded = !collapsedSections.has(group.key);
+          return (
+            <div key={group.key} className="arc-bullpen-section-group">
+              <div className="arc-bullpen-row arc-bullpen-section" onClick={() => toggleSection(group.key)}>
+                <span className="arc-bullpen-sec-toggle">{expanded ? '▾' : '▸'}</span>
+                <span className="arc-bullpen-label">{group.label}</span>
+                <span className="arc-bullpen-count">{group.scenes.length}</span>
+              </div>
+              {expanded && group.scenes.map(scene => renderSceneRow(scene, true))}
+            </div>
+          );
+        })}
       </div>
 
       {onAddScene && (
