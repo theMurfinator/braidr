@@ -38,6 +38,7 @@ interface BullpenPanelProps {
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
   previousPlotPointIds?: Record<string, string>;
   onAddScene?: () => void;
+  onDeleteScene?: (sceneId: string) => void;
   bullpenSections?: PlotPoint[];   // sections set aside (inBullpen), shown with their scenes nested
   sectionScenes?: Scene[];         // scenes belonging to those set-aside sections
 }

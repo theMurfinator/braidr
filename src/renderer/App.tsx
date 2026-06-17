@@ -150,7 +150,6 @@ function App() {
   const [hideSectionHeaders, setHideSectionHeaders] = useState<Record<string, boolean>>({});
   const [hideScenes, setHideScenes] = useState<Record<string, boolean>>({});
   const [sectionSynopsisModes, setSectionSynopsisModes] = useState<Record<string, 'inline' | 'expand'>>({});
-  const [previousPlotPointIds, setPreviousPlotPointIds] = useState<Record<string, string>>({});
   const [inlineMetadataFields, setInlineMetadataFields] = useState<string[]>([]);
   const inlineMetadataFieldsRef = useRef<string[]>([]);
   const [showInlineLabels, setShowInlineLabels] = useState(true);
@@ -2477,9 +2476,6 @@ function App() {
     const scene = projectData.scenes.find(s => s.id === sceneId);
     if (!scene) return;
 
-    if (scene.plotPointId) {
-      setPreviousPlotPointIds(prev => ({ ...prev, [sceneId]: scene.plotPointId! }));
-    }
     scene.plotPointId = null;
     scene.timelinePosition = null;
 
@@ -4292,17 +4288,27 @@ function App() {
                 })()}
                 </div>
 
+                {(() => {
+                  const bullpenScenes = displayedScenes.filter(s => !s.plotPointId);
+                  const previousPlotPointIds: Record<string, string> = {};
+                  for (const s of bullpenScenes) {
+                    if (s.previousPlotPointId) previousPlotPointIds[s.id] = s.previousPlotPointId;
+                  }
+                  return (
                 <BullpenPanel
-                  scenes={displayedScenes.filter(s => !s.plotPointId)}
+                  scenes={bullpenScenes}
                   plotPoints={displayedPlotPoints}
                   getCharacterName={getCharacterName}
                   onReturnScene={handleReturnFromBullpen}
                   onSceneChange={handleSceneChange}
                   previousPlotPointIds={previousPlotPointIds}
                   onAddScene={handleAddBullpenScene}
+                  onDeleteScene={handleArchiveScene}
                   bullpenSections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId && pp.inBullpen)}
                   sectionScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId && s.plotPointId !== null && projectData.plotPoints.find(p => p.id === s.plotPointId)?.inBullpen)}
                 />
+                  );
+                })()}
               </div>
               <DragOverlay>
                 {povActiveId && (() => {
