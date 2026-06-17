@@ -58,6 +58,8 @@ interface TasksViewProps {
   onUpdateTask?: (task: Task) => void;
   onDeleteTask?: (taskId: string) => void;
   onDuplicateTask?: (task: Task) => void;
+  onCreateSubtask?: (parentId: string) => string;
+  onMoveSubtask?: (taskId: string, parentId: string | null, afterTaskId: string | null) => void;
   onTimeEntriesChanged?: (taskId: string, entries: TimeEntry[]) => void;
   initialColumnWidths?: Record<string, number>;
   initialVisibleColumns?: string[];
@@ -93,6 +95,8 @@ export default function TasksView({
   onUpdateTask,
   onDeleteTask,
   onDuplicateTask,
+  onCreateSubtask,
+  onMoveSubtask,
   onTimeEntriesChanged,
   initialColumnWidths,
   initialVisibleColumns,
@@ -262,6 +266,8 @@ export default function TasksView({
   }, [activeViewId, taskViews, groupBy, sortBy, sortDir, filters, visibleColumns, columnWidths]);
 
   const filteredTasks = filterTasks(tasks, filters, characters);
+  // Only top-level tasks go to the table; subtasks are nested in task.subtasks
+  const topLevelTasks = filteredTasks.filter(t => t.parentTaskId === null);
 
   return (
     <div className="tasks-view">
@@ -298,7 +304,7 @@ export default function TasksView({
       )}
       <div className="tasks-table-wrap">
         <TaskTable
-          tasks={filteredTasks}
+          tasks={topLevelTasks}
           allTaskCount={tasks.length}
           characters={characters}
           scenes={scenes}
@@ -310,6 +316,8 @@ export default function TasksView({
           onUpdateTask={onUpdateTask}
           onDeleteTask={onDeleteTask}
           onDuplicateTask={onDuplicateTask}
+          onCreateSubtask={onCreateSubtask}
+          onMoveSubtask={onMoveSubtask}
           groupBy={groupBy}
           sortBy={sortBy}
           sortDir={sortDir}

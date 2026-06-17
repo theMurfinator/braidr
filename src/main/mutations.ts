@@ -968,7 +968,10 @@ registerMutation<TaskSoftDeleteArgs>({
     const db = ctx.db;
     const row = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId) as { id: string } | undefined;
     if (!row) throw new Error(`task.softDelete: task not found: ${taskId}`);
-    db.prepare('UPDATE tasks SET deleted_at = ?, updated_at = ? WHERE id = ?').run(Date.now(), Date.now(), taskId);
+    const now = Date.now();
+    db.prepare('UPDATE tasks SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now, now, taskId);
+    // Cascade to subtasks (one-level only; subtasks cannot have children).
+    db.prepare('UPDATE tasks SET deleted_at = ?, updated_at = ? WHERE parent_task_id = ? AND deleted_at IS NULL').run(now, now, taskId);
     return { name: 'task.restore', args: { taskId } };
   },
 });
@@ -1006,6 +1009,50 @@ registerMutation<TaskSetTimeEntriesArgs>({
     for (const e of entries) insert.run(e.id, taskId, e.startedAt, e.duration, e.description);
 
     return { name: 'task.setTimeEntries', args: { taskId, entries: oldEntries } satisfies TaskSetTimeEntriesArgs };
+  },
+});
+
+interface TaskMoveArgs {
+  taskId: string;
+  parentId: string | null;
+  afterTaskId: string | null;
+}
+
+registerMutation<TaskMoveArgs>({
+  name: 'task.move',
+  deletionBudget: 0,
+  run(ctx, { taskId, parentId, afterTaskId }) {
+    const db = ctx.db;
+    type TR = { id: string; parent_task_id: string | null; order_key: string | null };
+    const task = db.prepare('SELECT id, parent_task_id, order_key FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId) as TR | undefined;
+    if (!task) throw new Error(`task.move: task not found: ${taskId}`);
+
+    // One-level guard: a task that has live subtasks cannot itself become a subtask.
+    if (parentId !== null) {
+      const childCount = (db.prepare('SELECT count(*) AS n FROM tasks WHERE parent_task_id = ? AND deleted_at IS NULL').get(taskId) as { n: number }).n;
+      if (childCount > 0) throw new Error('task.move: one-level rule — cannot nest a task that has subtasks');
+    }
+
+    // Find fractional key neighbours among the target siblings (excluding the moving task).
+    const siblings = db.prepare(
+      'SELECT id, order_key FROM tasks WHERE parent_task_id IS ? AND id != ? AND deleted_at IS NULL ORDER BY order_key'
+    ).all(parentId, taskId) as { id: string; order_key: string | null }[];
+
+    let afterIdx = -1;
+    if (afterTaskId !== null) {
+      afterIdx = siblings.findIndex(s => s.id === afterTaskId);
+      if (afterIdx === -1) throw new Error(`task.move: afterTaskId ${afterTaskId} not found among siblings`);
+    }
+    const before = afterIdx >= 0 ? siblings[afterIdx] : null;
+    const after  = afterIdx >= 0 ? (siblings[afterIdx + 1] ?? null) : (afterTaskId === null ? (siblings[0] ?? null) : null);
+
+    const newKey = keyBetween(before?.order_key ?? null, after?.order_key ?? null);
+    const oldParent = task.parent_task_id;
+
+    db.prepare('UPDATE tasks SET parent_task_id = ?, order_key = ?, updated_at = ? WHERE id = ?')
+      .run(parentId, newKey, Date.now(), taskId);
+
+    return { name: 'task.move', args: { taskId, parentId: oldParent, afterTaskId: null } satisfies TaskMoveArgs };
   },
 });
 

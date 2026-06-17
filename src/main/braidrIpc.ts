@@ -443,23 +443,49 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
     for (const row of timeEntryRows) {
       (timeEntriesByTask[row.task_id] ??= []).push({ id: row.id, startedAt: row.started_at, duration: row.duration, description: row.description ?? undefined });
     }
-    const tasks: Task[] = taskRows.map(row => ({
-      id: row.id,
-      title: row.title,
-      description: row.description ?? undefined,
-      status: row.status as Task['status'],
-      priority: row.priority as Task['priority'],
-      tags: taskTagsByTask[row.id] || [],
-      characterIds: taskCharsByTask[row.id] || [],
-      sceneKey: row.scene_id ?? undefined,
-      timeEntries: timeEntriesByTask[row.id] || [],
-      timeEstimate: row.time_estimate ?? undefined,
-      dueDate: row.due_date ?? undefined,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      order: row.display_order,
-      customFields: customFieldsByTask[row.id] || {},
-    }));
+    // Build flat task objects first, then assemble into a two-level tree.
+    const taskById = new Map<string, Task>();
+    for (const row of taskRows) {
+      taskById.set(row.id, {
+        id: row.id,
+        title: row.title,
+        description: row.description ?? undefined,
+        status: row.status as Task['status'],
+        priority: row.priority as Task['priority'],
+        tags: taskTagsByTask[row.id] || [],
+        characterIds: taskCharsByTask[row.id] || [],
+        sceneKey: row.scene_id ?? undefined,
+        timeEntries: timeEntriesByTask[row.id] || [],
+        timeEstimate: row.time_estimate ?? undefined,
+        dueDate: row.due_date ?? undefined,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        order: row.display_order,
+        customFields: customFieldsByTask[row.id] || {},
+        parentTaskId: row.parent_task_id ?? null,
+        subtasks: [],
+      });
+    }
+
+    // Attach subtasks to parents; orphans (missing parent) become top-level.
+    const tasks: Task[] = [];
+    for (const task of taskById.values()) {
+      if (task.parentTaskId && taskById.has(task.parentTaskId)) {
+        taskById.get(task.parentTaskId)!.subtasks.push(task);
+      } else {
+        task.parentTaskId = null; // clear orphan pointer
+        tasks.push(task);
+      }
+    }
+    // Sort subtasks by order_key within each parent.
+    const orderKeyById = new Map(taskRows.map(r => [r.id, r.order_key ?? '']));
+    for (const task of tasks) {
+      task.subtasks.sort((a, b) => {
+        const ak = orderKeyById.get(a.id) ?? '';
+        const bk = orderKeyById.get(b.id) ?? '';
+        return ak < bk ? -1 : ak > bk ? 1 : 0;
+      });
+    }
 
     // taskFieldDefs computed above from field_defs (read authority)
 

@@ -1735,6 +1735,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                             updatedAt: Date.now(),
                             order: (tasks || []).length,
                             customFields: {},
+                            parentTaskId: null,
+                            subtasks: [],
                           };
                           onTasksChange?.([...(tasks || []), newTask]);
                           input.value = '';

@@ -1,6 +1,6 @@
 import { Fragment, useState, useRef, useCallback } from 'react';
 import type { Task, TaskFieldDef, Character, Scene, Tag, TimeEntry } from '../../../shared/types';
-import TaskRow from './TaskRow';
+import TaskRowGroup from './TaskRowGroup';
 import TaskFieldManager from './TaskFieldManager';
 
 export const BUILTIN_COLUMNS = [
@@ -28,6 +28,8 @@ interface TaskTableProps {
   onUpdateTask?: (task: Task) => void;
   onDeleteTask?: (taskId: string) => void;
   onDuplicateTask?: (task: Task) => void;
+  onCreateSubtask?: (parentId: string) => string;
+  onMoveSubtask?: (taskId: string, parentId: string | null, afterTaskId: string | null) => void;
   groupBy?: string;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
@@ -155,6 +157,8 @@ export default function TaskTable({
   onUpdateTask,
   onDeleteTask,
   onDuplicateTask,
+  onCreateSubtask,
+  onMoveSubtask,
   groupBy,
   sortBy,
   sortDir = 'asc',
@@ -233,13 +237,28 @@ export default function TaskTable({
       updatedAt: Date.now(),
       order: tasks.length,
       customFields: {},
+      parentTaskId: null,
+      subtasks: [],
     };
     onTasksChange([...tasks, newTask]);
     onCreateTask?.(newTask);
   }
 
   function handleTaskUpdate(updated: Task) {
-    onTasksChange(tasks.map((t) => (t.id === updated.id ? updated : t)));
+    // Top-level tasks are updated directly; subtasks are nested inside a parent's
+    // .subtasks array, so we need to find and update them there.
+    const isTopLevel = tasks.some(t => t.id === updated.id);
+    if (isTopLevel) {
+      onTasksChange(tasks.map((t) => (t.id === updated.id ? updated : t)));
+    } else {
+      onTasksChange(tasks.map((t) => {
+        const idx = t.subtasks.findIndex(s => s.id === updated.id);
+        if (idx === -1) return t;
+        const subtasks = [...t.subtasks];
+        subtasks[idx] = updated;
+        return { ...t, subtasks };
+      }));
+    }
     onUpdateTask?.(updated);
   }
 
@@ -321,13 +340,15 @@ export default function TaskTable({
       updatedAt: Date.now(),
       order: 0,
       customFields: {},
+      parentTaskId: null,
+      subtasks: [],
     };
     onTasksChange([newTask]);
   }
 
   function renderTaskRows(taskList: Task[]) {
     return taskList.map((task) => (
-      <TaskRow
+      <TaskRowGroup
         key={task.id}
         task={task}
         characters={characters}
@@ -337,6 +358,8 @@ export default function TaskTable({
         onTaskUpdate={handleTaskUpdate}
         onDeleteTask={handleDeleteTask}
         onDuplicateTask={handleDuplicateTask}
+        onCreateSubtask={onCreateSubtask ?? (() => '')}
+        onMoveSubtask={onMoveSubtask ?? (() => {})}
         activeTimerTaskId={activeTimerTaskId}
         onStartTimer={onStartTimer}
         onStopTimer={onStopTimer}
