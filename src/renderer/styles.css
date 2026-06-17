@@ -22158,6 +22158,15 @@ textarea.table-cell-input {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.bullpen-prev-tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  border-radius: 9px;
+  background: var(--bg-subtle, rgba(127, 127, 127, 0.16));
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+}
 .arc-bullpen-add-btn {
   display: block;
   width: calc(100% - 32px);
