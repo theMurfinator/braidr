@@ -2476,6 +2476,9 @@ function App() {
     const scene = projectData.scenes.find(s => s.id === sceneId);
     if (!scene) return;
 
+    // Mirror what scene.move persists, so the "previous location" pill shows
+    // immediately this session (not only after the next load).
+    if (scene.plotPointId) scene.previousPlotPointId = scene.plotPointId;
     scene.plotPointId = null;
     scene.timelinePosition = null;
 
@@ -2824,8 +2827,12 @@ function App() {
     const scene = projectData.scenes.find(s => s.id === sceneId);
     if (!scene) return;
     if (!scene.plotPointId && scene.timelinePosition === null) return; // already loose
+    // Mirror what scene.move persists, so the "previous location" pill shows
+    // immediately this session (not only after the next load).
     const updatedScenes = projectData.scenes.map(s =>
-      s.id === sceneId ? { ...s, plotPointId: null, timelinePosition: null } : s
+      s.id === sceneId
+        ? { ...s, previousPlotPointId: s.plotPointId ?? s.previousPlotPointId, plotPointId: null, timelinePosition: null }
+        : s
     );
     setProjectData({ ...projectData, scenes: updatedScenes });
     try {
