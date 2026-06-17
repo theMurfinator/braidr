@@ -150,7 +150,6 @@ function App() {
   const [hideSectionHeaders, setHideSectionHeaders] = useState<Record<string, boolean>>({});
   const [hideScenes, setHideScenes] = useState<Record<string, boolean>>({});
   const [sectionSynopsisModes, setSectionSynopsisModes] = useState<Record<string, 'inline' | 'expand'>>({});
-  const [previousPlotPointIds, setPreviousPlotPointIds] = useState<Record<string, string>>({});
   const [inlineMetadataFields, setInlineMetadataFields] = useState<string[]>([]);
   const inlineMetadataFieldsRef = useRef<string[]>([]);
   const [showInlineLabels, setShowInlineLabels] = useState(true);
@@ -2365,7 +2364,7 @@ function App() {
       sceneNumber: charScenes.length + 1,
       title: '', content: '', tags: [],
       timelinePosition: null, isHighlighted: false, notes: [],
-      plotPointId: sectionId, chapterId: null, sceneOrder: 0, stationId: null,
+      plotPointId: sectionId, previousPlotPointId: null, chapterId: null, sceneOrder: 0, stationId: null,
       polarity: '', transformation: '', dilemma: '', propellingAction: '', startingState: '', endingState: '',
     };
     const newCharScenes = [...charScenes, newScene];
@@ -2477,9 +2476,9 @@ function App() {
     const scene = projectData.scenes.find(s => s.id === sceneId);
     if (!scene) return;
 
-    if (scene.plotPointId) {
-      setPreviousPlotPointIds(prev => ({ ...prev, [sceneId]: scene.plotPointId! }));
-    }
+    // Mirror what scene.move persists, so the "previous location" pill shows
+    // immediately this session (not only after the next load).
+    if (scene.plotPointId) scene.previousPlotPointId = scene.plotPointId;
     scene.plotPointId = null;
     scene.timelinePosition = null;
 
@@ -2605,6 +2604,7 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId: null,
+      previousPlotPointId: null,
       chapterId: null,
       sceneOrder: 0,
       stationId: null,
@@ -2797,6 +2797,7 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId: null,
+      previousPlotPointId: null,
       chapterId: null,
       sceneOrder: 0,
       stationId: null,
@@ -2826,8 +2827,12 @@ function App() {
     const scene = projectData.scenes.find(s => s.id === sceneId);
     if (!scene) return;
     if (!scene.plotPointId && scene.timelinePosition === null) return; // already loose
+    // Mirror what scene.move persists, so the "previous location" pill shows
+    // immediately this session (not only after the next load).
     const updatedScenes = projectData.scenes.map(s =>
-      s.id === sceneId ? { ...s, plotPointId: null, timelinePosition: null } : s
+      s.id === sceneId
+        ? { ...s, previousPlotPointId: s.plotPointId ?? s.previousPlotPointId, plotPointId: null, timelinePosition: null }
+        : s
     );
     setProjectData({ ...projectData, scenes: updatedScenes });
     try {
@@ -3193,6 +3198,7 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId,
+      previousPlotPointId: null,
       chapterId: null,
       sceneOrder: 0,
       stationId: null,
@@ -3263,6 +3269,7 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId: null,
+      previousPlotPointId: null,
       chapterId: null,
       sceneOrder: 0,
       stationId: null,
@@ -3365,6 +3372,7 @@ function App() {
       isHighlighted: false,
       notes: [],
       plotPointId,
+      previousPlotPointId: null,
       chapterId: null,
       sceneOrder: 0,
       stationId: null,
@@ -3640,6 +3648,7 @@ function App() {
       isHighlighted: archived.isHighlighted,
       notes: archived.notes,
       plotPointId: targetPlotPointId,
+      previousPlotPointId: null,
       wordCount: archived.wordCount,
       chapterId: null,
       sceneOrder: 0,
@@ -3770,6 +3779,7 @@ function App() {
       isHighlighted: scene.isHighlighted,
       notes: [...scene.notes],
       plotPointId: scene.plotPointId,
+      previousPlotPointId: scene.previousPlotPointId,
       wordCount: scene.wordCount,
       chapterId: null,
       sceneOrder: 0,
@@ -4285,17 +4295,27 @@ function App() {
                 })()}
                 </div>
 
+                {(() => {
+                  const bullpenScenes = displayedScenes.filter(s => !s.plotPointId);
+                  const previousPlotPointIds: Record<string, string> = {};
+                  for (const s of bullpenScenes) {
+                    if (s.previousPlotPointId) previousPlotPointIds[s.id] = s.previousPlotPointId;
+                  }
+                  return (
                 <BullpenPanel
-                  scenes={displayedScenes.filter(s => !s.plotPointId)}
+                  scenes={bullpenScenes}
                   plotPoints={displayedPlotPoints}
                   getCharacterName={getCharacterName}
                   onReturnScene={handleReturnFromBullpen}
                   onSceneChange={handleSceneChange}
                   previousPlotPointIds={previousPlotPointIds}
                   onAddScene={handleAddBullpenScene}
+                  onDeleteScene={handleArchiveScene}
                   bullpenSections={projectData.plotPoints.filter(pp => pp.characterId === selectedCharacterId && pp.inBullpen)}
                   sectionScenes={projectData.scenes.filter(s => s.characterId === selectedCharacterId && s.plotPointId !== null && projectData.plotPoints.find(p => p.id === s.plotPointId)?.inBullpen)}
                 />
+                  );
+                })()}
               </div>
               <DragOverlay>
                 {povActiveId && (() => {

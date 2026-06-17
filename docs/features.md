@@ -17,6 +17,10 @@ The character arc view. One character at a time, scenes in their narrative order
 - Filter bar to narrow scenes by tag
 - **Sections toggle** — toolbar button hides section headers entirely
 - **Scenes toggle** — toolbar button hides all scene cards, leaving only section headers and synopses visible (focus mode for synopsis writing)
+- **Bullpen panel** — a compact, grouped side panel for set-aside and loose scenes, mirroring the Arc view's bullpen layout: a **Sections** group (set-aside sections, expandable to show their scenes) and a **Scenes** group, each with counts. Collapsible and resizable.
+  - **Previous-location tag** — each loose scene shows a `was: <section>` pill naming the section it was set aside from. This is **persisted** (survives reload) and is hidden if that section is later deleted
+  - **Return a scene** two ways: the inline **Return** button (opens a section picker that pre-highlights the previous location), or **right-click → Assign to Section** (also offers **Delete**)
+  - **+ Add Scene** creates a new loose scene directly in the bullpen
 
 ### Arc View
 The character-arc planning view. An outline-table for one character, organized Novel → Acts → Sections → Scenes, with columns for beginning/ending state, transformation, dilemma, propelling action, and polarity.
