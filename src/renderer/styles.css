@@ -22053,7 +22053,8 @@ textarea.table-cell-input {
   padding: 4px 0;
   min-width: 160px;
 }
-.arc-bullpen-panel .arc-context-submenu {
+.arc-bullpen-panel .arc-context-submenu,
+.bullpen-panel .arc-context-submenu {
   left: auto;
   right: 100%;
 }

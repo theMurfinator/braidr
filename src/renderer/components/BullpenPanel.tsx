@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { Scene, PlotPoint } from '../../shared/types';
 import { useResizableWidth } from '../utils/useResizableWidth';
@@ -15,6 +15,18 @@ function BullpenContextMenu({ x, y, sections, onAssignToSection, onDelete, onClo
 }) {
   const [showSubmenu, setShowSubmenu] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // Clamp into the viewport: the bullpen hugs the right edge, so a menu anchored
+  // at the raw cursor X would spill off-screen.
+  const [pos, setPos] = useState({ x, y });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const pad = 8;
+    const nx = x + r.width > window.innerWidth - pad ? Math.max(pad, window.innerWidth - r.width - pad) : x;
+    const ny = y + r.height > window.innerHeight - pad ? Math.max(pad, window.innerHeight - r.height - pad) : y;
+    if (nx !== pos.x || ny !== pos.y) setPos({ x: nx, y: ny });
+  }, [x, y]);
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
@@ -28,7 +40,7 @@ function BullpenContextMenu({ x, y, sections, onAssignToSection, onDelete, onClo
     };
   }, [onClose]);
   return (
-    <div ref={ref} className="arc-context-menu" style={{ left: x, top: y }}>
+    <div ref={ref} className="arc-context-menu" style={{ left: pos.x, top: pos.y }}>
       <div className="arc-context-item" onMouseEnter={() => setShowSubmenu(true)} onMouseLeave={() => setShowSubmenu(false)}>
         Assign to Section ▶
         {showSubmenu && (
