@@ -97,7 +97,8 @@ const CREATE_SCHEMA = `
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     chapter_id TEXT REFERENCES chapters(id) ON DELETE SET NULL,
-    scene_order INTEGER NOT NULL DEFAULT 0
+    scene_order INTEGER NOT NULL DEFAULT 0,
+    previous_plot_point_id TEXT
   );
 
   CREATE TABLE IF NOT EXISTS scene_drafts (
@@ -448,6 +449,9 @@ export class BraidrDB {
       this.db.exec(
         'ALTER TABLE scenes ADD COLUMN scene_order INTEGER NOT NULL DEFAULT 0'
       );
+    }
+    if (!sceneColumns.includes('previous_plot_point_id')) {
+      this.db.exec('ALTER TABLE scenes ADD COLUMN previous_plot_point_id TEXT');
     }
 
     // Drop legacy positional chapters table — no data is migrated
@@ -1597,7 +1601,7 @@ export interface SceneRow {
   id: string; character_id: string; plot_point_id: string | null;
   title: string; synopsis: string; scene_number: number;
   timeline_position: number | null; is_highlighted: number; word_count: number | null;
-  chapter_id: string | null; scene_order: number;
+  chapter_id: string | null; scene_order: number; previous_plot_point_id: string | null;
   polarity: string; transformation: string; dilemma: string; propelling_action: string;
   starting_state: string; ending_state: string;
   created_at: number; updated_at: number

@@ -219,6 +219,7 @@ export function parseOutlineFile(content: string, fileName: string, filePath: st
         isHighlighted,
         notes: [],
         plotPointId: currentPlotPoint?.id || null,
+        previousPlotPointId: null,
         chapterId: null,
         sceneOrder: 0,
         stationId: null,

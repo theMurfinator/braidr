@@ -162,4 +162,31 @@ describe('scene.move', () => {
     expect(order(db)).toEqual(['s1', 's2', 's3', 's4', 's5']);
     db.close();
   });
+
+  function prevOf(db: BraidrDB, id: string): string | null {
+    return (db.getScene(id) as unknown as { previous_plot_point_id: string | null }).previous_plot_point_id;
+  }
+
+  it('records previous_plot_point_id when a sectioned scene moves to the bullpen', async () => {
+    const db = await seed(dir);
+    db.mutate('scene.move', { sceneId: 's1', toPlotPointId: null, afterSceneId: null });
+    expect(prevOf(db, 's1')).toBe('A');
+    db.close();
+  });
+
+  it('clears previous_plot_point_id when a scene returns to a section', async () => {
+    const db = await seed(dir);
+    db.mutate('scene.move', { sceneId: 's1', toPlotPointId: null, afterSceneId: null });
+    db.mutate('scene.move', { sceneId: 's1', toPlotPointId: 'B', afterSceneId: 's4' });
+    expect(prevOf(db, 's1')).toBeNull();
+    db.close();
+  });
+
+  it('preserves previous_plot_point_id when reordering within the bullpen', async () => {
+    const db = await seed(dir);
+    db.mutate('scene.move', { sceneId: 's1', toPlotPointId: null, afterSceneId: null });
+    db.mutate('scene.move', { sceneId: 's1', toPlotPointId: null, afterSceneId: 's5' });
+    expect(prevOf(db, 's1')).toBe('A');
+    db.close();
+  });
 });

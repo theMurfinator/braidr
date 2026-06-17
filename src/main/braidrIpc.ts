@@ -286,6 +286,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
         isHighlighted: row.is_highlighted === 1,
         notes: sceneNotes[row.id] || [],
         plotPointId: row.plot_point_id,
+        previousPlotPointId: row.previous_plot_point_id ?? null,
         wordCount: row.word_count ?? undefined,
         chapterId: row.chapter_id,
         sceneOrder: row.scene_order,

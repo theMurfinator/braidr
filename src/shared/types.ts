@@ -18,6 +18,7 @@ export interface Scene {
   isHighlighted: boolean;
   notes: string[];
   plotPointId: string | null;
+  previousPlotPointId: string | null; // section this scene was set aside from (bullpen tag)
   chapterId: string | null;  // null = not assigned to a chapter
   sceneOrder: number;        // position within the chapter (0-indexed)
   wordCount?: number; // Optional word count for pacing visualization

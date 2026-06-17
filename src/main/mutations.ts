@@ -695,8 +695,8 @@ registerMutation<SceneMoveArgs>({
   run(ctx, { sceneId, toPlotPointId, afterSceneId, timelinePosition }) {
     const db = ctx.db;
     const scene = db
-      .prepare('SELECT id, character_id, plot_point_id, scene_number, timeline_position FROM scenes WHERE id = ?')
-      .get(sceneId) as (SceneOrderRow & { character_id: string }) | undefined;
+      .prepare('SELECT id, character_id, plot_point_id, scene_number, timeline_position, previous_plot_point_id FROM scenes WHERE id = ?')
+      .get(sceneId) as (SceneOrderRow & { character_id: string; previous_plot_point_id: string | null }) | undefined;
     if (!scene) throw new Error(`scene.move: scene not found: ${sceneId}`);
 
     if (toPlotPointId !== null) {
@@ -757,9 +757,15 @@ registerMutation<SceneMoveArgs>({
     const outlineKey = keyBetween(keyOf(before), keyOf(after));
 
     const parentNode = movingToBullpen ? `novel:${scene.character_id}` : `pp:${toPlotPointId}`;
+    // Record where a scene came from when it enters the bullpen (so the POV
+    // bullpen can show a "previous location" tag); clear it on the way out.
+    // Reordering within the bullpen preserves the existing value.
+    const newPreviousPlotPointId = movingToBullpen
+      ? (scene.plot_point_id ?? scene.previous_plot_point_id)
+      : null;
     db.prepare(
-      'UPDATE scenes SET plot_point_id = ?, timeline_position = ?, parent_node_id = ?, outline_key = ?, updated_at = ? WHERE id = ?'
-    ).run(toPlotPointId, newTimeline, parentNode, outlineKey, Date.now(), sceneId);
+      'UPDATE scenes SET plot_point_id = ?, timeline_position = ?, parent_node_id = ?, outline_key = ?, previous_plot_point_id = ?, updated_at = ? WHERE id = ?'
+    ).run(toPlotPointId, newTimeline, parentNode, outlineKey, newPreviousPlotPointId, Date.now(), sceneId);
 
     // legacy renumber: dense 1..N in the new order, exactly as App.tsx
     // normalizes on load. Only rows whose number changed are written.

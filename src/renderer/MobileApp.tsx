@@ -352,6 +352,7 @@ export function MobileApp() {
       isHighlighted: false,
       notes: [],
       plotPointId,
+      previousPlotPointId: null,
       chapterId: null,
       sceneOrder: 0,
       stationId: null,

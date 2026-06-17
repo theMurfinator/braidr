@@ -476,6 +476,7 @@ export class CapacitorDataService implements DataService {
           isHighlighted: false,
           notes: [],
           plotPointId: null,
+          previousPlotPointId: null,
           chapterId: null,
           sceneOrder: 0,
           stationId: null,
