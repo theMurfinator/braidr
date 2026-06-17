@@ -16055,6 +16055,70 @@ textarea.table-cell-input {
   color: var(--text-primary);
 }
 
+.task-title-inner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-expand-toggle {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 0 2px;
+  line-height: 1;
+}
+.task-expand-toggle-placeholder {
+  display: inline-block;
+  width: 16px;
+}
+.task-expand-toggle:hover {
+  color: var(--text-primary);
+}
+
+.task-subtask-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 11px;
+  border-radius: 9px;
+  background: var(--bg-subtle, rgba(127,127,127,0.15));
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.task-row-subtask td {
+  background: var(--bg-subtle, rgba(127,127,127,0.04));
+}
+.task-row-subtask .task-title-cell {
+  padding-left: 36px;
+}
+
+.task-add-subtask-row td {
+  padding: 0;
+  border-bottom: none;
+}
+.task-add-subtask-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 4px 8px 4px 52px;
+  width: 100%;
+  text-align: left;
+}
+.task-add-subtask-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
 .task-status-pill {
   display: inline-flex;
   align-items: center;
