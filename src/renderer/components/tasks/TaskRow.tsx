@@ -26,6 +26,10 @@ interface TaskRowProps {
   onUpdateTimeEntry: (taskId: string, entryId: string, updates: Partial<Pick<TimeEntry, 'duration' | 'description'>>) => void;
   onDeleteTimeEntry: (taskId: string, entryId: string) => void;
   visibleColumns?: string[];
+  isSubtask?: boolean;
+  rolledUpTime?: number;
+  expandToggle?: React.ReactNode;
+  subtaskBadge?: React.ReactNode;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -129,6 +133,10 @@ export default function TaskRow({
   onUpdateTimeEntry,
   onDeleteTimeEntry,
   visibleColumns,
+  isSubtask,
+  rolledUpTime,
+  expandToggle,
+  subtaskBadge,
 }: TaskRowProps) {
   const isVisible = (colId: string) => !visibleColumns || visibleColumns.includes(colId);
   const [editingColumn, setEditingColumn] = useState<string | null>(null);
@@ -172,7 +180,7 @@ export default function TaskRow({
   }
 
   // Time tracked
-  const totalTime = task.timeEntries.reduce((sum, e) => sum + e.duration, 0);
+  const totalTime = rolledUpTime ?? task.timeEntries.reduce((sum, e) => sum + e.duration, 0);
 
   function commitField(field: string, value: unknown) {
     const updated = { ...task, [field]: value, updatedAt: Date.now() };
@@ -195,23 +203,29 @@ export default function TaskRow({
   }
 
   return (
-    <tr>
+    <tr className={isSubtask ? 'task-row-subtask' : undefined}>
       {/* Title */}
       {isVisible('title') && (
       <td
         className={`task-title-cell${editingColumn === 'title' ? ' task-cell-editing' : ''}`}
         onClick={() => editingColumn !== 'title' && setEditingColumn('title')}
       >
-        {editingColumn === 'title' ? (
-          <InlineTextInput
-            value={task.title}
-            placeholder="Task title..."
-            onCommit={(v) => commitField('title', v)}
-            onCancel={cancelEdit}
-          />
-        ) : (
-          task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>
-        )}
+        <div className="task-title-inner">
+          {expandToggle}
+          {editingColumn === 'title' ? (
+            <InlineTextInput
+              value={task.title}
+              placeholder="Task title..."
+              onCommit={(v) => commitField('title', v)}
+              onCancel={cancelEdit}
+            />
+          ) : (
+            <>
+              {task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>}
+              {subtaskBadge}
+            </>
+          )}
+        </div>
       </td>
       )}
 
