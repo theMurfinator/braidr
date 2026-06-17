@@ -1618,7 +1618,7 @@ export interface ArcFieldValueRow { entity_type: string; entity_id: string; fiel
 export interface SceneDateRow { scene_id: string; date: string; end_date: string | null }
 export interface NoteRow { id: string; title: string; content: string; parent_id: string | null; display_order: number; created_at: number; updated_at: number }
 export interface WorldEventRow { id: string; title: string; date: string; end_date: string | null; description: string; created_at: number; updated_at: number }
-export interface TaskRow { id: string; title: string; description: string | null; status: string; priority: string; scene_id: string | null; time_estimate: number | null; due_date: number | null; display_order: number; created_at: number; updated_at: number }
+export interface TaskRow { id: string; title: string; description: string | null; status: string; priority: string; scene_id: string | null; time_estimate: number | null; due_date: number | null; display_order: number; order_key: string | null; parent_task_id: string | null; created_at: number; updated_at: number }
 export interface TimeEntryRow { id: string; task_id: string; started_at: number; duration: number; description: string | null }
 export interface TaskFieldDefRow { id: string; name: string; field_type: string; options: string | null; display_order: number }
 export interface TaskCustomFieldValueRow { task_id: string; field_def_id: string; value: string }

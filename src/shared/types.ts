@@ -232,6 +232,8 @@ export interface Task {
   updatedAt: number;
   order: number;
   customFields: Record<string, unknown>;
+  parentTaskId: string | null;
+  subtasks: Task[];
 }
 
 export type TaskFieldType = 'text' | 'number' | 'checkbox' | 'dropdown' | 'date';

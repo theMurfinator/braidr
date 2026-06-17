@@ -1288,6 +1288,8 @@ function App() {
             updatedAt: Date.now(),
             order: order++,
             customFields: {},
+            parentTaskId: null,
+            subtasks: [],
           });
         }
       }

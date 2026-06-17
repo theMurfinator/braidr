@@ -233,6 +233,8 @@ export default function TaskTable({
       updatedAt: Date.now(),
       order: tasks.length,
       customFields: {},
+      parentTaskId: null,
+      subtasks: [],
     };
     onTasksChange([...tasks, newTask]);
     onCreateTask?.(newTask);
@@ -321,6 +323,8 @@ export default function TaskTable({
       updatedAt: Date.now(),
       order: 0,
       customFields: {},
+      parentTaskId: null,
+      subtasks: [],
     };
     onTasksChange([newTask]);
   }

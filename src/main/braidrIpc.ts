@@ -459,6 +459,8 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       updatedAt: row.updated_at,
       order: row.display_order,
       customFields: customFieldsByTask[row.id] || {},
+      parentTaskId: null, // TODO Task 3 rewrites this block to read row.parent_task_id + build tree
+      subtasks: [],
     }));
 
     // taskFieldDefs computed above from field_defs (read authority)
