@@ -98,6 +98,7 @@ A lightweight task tracker built into the project.
 - Task field manager — define custom column types (text, select, date, etc.)
 - Filter bar
 - **Saved views** — save the current grouping, sort, filters, and columns as a named view. Star (★) one view as the **default**, and it loads automatically whenever you open the Tasks view (mirrors the spreadsheet/Table view)
+- **Subtasks** — tasks can have subtasks (one level deep). Click the expand toggle (▶/▼) on any task to show its subtasks indented below. The parent row shows total time including subtask time. Click **+ Add subtask** at the bottom of the expanded list to create a new subtask. Expand/collapse state is persisted per task.
 
 ### Timeline View
 A visual timeline canvas.
