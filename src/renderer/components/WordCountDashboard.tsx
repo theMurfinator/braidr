@@ -279,12 +279,19 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
       if (idx >= 0) perDay[idx] += ss.durationMs;
     }
 
-    // Add task time entries
+    // Add task time entries (including subtask entries for rollup)
     for (const task of tasks) {
       for (const te of task.timeEntries) {
         const teDate = toLocalDateStr(new Date(te.startedAt));
         const idx = days.indexOf(teDate);
         if (idx >= 0) perDay[idx] += te.duration;
+      }
+      for (const sub of task.subtasks) {
+        for (const te of sub.timeEntries) {
+          const teDate = toLocalDateStr(new Date(te.startedAt));
+          const idx = days.indexOf(teDate);
+          if (idx >= 0) perDay[idx] += te.duration;
+        }
       }
     }
 
@@ -360,6 +367,11 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
       for (const task of tasks) {
         for (const te of task.timeEntries) {
           if (days.indexOf(toLocalDateStr(new Date(te.startedAt))) >= 0) totalMs += te.duration;
+        }
+        for (const sub of task.subtasks) {
+          for (const te of sub.timeEntries) {
+            if (days.indexOf(toLocalDateStr(new Date(te.startedAt))) >= 0) totalMs += te.duration;
+          }
         }
       }
 

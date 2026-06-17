@@ -132,7 +132,7 @@ export function useTimers({
   // Validate persisted task timer target after tasks load
   useEffect(() => {
     if (taskTimerTaskId && tasks.length > 0) {
-      const exists = tasks.some(t => t.id === taskTimerTaskId);
+      const exists = tasks.some(t => t.id === taskTimerTaskId || t.subtasks.some(s => s.id === taskTimerTaskId));
       if (!exists) {
         localStorage.removeItem('braidr-active-task-timer');
         setTaskTimerTaskId(null);
@@ -198,13 +198,25 @@ export function useTimers({
       duration,
     };
     // Update refs synchronously before setTasks so any immediate read sees it.
-    const current = tasksRef.current.find(t => t.id === currentTaskId);
+    // Search both top-level tasks and their subtasks so timer entries land on the
+    // right task regardless of nesting.
+    let current = tasksRef.current.find(t => t.id === currentTaskId);
+    const isSubtask = !current && tasksRef.current.some(t => t.subtasks.some(s => s.id === currentTaskId));
+    if (isSubtask) {
+      current = tasksRef.current.flatMap(t => t.subtasks).find(s => s.id === currentTaskId);
+    }
     const newEntries = [...(current?.timeEntries ?? []), entry];
-    const updated = tasksRef.current.map(t =>
-      t.id === currentTaskId
-        ? { ...t, timeEntries: newEntries, updatedAt: Date.now() }
-        : t
-    );
+    const now = Date.now();
+    const updated = tasksRef.current.map(t => {
+      if (t.id === currentTaskId) return { ...t, timeEntries: newEntries, updatedAt: now };
+      if (isSubtask) {
+        const updatedSubs = t.subtasks.map(s =>
+          s.id === currentTaskId ? { ...s, timeEntries: newEntries, updatedAt: now } : s
+        );
+        return updatedSubs !== t.subtasks ? { ...t, subtasks: updatedSubs } : t;
+      }
+      return t;
+    });
     tasksRef.current = updated;
     isDirtyRef.current = true;
     setTasks(updated);
