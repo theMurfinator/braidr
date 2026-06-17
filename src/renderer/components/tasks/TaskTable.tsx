@@ -1,6 +1,6 @@
 import { Fragment, useState, useRef, useCallback } from 'react';
 import type { Task, TaskFieldDef, Character, Scene, Tag, TimeEntry } from '../../../shared/types';
-import TaskRow from './TaskRow';
+import TaskRowGroup from './TaskRowGroup';
 import TaskFieldManager from './TaskFieldManager';
 
 export const BUILTIN_COLUMNS = [
@@ -28,6 +28,8 @@ interface TaskTableProps {
   onUpdateTask?: (task: Task) => void;
   onDeleteTask?: (taskId: string) => void;
   onDuplicateTask?: (task: Task) => void;
+  onCreateSubtask?: (parentId: string) => void;
+  onMoveSubtask?: (taskId: string, parentId: string | null, afterTaskId: string | null) => void;
   groupBy?: string;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
@@ -155,6 +157,8 @@ export default function TaskTable({
   onUpdateTask,
   onDeleteTask,
   onDuplicateTask,
+  onCreateSubtask,
+  onMoveSubtask,
   groupBy,
   sortBy,
   sortDir = 'asc',
@@ -331,7 +335,7 @@ export default function TaskTable({
 
   function renderTaskRows(taskList: Task[]) {
     return taskList.map((task) => (
-      <TaskRow
+      <TaskRowGroup
         key={task.id}
         task={task}
         characters={characters}
@@ -341,6 +345,8 @@ export default function TaskTable({
         onTaskUpdate={handleTaskUpdate}
         onDeleteTask={handleDeleteTask}
         onDuplicateTask={handleDuplicateTask}
+        onCreateSubtask={onCreateSubtask ?? (() => {})}
+        onMoveSubtask={onMoveSubtask ?? (() => {})}
         activeTimerTaskId={activeTimerTaskId}
         onStartTimer={onStartTimer}
         onStopTimer={onStopTimer}

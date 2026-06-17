@@ -472,6 +472,41 @@ function App() {
     dataService.mutate('task.softDelete', { taskId }).catch(() => {});
   }, []);
 
+  const handleCreateSubtask = useCallback((parentId: string) => {
+    const newId = crypto.randomUUID();
+    const parent = tasks.find(t => t.id === parentId);
+    const newSubtask: Task = {
+      id: newId,
+      title: '',
+      status: 'open',
+      priority: 'none',
+      tags: [],
+      characterIds: [],
+      timeEntries: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      order: (parent?.subtasks.length ?? 0),
+      customFields: {},
+      parentTaskId: parentId,
+      subtasks: [],
+    };
+    // Optimistic update: add the new subtask to the parent in local state
+    setTasks(prev => prev.map(t =>
+      t.id === parentId ? { ...t, subtasks: [...t.subtasks, newSubtask] } : t
+    ));
+    dataService.mutate('task.create', {
+      id: newId,
+      title: '',
+      parentTaskId: parentId,
+      orderKey: null,
+      displayOrder: (parent?.subtasks.length ?? 0),
+    }).catch(() => {});
+  }, [tasks]);
+
+  const handleMoveTask = useCallback((taskId: string, parentId: string | null, afterTaskId: string | null) => {
+    dataService.mutate('task.move', { taskId, parentId, afterTaskId }).catch(() => {});
+  }, []);
+
   const handleDuplicateTask = useCallback((task: Task) => {
     dataService.mutate('task.create', {
       id: task.id, title: task.title, parentTaskId: null,
@@ -3994,6 +4029,8 @@ function App() {
                 onUpdateTask={handleUpdateTask}
                 onDeleteTask={handleDeleteTask}
                 onDuplicateTask={handleDuplicateTask}
+                onCreateSubtask={handleCreateSubtask}
+                onMoveSubtask={handleMoveTask}
                 onTimeEntriesChanged={(taskId, entries) => {
                   dataService.mutate('task.setTimeEntries', {
                     taskId,
