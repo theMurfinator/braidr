@@ -125,7 +125,59 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 8,
+    name: 'backfill scenes.previous_plot_point_id from mutation_log',
+    up: (db) => backfillBullpenOrigins(db),
+  },
 ];
+
+// Best-effort recovery of where each currently-bullpen scene was set aside from,
+// for scenes parked before previous_plot_point_id existed. The origin is read
+// from the most recent scene.move-to-bullpen entry's inverse in mutation_log:
+// the inverse of "move to bullpen" is "move back to <origin section>", so its
+// args.toPlotPointId is the section the scene came from.
+//
+// Subtlety: reordering a scene *within* the bullpen is also a scene.move with
+// toPlotPointId === null, but its inverse origin is null too. Those are skipped
+// so we find the real "left a section" move underneath them. Only scenes still
+// in the bullpen with no recorded origin are touched, and only when the origin
+// section still exists — so this never invents or overwrites data.
+export function backfillBullpenOrigins(db: Database.Database): number {
+  const targets = db
+    .prepare("SELECT id FROM scenes WHERE plot_point_id IS NULL AND previous_plot_point_id IS NULL AND deleted_at IS NULL")
+    .all() as { id: string }[];
+  if (targets.length === 0) return 0;
+
+  const validSections = new Set(
+    (db.prepare('SELECT id FROM plot_points').all() as { id: string }[]).map(r => r.id)
+  );
+
+  const wanted = new Set(targets.map(t => t.id));
+  const origin = new Map<string, string>();
+  const rows = db
+    .prepare("SELECT args_json, inverse_json FROM mutation_log WHERE name = 'scene.move' ORDER BY id DESC")
+    .all() as { args_json: string; inverse_json: string | null }[];
+
+  for (const row of rows) {
+    if (wanted.size === 0) break;
+    let args: { sceneId?: string; toPlotPointId?: string | null };
+    try { args = JSON.parse(row.args_json); } catch { continue; }
+    if (args.toPlotPointId !== null) continue;            // only moves into the bullpen
+    const sceneId = args.sceneId;
+    if (!sceneId || !wanted.has(sceneId)) continue;
+    let from: unknown;
+    try { from = row.inverse_json ? (JSON.parse(row.inverse_json)?.args?.toPlotPointId) : null; } catch { from = null; }
+    if (from == null) continue;                           // within-bullpen reorder; keep looking older
+    wanted.delete(sceneId);                               // most recent real origin found
+    if (typeof from === 'string' && validSections.has(from)) origin.set(sceneId, from);
+  }
+
+  const upd = db.prepare('UPDATE scenes SET previous_plot_point_id = ? WHERE id = ?');
+  const apply = db.transaction(() => { for (const [sceneId, from] of origin) upd.run(from, sceneId); });
+  apply();
+  return origin.size;
+}
 
 export const LATEST_VERSION = MIGRATIONS.reduce((v, m) => Math.max(v, m.version), 1);
 
