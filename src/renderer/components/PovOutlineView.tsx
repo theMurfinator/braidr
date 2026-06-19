@@ -15,7 +15,6 @@ interface PovOutlineViewProps {
   hideHeaders: boolean;
   hideScenes?: boolean;
   onSetAside: (sceneId: string) => void;
-  onToggleSynopsisMode: (sectionId: string) => void;
   onSceneChange: (sceneId: string, newContent: string, newNotes: string[]) => void;
   onPreview?: (sceneId: string) => void;
   onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
@@ -35,9 +34,8 @@ function ScrollAutoBinder({ scrollRef }: { scrollRef: React.RefObject<HTMLDivEle
 interface SectionHeaderProps {
   section: PlotPoint;
   sceneCount: number;
-  synopsisMode: 'inline' | 'expand' | undefined;
+  sectionWordCount?: number;
   hideScenes?: boolean;
-  onToggleSynopsisMode: (sectionId: string) => void;
   onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
   onDeleteSection?: (sectionId: string) => void;
   onOpenDetails?: (sectionId: string) => void;
@@ -54,9 +52,8 @@ function stripHtml(html: string): string {
 function SectionHeader({
   section,
   sceneCount,
-  synopsisMode,
+  sectionWordCount,
   hideScenes,
-  onToggleSynopsisMode,
   onSectionChange,
   onDeleteSection,
   onOpenDetails,
@@ -122,7 +119,8 @@ function SectionHeader({
     }
   };
 
-  const descVisible = hideScenes || synopsisMode !== 'expand';
+  const [descCollapsed, setDescCollapsed] = useState(false);
+  const descVisible = hideScenes || !descCollapsed;
 
   return (
     <div className="pov-outline-section-header-area" data-section-id={section.id}>
@@ -136,10 +134,9 @@ function SectionHeader({
           >⋮⋮</span>
         )}
         <button
-          className={`section-synopsis-chevron ${synopsisMode === 'expand' ? 'collapsed' : ''}`}
-          onClick={() => !hideScenes && onToggleSynopsisMode(section.id)}
-          title={synopsisMode === 'expand' ? 'Show synopses' : 'Hide synopses'}
-          disabled={!!hideScenes}
+          className={`section-synopsis-chevron ${descCollapsed ? 'collapsed' : ''}`}
+          onClick={() => setDescCollapsed(prev => !prev)}
+          title={descCollapsed ? 'Show section synopsis' : 'Hide section synopsis'}
         >{'▾'}</button>
         {isEditingTitle ? (
           <input
@@ -180,6 +177,9 @@ function SectionHeader({
             <>({sceneCount}/{section.expectedSceneCount ?? '?'})</>
           )}
         </span>
+        {(sectionWordCount ?? 0) > 0 && (
+          <em className="section-header-wordcount">{(sectionWordCount!).toLocaleString()} words</em>
+        )}
         {onOpenDetails && (
           <button className="section-expand-btn" onClick={(e) => { e.stopPropagation(); onOpenDetails(section.id); }} title="Open section details">{'⊞'}</button>
         )}
@@ -239,7 +239,6 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     hideHeaders,
     hideScenes,
     onSetAside,
-    onToggleSynopsisMode,
     onSceneChange,
     onPreview,
     onSectionChange,
@@ -299,9 +298,8 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                       <SectionHeader
                         section={section}
                         sceneCount={sectionScenes.length}
-                        synopsisMode={synopsisModes[section.id]}
+                        sectionWordCount={sectionScenes.reduce((sum, s) => sum + (s.wordCount ?? 0), 0)}
                         hideScenes={hideScenes}
-                        onToggleSynopsisMode={onToggleSynopsisMode}
                         onSectionChange={onSectionChange}
                         onDeleteSection={onDeleteSection}
                         onOpenDetails={onOpenSectionDetails}

@@ -88,6 +88,140 @@ const DEFAULT_STATUSES = [
   { value: 'Final', color: '#4caf7a' },
 ];
 
+// ── Inline TipTap editor for meta text fields ─────────────────────────────────
+function MetaRichField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  const isFocused = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const editor = useEditor({
+    extensions: [StarterKit, Placeholder.configure({ placeholder: '—' })],
+    content: value || '',
+    onFocus: () => { isFocused.current = true; },
+    onBlur: ({ editor: e }) => {
+      isFocused.current = false;
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+      onChangeRef.current(e.isEmpty ? '' : e.getHTML());
+    },
+    onUpdate: ({ editor: e }) => {
+      if (!isFocused.current) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        debounceRef.current = null;
+        onChangeRef.current(e.isEmpty ? '' : e.getHTML());
+      }, 800);
+    },
+  });
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+      if (editor && !editor.isDestroyed) onChangeRef.current(editor.isEmpty ? '' : editor.getHTML());
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || isFocused.current) return;
+    const current = editor.isEmpty ? '' : editor.getHTML();
+    if (current !== value) editor.commands.setContent(value || '');
+  }, [editor, value]);
+
+  return (
+    <div className="editor-meta-field-rich">
+      <EditorContent editor={editor} className="editor-meta-field-rich-editor" />
+    </div>
+  );
+}
+
+// ── Creatable multi-select for meta fields ─────────────────────────────────────
+const LABEL_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16'];
+
+function CreatableMultiSelect({ fieldId, options, optionColors, value, onValueChange, onAddOption }: {
+  fieldId: string;
+  options: string[];
+  optionColors?: Record<string, string>;
+  value: string[];
+  onValueChange: (v: string[]) => void;
+  onAddOption: (fieldId: string, option: string, color: string) => void;
+}) {
+  const [inputVal, setInputVal] = useState('');
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = inputVal
+    ? options.filter(o => o.toLowerCase().includes(inputVal.toLowerCase()) && !value.includes(o))
+    : options.filter(o => !value.includes(o));
+  const showCreate = inputVal.trim() !== '' && !options.map(o => o.toLowerCase()).includes(inputVal.trim().toLowerCase());
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+
+  const select = (opt: string) => {
+    if (!value.includes(opt)) onValueChange([...value, opt]);
+    setInputVal('');
+    setOpen(false);
+  };
+
+  const create = () => {
+    const trimmed = inputVal.trim();
+    if (!trimmed) return;
+    const color = LABEL_COLORS[options.length % LABEL_COLORS.length];
+    onAddOption(fieldId, trimmed, color);
+    if (!value.includes(trimmed)) onValueChange([...value, trimmed]);
+    setInputVal('');
+    setOpen(false);
+  };
+
+  return (
+    <div ref={containerRef} className="editor-meta-ms-wrap">
+      <div className="editor-meta-ms-pills">
+        {value.map(v => {
+          const color = optionColors?.[v];
+          return (
+            <span key={v} className="editor-meta-chip selected" style={color ? { background: color, borderColor: color, color: '#fff' } : {}}>
+              {v}
+              <span className="editor-meta-chip-x" onClick={e => { e.stopPropagation(); onValueChange(value.filter(x => x !== v)); }}>×</span>
+            </span>
+          );
+        })}
+        <input
+          className="editor-meta-ms-input"
+          value={inputVal}
+          placeholder={value.length === 0 ? 'Type to add…' : ''}
+          onChange={e => { setInputVal(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); if (showCreate) create(); else if (filtered.length > 0) select(filtered[0]); }
+            else if (e.key === 'Escape') setOpen(false);
+            else if (e.key === 'Backspace' && !inputVal && value.length > 0) onValueChange(value.slice(0, -1));
+          }}
+        />
+      </div>
+      {open && (filtered.length > 0 || showCreate) && (
+        <div className="editor-meta-ms-dropdown">
+          {filtered.map(opt => {
+            const color = optionColors?.[opt];
+            return (
+              <div key={opt} className="editor-meta-ms-option" style={color ? { background: color, color: '#fff' } : {}} onMouseDown={e => { e.preventDefault(); select(opt); }}>{opt}</div>
+            );
+          })}
+          {showCreate && (
+            <div className="editor-meta-ms-option editor-meta-ms-create" onMouseDown={e => { e.preventDefault(); create(); }}>
+              + Create &ldquo;{inputVal.trim()}&rdquo;
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 
 function cleanContent(text: string): string {
@@ -1117,13 +1251,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
     onMetadataChange(selectedSceneKey, fieldId, value);
   };
 
-  const toggleMultiselect = (fieldId: string, option: string) => {
-    const current = (currentMeta[fieldId] as string[]) || [];
-    const updated = current.includes(option)
-      ? current.filter(v => v !== option)
-      : [...current, option];
-    handleMetaChange(fieldId, updated);
-  };
+
 
   // Metadata field editor
   const [editingFieldDefs, setEditingFieldDefs] = useState<MetadataFieldDef[]>([]);
@@ -1991,22 +2119,9 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                       </div>
                     </div>
                     {field.type === 'text' && (
-                      <textarea
-                        className="editor-meta-field-input"
+                      <MetaRichField
                         value={(currentMeta[field.id] as string) || ''}
-                        onChange={e => handleMetaChange(field.id, e.target.value)}
-                        rows={1}
-                        onInput={(e) => {
-                          const el = e.currentTarget;
-                          el.style.height = 'auto';
-                          el.style.height = el.scrollHeight + 'px';
-                        }}
-                        ref={(el) => {
-                          if (el) {
-                            el.style.height = 'auto';
-                            el.style.height = el.scrollHeight + 'px';
-                          }
-                        }}
+                        onChange={v => handleMetaChange(field.id, v)}
                       />
                     )}
                     {field.type === 'dropdown' && (
@@ -2022,20 +2137,19 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                       </select>
                     )}
                     {field.type === 'multiselect' && (
-                      <div className="editor-meta-multiselect">
-                        {(field.options || []).map(opt => {
-                          const selected = ((currentMeta[field.id] as string[]) || []).includes(opt);
-                          return (
-                            <span
-                              key={opt}
-                              className={`editor-meta-chip ${selected ? 'selected' : ''}`}
-                              onClick={() => toggleMultiselect(field.id, opt)}
-                            >
-                              {opt}
-                            </span>
+                      <CreatableMultiSelect
+                        fieldId={field.id}
+                        options={field.options || []}
+                        optionColors={field.optionColors}
+                        value={(currentMeta[field.id] as string[]) || []}
+                        onValueChange={v => handleMetaChange(field.id, v)}
+                        onAddOption={(fid, opt, color) => {
+                          const updatedDefs = metadataFieldDefs.map(f =>
+                            f.id === fid ? { ...f, options: [...(f.options || []), opt], optionColors: { ...(f.optionColors ?? {}), [opt]: color } } : f
                           );
-                        })}
-                      </div>
+                          onMetadataFieldDefsChange(updatedDefs);
+                        }}
+                      />
                     )}
                   </div>
                 ));
@@ -2328,6 +2442,8 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
           onSaveDefs={onSaveSceneFieldDefs!}
           onClose={() => setSceneDetailOpen(false)}
           storageKey="arc-field-order:scene"
+          hiddenCustomIds={hiddenSceneFieldIds}
+          onToggleCustom={toggleSceneFieldHidden}
         />
       );
     })()}

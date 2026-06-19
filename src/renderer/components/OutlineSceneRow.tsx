@@ -66,6 +66,7 @@ function OutlineSceneRow({
 
   const handleTitleBlur = () => {
     setEditingTitle(false);
+    console.log('[title-debug] blur: titleValue=', JSON.stringify(titleValue), 'scene.title=', JSON.stringify(scene.title), 'will save=', titleValue !== scene.title);
     if (titleValue !== scene.title) {
       onSceneChange(scene.id, titleValue, scene.notes);
     }
@@ -180,6 +181,9 @@ function OutlineSceneRow({
           </span>
         )}
         <span className="outline-scene-hover-actions">
+          {(scene.wordCount ?? 0) > 0 && (
+            <em className="outline-scene-wordcount">{(scene.wordCount!).toLocaleString()} words</em>
+          )}
           {onPreview ? (
             <button
               className="outline-scene-action-btn"

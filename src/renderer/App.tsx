@@ -1998,7 +1998,8 @@ function App() {
     sceneMetadataRef.current = { ...sceneMetadataRef.current, [sceneId]: values };
     try {
       await dataService.saveArcFieldValues('scene', sceneId, values);
-    } catch {
+    } catch (err) {
+      console.error('[handleSaveSceneFieldValues] save failed:', err);
       addToast('Could not save scene field values');
     }
   }, []);
@@ -2603,13 +2604,6 @@ function App() {
     }
   };
 
-  const handleToggleSynopsisMode = (plotPointId: string) => {
-    setSectionSynopsisModes(prev => ({
-      ...prev,
-      [plotPointId]: prev[plotPointId] === 'expand' ? 'inline' : 'expand',
-    }));
-  };
-
   const handleSetAllSynopsisModes = (mode: 'inline' | 'expand') => {
     if (!projectData) return;
     const modes: Record<string, 'inline' | 'expand'> = {};
@@ -2690,6 +2684,8 @@ function App() {
 
   const handleSceneChange = async (sceneId: string, newContent: string, newNotes: string[]) => {
     if (!projectData) return;
+
+    console.log('[title-debug] handleSceneChange: sceneId=', sceneId, 'newContent=', JSON.stringify(newContent));
 
     // Update scene in state
     const updatedScenes = projectData.scenes.map(scene =>
@@ -3549,7 +3545,8 @@ function App() {
     setArcFieldValues(prev => ({ ...prev, [`scene:${sceneKey}`]: sceneValues }));
     try {
       await dataService.saveArcFieldValues('scene', sceneKey, sceneValues);
-    } catch {
+    } catch (err) {
+      console.error('[handleMetadataChange] save failed:', err);
       addToast('Could not save scene metadata');
     }
   };
@@ -4254,7 +4251,6 @@ function App() {
                   hideHeaders={hideSectionHeaders[tabId] ?? false}
                   hideScenes={hideScenes[tabId] ?? false}
                   onSetAside={handleSetAside}
-                  onToggleSynopsisMode={handleToggleSynopsisMode}
                   onSceneChange={handleSceneChange}
                   onPreview={setPovPreviewSceneId}
                   onSectionChange={handlePlotPointChange}

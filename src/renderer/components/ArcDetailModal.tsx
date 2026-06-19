@@ -19,9 +19,14 @@ export type FieldRender =
   | { kind: 'text' }
   | { kind: 'number' }
   | { kind: 'dropdown'; options: string[]; colors?: Record<string, string> }
-  | { kind: 'multiselect'; options: string[]; colors?: Record<string, string> }
+  | { kind: 'multiselect'; options: string[]; colors?: Record<string, string>; onAddOption?: (opt: string, color: string) => void }
   | { kind: 'rating'; max: number }
   | { kind: 'polarity' };
+
+const LABEL_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16'];
+export function pickLabelColor(existingCount: number): string {
+  return LABEL_COLORS[existingCount % LABEL_COLORS.length];
+}
 
 export interface DetailField {
   id: string;
@@ -210,11 +215,13 @@ function DropdownField({ value, options, colors, onChange }: {
 }
 
 // ── Multi-select field ────────────────────────────────────────────────────────
-function MultiSelectField({ value, options, colors, onChange }: {
+function MultiSelectField({ value, options, colors, onChange, onAddOption }: {
   value: string[]; options: string[]; colors?: Record<string, string>; onChange: (v: string[]) => void;
+  onAddOption?: (opt: string, color: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -222,11 +229,24 @@ function MultiSelectField({ value, options, colors, onChange }: {
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
+  useEffect(() => { if (open) inputRef.current?.focus(); }, [open]);
+
   const filtered = options.filter(o => !search || o.toLowerCase().includes(search.toLowerCase()));
+  const canCreate = onAddOption && search.trim() !== '' && !options.map(o => o.toLowerCase()).includes(search.trim().toLowerCase());
+
   const toggle = (opt: string) => {
     const next = value.includes(opt) ? value.filter(v => v !== opt) : [...value, opt];
     onChange(next);
   };
+  const create = () => {
+    const trimmed = search.trim();
+    if (!trimmed || !onAddOption) return;
+    const color = pickLabelColor(options.length);
+    onAddOption(trimmed, color);
+    if (!value.includes(trimmed)) onChange([...value, trimmed]);
+    setSearch('');
+  };
+
   return (
     <div ref={ref} className="arc-dm-multiselect">
       <div className="arc-dm-pills" onClick={() => { setOpen(o => !o); setSearch(''); }}>
@@ -237,20 +257,22 @@ function MultiSelectField({ value, options, colors, onChange }: {
                 <span className="arc-dm-pill-x" onClick={e => { e.stopPropagation(); toggle(v); }}>&times;</span>
               </span>
             ))
-          : <span className="arc-dm-pills-placeholder">Select...</span>}
+          : <span className="arc-dm-pills-placeholder">Select…</span>}
       </div>
       {open && (
         <div className="arc-dm-picker">
-          {options.length >= 5 && (
-            <input
-              className="arc-dm-picker-search"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search..."
-              autoFocus
-              onClick={e => e.stopPropagation()}
-            />
-          )}
+          <input
+            ref={inputRef}
+            className="arc-dm-picker-search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={onAddOption ? 'Search or create…' : 'Search…'}
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); if (canCreate) create(); else if (filtered.length > 0) toggle(filtered[0]); }
+              else if (e.key === 'Escape') setOpen(false);
+            }}
+          />
           <div className="arc-dm-picker-list">
             {filtered.map(opt => (
               <div
@@ -263,7 +285,12 @@ function MultiSelectField({ value, options, colors, onChange }: {
                 {opt}
               </div>
             ))}
-            {filtered.length === 0 && <div className="arc-dm-picker-empty">No match</div>}
+            {canCreate && (
+              <div className="arc-dm-picker-create" onClick={create}>
+                + Create &ldquo;{search.trim()}&rdquo;
+              </div>
+            )}
+            {filtered.length === 0 && !canCreate && <div className="arc-dm-picker-empty">No match</div>}
           </div>
         </div>
       )}
@@ -424,7 +451,7 @@ function FieldRow({ field, sortable: isSortable, onHide }: { field: DetailField;
     control = <DropdownField value={field.value as string} options={r.options} colors={r.colors} onChange={v => field.onChange(v)} />;
   } else if (r.kind === 'multiselect') {
     const vals = Array.isArray(field.value) ? field.value : [];
-    control = <MultiSelectField value={vals} options={r.options} colors={r.colors} onChange={v => field.onChange(v)} />;
+    control = <MultiSelectField value={vals} options={r.options} colors={r.colors} onChange={v => field.onChange(v)} onAddOption={r.onAddOption} />;
   } else {
     control = null;
   }
@@ -751,14 +778,23 @@ function SceneFieldPanel({
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={orderedItems.map(i => isDivider(i) ? i.id : (i as DetailField).id)} strategy={verticalListSortingStrategy}>
             <div className="arc-dm-body">
-              {visibleItems.map(item => (
-                <FieldRow
-                  key={(item as DetailField).id}
-                  field={item as DetailField}
-                  sortable={true}
-                  onHide={undefined}
-                />
-              ))}
+              {visibleItems.map(item => {
+                const f = item as DetailField;
+                const fieldWithAddOption: DetailField = (!f.builtin && f.render.kind === 'multiselect' && !f.render.onAddOption)
+                  ? { ...f, render: { ...f.render, onAddOption: (opt: string, color: string) => {
+                      const updated = arcFieldDefs.map(d => d.id === f.id ? { ...d, options: [...(d.options ?? []), opt], optionColors: { ...(d.optionColors ?? {}), [opt]: color } } : d);
+                      onSaveDefs(updated);
+                    } } }
+                  : f;
+                return (
+                  <FieldRow
+                    key={f.id}
+                    field={fieldWithAddOption}
+                    sortable={true}
+                    onHide={undefined}
+                  />
+                );
+              })}
             </div>
           </SortableContext>
         </DndContext>
@@ -846,7 +882,11 @@ export default function ArcDetailModal({
     const custom: DetailField[] = sceneArcFieldDefs.filter(d => d.scope === 'scene').map(def => {
       const renderDef = (): FieldRender => {
         if (def.type === 'dropdown') return { kind: 'dropdown', options: def.options ?? [], colors: def.optionColors };
-        if (def.type === 'multiselect') return { kind: 'multiselect', options: def.options ?? [], colors: def.optionColors };
+        if (def.type === 'multiselect') return { kind: 'multiselect', options: def.options ?? [], colors: def.optionColors, onAddOption: (opt: string, color: string) => {
+          const updated = sceneArcFieldDefs!.map(d => d.id === def.id ? { ...d, options: [...(d.options ?? []), opt], optionColors: { ...(d.optionColors ?? {}), [opt]: color } } : d);
+          const nonScene = arcFieldDefs.filter(d => d.scope !== 'scene');
+          onSaveDefs([...nonScene, ...updated.filter(d => d.scope === 'scene')]);
+        } };
         if (def.type === 'rating') return { kind: 'rating', max: def.ratingMax ?? 5 };
         if (def.type === 'number') return { kind: 'number' };
         return { kind: 'text' };
@@ -1205,7 +1245,12 @@ export default function ArcDetailModal({
                         ) : (
                           <FieldRow
                             key={item.id}
-                            field={item}
+                            field={(!item.builtin && item.render.kind === 'multiselect' && !item.render.onAddOption)
+                              ? { ...item, render: { ...item.render, onAddOption: (opt: string, color: string) => {
+                                  const updated = arcFieldDefs.map(d => d.id === item.id ? { ...d, options: [...(d.options ?? []), opt], optionColors: { ...(d.optionColors ?? {}), [opt]: color } } : d);
+                                  onSaveDefs(updated);
+                                } } }
+                              : item}
                             sortable
                             onHide={item.builtin
                               ? (onToggleBuiltin ? () => onToggleBuiltin(item.id) : undefined)

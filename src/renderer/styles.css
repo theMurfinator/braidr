@@ -20171,6 +20171,19 @@ tr:hover .task-add-subtask-inline {
   margin-left: 4px;
 }
 .pov-outline-section-header:hover .section-expand-btn { opacity: 1; }
+
+.section-header-wordcount {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.12s;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.pov-outline-section-header:hover .section-header-wordcount {
+  opacity: 1;
+}
 .section-expand-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
 .section-drag-handle:hover {
@@ -20363,6 +20376,14 @@ tr:hover .task-add-subtask-inline {
 
 .outline-scene-row:hover .outline-scene-hover-actions {
   opacity: 1;
+}
+
+.outline-scene-wordcount {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-right: 4px;
 }
 
 .outline-scene-action-btn {
@@ -21603,6 +21624,8 @@ tr:hover .task-add-subtask-inline {
 .arc-dm-picker-opt.selected { font-weight: 500; }
 .arc-dm-picker-clear { color: var(--text-muted); border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; }
 .arc-dm-picker-empty { padding: 8px 10px; font-size: 12px; color: var(--text-muted); }
+.arc-dm-picker-create { padding: 8px 10px; font-size: 12px; color: var(--color-primary); cursor: pointer; border-top: 1px solid var(--border); margin-top: 4px; }
+.arc-dm-picker-create:hover { background: var(--bg-secondary); }
 .arc-dm-check { font-size: 11px; color: inherit; }
 
 /* ── Arc custom column cells ─────────────────────────────────────────────── */
