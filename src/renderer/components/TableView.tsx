@@ -1117,10 +1117,14 @@ export default function TableView({
                 groups.get(key)!.scenes.push(scene);
               }
               for (const [key, group] of groups) {
+                const sectionWords = group.scenes.reduce((sum, s) => sum + (s.wordCount ?? 0), 0);
                 result.push(
                   <tbody key={key} className="chapter-tbody">
                     <tr className="table-chapter-header">
-                      <td colSpan={100}>{group.label}</td>
+                      <td colSpan={100}>
+                        {group.label}
+                        {sectionWords > 0 && <span className="table-section-wordcount">{sectionWords.toLocaleString()} words</span>}
+                      </td>
                     </tr>
                     {group.scenes.map(s => renderSceneRow(s))}
                   </tbody>

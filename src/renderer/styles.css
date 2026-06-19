@@ -8731,6 +8731,99 @@ textarea.editor-meta-field-input {
   border-color: var(--text-primary);
 }
 
+.editor-meta-chip-x {
+  margin-left: 5px;
+  opacity: 0.7;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.editor-meta-chip-x:hover { opacity: 1; }
+
+/* Rich text field in meta sidebar */
+.editor-meta-field-rich {
+  width: 100%;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.editor-meta-field-rich:focus-within {
+  border-bottom-color: var(--text-muted);
+}
+.editor-meta-field-rich-editor {
+  width: 100%;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  color: #2c2c2c;
+}
+.editor-meta-field-rich-editor .tiptap {
+  outline: none;
+  padding: 4px 0;
+  min-height: 24px;
+  line-height: 1.5;
+}
+.editor-meta-field-rich-editor .tiptap p { margin: 0; }
+.editor-meta-field-rich-editor .tiptap .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* Creatable multi-select in meta sidebar */
+.editor-meta-ms-wrap {
+  position: relative;
+  width: 100%;
+}
+.editor-meta-ms-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-height: 28px;
+  padding: 2px 0;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.editor-meta-ms-wrap:focus-within .editor-meta-ms-pills {
+  border-bottom-color: var(--text-muted);
+}
+.editor-meta-ms-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12px;
+  font-family: var(--font-ui);
+  color: #2c2c2c;
+  min-width: 80px;
+  flex: 1;
+}
+.editor-meta-ms-input::placeholder { color: var(--text-muted); }
+.editor-meta-ms-dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 200;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.editor-meta-ms-option {
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+.editor-meta-ms-option:hover { background: var(--bg-secondary); }
+.editor-meta-ms-create {
+  color: var(--accent, #3b82f6);
+  font-style: italic;
+}
+
 .editor-meta-status-pill-wrap {
   position: relative;
 }
@@ -10167,6 +10260,13 @@ textarea.editor-meta-field-input {
   text-transform: uppercase;
   margin-right: 10px;
   opacity: 0.7;
+}
+
+.table-section-wordcount {
+  margin-left: 12px;
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.6;
 }
 
 /* Spacing between chapter groups and unchaptered rows */
