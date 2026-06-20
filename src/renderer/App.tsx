@@ -15,6 +15,7 @@ import FloatingEditor from './components/FloatingEditor';
 import FontPicker from './components/FontPicker';
 import NotesView from './components/notes/NotesView';
 import TasksView from './components/tasks/TasksView';
+import TaskDetailPanel from './components/tasks/TaskDetailPanel';
 import TimelineView from './components/timeline/TimelineView';
 import WordCountDashboard from './components/WordCountDashboard';
 import AccountView from './components/AccountView';
@@ -308,6 +309,9 @@ function App() {
   const taskColumnWidthsRef = useRef<Record<string, number>>({});
   const [taskVisibleColumns, setTaskVisibleColumns] = useState<string[] | undefined>(undefined);
   const taskVisibleColumnsRef = useRef<string[] | undefined>(undefined);
+  const [taskPanelOpen, setTaskPanelOpen] = useState(false);
+  const [taskPanelTaskId, setTaskPanelTaskId] = useState<string | null>(null);
+  const taskPanelTask = taskPanelTaskId ? tasks.find(t => t.id === taskPanelTaskId) ?? null : null;
 
   const {
     timerRunning,
@@ -4919,6 +4923,17 @@ function App() {
         </div>
 
         <div className="toolbar-right">
+          {projectData && (
+            <>
+              <button
+                className="toolbar-btn toolbar-btn--primary"
+                onClick={() => { setTaskPanelTaskId(null); setTaskPanelOpen(true); }}
+              >
+                + New Task
+              </button>
+              <div className="toolbar-divider" />
+            </>
+          )}
           {saveStatus !== 'idle' && (
             <span className={`save-indicator ${saveStatus}`}>
               {saveStatus === 'saving' ? 'Saving...' : 'Saved'}
@@ -5462,6 +5477,21 @@ function App() {
       {showUpdateModal && (
         <UpdateModal onClose={() => setShowUpdateModal(false)} />
       )}
+
+      {/* Task Detail Panel */}
+      <TaskDetailPanel
+        isOpen={taskPanelOpen}
+        task={taskPanelTask}
+        tasks={tasks}
+        characters={projectData?.characters ?? []}
+        tags={projectData?.tags ?? []}
+        scenes={projectData?.scenes ?? []}
+        taskFieldDefs={taskFieldDefs}
+        onClose={() => { setTaskPanelOpen(false); setTaskPanelTaskId(null); }}
+        onCreateTask={() => {}}
+        onUpdateTask={() => {}}
+        onTasksChange={handleTasksChange}
+      />
 
     </div>
     </PaneProvider>
