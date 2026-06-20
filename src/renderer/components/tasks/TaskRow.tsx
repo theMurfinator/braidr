@@ -217,20 +217,31 @@ export default function TaskRow({
       <td
         className={`task-title-cell${editingColumn === 'title' ? ' task-cell-editing' : ''}${activePanelTaskId === task.id ? ' task-row--panel-active' : ''}`}
         style={{ cursor: 'pointer' }}
-        onClick={() => onOpenPanel?.()}
+        onClick={() => editingColumn !== 'title' && onOpenPanel?.()}
       >
         <div className="task-title-inner">
           {expandToggle}
-          <span className="task-title-text">
-            {task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>}
-          </span>
-          {subtaskBadge}
-          {onCreateSubtask && !isSubtask && (
-            <button
-              className="task-add-subtask-inline"
-              onClick={(e) => { e.stopPropagation(); onCreateSubtask(); }}
-              title="Add subtask"
-            >+</button>
+          {editingColumn === 'title' ? (
+            <InlineTextInput
+              value={task.title}
+              placeholder="Task title..."
+              onCommit={(v) => commitField('title', v)}
+              onCancel={cancelEdit}
+            />
+          ) : (
+            <>
+              <span className="task-title-text">
+                {task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>}
+              </span>
+              {subtaskBadge}
+              {onCreateSubtask && !isSubtask && (
+                <button
+                  className="task-add-subtask-inline"
+                  onClick={(e) => { e.stopPropagation(); onCreateSubtask(); }}
+                  title="Add subtask"
+                >+</button>
+              )}
+            </>
           )}
         </div>
       </td>
