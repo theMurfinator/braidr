@@ -4046,6 +4046,8 @@ function App() {
                 taskTimerElapsed={taskTimerElapsed}
                 onStartTimer={handleStartTaskTimer}
                 onStopTimer={handleStopTaskTimer}
+                onOpenTaskPanel={(taskId) => { setTaskPanelTaskId(taskId); setTaskPanelOpen(true); }}
+                activePanelTaskId={taskPanelTaskId ?? undefined}
               />
             ) : mode === 'timeline' ? (
               <TimelineView
@@ -5492,7 +5494,7 @@ function App() {
           handleTasksChange([...tasksRef.current, newTask]);
           handleCreateTask(newTask);
         }}
-        onUpdateTask={() => {}}
+        onUpdateTask={handleUpdateTask}
         onTasksChange={handleTasksChange}
       />
 

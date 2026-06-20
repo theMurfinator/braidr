@@ -32,6 +32,8 @@ interface TaskRowProps {
   subtaskBadge?: React.ReactNode;
   onCreateSubtask?: () => string;
   autoFocusTitle?: boolean;
+  onOpenPanel?: () => void;
+  activePanelTaskId?: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -141,6 +143,8 @@ export default function TaskRow({
   subtaskBadge,
   onCreateSubtask,
   autoFocusTitle,
+  onOpenPanel,
+  activePanelTaskId,
 }: TaskRowProps) {
   const isVisible = (colId: string) => !visibleColumns || visibleColumns.includes(colId);
   const [editingColumn, setEditingColumn] = useState<string | null>(autoFocusTitle ? 'title' : null);
@@ -211,30 +215,22 @@ export default function TaskRow({
       {/* Title */}
       {isVisible('title') && (
       <td
-        className={`task-title-cell${editingColumn === 'title' ? ' task-cell-editing' : ''}`}
-        onClick={() => editingColumn !== 'title' && setEditingColumn('title')}
+        className={`task-title-cell${editingColumn === 'title' ? ' task-cell-editing' : ''}${activePanelTaskId === task.id ? ' task-row--panel-active' : ''}`}
+        style={{ cursor: 'pointer' }}
+        onClick={() => onOpenPanel?.()}
       >
         <div className="task-title-inner">
           {expandToggle}
-          {editingColumn === 'title' ? (
-            <InlineTextInput
-              value={task.title}
-              placeholder="Task title..."
-              onCommit={(v) => commitField('title', v)}
-              onCancel={cancelEdit}
-            />
-          ) : (
-            <>
-              {task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>}
-              {subtaskBadge}
-              {onCreateSubtask && !isSubtask && (
-                <button
-                  className="task-add-subtask-inline"
-                  onClick={(e) => { e.stopPropagation(); onCreateSubtask(); }}
-                  title="Add subtask"
-                >+</button>
-              )}
-            </>
+          <span className="task-title-text">
+            {task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>}
+          </span>
+          {subtaskBadge}
+          {onCreateSubtask && !isSubtask && (
+            <button
+              className="task-add-subtask-inline"
+              onClick={(e) => { e.stopPropagation(); onCreateSubtask(); }}
+              title="Add subtask"
+            >+</button>
           )}
         </div>
       </td>

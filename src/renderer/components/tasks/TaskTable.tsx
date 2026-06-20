@@ -43,6 +43,8 @@ interface TaskTableProps {
   visibleColumns?: string[];
   columnWidths: Record<string, number>;
   onColumnWidthsChange: (widths: Record<string, number>) => void;
+  onOpenTaskPanel?: (taskId: string) => void;
+  activePanelTaskId?: string;
 }
 
 function groupTasks(
@@ -172,6 +174,8 @@ export default function TaskTable({
   visibleColumns,
   columnWidths,
   onColumnWidthsChange,
+  onOpenTaskPanel,
+  activePanelTaskId,
 }: TaskTableProps) {
   const [showFieldManager, setShowFieldManager] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -367,6 +371,8 @@ export default function TaskTable({
         onUpdateTimeEntry={onUpdateTimeEntry}
         onDeleteTimeEntry={onDeleteTimeEntry}
         visibleColumns={visibleColumns}
+        onOpenTaskPanel={onOpenTaskPanel}
+        activePanelTaskId={activePanelTaskId}
       />
     ));
   }

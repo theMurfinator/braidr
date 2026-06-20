@@ -20,6 +20,8 @@ interface TaskRowGroupProps {
   onUpdateTimeEntry: (taskId: string, entryId: string, updates: Partial<Pick<TimeEntry, 'duration' | 'description'>>) => void;
   onDeleteTimeEntry: (taskId: string, entryId: string) => void;
   visibleColumns?: string[];
+  onOpenTaskPanel?: (taskId: string) => void;
+  activePanelTaskId?: string;
 }
 
 export default function TaskRowGroup({
@@ -39,6 +41,8 @@ export default function TaskRowGroup({
   onUpdateTimeEntry,
   onDeleteTimeEntry,
   visibleColumns,
+  onOpenTaskPanel,
+  activePanelTaskId,
 }: TaskRowGroupProps) {
   const storageKey = `task-expanded-${task.id}`;
   const [expanded, setExpanded] = useState<boolean>(() => {
@@ -80,6 +84,8 @@ export default function TaskRowGroup({
         {...sharedProps}
         task={task}
         rolledUpTime={hasSubtasks ? rolledUpTime : undefined}
+        onOpenPanel={() => onOpenTaskPanel?.(task.id)}
+        activePanelTaskId={activePanelTaskId}
         onCreateSubtask={() => {
           const newId = onCreateSubtask(task.id);
           setExpanded(true);
@@ -114,6 +120,8 @@ export default function TaskRowGroup({
           task={sub}
           isSubtask
           autoFocusTitle={sub.id === focusSubtaskId}
+          onOpenPanel={() => onOpenTaskPanel?.(sub.id)}
+          activePanelTaskId={activePanelTaskId}
         />
       ))}
     </>

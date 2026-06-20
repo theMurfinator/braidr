@@ -22722,3 +22722,8 @@ tr:hover .task-add-subtask-inline {
 }
 .task-panel-subtask-input::placeholder { color: var(--text-muted, #aaa); }
 .task-panel-subtask-input:focus { border-bottom-color: var(--accent, #6c47ff); }
+
+/* Task row panel-active highlight (title cell of the row currently open in the detail panel) */
+.task-row--panel-active {
+  background: var(--accent-light, #f0ecff);
+}
