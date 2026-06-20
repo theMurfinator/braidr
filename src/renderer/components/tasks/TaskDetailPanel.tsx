@@ -36,6 +36,7 @@ export default function TaskDetailPanel({
   tags,
   characters,
   onClose,
+  onCreateTask,
   onUpdateTask,
   onTasksChange,
 }: TaskDetailPanelProps) {
@@ -141,6 +142,52 @@ export default function TaskDetailPanel({
     if (!isCreateMode && task) {
       onUpdateTask({ ...task, ...updates, updatedAt: Date.now() });
     }
+  }
+
+  function handleCreate() {
+    const title = draftTitle.trim();
+    if (!title) {
+      titleRef.current?.focus();
+      return;
+    }
+
+    const subtasks: Task[] = draftSubtasks.map((s, i) => ({
+      id: s.id,
+      title: s.title,
+      status: 'open' as const,
+      priority: 'none' as const,
+      tags: [],
+      characterIds: [],
+      timeEntries: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      order: i,
+      customFields: {},
+      parentTaskId: null,
+      subtasks: [],
+    }));
+
+    const newTask: Task = {
+      id: crypto.randomUUID(),
+      title,
+      description: draftDescription.trim() || undefined,
+      status: draftStatus as Task['status'],
+      priority: draftPriority as Task['priority'],
+      tags: draftTagIds,
+      characterIds: draftCharIds,
+      dueDate: draftDueDate ? new Date(draftDueDate).getTime() : undefined,
+      timeEstimate: draftTimeEstimate ? parseInt(draftTimeEstimate) * 60000 : undefined,
+      timeEntries: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      order: tasks.length,
+      customFields: {},
+      parentTaskId: null,
+      subtasks: subtasks.map(s => ({ ...s, parentTaskId: null })),
+    };
+
+    onCreateTask(newTask);
+    onClose();
   }
 
   if (!isOpen) return <></>;
@@ -349,7 +396,13 @@ export default function TaskDetailPanel({
         </div>
         {isCreateMode && (
           <div className="task-panel-footer">
-            <button className="task-panel-create-btn" disabled>Create Task</button>
+            <button
+              className="task-panel-create-btn"
+              disabled={!draftTitle.trim()}
+              onClick={handleCreate}
+            >
+              Create Task
+            </button>
             <button className="task-panel-cancel-btn" onClick={onClose}>Cancel</button>
           </div>
         )}

@@ -5488,7 +5488,10 @@ function App() {
         scenes={projectData?.scenes ?? []}
         taskFieldDefs={taskFieldDefs}
         onClose={() => { setTaskPanelOpen(false); setTaskPanelTaskId(null); }}
-        onCreateTask={() => {}}
+        onCreateTask={(newTask) => {
+          handleTasksChange([...tasksRef.current, newTask]);
+          handleCreateTask(newTask);
+        }}
         onUpdateTask={() => {}}
         onTasksChange={handleTasksChange}
       />
