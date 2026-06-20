@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Task, Character, Tag, Scene, TaskFieldDef } from '../../../shared/types';
+import type { Task, Character, Tag } from '../../../shared/types';
 
 const STATUS_OPTIONS = [
   { value: 'open',        label: 'Open',        color: '#9e9e9e' },
@@ -21,8 +21,6 @@ interface TaskDetailPanelProps {
   tasks: Task[];
   characters: Character[];
   tags: Tag[];
-  scenes: Scene[];
-  taskFieldDefs: TaskFieldDef[];
   onClose: () => void;
   onCreateTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
@@ -183,7 +181,7 @@ export default function TaskDetailPanel({
       order: tasks.length,
       customFields: {},
       parentTaskId: null,
-      subtasks: subtasks.map(s => ({ ...s, parentTaskId: null })),
+      subtasks: subtasks.map(s => ({ ...s, parentTaskId: newTask.id })),
     };
 
     onCreateTask(newTask);

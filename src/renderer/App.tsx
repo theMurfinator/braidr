@@ -476,6 +476,11 @@ function App() {
     dataService.mutate('task.softDelete', { taskId }).catch(() => {});
   }, []);
 
+  const handleCloseTaskPanel = useCallback(() => {
+    setTaskPanelOpen(false);
+    setTaskPanelTaskId(null);
+  }, []);
+
   const handleCreateSubtask = useCallback((parentId: string) => {
     const newId = crypto.randomUUID();
     const parent = tasks.find(t => t.id === parentId);
@@ -5487,12 +5492,20 @@ function App() {
         tasks={tasks}
         characters={projectData?.characters ?? []}
         tags={projectData?.tags ?? []}
-        scenes={projectData?.scenes ?? []}
-        taskFieldDefs={taskFieldDefs}
-        onClose={() => { setTaskPanelOpen(false); setTaskPanelTaskId(null); }}
+        onClose={handleCloseTaskPanel}
         onCreateTask={(newTask) => {
           handleTasksChange([...tasksRef.current, newTask]);
           handleCreateTask(newTask);
+          // Persist any subtasks created in the panel
+          for (const sub of newTask.subtasks) {
+            dataService.mutate('task.create', {
+              id: sub.id,
+              title: sub.title,
+              parentTaskId: newTask.id,
+              orderKey: null,
+              displayOrder: sub.order,
+            }).catch(() => {});
+          }
         }}
         onUpdateTask={handleUpdateTask}
         onTasksChange={handleTasksChange}
