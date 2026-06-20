@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Task, Character, Tag, Scene, TaskFieldDef } from '../../../shared/types';
 
 interface TaskDetailPanelProps {
@@ -19,8 +19,25 @@ export default function TaskDetailPanel({
   isOpen,
   task,
   onClose,
+  onUpdateTask,
 }: TaskDetailPanelProps) {
   const isCreateMode = task === null;
+  const titleRef = useRef<HTMLInputElement>(null);
+  const [draftTitle, setDraftTitle] = useState(task?.title ?? '');
+  const [draftDescription, setDraftDescription] = useState(task?.description ?? '');
+
+  // Sync when task changes (clicking a different row in edit mode)
+  useEffect(() => {
+    setDraftTitle(task?.title ?? '');
+    setDraftDescription(task?.description ?? '');
+  }, [task?.id]);
+
+  // Auto-focus title in create mode
+  useEffect(() => {
+    if (isOpen && isCreateMode) {
+      setTimeout(() => titleRef.current?.focus(), 50);
+    }
+  }, [isOpen, isCreateMode]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -45,7 +62,29 @@ export default function TaskDetailPanel({
         </div>
         <div className="task-panel-body">
           <div className="task-panel-left">
-            <p style={{ color: 'var(--text-muted)' }}>Left column (title, description, subtasks)</p>
+            <input
+              ref={titleRef}
+              className="task-panel-title-input"
+              placeholder="Task title"
+              value={draftTitle}
+              onChange={e => setDraftTitle(e.target.value)}
+              onBlur={() => {
+                if (!isCreateMode && task) {
+                  onUpdateTask({ ...task, title: draftTitle, updatedAt: Date.now() });
+                }
+              }}
+            />
+            <textarea
+              className="task-panel-description"
+              placeholder="Add a description..."
+              value={draftDescription}
+              onChange={e => setDraftDescription(e.target.value)}
+              onBlur={() => {
+                if (!isCreateMode && task) {
+                  onUpdateTask({ ...task, description: draftDescription, updatedAt: Date.now() });
+                }
+              }}
+            />
           </div>
           <div className="task-panel-right">
             <p style={{ color: 'var(--text-muted)' }}>Right column (metadata fields)</p>

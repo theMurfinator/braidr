@@ -22561,3 +22561,32 @@ tr:hover .task-add-subtask-inline {
   color: var(--text-primary, #333);
 }
 .task-panel-cancel-btn:hover { background: var(--bg-hover, #f0f0f0); }
+
+.task-panel-title-input {
+  width: 100%;
+  font-size: 18px;
+  font-weight: 600;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary, #333);
+  padding: 0;
+  resize: none;
+  font-family: inherit;
+}
+.task-panel-title-input::placeholder { color: var(--text-muted, #aaa); }
+
+.task-panel-description {
+  width: 100%;
+  min-height: 140px;
+  font-size: 13px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary, #333);
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.6;
+  padding: 0;
+}
+.task-panel-description::placeholder { color: var(--text-muted, #aaa); }
