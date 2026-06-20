@@ -32,10 +32,12 @@ interface TaskDetailPanelProps {
 export default function TaskDetailPanel({
   isOpen,
   task,
+  tasks,
   tags,
   characters,
   onClose,
   onUpdateTask,
+  onTasksChange,
 }: TaskDetailPanelProps) {
   const isCreateMode = task === null;
   const titleRef = useRef<HTMLInputElement>(null);
@@ -51,6 +53,9 @@ export default function TaskDetailPanel({
   );
   const [draftTagIds, setDraftTagIds]           = useState<string[]>(task?.tags ?? []);
   const [draftCharIds, setDraftCharIds]         = useState<string[]>(task?.characterIds ?? []);
+  const [draftSubtasks, setDraftSubtasks] = useState<Array<{ id: string; title: string }>>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const subtaskInputRef = useRef<HTMLInputElement>(null);
 
   // Sync when task changes (clicking a different row in edit mode)
   useEffect(() => {
@@ -62,6 +67,12 @@ export default function TaskDetailPanel({
     setDraftTimeEstimate(task?.timeEstimate ? String(Math.round(task.timeEstimate / 60000)) : '');
     setDraftTagIds(task?.tags ?? []);
     setDraftCharIds(task?.characterIds ?? []);
+  }, [task?.id]);
+
+  // Reset subtasks when task changes
+  useEffect(() => {
+    setDraftSubtasks([]);
+    setNewSubtaskTitle('');
   }, [task?.id]);
 
   // Auto-focus title in create mode
@@ -79,6 +90,52 @@ export default function TaskDetailPanel({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  function handleAddSubtask() {
+    const title = newSubtaskTitle.trim();
+    if (!title) return;
+
+    if (isCreateMode) {
+      setDraftSubtasks(prev => [...prev, { id: crypto.randomUUID(), title }]);
+    } else if (task) {
+      const newSub: Task = {
+        id: crypto.randomUUID(),
+        title,
+        status: 'open',
+        priority: 'none',
+        tags: [],
+        characterIds: [],
+        timeEntries: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        order: task.subtasks.length,
+        customFields: {},
+        parentTaskId: task.id,
+        subtasks: [],
+      };
+      const updated = { ...task, subtasks: [...task.subtasks, newSub], updatedAt: Date.now() };
+      onUpdateTask(updated);
+      // Also update the flat tasks list so the table stays in sync
+      onTasksChange(tasks.map(t => t.id === task.id ? updated : t));
+    }
+    setNewSubtaskTitle('');
+    subtaskInputRef.current?.focus();
+  }
+
+  function handleSubtaskStatusToggle(subId: string) {
+    if (!task) return;
+    const updated = {
+      ...task,
+      subtasks: task.subtasks.map(s =>
+        s.id === subId
+          ? { ...s, status: s.status === 'done' ? 'open' : 'done' as Task['status'], updatedAt: Date.now() }
+          : s
+      ),
+      updatedAt: Date.now(),
+    };
+    onUpdateTask(updated);
+    onTasksChange(tasks.map(t => t.id === task.id ? updated : t));
+  }
 
   function commitField(updates: Partial<Task>) {
     if (!isCreateMode && task) {
@@ -123,6 +180,52 @@ export default function TaskDetailPanel({
                 }
               }}
             />
+            <div className="task-panel-subtasks">
+              <span className="task-panel-section-label">Subtasks</span>
+
+              {/* In create mode: show draft subtasks */}
+              {isCreateMode && draftSubtasks.map(sub => (
+                <div key={sub.id} className="task-panel-subtask-row">
+                  <span className="task-panel-subtask-check">○</span>
+                  <span className="task-panel-subtask-title">{sub.title}</span>
+                  <button
+                    className="task-panel-subtask-remove"
+                    onClick={() => setDraftSubtasks(prev => prev.filter(s => s.id !== sub.id))}
+                  >✕</button>
+                </div>
+              ))}
+
+              {/* In edit mode: show existing subtasks */}
+              {!isCreateMode && task && task.subtasks.map(sub => (
+                <div key={sub.id} className="task-panel-subtask-row">
+                  <button
+                    className="task-panel-subtask-check"
+                    onClick={() => handleSubtaskStatusToggle(sub.id)}
+                    title={sub.status === 'done' ? 'Mark open' : 'Mark done'}
+                  >
+                    {sub.status === 'done' ? '●' : '○'}
+                  </button>
+                  <span
+                    className="task-panel-subtask-title"
+                    style={{ textDecoration: sub.status === 'done' ? 'line-through' : 'none', opacity: sub.status === 'done' ? 0.5 : 1 }}
+                  >
+                    {sub.title}
+                  </span>
+                </div>
+              ))}
+
+              {/* Add subtask input */}
+              <div className="task-panel-subtask-add">
+                <input
+                  ref={subtaskInputRef}
+                  className="task-panel-subtask-input"
+                  placeholder="+ Add subtask"
+                  value={newSubtaskTitle}
+                  onChange={e => setNewSubtaskTitle(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubtask(); } }}
+                />
+              </div>
+            </div>
           </div>
           <div className="task-panel-right">
             {/* Status */}
