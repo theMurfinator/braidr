@@ -22590,3 +22590,67 @@ tr:hover .task-add-subtask-inline {
   padding: 0;
 }
 .task-panel-description::placeholder { color: var(--text-muted, #aaa); }
+
+.task-panel-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+.task-panel-field-row--wrap {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-panel-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  min-width: 90px;
+}
+.task-panel-field-row--wrap .task-panel-field-label { min-width: unset; }
+
+.task-panel-field-select,
+.task-panel-field-date,
+.task-panel-field-number {
+  background: transparent;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  outline: none;
+}
+.task-panel-field-select:hover,
+.task-panel-field-date:hover,
+.task-panel-field-number:hover {
+  border-color: var(--accent, #6c47ff);
+}
+.task-panel-field-number { width: 70px; }
+
+.task-panel-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.task-panel-tag-chip {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary, #555);
+  transition: background 0.12s, border-color 0.12s;
+}
+.task-panel-tag-chip:hover { border-color: var(--accent, #6c47ff); }
+.task-panel-tag-chip.active {
+  background: var(--accent, #6c47ff);
+  border-color: var(--accent, #6c47ff);
+  color: #fff;
+}
