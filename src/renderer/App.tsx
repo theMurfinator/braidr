@@ -446,6 +446,12 @@ function App() {
   }, []);
 
   const handleUpdateTask = useCallback((task: Task) => {
+    // Optimistic local state update so views re-render immediately.
+    // Subtasks have a parentTaskId and are not in the top-level array,
+    // so this is a no-op for them (subtask callers use onTasksChange directly).
+    setTasks(prev => prev.map(t => t.id === task.id ? task : t));
+    tasksRef.current = tasksRef.current.map(t => t.id === task.id ? task : t);
+
     dataService.mutate('task.setFields', {
       taskId: task.id,
       title: task.title,
@@ -4946,7 +4952,7 @@ function App() {
               {saveStatus === 'saving' ? 'Saving...' : 'Saved'}
             </span>
           )}
-          {viewMode !== 'editor' && viewMode !== 'notes' && viewMode !== 'pov' && !(viewMode === 'braided' && braidedSubMode === 'table') && projectData.tags.length > 0 && (
+          {viewMode !== 'editor' && viewMode !== 'notes' && viewMode !== 'pov' && viewMode !== 'tasks' && !(viewMode === 'braided' && braidedSubMode === 'table') && projectData.tags.length > 0 && (
             <FilterBar
               tags={projectData.tags}
               activeFilters={activeFilters}
@@ -5491,7 +5497,7 @@ function App() {
         task={taskPanelTask}
         tasks={tasks}
         characters={projectData?.characters ?? []}
-        tags={projectData?.tags ?? []}
+        taskFieldDefs={taskFieldDefs}
         onClose={handleCloseTaskPanel}
         onCreateTask={(newTask) => {
           handleTasksChange([...tasksRef.current, newTask]);
@@ -5508,7 +5514,12 @@ function App() {
           }
         }}
         onUpdateTask={handleUpdateTask}
+        onDeleteTask={handleDeleteTask}
         onTasksChange={handleTasksChange}
+        onTaskFieldDefsChange={handleTaskFieldDefsChange}
+        activeTimerTaskId={taskTimerTaskId}
+        onStartTimer={handleStartTaskTimer}
+        onStopTimer={handleStopTaskTimer}
       />
 
     </div>

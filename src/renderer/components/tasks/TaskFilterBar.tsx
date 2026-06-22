@@ -19,7 +19,6 @@ const BUILTIN_FIELDS: FieldOption[] = [
   { id: 'title', name: 'Title', type: 'text' },
   { id: 'status', name: 'Status', type: 'enum', options: ['open', 'in-progress', 'done'] },
   { id: 'priority', name: 'Priority', type: 'enum', options: ['none', 'low', 'medium', 'high', 'urgent'] },
-  { id: 'tags', name: 'Tags', type: 'multi' },
   { id: 'characters', name: 'Characters', type: 'multi' },
   { id: 'scene', name: 'Scene', type: 'text' },
   { id: 'dueDate', name: 'Due Date', type: 'date' },
