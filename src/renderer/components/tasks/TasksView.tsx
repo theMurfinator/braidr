@@ -69,6 +69,8 @@ interface TasksViewProps {
   taskTimerElapsed: number;
   onStartTimer: (taskId: string) => void;
   onStopTimer: () => void;
+  onOpenTaskPanel?: (taskId: string) => void;
+  activePanelTaskId?: string;
 }
 
 const defaultVisibleColumns = BUILTIN_COLUMNS.map(c => c.id);
@@ -105,6 +107,8 @@ export default function TasksView({
   taskTimerElapsed: _taskTimerElapsed,
   onStartTimer: startTimer,
   onStopTimer: stopTimer,
+  onOpenTaskPanel,
+  activePanelTaskId,
 }: TasksViewProps) {
   const [groupBy, setGroupBy] = useState<string | undefined>(undefined);
   const [sortBy, setSortBy] = useState<string | undefined>(undefined);
@@ -331,6 +335,8 @@ export default function TasksView({
           visibleColumns={visibleColumns}
           columnWidths={columnWidths}
           onColumnWidthsChange={handleColumnWidthsChange}
+          onOpenTaskPanel={onOpenTaskPanel}
+          activePanelTaskId={activePanelTaskId}
         />
       </div>
     </div>

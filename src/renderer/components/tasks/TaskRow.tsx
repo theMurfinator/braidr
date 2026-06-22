@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { Task, TaskFieldDef, Character, Scene, Tag, TimeEntry } from '../../../shared/types';
 import {
   InlineTextInput,
@@ -32,6 +33,8 @@ interface TaskRowProps {
   subtaskBadge?: React.ReactNode;
   onCreateSubtask?: () => string;
   autoFocusTitle?: boolean;
+  onOpenPanel?: () => void;
+  activePanelTaskId?: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -141,10 +144,12 @@ export default function TaskRow({
   subtaskBadge,
   onCreateSubtask,
   autoFocusTitle,
+  onOpenPanel,
+  activePanelTaskId,
 }: TaskRowProps) {
   const isVisible = (colId: string) => !visibleColumns || visibleColumns.includes(colId);
   const [editingColumn, setEditingColumn] = useState<string | null>(autoFocusTitle ? 'title' : null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [showTimePopover, setShowTimePopover] = useState(false);
   const [manualHours, setManualHours] = useState(0);
   const [manualMinutes, setManualMinutes] = useState(0);
@@ -162,6 +167,13 @@ export default function TaskRow({
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showTimePopover]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    function handleClick() { setContextMenu(null); }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [contextMenu]);
 
   // Resolve tag objects
   const resolvedTags = task.tags
@@ -207,12 +219,37 @@ export default function TaskRow({
   }
 
   return (
-    <tr className={isSubtask ? 'task-row-subtask' : undefined}>
+    <tr
+      className={isSubtask ? 'task-row-subtask' : undefined}
+      onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY }); }}
+    >
+      {contextMenu && createPortal(
+        <div
+          className="task-context-menu"
+          style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <button
+            className="task-context-menu-item"
+            onClick={() => { onDuplicateTask(task.id); setContextMenu(null); }}
+          >
+            Duplicate task
+          </button>
+          <button
+            className="task-context-menu-item task-context-menu-item--danger"
+            onClick={() => { onDeleteTask(task.id); setContextMenu(null); }}
+          >
+            Delete task
+          </button>
+        </div>,
+        document.body
+      )}
       {/* Title */}
       {isVisible('title') && (
       <td
-        className={`task-title-cell${editingColumn === 'title' ? ' task-cell-editing' : ''}`}
-        onClick={() => editingColumn !== 'title' && setEditingColumn('title')}
+        className={`task-title-cell${editingColumn === 'title' ? ' task-cell-editing' : ''}${activePanelTaskId === task.id ? ' task-row--panel-active' : ''}`}
+        style={{ cursor: 'pointer' }}
+        onClick={() => editingColumn !== 'title' && onOpenPanel?.()}
       >
         <div className="task-title-inner">
           {expandToggle}
@@ -225,7 +262,9 @@ export default function TaskRow({
             />
           ) : (
             <>
-              {task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>}
+              <span className="task-title-text">
+                {task.title || <span style={{ color: 'var(--text-muted)' }}>Untitled</span>}
+              </span>
               {subtaskBadge}
               {onCreateSubtask && !isSubtask && (
                 <button
@@ -530,43 +569,6 @@ export default function TaskRow({
         );
       })}
 
-      {/* Row actions */}
-      <td>
-        {showDeleteConfirm ? (
-          <div className="task-delete-confirm">
-            Delete?
-            <button
-              className="task-delete-confirm-btn danger"
-              onClick={() => onDeleteTask(task.id)}
-            >
-              Yes
-            </button>
-            <button
-              className="task-delete-confirm-btn"
-              onClick={() => setShowDeleteConfirm(false)}
-            >
-              No
-            </button>
-          </div>
-        ) : (
-          <div className="task-row-actions">
-            <button
-              className="task-row-action-btn"
-              title="Duplicate task"
-              onClick={() => onDuplicateTask(task.id)}
-            >
-              &#x29C9;
-            </button>
-            <button
-              className="task-row-action-btn danger"
-              title="Delete task"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              &times;
-            </button>
-          </div>
-        )}
-      </td>
     </tr>
   );
 }

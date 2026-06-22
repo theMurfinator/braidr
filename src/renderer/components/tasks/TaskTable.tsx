@@ -7,7 +7,6 @@ export const BUILTIN_COLUMNS = [
   { id: 'title', name: 'Title', width: 280 },
   { id: 'status', name: 'Status', width: 120 },
   { id: 'priority', name: 'Priority', width: 100 },
-  { id: 'tags', name: 'Tags', width: 160 },
   { id: 'characters', name: 'Characters', width: 160 },
   { id: 'scene', name: 'Scene', width: 180 },
   { id: 'dueDate', name: 'Due Date', width: 120 },
@@ -43,6 +42,8 @@ interface TaskTableProps {
   visibleColumns?: string[];
   columnWidths: Record<string, number>;
   onColumnWidthsChange: (widths: Record<string, number>) => void;
+  onOpenTaskPanel?: (taskId: string) => void;
+  activePanelTaskId?: string;
 }
 
 function groupTasks(
@@ -172,6 +173,8 @@ export default function TaskTable({
   visibleColumns,
   columnWidths,
   onColumnWidthsChange,
+  onOpenTaskPanel,
+  activePanelTaskId,
 }: TaskTableProps) {
   const [showFieldManager, setShowFieldManager] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -367,6 +370,8 @@ export default function TaskTable({
         onUpdateTimeEntry={onUpdateTimeEntry}
         onDeleteTimeEntry={onDeleteTimeEntry}
         visibleColumns={visibleColumns}
+        onOpenTaskPanel={onOpenTaskPanel}
+        activePanelTaskId={activePanelTaskId}
       />
     ));
   }

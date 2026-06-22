@@ -15,6 +15,7 @@ import FloatingEditor from './components/FloatingEditor';
 import FontPicker from './components/FontPicker';
 import NotesView from './components/notes/NotesView';
 import TasksView from './components/tasks/TasksView';
+import TaskDetailPanel from './components/tasks/TaskDetailPanel';
 import TimelineView from './components/timeline/TimelineView';
 import WordCountDashboard from './components/WordCountDashboard';
 import AccountView from './components/AccountView';
@@ -308,6 +309,9 @@ function App() {
   const taskColumnWidthsRef = useRef<Record<string, number>>({});
   const [taskVisibleColumns, setTaskVisibleColumns] = useState<string[] | undefined>(undefined);
   const taskVisibleColumnsRef = useRef<string[] | undefined>(undefined);
+  const [taskPanelOpen, setTaskPanelOpen] = useState(false);
+  const [taskPanelTaskId, setTaskPanelTaskId] = useState<string | null>(null);
+  const taskPanelTask = taskPanelTaskId ? tasks.find(t => t.id === taskPanelTaskId) ?? null : null;
 
   const {
     timerRunning,
@@ -442,6 +446,12 @@ function App() {
   }, []);
 
   const handleUpdateTask = useCallback((task: Task) => {
+    // Optimistic local state update so views re-render immediately.
+    // Subtasks have a parentTaskId and are not in the top-level array,
+    // so this is a no-op for them (subtask callers use onTasksChange directly).
+    setTasks(prev => prev.map(t => t.id === task.id ? task : t));
+    tasksRef.current = tasksRef.current.map(t => t.id === task.id ? task : t);
+
     dataService.mutate('task.setFields', {
       taskId: task.id,
       title: task.title,
@@ -470,6 +480,11 @@ function App() {
 
   const handleDeleteTask = useCallback((taskId: string) => {
     dataService.mutate('task.softDelete', { taskId }).catch(() => {});
+  }, []);
+
+  const handleCloseTaskPanel = useCallback(() => {
+    setTaskPanelOpen(false);
+    setTaskPanelTaskId(null);
   }, []);
 
   const handleCreateSubtask = useCallback((parentId: string) => {
@@ -4042,6 +4057,8 @@ function App() {
                 taskTimerElapsed={taskTimerElapsed}
                 onStartTimer={handleStartTaskTimer}
                 onStopTimer={handleStopTaskTimer}
+                onOpenTaskPanel={(taskId) => { setTaskPanelTaskId(taskId); setTaskPanelOpen(true); }}
+                activePanelTaskId={taskPanelTaskId ?? undefined}
               />
             ) : mode === 'timeline' ? (
               <TimelineView
@@ -4919,12 +4936,23 @@ function App() {
         </div>
 
         <div className="toolbar-right">
+          {projectData && (
+            <>
+              <button
+                className="toolbar-btn toolbar-btn--primary"
+                onClick={() => { setTaskPanelTaskId(null); setTaskPanelOpen(true); }}
+              >
+                + New Task
+              </button>
+              <div className="toolbar-divider" />
+            </>
+          )}
           {saveStatus !== 'idle' && (
             <span className={`save-indicator ${saveStatus}`}>
               {saveStatus === 'saving' ? 'Saving...' : 'Saved'}
             </span>
           )}
-          {viewMode !== 'editor' && viewMode !== 'notes' && viewMode !== 'pov' && !(viewMode === 'braided' && braidedSubMode === 'table') && projectData.tags.length > 0 && (
+          {viewMode !== 'editor' && viewMode !== 'notes' && viewMode !== 'pov' && viewMode !== 'tasks' && !(viewMode === 'braided' && braidedSubMode === 'table') && projectData.tags.length > 0 && (
             <FilterBar
               tags={projectData.tags}
               activeFilters={activeFilters}
@@ -5462,6 +5490,37 @@ function App() {
       {showUpdateModal && (
         <UpdateModal onClose={() => setShowUpdateModal(false)} />
       )}
+
+      {/* Task Detail Panel */}
+      <TaskDetailPanel
+        isOpen={taskPanelOpen}
+        task={taskPanelTask}
+        tasks={tasks}
+        characters={projectData?.characters ?? []}
+        taskFieldDefs={taskFieldDefs}
+        onClose={handleCloseTaskPanel}
+        onCreateTask={(newTask) => {
+          handleTasksChange([...tasksRef.current, newTask]);
+          handleCreateTask(newTask);
+          // Persist any subtasks created in the panel
+          for (const sub of newTask.subtasks) {
+            dataService.mutate('task.create', {
+              id: sub.id,
+              title: sub.title,
+              parentTaskId: newTask.id,
+              orderKey: null,
+              displayOrder: sub.order,
+            }).catch(() => {});
+          }
+        }}
+        onUpdateTask={handleUpdateTask}
+        onDeleteTask={handleDeleteTask}
+        onTasksChange={handleTasksChange}
+        onTaskFieldDefsChange={handleTaskFieldDefsChange}
+        activeTimerTaskId={taskTimerTaskId}
+        onStartTimer={handleStartTaskTimer}
+        onStopTimer={handleStopTaskTimer}
+      />
 
     </div>
     </PaneProvider>
