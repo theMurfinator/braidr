@@ -52,6 +52,8 @@ export interface DataService {
   mergeBranch(projectPath: string, branchName: string, sceneIds: string[]): Promise<void>;
   compareBranches(projectPath: string, leftBranch: string | null, rightBranch: string | null): Promise<BranchCompareData>;
   getBranchSceneDraft(projectPath: string, branchName: string | null, sceneId: string): Promise<string>;
+  // Sync cooldown
+  checkSyncCooldown(projectPath: string): Promise<{ blocked: false } | { blocked: true; savedByName: string; waitSeconds: number }>;
   // Lock
   acquireProjectLock(projectPath: string, force?: boolean): Promise<{ acquired: boolean; heldBy?: string }>;
   releaseProjectLock(projectPath: string): Promise<void>;
@@ -378,6 +380,16 @@ class ElectronDataService implements DataService {
     return async () => {
       await window.electronAPI.lockDelete(projectPath);
     };
+  }
+
+  async checkSyncCooldown(projectPath: string): Promise<{ blocked: false } | { blocked: true; savedByName: string; waitSeconds: number }> {
+    try {
+      const result = await window.electronAPI.syncInfoRead(projectPath);
+      if (result?.success && result.data) {
+        return { blocked: true, savedByName: result.data.savedByName, waitSeconds: result.data.waitSeconds };
+      }
+    } catch { /* non-fatal */ }
+    return { blocked: false };
   }
 
   async acquireProjectLock(projectPath: string, force?: boolean): Promise<{ acquired: boolean; heldBy?: string }> {

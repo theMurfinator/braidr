@@ -1111,6 +1111,35 @@ ipcMain.handle(IPC_CHANNELS.GET_DEVICE_INFO, async () => {
   return { success: true, data: getDeviceInfo() };
 });
 
+// ── Sync cooldown ──────────────────────────────────────────────────────────
+// sync-info.json records the last device to save. It's a tiny file so iCloud
+// syncs it fast — a different device checking within COOLDOWN_MS knows to wait.
+const SYNC_COOLDOWN_MS = 3 * 60 * 1000; // 3 minutes
+
+ipcMain.handle(IPC_CHANNELS.SYNC_INFO_READ, async (_event, projectPath: string) => {
+  try {
+    const infoPath = path.join(projectPath, '.braidr', 'sync-info.json');
+    if (!fs.existsSync(infoPath)) return { success: true, data: null };
+    const info = JSON.parse(fs.readFileSync(infoPath, 'utf-8')) as {
+      savedBy: string; savedByName: string; savedAt: number;
+    };
+    const { deviceId } = getDeviceInfo();
+    if (info.savedBy === deviceId) return { success: true, data: null }; // our own save
+    const ageMs = Date.now() - info.savedAt;
+    if (ageMs >= SYNC_COOLDOWN_MS) return { success: true, data: null }; // old enough
+    return {
+      success: true,
+      data: {
+        savedByName: info.savedByName,
+        savedAt: info.savedAt,
+        waitSeconds: Math.ceil((SYNC_COOLDOWN_MS - ageMs) / 1000),
+      },
+    };
+  } catch {
+    return { success: true, data: null };
+  }
+});
+
 // Stable character ID from name (must match renderer's parser.ts stableId)
 function stableCharId(str: string): string {
   const s = str.toLowerCase();

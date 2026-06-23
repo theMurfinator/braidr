@@ -87,6 +87,7 @@ interface Window {
     lockWrite: (projectPath: string, data: { deviceId: string; deviceName: string; timestamp: number }) => Promise<any>;
     lockDelete: (projectPath: string) => Promise<any>;
     getDeviceInfo: () => Promise<any>;
+    syncInfoRead: (projectPath: string) => Promise<any>;
     // Per-scene content
     readDraft: (projectPath: string, sceneId: string) => Promise<any>;
     saveDraft: (projectPath: string, sceneId: string, content: string) => Promise<any>;
