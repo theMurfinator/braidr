@@ -4952,13 +4952,6 @@ function App() {
               {saveStatus === 'saving' ? 'Saving...' : 'Saved'}
             </span>
           )}
-          {viewMode !== 'editor' && viewMode !== 'notes' && viewMode !== 'pov' && viewMode !== 'tasks' && !(viewMode === 'braided' && braidedSubMode === 'table') && projectData.tags.length > 0 && (
-            <FilterBar
-              tags={projectData.tags}
-              activeFilters={activeFilters}
-              onToggleFilter={handleToggleFilter}
-            />
-          )}
           {/* Global writing timer indicator */}
           {timerSceneKey && (() => {
             const timerScene = projectData?.scenes.find(s => s.id === timerSceneKey);
