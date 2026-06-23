@@ -14,6 +14,39 @@ function getDb(braidrPath: string): BraidrDB {
   return openDatabase(braidrPath);
 }
 
+function writeSyncInfo(braidrPath: string) {
+  try {
+    const fsMod = require('fs') as typeof import('fs');
+    const pathMod = require('path') as typeof import('path');
+    const osMod = require('os') as typeof import('os');
+    // Read or generate a stable device ID from the lock file convention.
+    const deviceId = (() => {
+      const idPath = pathMod.join(
+        osMod.homedir(), 'Library', 'Application Support', 'braidr', 'device-id.json'
+      );
+      try {
+        return JSON.parse(fsMod.readFileSync(idPath, 'utf-8')).deviceId as string;
+      } catch {
+        const id = Math.random().toString(16).slice(2, 10);
+        try {
+          fsMod.mkdirSync(pathMod.dirname(idPath), { recursive: true });
+          fsMod.writeFileSync(idPath, JSON.stringify({ deviceId: id }));
+        } catch { /* best-effort */ }
+        return id;
+      }
+    })();
+    const dir = pathMod.join(pathMod.dirname(braidrPath), '.braidr');
+    if (!fsMod.existsSync(dir)) fsMod.mkdirSync(dir, { recursive: true });
+    const tmp = pathMod.join(dir, 'sync-info.json.tmp');
+    fsMod.writeFileSync(tmp, JSON.stringify({
+      savedBy: deviceId,
+      savedByName: osMod.hostname(),
+      savedAt: Date.now(),
+    }));
+    fsMod.renameSync(tmp, pathMod.join(dir, 'sync-info.json'));
+  } catch { /* non-fatal */ }
+}
+
 function randomId() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
@@ -834,7 +867,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_NOTES_INDEX, (_event, braidrPath: string
       }
     });
 
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (error) {
     console.error('[BRAIDR_SAVE_NOTES_INDEX]', error);
@@ -856,7 +889,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_NOTE, (_event, braidrPath: string, noteI
   try {
     const db = getDb(braidrPath);
     db.backupAndUpdateNoteContent(noteId, content);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -872,7 +905,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_NOTE_IMAGE, (_event, braidrPath: string,
     const buffer = Buffer.from(match[2], 'base64');
     const id = `img_${Date.now()}_${randomId().slice(0, 8)}`;
     db.insertNoteImage(id, mime, buffer);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true, data: id };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -884,7 +917,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_CREATE_NOTE, (_event, braidrPath: string, not
     const db = getDb(braidrPath);
     const order = db.getNotes().filter(n => n.parent_id === parentId).length;
     db.insertNote(noteId, title, '', parentId, order);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -895,7 +928,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_DELETE_NOTE, (_event, braidrPath: string, not
   try {
     const db = getDb(braidrPath);
     db.deleteNote(noteId);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -966,7 +999,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TABLE_VIEWS, (_event, braidrPath: string
   try {
     const db = getDb(braidrPath);
     db.saveTableViews(views);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (err) {
     return { success: false, error: String(err) };
@@ -1017,7 +1050,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_ACT, (_event, braidrPath: string, act: A
   try {
     const db = getDb(braidrPath);
     db.upsertAct(act);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (err) { return { success: false, error: String(err) }; }
 });
@@ -1027,7 +1060,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCENE_ARC_FIELDS, (_event, braidrPath: s
     const db = getDb(braidrPath);
     db.updateScene(sceneId, fields);
     syncStructureSix(db, 'scene', sceneId, fields as Record<string, unknown>);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (err) { return { success: false, error: String(err) }; }
 });
@@ -1048,7 +1081,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_PLOT_POINT_ARC_FIELDS, (_event, braidrPa
         db.prepare('UPDATE structure_nodes SET parent_id = ? WHERE id = ?').run(newParent, nodeId);
       }
     }
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (err) { return { success: false, error: String(err) }; }
 });
@@ -1099,7 +1132,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SET_ARC_UI_PREF, (_event, braidrPath: string,
   try {
     const db = getDb(braidrPath);
     db.setArcUiPref(key, value);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -1110,7 +1143,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_DELETE_ACT, (_event, braidrPath: string, actI
   try {
     const db = getDb(braidrPath);
     db.deleteAct(actId);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (err) { return { success: false, error: String(err) }; }
 });
@@ -1119,7 +1152,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_REORDER_ACTS, (_event, braidrPath: string, ch
   try {
     const db = getDb(braidrPath);
     db.reorderActs(characterId, orderedIds);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (err) { return { success: false, error: String(err) }; }
 });
@@ -1151,7 +1184,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_CHARACTER_PSYCHOLOGY, (_event, braidrPat
     const db = getDb(braidrPath);
     db.upsertCharacterPsychology(row);
     syncStructureSix(db, 'node', `novel:${row.character_id}`, row as unknown as Record<string, unknown>, STRUCTURE_SIX_PSYCH);
-    db.checkpoint();
+    db.checkpoint(); writeSyncInfo(braidrPath);
     return { success: true };
   } catch (err) { return { success: false, error: String(err) }; }
 });

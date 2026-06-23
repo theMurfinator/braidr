@@ -555,6 +555,7 @@ export const IPC_CHANNELS = {
   LOCK_WRITE: 'lock:write',
   LOCK_DELETE: 'lock:delete',
   GET_DEVICE_INFO: 'get-device-info',
+  SYNC_INFO_READ: 'sync-info:read',
   // SQLite .braidr file operations
   DETECT_PROJECT_FORMAT: 'detect-project-format',
   CONVERT_TO_BRAIDR: 'convert-to-braidr',

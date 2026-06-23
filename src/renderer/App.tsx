@@ -57,6 +57,41 @@ import CharacterHubPanel from './components/CharacterHubPanel';
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account' | 'arc';
 type BraidedSubMode = 'list' | 'table' | 'rails';
 
+function SyncCooldownDialog({ savedByName, initialWaitSeconds, onOpenAnyway, onCancel }: {
+  savedByName: string;
+  initialWaitSeconds: number;
+  onOpenAnyway: () => void;
+  onCancel: () => void;
+}) {
+  const [seconds, setSeconds] = useState(initialWaitSeconds);
+  useEffect(() => {
+    if (seconds <= 0) { onOpenAnyway(); return; }
+    const t = setTimeout(() => setSeconds(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [seconds]);
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  const countdown = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  return (
+    <div className="lock-takeover-overlay">
+      <div className="lock-takeover-dialog" onClick={e => e.stopPropagation()}>
+        <h3>iCloud may still be syncing</h3>
+        <p>
+          This project was last saved on <strong>{savedByName}</strong>. Opening too soon
+          can cause data loss if iCloud hasn&apos;t finished uploading the latest version.
+        </p>
+        <p className="sync-countdown">Opening in <strong>{countdown}</strong>&hellip;</p>
+        <div className="lock-takeover-actions">
+          <button onClick={onCancel}>Cancel</button>
+          <button className="lock-takeover-confirm" onClick={onOpenAnyway}>
+            Open Anyway
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const { addToast } = useToast();
   const {
@@ -269,6 +304,11 @@ function App() {
   // Lock state
   const [lockConflict, setLockConflict] = useState<{ projectPath: string; projectName?: string; heldBy: string } | null>(null);
   const [takenOverBy, setTakenOverBy] = useState<string | null>(null);
+
+  // Sync cooldown state
+  const [syncBlock, setSyncBlock] = useState<{
+    projectPath: string; projectName?: string; savedByName: string; waitSeconds: number;
+  } | null>(null);
 
 
   // Session tracker for time tracking
@@ -1131,6 +1171,15 @@ function App() {
     const lockBasePath = folderPath.endsWith('.braidr')
       ? folderPath.substring(0, folderPath.lastIndexOf('/'))
       : folderPath;
+
+    // Check sync cooldown before acquiring lock
+    try {
+      const syncCheck = await dataService.checkSyncCooldown(lockBasePath);
+      if (syncCheck.blocked) {
+        setSyncBlock({ projectPath: lockBasePath, projectName, savedByName: syncCheck.savedByName, waitSeconds: syncCheck.waitSeconds });
+        return;
+      }
+    } catch { /* non-fatal — proceed */ }
 
     loadInProgressRef.current = true;
     // Acquire project lock
@@ -5470,6 +5519,21 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Sync Cooldown Dialog */}
+      {syncBlock && (
+        <SyncCooldownDialog
+          savedByName={syncBlock.savedByName}
+          initialWaitSeconds={syncBlock.waitSeconds}
+          onOpenAnyway={() => {
+            const { projectPath, projectName } = syncBlock;
+            setSyncBlock(null);
+            loadInProgressRef.current = false;
+            loadProjectFromPath(projectPath, projectName);
+          }}
+          onCancel={() => setSyncBlock(null)}
+        />
       )}
 
       {/* Taken Over Toast */}

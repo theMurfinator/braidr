@@ -933,6 +933,10 @@ export class CapacitorDataService implements DataService {
     throw new Error(`Mutations are not supported on the Capacitor build: ${name}`);
   }
 
+  async checkSyncCooldown(_projectPath: string): Promise<{ blocked: false }> {
+    return { blocked: false }; // sync-info check is desktop-only
+  }
+
   async acquireProjectLock(projectPath: string, force?: boolean): Promise<{ acquired: boolean; heldBy?: string }> {
     const { deviceId, deviceName } = await getCapacitorDeviceInfo();
     const read = async (): Promise<LockData | null> => {

@@ -19971,6 +19971,17 @@ tr:hover .task-add-subtask-inline {
   line-height: 1.5;
 }
 
+.sync-countdown {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+}
+
+.sync-countdown strong {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
 .lock-takeover-actions {
   display: flex;
   justify-content: flex-end;

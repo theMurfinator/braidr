@@ -215,6 +215,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   lockDelete: (projectPath: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.LOCK_DELETE, projectPath),
   getDeviceInfo: () => ipcRenderer.invoke(IPC_CHANNELS.GET_DEVICE_INFO),
+  syncInfoRead: (projectPath: string) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_INFO_READ, projectPath),
   // License dialog (triggered from menu)
   onShowLicenseDialog: (callback: () => void) => {
     const listener = () => callback();
