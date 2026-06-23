@@ -112,6 +112,7 @@ const IPC_CHANNELS = {
   READ_SCENE_COMMENTS: 'read-scene-comments',
   SAVE_SCENE_COMMENTS: 'save-scene-comments',
   READ_ALL_PER_SCENE_CONTENT: 'read-all-per-scene-content',
+  SYNC_INFO_READ: 'sync-info:read',
 } as const;
 
 // Types for preload
