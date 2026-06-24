@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { RecentProject, ProjectTemplate } from '../../shared/types';
 import { UpdateBanner } from './UpdateBanner';
 import UpdateModal from './UpdateModal';
@@ -112,6 +113,7 @@ interface Props {
   onSelectFolder: () => void;
   onOpenRecentProject: (project: RecentProject) => void;
   onRemoveRecentProject: (projectPath: string) => void;
+  onDeleteProject: (projectPath: string) => void;
   onSelectLocation: () => void;
   onClearError: () => void;
   lockConflict: LockConflict | null;
@@ -132,9 +134,10 @@ export default function LandingScreen({
   recentProjects, loading, error, showUpdateModal, onCloseUpdateModal,
   showNewProject, onSetShowNewProject, newProjectName, onNewProjectNameChange,
   newProjectLocation, onNewProjectLocationChange, newProjectTemplate, onTemplateChange,
-  onCreateNewProject, onSelectFolder, onOpenRecentProject, onRemoveRecentProject, onSelectLocation,
+  onCreateNewProject, onSelectFolder, onOpenRecentProject, onRemoveRecentProject, onDeleteProject, onSelectLocation,
   onClearError, lockConflict, onCloseLockConflict, onTakeOver,
 }: Props) {
+  const [confirmDelete, setConfirmDelete] = useState<RecentProject | null>(null);
   return (
     <div className="app">
       {!showUpdateModal && <UpdateBanner />}
@@ -237,6 +240,19 @@ export default function LandingScreen({
                       title="Remove from recents"
                       disabled={loading}
                     >×</button>
+                    <button
+                      className="welcome-project-delete"
+                      onClick={(e) => { e.stopPropagation(); setConfirmDelete(project); }}
+                      title="Move to Trash"
+                      disabled={loading}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                        <path d="M10 11v6M14 11v6"/>
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                      </svg>
+                    </button>
                     </div>
                   );
                 })}
@@ -325,6 +341,30 @@ export default function LandingScreen({
       </div>
 
       {showUpdateModal && <UpdateModal onClose={onCloseUpdateModal} />}
+
+      {confirmDelete && (
+        <div className="branch-confirm-overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="branch-confirm-dialog" onClick={e => e.stopPropagation()}>
+            <h3>Move to Trash?</h3>
+            <p>
+              <strong>{confirmDelete.name}</strong> will be moved to the Trash.
+              You can recover it from there if needed.
+            </p>
+            <div className="branch-confirm-actions">
+              <button onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button
+                className="branch-confirm-delete"
+                onClick={() => {
+                  onDeleteProject(confirmDelete.path);
+                  setConfirmDelete(null);
+                }}
+              >
+                Move to Trash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {lockConflict && (
         <div className="lock-takeover-overlay" onClick={onCloseLockConflict}>

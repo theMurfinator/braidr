@@ -4017,6 +4017,10 @@ function App() {
           await dataService.removeRecentProject(projectPath);
           setRecentProjects(await dataService.getRecentProjects());
         }}
+        onDeleteProject={async (projectPath) => {
+          await dataService.deleteProject(projectPath);
+          setRecentProjects(await dataService.getRecentProjects());
+        }}
         onSelectLocation={handleSelectLocation}
         onClearError={() => setError(null)}
         lockConflict={lockConflict}

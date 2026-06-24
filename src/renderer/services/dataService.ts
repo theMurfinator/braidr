@@ -20,6 +20,7 @@ export interface DataService {
   getRecentProjects(): Promise<RecentProject[]>;
   addRecentProject(project: RecentProject): Promise<void>;
   removeRecentProject(projectPath: string): Promise<void>;
+  deleteProject(projectPath: string): Promise<void>;
   selectSaveLocation(): Promise<string | null>;
   createProject(parentPath: string, projectName: string, template: ProjectTemplate): Promise<string | null>;
   deleteFile(filePath: string): Promise<void>;
@@ -179,6 +180,11 @@ class ElectronDataService implements DataService {
 
   async removeRecentProject(projectPath: string): Promise<void> {
     await window.electronAPI.removeRecentProject(projectPath);
+  }
+
+  async deleteProject(projectPath: string): Promise<void> {
+    const result = await window.electronAPI.deleteProject(projectPath);
+    if (!result.success) throw new Error(result.error);
   }
 
   async selectSaveLocation(): Promise<string | null> {

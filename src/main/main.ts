@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, net } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, protocol, net, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
@@ -1268,6 +1268,24 @@ ipcMain.handle(IPC_CHANNELS.REMOVE_RECENT_PROJECT, async (_event, projectPath: s
     const norm = normalizeProjPath(projectPath);
     projects = projects.filter(p => normalizeProjPath(p.path) !== norm);
     fs.writeFileSync(configPath, JSON.stringify(projects, null, 2), 'utf-8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.DELETE_PROJECT, async (_event, projectPath: string) => {
+  try {
+    await shell.trashItem(projectPath);
+    // Also remove from recents
+    const configPath = getConfigPath();
+    if (fs.existsSync(configPath)) {
+      const content = fs.readFileSync(configPath, 'utf-8');
+      let projects: RecentProject[] = JSON.parse(content);
+      const norm = normalizeProjPath(projectPath);
+      projects = projects.filter(p => normalizeProjPath(p.path) !== norm);
+      fs.writeFileSync(configPath, JSON.stringify(projects, null, 2), 'utf-8');
+    }
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };

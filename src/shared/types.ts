@@ -494,6 +494,7 @@ export const IPC_CHANNELS = {
   GET_RECENT_PROJECTS: 'get-recent-projects',
   ADD_RECENT_PROJECT: 'add-recent-project',
   REMOVE_RECENT_PROJECT: 'remove-recent-project',
+  DELETE_PROJECT: 'delete-project',
   CREATE_PROJECT: 'create-project',
   SELECT_SAVE_LOCATION: 'select-save-location',
   DELETE_FILE: 'delete-file',

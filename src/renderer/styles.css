@@ -1312,6 +1312,32 @@ textarea:focus-visible {
   background: rgba(220,38,38,0.85);
 }
 
+.welcome-project-card-wrapper .welcome-project-delete {
+  display: none;
+  position: absolute;
+  top: 30px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: rgba(0,0,0,0.45);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.welcome-project-card-wrapper:hover .welcome-project-delete {
+  display: flex;
+}
+
+.welcome-project-card-wrapper .welcome-project-delete:hover {
+  background: rgba(220,38,38,0.85);
+}
+
 .welcome-project-card {
   display: flex;
   flex-direction: column;
