@@ -1,5 +1,8 @@
 # Novel Outlining Tool
 
+## Design System
+Before any UI work, read `docs/design-system.md`. Use its tokens for every color, font, and spacing decision. Do not hardcode values or introduce anything not in that file.
+
 ## Product Vision
 A tool for managing multiple POV character outlines with independent timeline views. Writers can see scenes in character arc order (POV view) OR in reading/chronological order (braided timeline view). Full replacement for Obsidian-based outlining workflow.
 
