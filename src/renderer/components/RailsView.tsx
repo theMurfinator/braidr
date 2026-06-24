@@ -90,11 +90,28 @@ export default function RailsView({
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
   const [inboxCollapsed, setInboxCollapsed] = useState(false);
+  const userToggledInbox = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const savedScrollTop = useRef<number | null>(null);
   const railsViewRef = useRef<HTMLDivElement>(null);
   useAutoScrollOnDrag(scrollRef, !!draggedSceneId);
+
+  // Auto-collapse inbox when the view gets too narrow; respect manual toggles
+  useEffect(() => {
+    const el = railsViewRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(entries => {
+      const width = entries[0].contentRect.width;
+      if (width < 700 && !userToggledInbox.current) {
+        setInboxCollapsed(true);
+      } else if (width >= 700) {
+        userToggledInbox.current = false;
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Touch-device detection for pointer-event drag (iPad)
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -491,7 +508,7 @@ export default function RailsView({
       <div className="rails-main" ref={scrollRef}>
         <div className="rails-toolbar">
           <div className="rails-toolbar-spacer" />
-          <button className="editor-panel-toggle" onClick={() => setInboxCollapsed(!inboxCollapsed)} title={inboxCollapsed ? 'Show To Braid panel (Cmd+])' : 'Hide To Braid panel (Cmd+])'}>
+          <button className="editor-panel-toggle" onClick={() => { userToggledInbox.current = true; setInboxCollapsed(!inboxCollapsed); }} title={inboxCollapsed ? 'Show To Braid panel (Cmd+])' : 'Hide To Braid panel (Cmd+])'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
               <rect x="0.75" y="0.75" width="16.5" height="12.5" rx="2.25" stroke="currentColor" strokeWidth="1.5"/>
               <line x1="12.5" y1="0.75" x2="12.5" y2="13.25" stroke="currentColor" strokeWidth="1.5"/>
@@ -1022,7 +1039,7 @@ export default function RailsView({
       </div>}
 
       {inboxCollapsed && (
-        <div className="to-braid-inbox-collapsed" onClick={() => setInboxCollapsed(false)} title="Show To Braid panel (Cmd+])">
+        <div className="to-braid-inbox-collapsed" onClick={() => { userToggledInbox.current = true; setInboxCollapsed(false); }} title="Show To Braid panel (Cmd+])">
           <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
             <rect x="0.75" y="0.75" width="16.5" height="12.5" rx="2.25" stroke="currentColor" strokeWidth="1.5"/>
             <line x1="12.5" y1="0.75" x2="12.5" y2="13.25" stroke="currentColor" strokeWidth="1.5"/>

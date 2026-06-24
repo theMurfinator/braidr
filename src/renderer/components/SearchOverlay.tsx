@@ -63,6 +63,21 @@ export default function SearchOverlay({ scenes, characters, tags, draftContent, 
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Dense per-character display numbers (matches POV view's flatSectionScenes index)
+  const sceneDisplayNum = useMemo(() => {
+    const map = new Map<string, number>();
+    const byChar = new Map<string, Scene[]>();
+    for (const s of scenes) {
+      if (!byChar.has(s.characterId)) byChar.set(s.characterId, []);
+      byChar.get(s.characterId)!.push(s);
+    }
+    for (const charScenes of byChar.values()) {
+      charScenes.sort((a, b) => a.sceneNumber - b.sceneNumber);
+      charScenes.forEach((s, i) => map.set(s.id, i + 1));
+    }
+    return map;
+  }, [scenes]);
+
   // Search results
   const results = useMemo(() => {
     const q = debouncedQuery.trim().toLowerCase();
@@ -76,10 +91,11 @@ export default function SearchOverlay({ scenes, characters, tags, draftContent, 
       const cleanContent = scene.content.replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '').replace(/#\w+/g, '');
       if (cleanContent.toLowerCase().includes(q)) {
         const charName = characters.find(c => c.id === scene.characterId)?.name || '';
+        const num = sceneDisplayNum.get(scene.id) ?? scene.sceneNumber;
         sceneResults.push({
           type: 'scene',
           id: scene.id,
-          title: `${charName} — Scene ${scene.sceneNumber}`,
+          title: `${charName} — Scene ${num}`,
           snippet: getSnippet(cleanContent, q),
           characterId: scene.characterId,
         });
@@ -95,10 +111,11 @@ export default function SearchOverlay({ scenes, characters, tags, draftContent, 
       if (plainText.toLowerCase().includes(q)) {
         const matchScene = scenes.find(s => s.id === key);
         const charName = matchScene ? (characters.find(c => c.id === matchScene.characterId)?.name || '') : '';
+        const num = matchScene ? (sceneDisplayNum.get(matchScene.id) ?? matchScene.sceneNumber) : '?';
         draftResults.push({
           type: 'draft',
           id: key,
-          title: `${charName} — Scene ${matchScene?.sceneNumber ?? '?'} (draft)`,
+          title: `${charName} — Scene ${num} (draft)`,
           snippet: getSnippet(plainText, q),
           sceneKey: key,
         });

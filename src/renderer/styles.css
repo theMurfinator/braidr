@@ -1280,9 +1280,42 @@ textarea:focus-visible {
 }
 
 /* Project card — color bar top */
+.welcome-project-card-wrapper {
+  position: relative;
+}
+
+.welcome-project-card-wrapper .welcome-project-remove {
+  display: none;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: rgba(0,0,0,0.45);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.welcome-project-card-wrapper:hover .welcome-project-remove {
+  display: flex;
+}
+
+.welcome-project-card-wrapper .welcome-project-remove:hover {
+  background: rgba(220,38,38,0.85);
+}
+
 .welcome-project-card {
   display: flex;
   flex-direction: column;
+  width: 100%;
   min-height: 180px;
   background: #FFFFFF;
   border: none;
@@ -1833,6 +1866,14 @@ textarea:focus-visible {
 .plot-point-count:hover {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
+}
+
+.plot-point-count.over-target {
+  color: #dc2626;
+}
+
+.plot-point-count.under-target {
+  color: var(--text-muted);
 }
 
 .plot-point-count-input {

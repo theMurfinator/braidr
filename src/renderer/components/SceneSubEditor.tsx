@@ -1,8 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Heading from '@tiptap/extension-heading';
-import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Scene } from '../../shared/types';
 
@@ -50,9 +48,7 @@ export default function SceneSubEditor({
       attributes: { spellcheck: 'true' },
     },
     extensions: [
-      StarterKit,
-      Heading.configure({ levels: [2, 3] }),
-      HorizontalRule,
+      StarterKit.configure({ heading: { levels: [2, 3] } }),
       Placeholder.configure({ placeholder: '' }),
     ],
     content: content || '',

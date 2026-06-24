@@ -157,7 +157,11 @@ function SectionHeader({
             {editTitle}
           </span>
         )}
-        <span className="plot-point-count" onClick={() => setIsEditingCount(true)} title="Click to edit expected scene count">
+        <span
+          className={`plot-point-count${section.expectedSceneCount != null && sceneCount > section.expectedSceneCount ? ' over-target' : section.expectedSceneCount != null && sceneCount < section.expectedSceneCount ? ' under-target' : ''}`}
+          onClick={() => setIsEditingCount(true)}
+          title="Click to edit expected scene count"
+        >
           {isEditingCount ? (
             <input
               ref={countInputRef}

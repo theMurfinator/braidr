@@ -2,8 +2,6 @@ import { useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import Heading from '@tiptap/extension-heading';
-import HorizontalRule from '@tiptap/extension-horizontal-rule';
 
 // Inline editable scene-text editor for the preview panel. Mirrors EditorView's
 // draft editor (same extensions + 800ms debounced auto-save) so edits here write
@@ -22,9 +20,7 @@ function ScenePreviewEditor({ sceneId, draftContent, onDraftChange }: {
   const editor = useEditor({
     editorProps: { attributes: { spellcheck: 'true' } },
     extensions: [
-      StarterKit,
-      Heading.configure({ levels: [2, 3] }),
-      HorizontalRule,
+      StarterKit.configure({ heading: { levels: [2, 3] } }),
       Placeholder.configure({ placeholder: 'Write this scene…' }),
     ],
     content: draftContent[sceneId] || '',

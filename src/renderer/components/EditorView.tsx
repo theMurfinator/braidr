@@ -4,8 +4,6 @@ import { track } from '../utils/posthogTracker';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import Heading from '@tiptap/extension-heading';
-import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Scene, Character, PlotPoint, Tag, TagCategory, MetadataFieldDef, ArcFieldDef, DraftVersion, NoteMetadata, SceneComment, Task, TaskStatus, Chapter } from '../../shared/types';
@@ -821,9 +819,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
       attributes: { spellcheck: 'true' },
     },
     extensions: [
-      StarterKit,
-      Heading.configure({ levels: [2, 3] }),
-      HorizontalRule,
+      StarterKit.configure({ heading: { levels: [2, 3] } }),
       Placeholder.configure({ placeholder: '' }),
     ],
     content: selectedSceneKey ? (draftContent[selectedSceneKey] || '') : '',
@@ -1022,14 +1018,21 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
   useEffect(() => {
     if (isMultiSelect) return;
     if (!selectedScene || !selectedSceneKey) return;
-    const hasDraft = draftContent[selectedSceneKey] && draftContent[selectedSceneKey] !== '<p></p>';
-    if (!hasDraft) return;
+    const loadedDraft = draftContent[selectedSceneKey];
+    const hasDraft = loadedDraft && loadedDraft !== '<p></p>';
+    if (!hasDraft) {
+      // Draft was loaded from DB and is empty — clear any stale stored count
+      if (loadedDraft !== undefined && (selectedScene.wordCount ?? 0) > 0) {
+        onWordCountChange(selectedScene.id, 0);
+      }
+      return;
+    }
     if (wordCountDebounceRef.current) clearTimeout(wordCountDebounceRef.current);
     wordCountDebounceRef.current = setTimeout(() => {
       onWordCountChange(selectedScene.id, singleWordCount || undefined);
     }, 1500);
     return () => { if (wordCountDebounceRef.current) clearTimeout(wordCountDebounceRef.current); };
-  }, [singleWordCount, selectedScene?.id, isMultiSelect]);
+  }, [singleWordCount, selectedScene?.id, isMultiSelect, draftContent[selectedSceneKey ?? '']]);
 
   // Tag picker close on outside click
   useEffect(() => {

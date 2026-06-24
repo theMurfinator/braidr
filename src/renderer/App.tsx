@@ -677,41 +677,62 @@ function App() {
     loadRecent();
   }, []);
 
-  // Close settings menu on click outside
+  // Close settings menu on click outside or Esc
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (showSettingsMenu && settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node)) {
         setShowSettingsMenu(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showSettingsMenu) setShowSettingsMenu(false);
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [showSettingsMenu]);
 
-  // Close fields dropdown on click outside
+  // Close fields dropdown on click outside or Esc
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (fieldsDropdownRef.current && !fieldsDropdownRef.current.contains(e.target as Node)) {
         setShowFieldsDropdown(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowFieldsDropdown(false);
+    };
     if (showFieldsDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [showFieldsDropdown]);
 
-  // Close new dropdown on click outside
+  // Close new dropdown on click outside or Esc
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (newDropdownRef.current && !newDropdownRef.current.contains(e.target as Node)) {
         setShowNewDropdown(false);
       }
     };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowNewDropdown(false);
+    };
     if (showNewDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [showNewDropdown]);
 
   // Fetch license status for account display
@@ -1464,6 +1485,12 @@ function App() {
       for (const te of task.timeEntries) {
         const idx = thisWeekDays.indexOf(toLocalDateStr(new Date(te.startedAt)));
         if (idx >= 0) perDayMs[idx] += te.duration;
+      }
+      for (const sub of (task.subtasks || [])) {
+        for (const te of sub.timeEntries) {
+          const idx = thisWeekDays.indexOf(toLocalDateStr(new Date(te.startedAt)));
+          if (idx >= 0) perDayMs[idx] += te.duration;
+        }
       }
     }
     const todayStr = getTodayStr();
@@ -3986,6 +4013,10 @@ function App() {
         onCreateNewProject={handleCreateNewProject}
         onSelectFolder={handleSelectFolder}
         onOpenRecentProject={handleOpenRecentProject}
+        onRemoveRecentProject={async (projectPath) => {
+          await dataService.removeRecentProject(projectPath);
+          setRecentProjects(await dataService.getRecentProjects());
+        }}
         onSelectLocation={handleSelectLocation}
         onClearError={() => setError(null)}
         lockConflict={lockConflict}
@@ -4820,20 +4851,28 @@ function App() {
                 </div>
               )}
               <div className="toolbar-divider" />
-              <button
-                className="toolbar-btn"
-                onClick={() => handleSetAllSynopsisModes('inline')}
-                title="Show all synopses"
-              >
-                Show synopses
-              </button>
-              <button
-                className="toolbar-btn"
-                onClick={() => handleSetAllSynopsisModes('expand')}
-                title="Hide all synopses"
-              >
-                Hide synopses
-              </button>
+              {(() => {
+                const charSections = projectData?.plotPoints.filter(p => p.characterId === selectedCharacterId) ?? [];
+                const allHidden = charSections.length > 0 && charSections.every(p => sectionSynopsisModes[p.id] === 'expand');
+                return (
+                  <>
+                    <button
+                      className={`toolbar-btn${!allHidden ? ' active' : ''}`}
+                      onClick={() => handleSetAllSynopsisModes('inline')}
+                      title="Show all synopses"
+                    >
+                      Show synopses
+                    </button>
+                    <button
+                      className={`toolbar-btn${allHidden ? ' active' : ''}`}
+                      onClick={() => handleSetAllSynopsisModes('expand')}
+                      title="Hide all synopses"
+                    >
+                      Hide synopses
+                    </button>
+                  </>
+                );
+              })()}
               <button
                 className={`toolbar-btn ${!(hideSectionHeaders[activeTab.id] ?? false) ? 'active' : ''}`}
                 onClick={() => setHideSectionHeaders(prev => ({ ...prev, [activeTab.id]: !(prev[activeTab.id] ?? false) }))}
@@ -4960,6 +4999,7 @@ function App() {
             <>
               <div className="toolbar-divider" />
               <BranchSelector
+                key={viewMode}
                 branchIndex={branchIndex}
                 onCreateBranch={handleCreateBranch}
                 onSwitchBranch={handleSwitchBranch}

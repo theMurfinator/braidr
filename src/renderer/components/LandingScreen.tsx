@@ -111,6 +111,7 @@ interface Props {
   onCreateNewProject: () => void;
   onSelectFolder: () => void;
   onOpenRecentProject: (project: RecentProject) => void;
+  onRemoveRecentProject: (projectPath: string) => void;
   onSelectLocation: () => void;
   onClearError: () => void;
   lockConflict: LockConflict | null;
@@ -131,7 +132,7 @@ export default function LandingScreen({
   recentProjects, loading, error, showUpdateModal, onCloseUpdateModal,
   showNewProject, onSetShowNewProject, newProjectName, onNewProjectNameChange,
   newProjectLocation, onNewProjectLocationChange, newProjectTemplate, onTemplateChange,
-  onCreateNewProject, onSelectFolder, onOpenRecentProject, onSelectLocation,
+  onCreateNewProject, onSelectFolder, onOpenRecentProject, onRemoveRecentProject, onSelectLocation,
   onClearError, lockConflict, onCloseLockConflict, onTakeOver,
 }: Props) {
   return (
@@ -179,8 +180,8 @@ export default function LandingScreen({
                   const extraCount = charNames.length > 4 ? charNames.length - 4 : 0;
 
                   return (
+                    <div key={project.path} className="welcome-project-card-wrapper">
                     <button
-                      key={project.path}
                       className="welcome-project-card"
                       onClick={() => onOpenRecentProject(project)}
                       disabled={loading}
@@ -230,6 +231,13 @@ export default function LandingScreen({
                         </div>
                       </div>
                     </button>
+                    <button
+                      className="welcome-project-remove"
+                      onClick={(e) => { e.stopPropagation(); onRemoveRecentProject(project.path); }}
+                      title="Remove from recents"
+                      disabled={loading}
+                    >×</button>
+                    </div>
                   );
                 })}
               </div>

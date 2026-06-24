@@ -1229,6 +1229,9 @@ ipcMain.handle(IPC_CHANNELS.GET_RECENT_PROJECTS, async () => {
   }
 });
 
+// Normalize a project path for dedup: strip .braidr extension so folder+file paths for the same project match
+const normalizeProjPath = (p: string) => p.endsWith('.braidr') ? p.slice(0, -7) : p.replace(/\/$/, '');
+
 ipcMain.handle(IPC_CHANNELS.ADD_RECENT_PROJECT, async (_event, project: RecentProject) => {
   try {
     const configPath = getConfigPath();
@@ -1239,8 +1242,9 @@ ipcMain.handle(IPC_CHANNELS.ADD_RECENT_PROJECT, async (_event, project: RecentPr
       projects = JSON.parse(content);
     }
 
-    // Remove if already exists (we'll re-add at top)
-    projects = projects.filter(p => p.path !== project.path);
+    // Remove if already exists (exact path or same normalized path — catches folder vs .braidr duplicates)
+    const norm = normalizeProjPath(project.path);
+    projects = projects.filter(p => normalizeProjPath(p.path) !== norm);
 
     // Add to beginning
     projects.unshift(project);
@@ -1248,6 +1252,21 @@ ipcMain.handle(IPC_CHANNELS.ADD_RECENT_PROJECT, async (_event, project: RecentPr
     // Keep only last 10
     projects = projects.slice(0, 10);
 
+    fs.writeFileSync(configPath, JSON.stringify(projects, null, 2), 'utf-8');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.REMOVE_RECENT_PROJECT, async (_event, projectPath: string) => {
+  try {
+    const configPath = getConfigPath();
+    if (!fs.existsSync(configPath)) return { success: true };
+    const content = fs.readFileSync(configPath, 'utf-8');
+    let projects: RecentProject[] = JSON.parse(content);
+    const norm = normalizeProjPath(projectPath);
+    projects = projects.filter(p => normalizeProjPath(p.path) !== norm);
     fs.writeFileSync(configPath, JSON.stringify(projects, null, 2), 'utf-8');
     return { success: true };
   } catch (error) {

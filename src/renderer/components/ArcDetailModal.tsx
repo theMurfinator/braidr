@@ -6,8 +6,6 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { CSS } from '@dnd-kit/utilities';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Heading from '@tiptap/extension-heading';
-import HorizontalRule from '@tiptap/extension-horizontal-rule';
 import Placeholder from '@tiptap/extension-placeholder';
 import ArcFieldManager from './ArcFieldManager';
 import type { ArcFieldDef, ArcTemplate, Scene, Character } from '../../shared/types';
@@ -559,9 +557,7 @@ function SceneTextPanel({ scene, draftContent, onDraftChange, onGoToScene, onBac
   const editor = useEditor({
     editorProps: { attributes: { spellcheck: 'true' } },
     extensions: [
-      StarterKit,
-      Heading.configure({ levels: [2, 3] }),
-      HorizontalRule,
+      StarterKit.configure({ heading: { levels: [2, 3] } }),
       Placeholder.configure({ placeholder: 'Write this scene…' }),
     ],
     content: draftContent[scene.id] || '',

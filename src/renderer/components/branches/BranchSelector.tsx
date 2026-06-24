@@ -35,7 +35,7 @@ export function BranchSelector({
   const containerRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Close dropdown on click outside
+  // Close dropdown on click outside or Esc
   useEffect(() => {
     if (!open) return;
     function handleMouseDown(e: MouseEvent) {
@@ -44,8 +44,18 @@ export function BranchSelector({
         setCreating(false);
       }
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        setCreating(false);
+      }
+    }
     document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [open]);
 
   // Focus name input when creating
