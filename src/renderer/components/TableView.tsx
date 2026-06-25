@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Scene, Character, MetadataFieldDef, Tag, TableViewConfig, FilterRule, Chapter } from '../../shared/types';
 import TablePovSlideover from './TablePovSlideover';
+import { OptionEditor } from './OptionEditor';
 
 type FilterOperator = 'is' | 'is_not' | 'is_blank' | 'is_not_blank' | 'contains';
 
@@ -23,6 +24,7 @@ interface TableViewProps {
   onMovePovScene: (sceneId: string, targetIndex: number, targetPlotPointId: string | null) => void;
   onAddSceneForCharacter: (characterId: string) => void;
   onReorderScenes: (orderedSceneIds: string[]) => void;
+  onMetadataFieldDefsChange: (defs: MetadataFieldDef[]) => void;
 }
 
 type SortField = 'scene' | 'character' | 'status' | 'words' | 'plotPoint' | string;
@@ -64,6 +66,7 @@ export default function TableView({
   onMovePovScene,
   onAddSceneForCharacter,
   onReorderScenes,
+  onMetadataFieldDefsChange,
 }: TableViewProps) {
   const [currentViewId, setCurrentViewId] = useState<string | null>(null);
 
@@ -72,7 +75,6 @@ export default function TableView({
   const [editingCell, setEditingCell] = useState<{ sceneKey: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [showColumnMenu, setShowColumnMenu] = useState(false);
-  const [showViewMenu, setShowViewMenu] = useState(false);
   const [showNewViewDialog, setShowNewViewDialog] = useState(false);
   const [newViewName, setNewViewName] = useState('');
   const [showFilterBuilder, setShowFilterBuilder] = useState(false);
@@ -239,6 +241,40 @@ export default function TableView({
     setEditValue('');
   };
 
+  // Field editor modal
+  const [showMetaEditor, setShowMetaEditor] = useState(false);
+  const [editingFieldDefs, setEditingFieldDefs] = useState<MetadataFieldDef[]>([]);
+
+  const openMetaEditor = () => {
+    setEditingFieldDefs(metadataFieldDefs.filter(f => f.id !== '_status'));
+    setShowMetaEditor(true);
+    setShowColumnMenu(false);
+  };
+
+  const addField = () => {
+    setEditingFieldDefs(prev => [...prev, {
+      id: Math.random().toString(36).substring(2, 11),
+      label: 'New Field',
+      type: 'text',
+      options: [],
+      order: prev.length,
+    }]);
+  };
+
+  const removeField = (id: string) => {
+    setEditingFieldDefs(prev => prev.filter(f => f.id !== id));
+  };
+
+  const updateField = (id: string, changes: Partial<MetadataFieldDef>) => {
+    setEditingFieldDefs(prev => prev.map(f => f.id === id ? { ...f, ...changes } : f));
+  };
+
+  const saveMetaFields = () => {
+    const statusDef = metadataFieldDefs.find(f => f.id === '_status');
+    onMetadataFieldDefsChange(statusDef ? [statusDef, ...editingFieldDefs] : editingFieldDefs);
+    setShowMetaEditor(false);
+  };
+
   const [groupBy, setGroupBy] = useState<'none' | 'plotPoint' | 'chapter'>('none');
   const [showAddSceneMenu, setShowAddSceneMenu] = useState(false);
   const addSceneMenuRef = useRef<HTMLDivElement>(null);
@@ -330,7 +366,7 @@ export default function TableView({
     setSortDirection(view.sortDirection);
     setFilterRules(view.filterRules || []);
     setGroupBy(view.groupBy || 'none');
-    setShowViewMenu(false);
+    setShowOverflowMenu(false);
   };
 
   const saveCurrentView = () => {
@@ -355,22 +391,9 @@ export default function TableView({
     setShowNewViewDialog(false);
   };
 
-  const setDefaultView = (viewId: string) => {
-    onTableViewsChange(tableViews.map(v => ({ ...v, isDefault: v.id === viewId ? !v.isDefault : false })));
-  };
-
   const deleteView = (viewId: string) => {
     onTableViewsChange(tableViews.filter(v => v.id !== viewId));
     if (currentViewId === viewId) setCurrentViewId(null);
-  };
-
-  const resetToDefault = () => {
-    setVisibleColumns(new Set(['scene', 'character', 'status', 'words', 'plotPoint']));
-    setSortField('scene');
-    setSortDirection('asc');
-    setFilterRules([]);
-    setCurrentViewId(null);
-    setShowViewMenu(false);
   };
 
   // Filter builder helpers
@@ -473,6 +496,12 @@ export default function TableView({
   }, [columnOrder, allColumns]);
 
   const columnMenuRef = useRef<HTMLDivElement>(null);
+  const overflowMenuRef = useRef<HTMLDivElement>(null);
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+
+  const MAX_VISIBLE_TABS = 5;
+  const visibleTabs = tableViews.slice(0, MAX_VISIBLE_TABS);
+  const overflowTabs = tableViews.slice(MAX_VISIBLE_TABS);
 
   // Close column menu on outside click
   useEffect(() => {
@@ -486,6 +515,19 @@ export default function TableView({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showColumnMenu]);
+
+  // Close overflow menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (overflowMenuRef.current && !overflowMenuRef.current.contains(e.target as Node)) {
+        setShowOverflowMenu(false);
+      }
+    };
+    if (showOverflowMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showOverflowMenu]);
 
   // Load default view on first load
   useEffect(() => {
@@ -521,6 +563,63 @@ export default function TableView({
           >
             Filter{filterRules.length > 0 ? ` (${filterRules.length})` : ''}
           </button>
+
+          {/* Inline view tabs */}
+          <div className="table-views-inline-sep" />
+
+          {visibleTabs.map(view => (
+            <button
+              key={view.id}
+              className={`table-view-tab ${currentViewId === view.id ? 'active' : ''}`}
+              onClick={() => loadView(view.id)}
+            >
+              <span>{view.name}</span>
+              <span
+                className="table-view-tab-delete"
+                onClick={e => { e.stopPropagation(); deleteView(view.id); }}
+                title="Delete view"
+              >×</span>
+            </button>
+          ))}
+
+          {overflowTabs.length > 0 && (
+            <div className="table-view-dropdown" ref={overflowMenuRef}>
+              <button
+                className="table-view-tab table-view-tab-overflow"
+                onClick={() => setShowOverflowMenu(!showOverflowMenu)}
+              >
+                +{overflowTabs.length} more
+              </button>
+              {showOverflowMenu && (
+                <div className="table-view-dropdown-menu" style={{ minWidth: '180px' }}>
+                  {overflowTabs.map(view => (
+                    <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '2px 4px' }}>
+                      <div
+                        className="table-view-dropdown-item"
+                        style={{ flex: 1 }}
+                        onClick={() => { loadView(view.id); setShowOverflowMenu(false); }}
+                      >
+                        {view.name}
+                      </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); deleteView(view.id); }}
+                        style={{ padding: '2px 6px', fontSize: '11px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            className="table-view-tab table-view-tab-add"
+            onClick={() => setShowNewViewDialog(true)}
+          >
+            + View
+          </button>
+
+          <div className="table-views-inline-sep" />
 
           <div className="table-view-dropdown" ref={addSceneMenuRef}>
             <button
@@ -565,49 +664,14 @@ export default function TableView({
                     <span>{col.label}</span>
                   </div>
                 ))}
+                <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                <div className="table-view-dropdown-item" onClick={openMetaEditor}>
+                  + Edit Properties...
+                </div>
               </div>
             )}
           </div>
 
-          <div className="table-view-dropdown">
-            <button className="table-control-btn" onClick={() => setShowViewMenu(!showViewMenu)}>
-              {currentViewId && tableViews.find(v => v.id === currentViewId)
-                ? tableViews.find(v => v.id === currentViewId)!.name
-                : 'Views'}
-            </button>
-            {showViewMenu && (
-              <div className="table-view-dropdown-menu" style={{ minWidth: '220px' }}>
-                {tableViews.map(view => (
-                  <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px' }}>
-                    <div className="table-view-dropdown-item" style={{ flex: 1, padding: '8px' }} onClick={() => loadView(view.id)}>
-                      {view.isDefault && <span style={{ color: 'var(--accent)', marginRight: 4 }}>★</span>}
-                      {view.name}
-                    </div>
-                    <button
-                      title={view.isDefault ? 'Remove default' : 'Set as default'}
-                      onClick={e => { e.stopPropagation(); setDefaultView(view.id); }}
-                      style={{ padding: '4px 6px', fontSize: '11px', background: view.isDefault ? 'var(--accent)' : 'transparent', color: view.isDefault ? 'white' : 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                      ★
-                    </button>
-                    <button
-                      onClick={e => { e.stopPropagation(); deleteView(view.id); }}
-                      style={{ padding: '4px 8px', fontSize: '11px', background: 'transparent', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-muted)' }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-                {tableViews.length > 0 && <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />}
-                <div className="table-view-dropdown-item" onClick={() => { setShowViewMenu(false); setShowNewViewDialog(true); }}>
-                  + Save Current View
-                </div>
-                <div className="table-view-dropdown-item" onClick={resetToDefault}>
-                  Reset to Default
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -1202,6 +1266,54 @@ export default function TableView({
           />
         );
       })()}
+
+      {/* Metadata Field Editor Modal */}
+      {showMetaEditor && (
+        <div className="modal-overlay" onClick={() => setShowMetaEditor(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Properties</h3>
+              <button className="modal-close-btn" onClick={() => setShowMetaEditor(false)}>×</button>
+            </div>
+            <div className="modal-body" style={{ padding: '16px', minWidth: '520px', overflowY: 'auto' }}>
+              {editingFieldDefs.map(field => (
+                <div key={field.id} className="meta-field-editor-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      className="meta-field-editor-label"
+                      value={field.label}
+                      onChange={e => updateField(field.id, { label: e.target.value })}
+                      placeholder="Field name"
+                    />
+                    <select
+                      value={field.type}
+                      onChange={e => updateField(field.id, { type: e.target.value as MetadataFieldDef['type'], options: [], optionColors: {} })}
+                    >
+                      <option value="text">Text</option>
+                      <option value="dropdown">Dropdown</option>
+                      <option value="multiselect">Multiselect</option>
+                    </select>
+                    <button className="meta-field-editor-remove" onClick={() => removeField(field.id)}>×</button>
+                  </div>
+                  {(field.type === 'dropdown' || field.type === 'multiselect') && (
+                    <OptionEditor
+                      options={field.options || []}
+                      optionColors={field.optionColors || {}}
+                      onChange={(options, optionColors) => updateField(field.id, { options, optionColors })}
+                    />
+                  )}
+                </div>
+              ))}
+              <button className="meta-field-editor-add" onClick={addField}>+ Add Property</button>
+              <div className="meta-field-editor-actions">
+                <button className="meta-field-editor-save" onClick={saveMetaFields}>Save</button>
+                <button className="meta-field-editor-cancel" onClick={() => setShowMetaEditor(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
