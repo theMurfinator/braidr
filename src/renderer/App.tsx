@@ -4505,6 +4505,7 @@ function App() {
                   onAddSceneForCharacter={handleAddSceneForCharacterFromTable}
                   onReorderScenes={handleReorderScenesFromTable}
                   onSceneChange={handleSceneChange}
+                  onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
                 />
                 {listFloatingEditor && (
                   <FloatingEditor

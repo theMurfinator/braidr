@@ -10045,6 +10045,73 @@ textarea.editor-meta-field-input {
   flex-direction: column;
 }
 
+/* Inline view tabs (inside controls bar) */
+.table-views-inline-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--text-muted);
+  opacity: 0.35;
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+.table-view-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+
+.table-view-tab:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.table-view-tab.active {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.table-view-tab-delete {
+  display: none;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+  padding: 1px 2px;
+  border-radius: 3px;
+}
+
+.table-view-tab:hover .table-view-tab-delete {
+  display: inline;
+}
+
+.table-view-tab-delete:hover {
+  color: var(--text-primary);
+}
+
+.table-view-tab-add {
+  color: var(--text-muted);
+}
+
+.table-view-tab-add:hover {
+  color: var(--text-primary);
+}
+
+.table-view-tab-overflow {
+  font-size: 12px;
+}
+
 /* Table Controls Bar */
 .table-view-controls {
   display: flex;
@@ -10056,7 +10123,7 @@ textarea.editor-meta-field-input {
   flex-shrink: 0;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 200;
 }
 
 .table-view-controls-left {
