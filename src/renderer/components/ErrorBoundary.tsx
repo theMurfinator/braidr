@@ -60,7 +60,7 @@ class ErrorBoundary extends Component<Props, State> {
           justifyContent: 'center',
           height: '100vh',
           padding: '48px',
-          fontFamily: '"DM Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+          fontFamily: 'Arial, sans-serif',
           color: '#333',
           backgroundColor: '#FFFFFF',
           textAlign: 'center',

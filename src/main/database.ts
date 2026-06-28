@@ -1092,10 +1092,16 @@ export class BraidrDB {
   }
 
   replaceArcFieldValues(entityType: string, entityId: string, values: { field_def_id: string; value: string }[]) {
+    // Filter to only field def IDs that actually exist — prevents FK constraint failures
+    // when sceneMetadata contains stale IDs from a migration that didn't fully complete.
+    const existingDefIds = new Set(
+      (this.db.prepare('SELECT id FROM arc_field_defs').all() as { id: string }[]).map(r => r.id)
+    );
+    const validValues = values.filter(v => existingDefIds.has(v.field_def_id));
     const insert = this.db.prepare('INSERT INTO arc_field_values (entity_type, entity_id, field_def_id, value) VALUES (?, ?, ?, ?)');
     this.db.transaction(() => {
       this.db.prepare('DELETE FROM arc_field_values WHERE entity_type = ? AND entity_id = ?').run(entityType, entityId);
-      for (const v of values) insert.run(entityType, entityId, v.field_def_id, v.value);
+      for (const v of validValues) insert.run(entityType, entityId, v.field_def_id, v.value);
       if (entityType === 'act' || entityType === 'section') {
         syncArcNodeFieldValues(this.db, entityType, entityId);
       } else if (entityType === 'scene') {

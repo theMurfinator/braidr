@@ -381,6 +381,8 @@ function createWindow() {
     y: mainWindowState.y,
     width: mainWindowState.width,
     height: mainWindowState.height,
+    minWidth: 960,
+    minHeight: 600,
     icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
@@ -402,23 +404,43 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
 
-  // Spellcheck context menu: show suggestions on right-click
+  // Context menu: standard clipboard ops + spell check suggestions
   mainWindow.webContents.on('context-menu', (_event, params) => {
+    const menuItems: Electron.MenuItemConstructorOptions[] = [];
+
+    // Spell-check suggestions
     if (params.misspelledWord) {
-      const menuItems: Electron.MenuItemConstructorOptions[] = [];
       for (const suggestion of params.dictionarySuggestions.slice(0, 5)) {
         menuItems.push({
           label: suggestion,
           click: () => mainWindow?.webContents.replaceMisspelling(suggestion),
         });
       }
-      if (menuItems.length > 0) {
-        menuItems.push({ type: 'separator' });
-      }
+      if (menuItems.length > 0) menuItems.push({ type: 'separator' });
       menuItems.push({
         label: 'Add to Dictionary',
         click: () => mainWindow?.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
       });
+      menuItems.push({ type: 'separator' });
+    }
+
+    // Standard clipboard operations
+    if (params.editFlags.canCut) {
+      menuItems.push({ role: 'cut' });
+    }
+    if (params.editFlags.canCopy) {
+      menuItems.push({ role: 'copy' });
+    }
+    menuItems.push({
+      role: 'paste',
+      enabled: params.editFlags.canPaste,
+    });
+    if (params.editFlags.canSelectAll) {
+      menuItems.push({ type: 'separator' });
+      menuItems.push({ role: 'selectAll' });
+    }
+
+    if (menuItems.length > 0) {
       Menu.buildFromTemplate(menuItems).popup();
     }
   });

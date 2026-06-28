@@ -20,6 +20,7 @@ interface PovOutlineViewProps {
   onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
   onDeleteSection?: (sectionId: string) => void;
   onOpenSectionDetails?: (sectionId: string) => void;
+  onAddSceneToSection?: (sectionId: string) => void;
   getCharacterName?: (characterId: string) => string;
   chapters?: Chapter[];
   onAssignSceneToChapter?: (sceneId: string, chapterId: string | null, sceneOrder: number) => void;
@@ -39,6 +40,7 @@ interface SectionHeaderProps {
   onSectionChange?: (sectionId: string, newTitle: string, newDescription: string, expectedSceneCount?: number | null) => void;
   onDeleteSection?: (sectionId: string) => void;
   onOpenDetails?: (sectionId: string) => void;
+  onAddScene?: (sectionId: string) => void;
   dragHandleProps?: Record<string, unknown>;
 }
 
@@ -57,6 +59,7 @@ function SectionHeader({
   onSectionChange,
   onDeleteSection,
   onOpenDetails,
+  onAddScene,
   dragHandleProps,
 }: SectionHeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -187,6 +190,9 @@ function SectionHeader({
         {onOpenDetails && (
           <button className="section-expand-btn" onClick={(e) => { e.stopPropagation(); onOpenDetails(section.id); }} title="Open section details">{'⊞'}</button>
         )}
+        {onAddScene && (
+          <button className="section-add-scene-btn" onClick={(e) => { e.stopPropagation(); onAddScene(section.id); }} title="Add scene to this section">{'+'}</button>
+        )}
         {onDeleteSection && (
           <button className="section-delete-btn" onClick={() => onDeleteSection(section.id)} title="Delete section">{'×'}</button>
         )}
@@ -248,6 +254,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
     onSectionChange,
     onDeleteSection,
     onOpenSectionDetails,
+    onAddSceneToSection,
     getCharacterName,
     chapters,
     povReorderedScenes,
@@ -307,6 +314,7 @@ export default function PovOutlineView(props: PovOutlineViewProps) {
                         onSectionChange={onSectionChange}
                         onDeleteSection={onDeleteSection}
                         onOpenDetails={onOpenSectionDetails}
+                        onAddScene={onAddSceneToSection}
                         dragHandleProps={{ ...sectionSortable.attributes, ...sectionSortable.listeners }}
                       />
                     )}

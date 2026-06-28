@@ -1,7 +1,19 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Scene, Character, MetadataFieldDef, Tag, TableViewConfig, FilterRule, Chapter } from '../../shared/types';
+import { SceneSession } from '../utils/analyticsStore';
 import TablePovSlideover from './TablePovSlideover';
 import { OptionEditor } from './OptionEditor';
+
+function formatDuration(ms: number): string {
+  if (ms <= 0) return '—';
+  const totalMin = Math.round(ms / 60000);
+  if (totalMin < 1) return '<1m';
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
 
 type FilterOperator = 'is' | 'is_not' | 'is_blank' | 'is_not_blank' | 'contains';
 
@@ -25,6 +37,7 @@ interface TableViewProps {
   onAddSceneForCharacter: (characterId: string) => void;
   onReorderScenes: (orderedSceneIds: string[]) => void;
   onMetadataFieldDefsChange: (defs: MetadataFieldDef[]) => void;
+  sceneSessions?: SceneSession[];
 }
 
 type SortField = 'scene' | 'character' | 'status' | 'words' | 'plotPoint' | string;
@@ -67,6 +80,7 @@ export default function TableView({
   onAddSceneForCharacter,
   onReorderScenes,
   onMetadataFieldDefsChange,
+  sceneSessions = [],
 }: TableViewProps) {
   const [currentViewId, setCurrentViewId] = useState<string | null>(null);
 
@@ -81,7 +95,7 @@ export default function TableView({
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    new Set(['scene', 'character', 'status', 'words', 'plotPoint'])
+    new Set(['scene', 'character', 'status', 'words', 'time', 'plotPoint'])
   );
 
   // Column widths and order
@@ -90,19 +104,24 @@ export default function TableView({
     character: 140,
     status: 130,
     words: 100,
+    time: 90,
     plotPoint: 160,
     synopsis: 200,
   };
 
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({ ...DEFAULT_COLUMN_WIDTHS });
 
-  const [columnOrder, setColumnOrder] = useState<string[]>(['scene', 'character', 'status', 'words', 'plotPoint']);
+  const [columnOrder, setColumnOrder] = useState<string[]>(['scene', 'character', 'status', 'words', 'time', 'plotPoint']);
 
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const resizeStartX = useRef<number>(0);
   const resizeStartWidth = useRef<number>(0);
+
+  const [tabMenuId, setTabMenuId] = useState<string | null>(null);
+  const [renamingViewId, setRenamingViewId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   // Get status field definition
   const statusField = metadataFieldDefs.find(f => f.id === '_status');
@@ -339,10 +358,10 @@ export default function TableView({
 
     const newOrder = [...columnOrder];
     const draggedIndex = newOrder.indexOf(draggedColumn);
-    const targetIndex = newOrder.indexOf(targetColumnId);
 
     newOrder.splice(draggedIndex, 1);
-    newOrder.splice(targetIndex, 0, draggedColumn);
+    const newTargetIndex = newOrder.indexOf(targetColumnId);
+    newOrder.splice(newTargetIndex, 0, draggedColumn);
 
     setColumnOrder(newOrder);
     setDraggedColumn(null);
@@ -394,6 +413,30 @@ export default function TableView({
   const deleteView = (viewId: string) => {
     onTableViewsChange(tableViews.filter(v => v.id !== viewId));
     if (currentViewId === viewId) setCurrentViewId(null);
+  };
+
+  const updateView = (viewId: string) => {
+    onTableViewsChange(tableViews.map(v =>
+      v.id === viewId
+        ? { ...v, visibleColumns: Array.from(visibleColumns), columnWidths, columnOrder, sortField, sortDirection, filterRules, groupBy }
+        : v
+    ));
+    setTabMenuId(null);
+  };
+
+  const startRename = (view: TableViewConfig) => {
+    setRenamingViewId(view.id);
+    setRenameValue(view.name);
+    setTabMenuId(null);
+  };
+
+  const commitRename = () => {
+    if (!renamingViewId || !renameValue.trim()) { setRenamingViewId(null); return; }
+    onTableViewsChange(tableViews.map(v =>
+      v.id === renamingViewId ? { ...v, name: renameValue.trim() } : v
+    ));
+    setRenamingViewId(null);
+    setRenameValue('');
   };
 
   // Filter builder helpers
@@ -471,6 +514,7 @@ export default function TableView({
       { id: 'character', label: 'Character' },
       { id: 'status', label: 'Status' },
       { id: 'words', label: 'Words' },
+      { id: 'time', label: 'Time' },
       { id: 'plotPoint', label: 'Section' },
       { id: 'synopsis', label: 'Synopsis' },
     ];
@@ -529,6 +573,14 @@ export default function TableView({
     }
   }, [showOverflowMenu]);
 
+  // Close tab context menu on outside click
+  useEffect(() => {
+    if (!tabMenuId) return;
+    const handleClickOutside = () => setTabMenuId(null);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [tabMenuId]);
+
   // Load default view on first load
   useEffect(() => {
     if (tableViews.length === 0) return;
@@ -568,18 +620,67 @@ export default function TableView({
           <div className="table-views-inline-sep" />
 
           {visibleTabs.map(view => (
-            <button
+            <div
               key={view.id}
               className={`table-view-tab ${currentViewId === view.id ? 'active' : ''}`}
               onClick={() => loadView(view.id)}
+              style={{ position: 'relative' }}
             >
-              <span>{view.name}</span>
+              {renamingViewId === view.id ? (
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={e => setRenameValue(e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') commitRename();
+                    if (e.key === 'Escape') setRenamingViewId(null);
+                  }}
+                  onBlur={commitRename}
+                  style={{ width: '80px', fontSize: '12px', fontFamily: 'var(--font-ui)', border: 'none', outline: '1px solid var(--accent)', borderRadius: '2px', padding: '0 2px' }}
+                />
+              ) : (
+                <span>{view.name}</span>
+              )}
+              <span
+                className="table-view-tab-delete"
+                onClick={e => { e.stopPropagation(); setTabMenuId(tabMenuId === view.id ? null : view.id); }}
+                title="More options"
+                style={{ opacity: 0.5, fontSize: '14px', letterSpacing: '1px' }}
+              >···</span>
               <span
                 className="table-view-tab-delete"
                 onClick={e => { e.stopPropagation(); deleteView(view.id); }}
                 title="Delete view"
               >×</span>
-            </button>
+              {tabMenuId === view.id && (
+                <div
+                  onMouseDown={e => e.stopPropagation()}
+                  style={{
+                    position: 'absolute', top: '100%', left: 0, zIndex: 200,
+                    background: 'var(--bg-overlay, var(--bg-secondary))',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    minWidth: '140px',
+                    padding: '4px 0',
+                  }}
+                >
+                  <div
+                    className="table-view-dropdown-item"
+                    onClick={e => { e.stopPropagation(); updateView(view.id); }}
+                  >
+                    Save changes
+                  </div>
+                  <div
+                    className="table-view-dropdown-item"
+                    onClick={e => { e.stopPropagation(); startRename(view); }}
+                  >
+                    Rename
+                  </div>
+                </div>
+              )}
+            </div>
           ))}
 
           {overflowTabs.length > 0 && (
@@ -601,6 +702,16 @@ export default function TableView({
                       >
                         {view.name}
                       </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); updateView(view.id); setShowOverflowMenu(false); }}
+                        title="Save changes"
+                        style={{ padding: '2px 6px', fontSize: '11px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                      >↑</button>
+                      <button
+                        onClick={e => { e.stopPropagation(); startRename(view); setShowOverflowMenu(false); }}
+                        title="Rename"
+                        style={{ padding: '2px 6px', fontSize: '11px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                      >✎</button>
                       <button
                         onClick={e => { e.stopPropagation(); deleteView(view.id); }}
                         style={{ padding: '2px 6px', fontSize: '11px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
@@ -968,6 +1079,17 @@ export default function TableView({
                         {scene.wordCount !== undefined ? scene.wordCount.toLocaleString() : '—'}
                       </span>
                     )}
+                  </td>
+                );
+              }
+
+              if (columnId === 'time') {
+                const totalMs = (sceneSessions || [])
+                  .filter(s => s.sceneKey === scene.id)
+                  .reduce((sum, s) => sum + s.durationMs, 0);
+                return (
+                  <td key="time" className="table-cell" style={{ color: totalMs > 0 ? 'var(--text-primary)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                    {formatDuration(totalMs)}
                   </td>
                 );
               }

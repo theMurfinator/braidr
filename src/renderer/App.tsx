@@ -4370,6 +4370,7 @@ function App() {
                   onSectionChange={handlePlotPointChange}
                   onDeleteSection={handleDeletePlotPoint}
                   onOpenSectionDetails={setPovDetailSectionId}
+                  onAddSceneToSection={handleAddSceneToSection}
                   getCharacterName={getCharacterName}
                   povReorderedScenes={povReorderedScenes}
                 />
@@ -4519,6 +4520,7 @@ function App() {
                   onReorderScenes={handleReorderScenesFromTable}
                   onSceneChange={handleSceneChange}
                   onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                  sceneSessions={sceneSessions}
                 />
                 {listFloatingEditor && (
                   <FloatingEditor

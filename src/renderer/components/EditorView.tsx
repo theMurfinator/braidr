@@ -1539,7 +1539,7 @@ const EditorView = forwardRef<EditorViewHandle, EditorViewProps>(function Editor
                     {(() => {
                       const char = characters.find(c => c.id === selectedScene.characterId);
                       const chapter = chapters?.find(ch => ch.id === selectedScene.chapterId);
-                      const parts = [char?.name, chapter?.title, `Scene ${selectedScene.sceneNumber}`].filter(Boolean);
+                      const parts = [char?.name, chapter?.title, `Scene ${selectedScene.sceneNumber}`, `${singleWordCount.toLocaleString()} ${singleWordCount === 1 ? 'word' : 'words'}`].filter(Boolean);
                       return <span>{parts.join(' · ')}</span>;
                     })()}
                   </div>

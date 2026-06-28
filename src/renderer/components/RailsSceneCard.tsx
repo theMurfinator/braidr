@@ -40,12 +40,11 @@ export default function RailsSceneCard({
   isDragging,
   isPovReordered,
 }: RailsSceneCardProps) {
-  // Clean up the title for display (remove markdown formatting)
-  const displayTitle = scene.content
+  const displayTitle = (scene.title || scene.content)
     .replace(/==\*\*/g, '')
     .replace(/\*\*==/g, '')
     .replace(/==/g, '')
-    .replace(/#\w+/g, '') // Remove tags
+    .replace(/#\w+/g, '')
     .trim();
 
   return (

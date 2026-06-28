@@ -19762,6 +19762,15 @@ tr:hover .task-add-subtask-inline {
 }
 .pov-outline-section-header:hover .section-expand-btn { opacity: 1; }
 
+.section-add-scene-btn {
+  opacity: 0; flex-shrink: 0; background: none; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 2px 7px; font-size: 13px; line-height: 1;
+  color: var(--text-muted); cursor: pointer; transition: opacity 0.1s;
+  margin-left: 4px;
+}
+.pov-outline-section-header:hover .section-add-scene-btn { opacity: 1; }
+.section-add-scene-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
 .section-header-wordcount {
   font-size: 11px;
   font-style: italic;
@@ -20146,7 +20155,8 @@ tr:hover .task-add-subtask-inline {
   transition: background 0.2s;
   position: sticky;
   top: 0;
-  max-height: calc(100vh - 120px);
+  height: 100%;
+  max-height: 100vh;
 }
 
 .bullpen-panel.drag-over {
