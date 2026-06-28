@@ -10757,7 +10757,8 @@ textarea.table-cell-input {
   flex: 1;
 }
 
-.notes-width-toggle {
+.notes-width-toggle,
+.notes-size-toggle {
   display: flex;
   align-items: center;
   gap: 1px;
@@ -10767,7 +10768,8 @@ textarea.table-cell-input {
   border-radius: 6px;
 }
 
-.notes-width-toggle-btn {
+.notes-width-toggle-btn,
+.notes-size-toggle-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10786,27 +10788,16 @@ textarea.table-cell-input {
   transition: color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
-.notes-width-toggle-btn:hover {
+.notes-width-toggle-btn:hover,
+.notes-size-toggle-btn:hover {
   color: var(--text-secondary);
 }
 
-.notes-width-toggle-btn.active {
+.notes-width-toggle-btn.active,
+.notes-size-toggle-btn.active {
   color: var(--text-primary);
   background: var(--bg-primary);
   box-shadow: var(--shadow-sm);
-}
-
-/* "Aa Fonts" button active state */
-.notes-panel-toggle.notes-font-btn {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  padding: 4px 8px;
-}
-
-.notes-panel-toggle.notes-font-btn.active {
-  color: var(--accent, #0066cc);
-  background: var(--bg-tertiary);
 }
 
 /* NotesFontEditor popover */
@@ -11494,17 +11485,33 @@ textarea.table-cell-input {
   width: 100%;
   border: none;
   outline: none;
-  font-size: var(--font-section-title-size, 32px);
-  font-weight: var(--font-section-title-weight);
+  /* Page title: Literata (content font), prominent. Was using the 18px
+     section-title token, which read far too small next to the H1 body. Scales
+     with the Small/Medium/Large preset (default = Medium). */
+  font-size: 32px; /* Medium (default), ~2x body base */
+  font-weight: 700;
   font-family: var(--font-section-title);
-  color: var(--font-section-title-color);
+  color: var(--text-primary);
   background: transparent;
   padding: 0;
   line-height: 1.2;
 }
+.notes-size-small .note-editor-title { font-size: 24px; }
+.notes-size-large .note-editor-title { font-size: 36px; }
 
 .note-editor-title::placeholder {
   color: var(--text-muted);
+}
+
+/* BlockNote menu dropdowns (e.g. the formatting-toolbar block-type select) are
+   portaled to <body>, escaping the .bn-mantine scope + theme vars that give them
+   a background — so they render transparent over the text. Force the design
+   system surface. !important beats the scoped .bn-mantine rule in all cases. */
+.mantine-Menu-dropdown {
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
 }
 
 .note-editor-content {
@@ -11518,23 +11525,60 @@ textarea.table-cell-input {
   margin-bottom: 0.75rem;
 }
 
-/* Notes fonts. The --note-* variables are set INLINE on .note-editor-content
-   by NoteEditor (from the NotesFontEditor modal), so they apply deterministically
-   regardless of global font state. Each falls back to the global --font-* vars,
-   then to BlockNote's defaults. Body uses .bn-default-styles (more specific than
-   BlockNote's own Inter rule); headings use !important to beat BlockNote's
-   built-in em-based `font-size: var(--level)`. */
+/* Notes typography.
+   FONT: the style-guide content font (Literata, --font-body) — notes are content.
+   SIZE: a Small/Medium/Large preset driven by one base size, --note-base, set per
+   mode by the .notes-size-* class on .notes-main.
+   HEADINGS: we override BlockNote's stock 3em/2em/1.3em ramp (H1 was 3x body —
+   enormous) with an editorial ramp via --note-h{1,2,3}-scale. The SAME scale vars
+   drive both the heading content-box font-size AND the six-dot side-menu heights,
+   so the two can never drift apart (that drift was the old misalignment bug).
+   Side-menu height formula: 36px + (base * scale) * 1.5
+     (36 = 2 * BlockNote's 18px heading padding-top; 1.5 = block line-height) */
+.note-editor-content {
+  --note-base: 16px; /* Medium (default) */
+  --note-h1-scale: 2;
+  --note-h2-scale: 1.5;
+  --note-h3-scale: 1.25;
+}
+.notes-size-small .note-editor-content { --note-base: 12px; }
+.notes-size-large .note-editor-content { --note-base: 18px; }
+
 .note-editor-content .bn-default-styles,
 .note-editor-content .bn-editor {
-  font-family: var(--note-body-font, var(--font-body, inherit));
-  font-size: var(--note-body-size, var(--font-body-size, 16px));
+  font-family: var(--font-body);
+  font-size: var(--note-base);
   font-weight: var(--font-body-weight, 400);
-  color: var(--font-body-color, inherit);
+  color: var(--text-primary);
 }
 
-/* Headings: left at BlockNote stock sizing/positioning. Custom heading
-   font-size/side-menu overrides were removed — they broke six-dot alignment.
-   Revisit heading font customization separately if needed. */
+/* Heading sizes — applied to the content BOX (not the inner <hN>, which inherits)
+   so box + text + side-menu all agree. !important beats BlockNote's --level rule.
+   H1's box carries no data-level; H2/H3 do. */
+.note-editor-content .bn-block-content[data-content-type=heading]:not([data-level]) {
+  font-size: calc(var(--note-base) * var(--note-h1-scale)) !important;
+}
+.note-editor-content .bn-block-content[data-content-type=heading][data-level="2"] {
+  font-size: calc(var(--note-base) * var(--note-h2-scale)) !important;
+}
+.note-editor-content .bn-block-content[data-content-type=heading][data-level="3"] {
+  font-size: calc(var(--note-base) * var(--note-h3-scale)) !important;
+}
+
+/* Side-menu (six-dot) heights tracked to the SAME base + scale vars so the handle
+   stays on the first text line at every size preset and heading ramp. */
+.note-editor-content .bn-side-menu {
+  height: calc(var(--note-base) * 1.5 + 6px);
+}
+.note-editor-content .bn-side-menu[data-block-type="heading"][data-level="1"] {
+  height: calc(36px + var(--note-base) * var(--note-h1-scale) * 1.5);
+}
+.note-editor-content .bn-side-menu[data-block-type="heading"][data-level="2"] {
+  height: calc(36px + var(--note-base) * var(--note-h2-scale) * 1.5);
+}
+.note-editor-content .bn-side-menu[data-block-type="heading"][data-level="3"] {
+  height: calc(36px + var(--note-base) * var(--note-h3-scale) * 1.5);
+}
 
 /* Column divider for @blocknote/xl-multi-column (.bn-block-column).
    The resize plugin only paints a box-shadow when the cursor is within 20px of

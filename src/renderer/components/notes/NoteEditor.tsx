@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useCreateBlockNote, useEditorChange, getDefaultReactSlashMenuItems, SuggestionMenuController, FormattingToolbar, FormattingToolbarController, blockTypeSelectItems } from '@blocknote/react';
+import { useCreateBlockNote, useEditorChange, getDefaultReactSlashMenuItems, SuggestionMenuController, FormattingToolbar, FormattingToolbarController, blockTypeSelectItems, SideMenuController, SideMenu, AddBlockButton, DragHandleButton, useBlockNoteEditor, useExtensionState } from '@blocknote/react';
+import { SideMenuExtension } from '@blocknote/core/extensions';
 import { BlockNoteView } from '@blocknote/mantine';
 import { BlockNoteSchema, filterSuggestionItems, combineByGroup } from '@blocknote/core';
 import { en } from '@blocknote/core/locales';
@@ -15,6 +16,42 @@ import {
 import { isBlockJson } from '../../../shared/noteContent';
 import { NoteMetadata, Scene, Character, Tag, FontSettings } from '../../../shared/types';
 import { dataService } from '../../services/dataService';
+
+// Custom side menu: clicking the six-dot handle (1) selects & highlights the whole
+// block, and (2) opens the stock drag-handle dropdown (the DragHandleButton is a
+// menu trigger, so the same left-click opens it). Defined at module scope for a
+// stable component identity. The SideMenu wrapper still applies the .bn-side-menu
+// class + data-block-type/data-level attrs our size CSS depends on.
+function BraidrSideMenu() {
+  const editor = useBlockNoteEditor();
+  const block = useExtensionState(SideMenuExtension, { selector: (s: any) => s?.block });
+  const selectBlock = () => {
+    if (!block) return;
+    try {
+      const view = editor.prosemirrorView;
+      if (!view) return;
+      const el = view.dom.querySelector(`.bn-block[data-id="${CSS.escape(block.id)}"]`);
+      if (!el) return;
+      const $pos = view.state.doc.resolve(view.posAtDOM(el, 0));
+      let depth = $pos.depth;
+      while (depth > 0 && $pos.node(depth).type.name !== 'blockContainer') depth--;
+      // Route through the editor's own tiptap command so we reuse its single
+      // prosemirror-state instance (importing our own NodeSelection would fail
+      // instanceof checks). setSelection(block, block) is range-only and throws.
+      editor._tiptapEditor.commands.setNodeSelection($pos.before(depth));
+    } catch (err) {
+      console.error('[BraidrSideMenu] selectBlock failed:', err);
+    }
+  };
+  return (
+    <SideMenu>
+      <AddBlockButton />
+      <span onMouseDown={selectBlock} style={{ display: 'contents' }}>
+        <DragHandleButton />
+      </span>
+    </SideMenu>
+  );
+}
 
 interface NoteEditorProps {
   noteId: string;
@@ -43,27 +80,14 @@ export default function NoteEditor({
   characters: _characters,
   tags,
   allTags,
-  fontSettings,
   onTitleChange,
   onContentChange,
   onNavigateNote: _onNavigateNote,
   onTagsChange,
 }: NoteEditorProps) {
-  // Notes fonts are applied as CSS variables scoped to this editor's container,
-  // so they apply deterministically regardless of global font state / viewMode.
-  const fontVars = useMemo(() => {
-    const fs = fontSettings || {};
-    const v: Record<string, string> = {};
-    if (fs.body) v['--note-body-font'] = fs.body;
-    if (fs.bodySize) v['--note-body-size'] = `${fs.bodySize}px`;
-    if (fs.heading1) v['--note-h1-font'] = fs.heading1;
-    if (fs.heading1Size) v['--note-h1-size'] = `${fs.heading1Size}px`;
-    if (fs.heading2) v['--note-h2-font'] = fs.heading2;
-    if (fs.heading2Size) v['--note-h2-size'] = `${fs.heading2Size}px`;
-    if (fs.heading3) v['--note-h3-font'] = fs.heading3;
-    if (fs.heading3Size) v['--note-h3-size'] = `${fs.heading3Size}px`;
-    return v as React.CSSProperties;
-  }, [fontSettings]);
+  // Notes font is the style-guide content font (Literata) and size is the
+  // Small/Medium/Large preset, both applied via CSS on .note-editor-content
+  // (see styles.css). No per-note font vars are emitted here anymore.
   const [wordCount] = useState(0);
   const [headings] = useState<{ level: number; text: string; id: string }[]>([]);
   const [tocOpen, setTocOpen] = useState(false);
@@ -328,13 +352,14 @@ export default function NoteEditor({
             )}
           </div>
         </div>
-        <div className="note-editor-content" style={fontVars}>
-          <BlockNoteView editor={editor} slashMenu={false} formattingToolbar={false}>
+        <div className="note-editor-content">
+          <BlockNoteView editor={editor} slashMenu={false} formattingToolbar={false} sideMenu={false}>
             <SuggestionMenuController triggerCharacter="/" getItems={getSlashItems} />
             <FormattingToolbarController
               formattingToolbar={() => <FormattingToolbar blockTypeSelectItems={blockTypeItems} />}
               portalElement={null}
             />
+            <SideMenuController sideMenu={BraidrSideMenu} />
           </BlockNoteView>
         </div>
       </div>

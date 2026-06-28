@@ -6,11 +6,14 @@ import { track } from '../../utils/posthogTracker';
 import NotesSidebar from './NotesSidebar';
 import NoteEditor from './NoteEditor';
 import BacklinksPanel from './BacklinksPanel';
-import NotesFontEditor from './NotesFontEditor';
 
 type NotesWidthMode = 'narrow' | 'wide' | 'full';
 
 const NOTES_WIDTH_MODES: NotesWidthMode[] = ['narrow', 'wide', 'full'];
+
+type NotesSizeMode = 'small' | 'medium' | 'large';
+
+const NOTES_SIZE_MODES: NotesSizeMode[] = ['small', 'medium', 'large'];
 
 interface NotesViewProps {
   projectPath: string;
@@ -131,26 +134,22 @@ async function migrateNotesIndex(oldIndex: any, projectPath: string): Promise<No
   return { notes: newNotes, version: 2 };
 }
 
-export default function NotesView({ projectPath, scenes, characters, tags, initialNoteId, onNoteNavigated, storagePrefix, allFontSettings: allFontSettingsProp, onFontSettingsChange }: NotesViewProps) {
+export default function NotesView({ projectPath, scenes, characters, tags, initialNoteId, onNoteNavigated, storagePrefix, allFontSettings: allFontSettingsProp, onFontSettingsChange: _onFontSettingsChange }: NotesViewProps) {
   const sk = (key: string) => storagePrefix ? `${key}-${storagePrefix}` : key;
   const { addToast } = useToast();
-  const [showFontEditor, setShowFontEditor] = useState(false);
   const [notesWidthMode, setNotesWidthMode] = useState<NotesWidthMode>(() => {
     const saved = localStorage.getItem(sk('braidr-notes-width-mode'));
     return NOTES_WIDTH_MODES.includes(saved as NotesWidthMode) ? saved as NotesWidthMode : 'wide';
   });
+  const [notesSizeMode, setNotesSizeMode] = useState<NotesSizeMode>(() => {
+    const saved = localStorage.getItem(sk('braidr-notes-size-mode'));
+    return NOTES_SIZE_MODES.includes(saved as NotesSizeMode) ? saved as NotesSizeMode : 'medium';
+  });
 
   const allFontSettings: AllFontSettings = allFontSettingsProp ?? { global: {} };
 
-  const handleNotesFontChange = (patch: Partial<FontSettings>) => {
-    const current = allFontSettings.screens?.notes ?? {};
-    const updated: AllFontSettings = {
-      ...allFontSettings,
-      screens: { ...allFontSettings.screens, notes: { ...current, ...patch } },
-    };
-    onFontSettingsChange?.(updated);
-  };
-
+  // Notes font/size are now driven by the style guide (Literata) + the
+  // Small/Medium/Large preset (notesSizeMode), not the old per-level font editor.
   const resolvedNotesFontSettings: FontSettings = {
     ...allFontSettings.global,
     ...(allFontSettings.screens?.notes ?? {}),
@@ -253,6 +252,10 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     localStorage.setItem(sk('braidr-notes-width-mode'), notesWidthMode);
   }, [notesWidthMode]);
 
+  useEffect(() => {
+    localStorage.setItem(sk('braidr-notes-size-mode'), notesSizeMode);
+  }, [notesSizeMode]);
+
   // Panel resize drag handling
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
@@ -347,7 +350,12 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
 
   const handleCreateNote = useCallback(async (parentId?: string) => {
     const id = Math.random().toString(36).substring(2, 11);
-    const fileName = `${id}.html`;
+    // In SQLite mode the note's id IS the DB row key, and fileName is the read
+    // key — they MUST be identical, or saveNotesIndex's getNote(meta.id) misses
+    // the row createNote made (keyed by fileName) and silently skips the update,
+    // so title/parentId never persist. (loadNotesIndex sets id === fileName ===
+    // row.id, so this matches the reloaded shape.)
+    const fileName = id;
 
     // Calculate order: place at end of siblings
     const siblings = indexRef.current.notes.filter(n =>
@@ -634,7 +642,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
           <div className="notes-resize-handle" onMouseDown={(e) => handleResizeStart(e, 'sidebar')} />
         </>
       )}
-      <div className={`notes-main notes-width-${notesWidthMode}`}>
+      <div className={`notes-main notes-width-${notesWidthMode} notes-size-${notesSizeMode}`}>
         <div className="notes-panel-toggles">
           <button className="notes-panel-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? 'Show notes list' : 'Hide notes list'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
@@ -656,13 +664,19 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
               </button>
             ))}
           </div>
-          <button
-            className={`notes-panel-toggle notes-font-btn${showFontEditor ? ' active' : ''}`}
-            onClick={() => setShowFontEditor(v => !v)}
-            title="Font settings for notes"
-          >
-            Aa
-          </button>
+          <div className="notes-size-toggle" aria-label="Text size">
+            {NOTES_SIZE_MODES.map(mode => (
+              <button
+                key={mode}
+                className={`notes-size-toggle-btn${notesSizeMode === mode ? ' active' : ''}`}
+                onClick={() => setNotesSizeMode(mode)}
+                title={`${mode.charAt(0).toUpperCase()}${mode.slice(1)} text size`}
+                aria-pressed={notesSizeMode === mode}
+              >
+                {mode.charAt(0).toUpperCase()}
+              </button>
+            ))}
+          </div>
           <button className="notes-panel-toggle" onClick={() => setBacklinksPanelCollapsed(!backlinksPanelCollapsed)} title={backlinksPanelCollapsed ? 'Show links' : 'Hide links'}>
             <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
               <rect x="0.75" y="0.75" width="16.5" height="12.5" rx="2.25" stroke="currentColor" strokeWidth="1.5"/>
@@ -670,13 +684,6 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
             </svg>
           </button>
         </div>
-        {showFontEditor && (
-          <NotesFontEditor
-            settings={resolvedNotesFontSettings}
-            onChange={handleNotesFontChange}
-            onClose={() => setShowFontEditor(false)}
-          />
-        )}
         {selectedNote && noteContentLoaded ? (
           <NoteEditor
             noteId={selectedNote.id}
