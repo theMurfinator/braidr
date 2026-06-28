@@ -15810,7 +15810,7 @@ textarea.table-cell-input {
   background: var(--bg-subtle, rgba(127,127,127,0.04));
 }
 .task-row-subtask .task-title-cell {
-  padding-left: 36px;
+  padding-left: 64px;
 }
 
 .task-add-subtask-inline {
