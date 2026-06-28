@@ -114,7 +114,32 @@ export default function NoteEditor({
     const defaults = getDefaultReactSlashMenuItems(editor).filter(
       (item) => !('key' in item) || !HIDDEN_SLASH_KEYS.has((item as { key: string }).key),
     );
-    const combined = combineByGroup(defaults, getMultiColumnSlashMenuItems(editor));
+    // Wrap column items so inserting a column layout always leaves a paragraph
+    // below it — otherwise the column block traps the cursor with no escape.
+    const columnItems = getMultiColumnSlashMenuItems(editor).map((item) => ({
+      ...item,
+      onItemClick: () => {
+        item.onItemClick();
+        setTimeout(() => {
+          const doc = editor.document;
+          const last = doc[doc.length - 1];
+          const cursor = editor.getTextCursorPosition();
+          const cursorBlock = cursor?.block;
+          // If the inserted column list is the last block, append a paragraph.
+          if (last?.type === 'columnList' || cursorBlock?.type === 'column') {
+            const columnListBlock = doc.find((b) => b.type === 'columnList' && b.id === last?.id);
+            if (columnListBlock) {
+              editor.insertBlocks(
+                [{ type: 'paragraph' }],
+                columnListBlock,
+                'after',
+              );
+            }
+          }
+        }, 0);
+      },
+    }));
+    const combined = combineByGroup(defaults, columnItems);
     return filterSuggestionItems(combined, query);
   }, [editor, HIDDEN_SLASH_KEYS]);
 
@@ -308,6 +333,7 @@ export default function NoteEditor({
             <SuggestionMenuController triggerCharacter="/" getItems={getSlashItems} />
             <FormattingToolbarController
               formattingToolbar={() => <FormattingToolbar blockTypeSelectItems={blockTypeItems} />}
+              portalElement={null}
             />
           </BlockNoteView>
         </div>
