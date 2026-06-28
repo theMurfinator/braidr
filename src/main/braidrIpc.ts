@@ -846,6 +846,12 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_NOTES_INDEX, (_event, braidrPath: string
             parentId: meta.parentId,
             displayOrder: meta.order,
           });
+        } else {
+          // The note is in the index but has no DB row (e.g. created this session
+          // with a mismatched key, or a legacy-migrated note). Insert it rather
+          // than silently dropping its title/parentId. Content stays '' here and
+          // is written separately via BRAIDR_SAVE_NOTE.
+          db.insertNote(meta.id, meta.title ?? 'Untitled', '', meta.parentId ?? null, meta.order ?? 0);
         }
         // Outgoing links
         db.replaceNoteLinks(meta.id, meta.outgoingLinks);

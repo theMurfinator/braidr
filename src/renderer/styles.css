@@ -141,7 +141,7 @@
   --font-body-size: 16px;
   --font-body-weight: 400;
   --font-body-color: var(--text-primary);
-  --font-ui: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-ui: Arial, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
@@ -210,6 +210,7 @@ textarea:focus-visible {
   box-shadow: var(--shadow-sidebar);
   transition-delay: 0.15s;
 }
+
 
 .app-sidebar-logo {
   width: 28px;
@@ -5824,8 +5825,7 @@ textarea.scene-metadata-field-input {
 .rails-main {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
+  display: block;
   overflow-y: auto;
 }
 
@@ -5838,7 +5838,7 @@ textarea.scene-metadata-field-input {
   border-bottom: 2px solid var(--border);
   background: var(--bg-primary);
   position: sticky;
-  top: 0;
+  top: 37px;
   z-index: 10;
 }
 
@@ -10124,6 +10124,7 @@ textarea.editor-meta-field-input {
   position: sticky;
   top: 0;
   z-index: 200;
+  overflow: visible;
 }
 
 .table-view-controls-left {
@@ -10756,7 +10757,8 @@ textarea.table-cell-input {
   flex: 1;
 }
 
-.notes-width-toggle {
+.notes-width-toggle,
+.notes-size-toggle {
   display: flex;
   align-items: center;
   gap: 1px;
@@ -10766,7 +10768,8 @@ textarea.table-cell-input {
   border-radius: 6px;
 }
 
-.notes-width-toggle-btn {
+.notes-width-toggle-btn,
+.notes-size-toggle-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10785,27 +10788,16 @@ textarea.table-cell-input {
   transition: color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
-.notes-width-toggle-btn:hover {
+.notes-width-toggle-btn:hover,
+.notes-size-toggle-btn:hover {
   color: var(--text-secondary);
 }
 
-.notes-width-toggle-btn.active {
+.notes-width-toggle-btn.active,
+.notes-size-toggle-btn.active {
   color: var(--text-primary);
   background: var(--bg-primary);
   box-shadow: var(--shadow-sm);
-}
-
-/* "Aa Fonts" button active state */
-.notes-panel-toggle.notes-font-btn {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  padding: 4px 8px;
-}
-
-.notes-panel-toggle.notes-font-btn.active {
-  color: var(--accent, #0066cc);
-  background: var(--bg-tertiary);
 }
 
 /* NotesFontEditor popover */
@@ -11493,17 +11485,33 @@ textarea.table-cell-input {
   width: 100%;
   border: none;
   outline: none;
-  font-size: var(--font-section-title-size, 32px);
-  font-weight: var(--font-section-title-weight);
+  /* Page title: Literata (content font), prominent. Was using the 18px
+     section-title token, which read far too small next to the H1 body. Scales
+     with the Small/Medium/Large preset (default = Medium). */
+  font-size: 32px; /* Medium (default), ~2x body base */
+  font-weight: 700;
   font-family: var(--font-section-title);
-  color: var(--font-section-title-color);
+  color: var(--text-primary);
   background: transparent;
   padding: 0;
   line-height: 1.2;
 }
+.notes-size-small .note-editor-title { font-size: 24px; }
+.notes-size-large .note-editor-title { font-size: 36px; }
 
 .note-editor-title::placeholder {
   color: var(--text-muted);
+}
+
+/* BlockNote menu dropdowns (e.g. the formatting-toolbar block-type select) are
+   portaled to <body>, escaping the .bn-mantine scope + theme vars that give them
+   a background — so they render transparent over the text. Force the design
+   system surface. !important beats the scoped .bn-mantine rule in all cases. */
+.mantine-Menu-dropdown {
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
 }
 
 .note-editor-content {
@@ -11517,194 +11525,97 @@ textarea.table-cell-input {
   margin-bottom: 0.75rem;
 }
 
-/* Notes fonts. The --note-* variables are set INLINE on .note-editor-content
-   by NoteEditor (from the NotesFontEditor modal), so they apply deterministically
-   regardless of global font state. Each falls back to the global --font-* vars,
-   then to BlockNote's defaults. Body uses .bn-default-styles (more specific than
-   BlockNote's own Inter rule); headings use !important to beat BlockNote's
-   built-in em-based `font-size: var(--level)`. */
+/* Notes typography.
+   FONT: the style-guide content font (Literata, --font-body) — notes are content.
+   SIZE: a Small/Medium/Large preset driven by one base size, --note-base, set per
+   mode by the .notes-size-* class on .notes-main.
+   HEADINGS: we override BlockNote's stock 3em/2em/1.3em ramp (H1 was 3x body —
+   enormous) with an editorial ramp via --note-h{1,2,3}-scale. The SAME scale vars
+   drive both the heading content-box font-size AND the six-dot side-menu heights,
+   so the two can never drift apart (that drift was the old misalignment bug).
+   Side-menu height formula: 36px + (base * scale) * 1.5
+     (36 = 2 * BlockNote's 18px heading padding-top; 1.5 = block line-height) */
+.note-editor-content {
+  --note-base: 16px; /* Medium (default) */
+  --note-h1-scale: 2;
+  --note-h2-scale: 1.5;
+  --note-h3-scale: 1.25;
+}
+.notes-size-small .note-editor-content { --note-base: 12px; }
+.notes-size-large .note-editor-content { --note-base: 18px; }
+
 .note-editor-content .bn-default-styles,
 .note-editor-content .bn-editor {
-  font-family: var(--note-body-font, var(--font-body, inherit));
-  font-size: var(--note-body-size, var(--font-body-size, 16px));
+  font-family: var(--font-body);
+  font-size: var(--note-base);
   font-weight: var(--font-body-weight, 400);
-  color: var(--font-body-color, inherit);
+  color: var(--text-primary);
 }
 
-/* BlockNote renders heading text as literal h1/h2/h3 elements with class
-   .bn-inline-content (confirmed via DevTools). Target those exact elements.
-   Pixel sizes (not em) so headings never scale with the body font; !important
-   beats BlockNote's built-in heading sizing. */
-.note-editor-content h1.bn-inline-content {
-  font-size: var(--note-h1-size, var(--font-h1-size, 1.875rem)) !important;
-  font-family: var(--note-h1-font, var(--font-h1, var(--note-body-font, var(--font-body, inherit)))) !important;
+/* Heading sizes — applied to the content BOX (not the inner <hN>, which inherits)
+   so box + text + side-menu all agree. !important beats BlockNote's --level rule.
+   H1's box carries no data-level; H2/H3 do. */
+.note-editor-content .bn-block-content[data-content-type=heading]:not([data-level]) {
+  font-size: calc(var(--note-base) * var(--note-h1-scale)) !important;
 }
-.note-editor-content h2.bn-inline-content {
-  font-size: var(--note-h2-size, var(--font-h2-size, 1.5rem)) !important;
-  font-family: var(--note-h2-font, var(--font-h2, var(--note-body-font, var(--font-body, inherit)))) !important;
+.note-editor-content .bn-block-content[data-content-type=heading][data-level="2"] {
+  font-size: calc(var(--note-base) * var(--note-h2-scale)) !important;
 }
-.note-editor-content h3.bn-inline-content {
-  font-size: var(--note-h3-size, var(--font-h3-size, 1.25rem)) !important;
-  font-family: var(--note-h3-font, var(--font-h3, var(--note-body-font, var(--font-body, inherit)))) !important;
+.note-editor-content .bn-block-content[data-content-type=heading][data-level="3"] {
+  font-size: calc(var(--note-base) * var(--note-h3-scale)) !important;
 }
 
+/* Side-menu (six-dot) heights tracked to the SAME base + scale vars so the handle
+   stays on the first text line at every size preset and heading ramp. */
+.note-editor-content .bn-side-menu {
+  height: calc(var(--note-base) * 1.5 + 6px);
+}
+.note-editor-content .bn-side-menu[data-block-type="heading"][data-level="1"] {
+  height: calc(36px + var(--note-base) * var(--note-h1-scale) * 1.5);
+}
+.note-editor-content .bn-side-menu[data-block-type="heading"][data-level="2"] {
+  height: calc(36px + var(--note-base) * var(--note-h2-scale) * 1.5);
+}
+.note-editor-content .bn-side-menu[data-block-type="heading"][data-level="3"] {
+  height: calc(36px + var(--note-base) * var(--note-h3-scale) * 1.5);
+}
+
+/* Column divider for @blocknote/xl-multi-column (.bn-block-column).
+   The resize plugin only paints a box-shadow when the cursor is within 20px of
+   the column boundary — invisible the rest of the time. Add a ::after that
+   shows a divider on any hover of the column list, and override the plugin's
+   light-grey (#ccc) box-shadow with a more visible colour. */
+.note-editor-content .bn-block-column:not(:last-child) {
+  position: relative;
+}
+.note-editor-content .bn-block-column:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: transparent;
+  transition: background 0.2s;
+  pointer-events: none;
+  z-index: 1;
+}
+.note-editor-content .bn-block-column-list:hover .bn-block-column:not(:last-child)::after {
+  background: var(--border, rgba(0, 0, 0, 0.15));
+}
+.note-editor-content .bn-block-column[style*="box-shadow"] {
+  box-shadow: 4px 0 0 var(--text-secondary, rgba(0, 0, 0, 0.45)) !important;
+}
+
+/* Notes editor: structural only. All inline/paragraph/quote/code/divider/table
+   theming is left to BlockNote stock. The old TipTap theme rules were removed
+   2026-06-28 — they overlapped BlockNote via the shared `.tiptap` class and
+   conflicted with the new style guide. Notes body font is bound on .bn-editor
+   via --note-body-font/--note-body-size; do NOT set font-family/size here. */
 .note-editor-content .tiptap {
   outline: none;
-  font-family: var(--font-body);
-  font-size: var(--font-body-size);
-  font-weight: var(--font-body-weight);
-  line-height: 1.8;
-  color: var(--font-body-color);
   min-height: 100%;
   padding-bottom: 80px;
-}
-
-.note-editor-content .tiptap p {
-  margin: 0 0 0.75em;
-}
-
-.note-editor-content .tiptap p:last-child {
-  margin-bottom: 0;
-}
-
-.note-editor-content .tiptap h1 {
-  font-size: 1.75em;
-  font-weight: 700;
-  margin: 1.5em 0 0.5em;
-  font-family: var(--font-section-title);
-  color: var(--text-primary);
-  line-height: 1.3;
-}
-
-.note-editor-content .tiptap h2 {
-  font-size: 1.35em;
-  font-weight: 600;
-  margin: 1.25em 0 0.4em;
-  font-family: var(--font-section-title);
-  color: var(--text-primary);
-  line-height: 1.35;
-}
-
-.note-editor-content .tiptap h3 {
-  font-size: 1.1em;
-  font-weight: 600;
-  margin: 1em 0 0.3em;
-  font-family: var(--font-scene-title);
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
-.note-editor-content .tiptap strong {
-  font-weight: 700;
-}
-
-.note-editor-content .tiptap em {
-  font-style: italic;
-}
-
-.note-editor-content .tiptap s {
-  text-decoration: line-through;
-  color: var(--text-muted);
-}
-
-.note-editor-content .tiptap ul,
-.note-editor-content .tiptap ol {
-  padding-left: 1.5em;
-  margin: 0.5em 0;
-}
-
-.note-editor-content .tiptap li {
-  margin: 0.25em 0;
-}
-
-.note-editor-content .tiptap li p {
-  margin: 0;
-}
-
-.note-editor-content .tiptap blockquote {
-  border-left: 3px solid var(--border);
-  padding-left: 1em;
-  margin: 1em 0;
-  color: var(--text-secondary);
-  font-style: italic;
-}
-
-.note-editor-content .tiptap code {
-  background: var(--bg-tertiary);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.9em;
-  font-family: var(--font-mono);
-}
-
-.note-editor-content .tiptap pre {
-  background: var(--bg-tertiary);
-  padding: 16px;
-  border-radius: 8px;
-  margin: 1em 0;
-  overflow-x: auto;
-}
-
-.note-editor-content .tiptap pre code {
-  background: none;
-  padding: 0;
-  border-radius: 0;
-}
-
-.note-editor-content .tiptap hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 2em 0;
-}
-
-.note-editor-content .tiptap .is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  float: left;
-  color: var(--text-muted);
-  pointer-events: none;
-  height: 0;
-  font-style: italic;
-}
-
-/* Note images */
-.note-editor-content .tiptap img.note-image {
-  max-width: 100%;
-  height: auto;
-  border-radius: 6px;
-  margin: 1em 0;
-  display: block;
-  cursor: default;
-}
-
-.note-editor-content .tiptap img.note-image.ProseMirror-selectednode {
-  outline: 2px solid var(--text-primary);
-  outline-offset: 2px;
-}
-
-/* Task lists */
-.note-editor-content .tiptap ul[data-type="taskList"] {
-  list-style: none;
-  padding-left: 0;
-}
-
-.note-editor-content .tiptap ul[data-type="taskList"] li {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.note-editor-content .tiptap ul[data-type="taskList"] li label {
-  margin-top: 3px;
-}
-
-.note-editor-content .tiptap ul[data-type="taskList"] li label input[type="checkbox"] {
-  cursor: pointer;
-  accent-color: var(--text-primary);
-}
-
-.note-editor-content .tiptap ul[data-type="taskList"] li[data-checked="true"] > div > p {
-  text-decoration: line-through;
-  color: var(--text-muted);
 }
 
 /* Table of Contents */
@@ -11912,117 +11823,11 @@ textarea.table-cell-input {
   flex-shrink: 0;
 }
 
-/* Table styling in note editor */
-.note-editor-content .tiptap table {
-  border-collapse: collapse;
-  table-layout: fixed;
-  width: 100%;
-  margin: 1em 0;
-  overflow: hidden;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-}
+/* Note-editor table theming removed 2026-06-28 — left to BlockNote stock
+   (these old TipTap rules conflicted with the new style guide). */
 
-.note-editor-content .tiptap th {
-  background: var(--bg-secondary);
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  font-family: var(--font-ui);
-  color: var(--text-secondary);
-  text-align: left;
-}
-
-.note-editor-content .tiptap td,
-.note-editor-content .tiptap th {
-  border: 1px solid var(--border);
-  padding: 10px 14px;
-  vertical-align: top;
-  position: relative;
-  min-width: 80px;
-}
-
-.note-editor-content .tiptap td {
-  font-size: 14px;
-}
-
-.note-editor-content .tiptap tr:hover td {
-  background: rgba(247, 246, 243, 0.5);
-}
-
-.note-editor-content .tiptap td.selectedCell,
-.note-editor-content .tiptap th.selectedCell {
-  background: rgba(61, 53, 48, 0.04);
-  border-color: var(--text-muted);
-}
-
-.note-editor-content .tiptap td p,
-.note-editor-content .tiptap th p {
-  margin: 0;
-}
-
-/* Table column resize handle (scoped to tables only) */
-.note-editor-content .tiptap .tableWrapper .column-resize-handle {
-  position: absolute;
-  right: -2px;
-  top: 0;
-  bottom: -2px;
-  width: 4px;
-  background: var(--accent);
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-.note-editor-content .tiptap .tableWrapper {
-  overflow-x: auto;
-  margin: 1em 0;
-}
-
-.note-editor-content .tiptap.resize-cursor {
-  cursor: col-resize;
-}
-
-/* ─── Block Drag Handle ──────────────────────────────────────────────────── */
-
-.drag-handle {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 24px;
-  border-radius: 4px;
-  cursor: grab;
-  color: var(--text-muted);
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
-  z-index: 5;
-  user-select: none;
-}
-
-.note-editor-content:hover .drag-handle,
-.drag-handle:hover {
-  opacity: 1;
-}
-
-.drag-handle:hover {
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-}
-
-.drag-drop-indicator {
-  position: absolute;
-  height: 2px;
-  background: var(--color-primary);
-  border-radius: 1px;
-  pointer-events: none;
-  z-index: 5;
-}
+/* Old notes block-drag-handle CSS removed 2026-06-28 (dragHandle.ts deleted;
+   BlockNote provides its own drag handle). */
 
 /* ─── Changes Tracker (Todo Widget) ────────────────────────────────────────── */
 
@@ -12644,172 +12449,6 @@ textarea.table-cell-input {
   color: var(--text-muted);
   font-style: italic;
   font-family: var(--font-ui);
-}
-
-/* ─── Column Blocks ──────────────────────────────────────────────────────── */
-
-.note-editor-content .tiptap .column-block {
-  position: relative;
-  margin: 1em 0;
-  min-height: 60px;
-}
-
-.note-editor-content .tiptap .column-block.column-resizing {
-  cursor: col-resize;
-  user-select: none;
-}
-
-.note-editor-content .tiptap .column-block.column-resizing * {
-  user-select: none;
-}
-
-.note-editor-content .tiptap .column-block .column-block-inner {
-  display: flex;
-  gap: 0;
-}
-
-.note-editor-content .tiptap .column-block .column-item {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  border-radius: 0;
-  padding: 4px 20px;
-}
-
-.note-editor-content .tiptap .column-block .column-item + .column-item {
-  border-left: none;
-}
-
-.note-editor-content .tiptap .column-block .column-item p:first-child {
-  margin-top: 0;
-}
-
-.note-editor-content .tiptap .column-block .column-item p:last-child {
-  margin-bottom: 0;
-}
-
-/* Column resize handle container — non-editable overlay that holds resize handles */
-.column-resize-handles {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  z-index: 5;
-}
-
-/* Column resize handle — scoped to column-block to avoid TipTap table conflict */
-.column-block .column-resize-handle {
-  position: absolute;
-  top: 0;
-  width: 12px;
-  height: 100%;
-  cursor: col-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: auto;
-}
-
-.column-block .column-resize-handle::after {
-  content: '';
-  width: 1px;
-  height: 100%;
-  background: var(--border);
-  opacity: 0;
-  transition: opacity 0.15s, background 0.15s;
-}
-
-.column-block:hover .column-resize-handle::after {
-  opacity: 0.4;
-}
-
-.column-block .column-resize-handle:hover::after {
-  opacity: 1;
-  background: var(--text-muted);
-}
-
-.column-block .column-resize-handle.active::after {
-  opacity: 1;
-  background: var(--accent);
-}
-
-/* ─── Slash Command ──────────────────────────────────────────────────────── */
-
-.slash-command-list {
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 6px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.12);
-  min-width: 240px;
-  max-width: 320px;
-  max-height: 360px;
-  overflow-y: auto;
-}
-
-.slash-command-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  padding: 8px 10px;
-  border: none;
-  background: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.slash-command-item:hover,
-.slash-command-item.selected {
-  background: var(--bg-secondary);
-}
-
-.slash-command-icon {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  background: var(--bg-tertiary);
-  font-size: 12px;
-  font-weight: 700;
-  font-family: var(--font-ui);
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-.slash-command-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.slash-command-title {
-  font-size: 13px;
-  font-weight: 600;
-  font-family: var(--font-ui);
-  color: var(--text-primary);
-}
-
-.slash-command-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-family: var(--font-ui);
-}
-
-.slash-command-empty {
-  padding: 12px 10px;
-  font-size: 13px;
-  color: var(--text-muted);
-  font-style: italic;
-  font-family: var(--font-ui);
-  text-align: center;
 }
 
 /* ─── Compile Options Row ──────────────────────────────────────────────── */
@@ -14067,205 +13706,6 @@ textarea.table-cell-input {
   color: var(--text-primary);
   background: var(--bg-primary);
   box-shadow: var(--shadow-sm);
-}
-
-/* ─── Graph View ─────────────────────────────────────────────────────── */
-
-.graph-view-container {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-  background: var(--bg-secondary);
-}
-
-.graph-view-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  cursor: grab;
-}
-
-.graph-view-canvas:active {
-  cursor: grabbing;
-}
-
-/* ─── Graph Zoom Controls ────────────────────────────────────────────── */
-
-.graph-zoom-controls {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  backdrop-filter: blur(4px);
-  overflow: hidden;
-  z-index: 10;
-}
-
-.graph-zoom-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: color 0.15s, background 0.15s;
-}
-
-.graph-zoom-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-}
-
-.graph-zoom-btn:active {
-  background: var(--bg-tertiary);
-}
-
-.graph-zoom-btn + .graph-zoom-btn {
-  border-top: 1px solid var(--border);
-}
-
-.graph-view-legend {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  backdrop-filter: blur(4px);
-  pointer-events: none;
-}
-
-.graph-view-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  font-family: var(--font-ui);
-  color: var(--text-secondary);
-}
-
-.graph-view-legend-separator {
-  height: 1px;
-  background: var(--bg-tertiary);
-  margin: 2px 0;
-}
-
-/* ─── Graph Filter Panel ─────────────────────────────────────────────── */
-
-.graph-filter-toggle {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(4px);
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
-  z-index: 10;
-}
-
-.graph-filter-toggle:hover {
-  color: var(--text-primary);
-  background: var(--bg-primary);
-  border-color: var(--border);
-}
-
-.graph-filter-toggle.active {
-  color: var(--color-primary);
-  background: var(--color-primary-bg);
-  border-color: var(--color-primary);
-}
-
-.graph-filter-panel {
-  position: absolute;
-  top: 50px;
-  right: 12px;
-  width: 180px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(8px);
-  z-index: 10;
-  overflow: hidden;
-}
-
-.graph-filter-section {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.graph-filter-section:last-child {
-  border-bottom: none;
-}
-
-.graph-filter-section-title {
-  font-size: 10px;
-  font-family: var(--font-ui);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.graph-filter-check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 0;
-  font-size: 12px;
-  font-family: var(--font-ui);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.graph-filter-check input[type="checkbox"] {
-  width: 13px;
-  height: 13px;
-  margin: 0;
-  accent-color: var(--color-primary);
-  cursor: pointer;
-}
-
-.graph-filter-check svg {
-  flex-shrink: 0;
-}
-
-.graph-filter-indent {
-  padding-left: 19px;
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-
-.graph-filter-color-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
 }
 
 /* ─── Toast Notifications ────────────────────────────────────────────────── */
