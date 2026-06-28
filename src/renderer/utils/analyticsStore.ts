@@ -109,7 +109,9 @@ export async function loadAnalytics(projectPath: string): Promise<AnalyticsData>
   try {
     const result = await window.electronAPI.readAnalytics(projectPath);
     if (result.success && result.data) {
-      return { ...DEFAULT_ANALYTICS, milestones: DEFAULT_MILESTONES, ...result.data };
+      // Heal any spurious snapshot collapses (partial-load phantom deletions)
+      // before the data reaches the dashboard.
+      return repairManuscriptSnapshots({ ...DEFAULT_ANALYTICS, milestones: DEFAULT_MILESTONES, ...result.data });
     }
   } catch {}
   return { ...DEFAULT_ANALYTICS, milestones: DEFAULT_MILESTONES };
@@ -166,6 +168,55 @@ export function recordManuscriptSnapshot(
 export function getWordsForDay(analytics: AnalyticsData, date: string): number {
   const e = analytics.dailyManuscript?.[date];
   return e ? e.latest - e.baseline : 0;
+}
+
+/**
+ * Repair spurious manuscript-snapshot collapses.
+ *
+ * A partial-load reading (drafts still streaming in) can record a near-zero
+ * `latest` for a day. That propagates as the next day's baseline and shows up as
+ * a huge phantom deletion (e.g. -44k) followed by an equal phantom gain when the
+ * real total reappears. We detect a day whose `latest` collapsed far below the
+ * running total AND later recovered, carry the prior total across it, then
+ * re-chain baselines (`baseline = prior day's latest`, which is the model's
+ * invariant) so daily deltas are clean again.
+ *
+ * Conservative: only the collapse-THEN-recover signature is touched. A genuine
+ * deletion (the total stays low afterward) is left untouched.
+ */
+export function repairManuscriptSnapshots(analytics: AnalyticsData): AnalyticsData {
+  const dm = analytics.dailyManuscript;
+  if (!dm) return analytics;
+  const dates = Object.keys(dm).sort();
+  if (dates.length < 2) return analytics;
+
+  const fixed: Record<string, DailyManuscript> = {};
+  let prevLatest: number | undefined;
+  let changed = false;
+
+  for (let i = 0; i < dates.length; i++) {
+    const d = dates[i];
+    const entry = dm[d];
+    let latest = entry.latest;
+
+    if (prevLatest !== undefined && prevLatest > 100 && latest < prevLatest * 0.5) {
+      const recovers = dates
+        .slice(i + 1)
+        .some(dd => dm[dd].latest >= prevLatest! * 0.8);
+      if (recovers) {
+        latest = prevLatest; // carry the total across the spurious dip (net 0 that day)
+        changed = true;
+      }
+    }
+
+    const baseline = prevLatest !== undefined ? prevLatest : entry.baseline;
+    if (baseline !== entry.baseline || latest !== entry.latest) changed = true;
+    fixed[d] = { baseline, latest };
+    prevLatest = latest;
+  }
+
+  if (!changed) return analytics;
+  return { ...analytics, dailyManuscript: fixed };
 }
 
 /**

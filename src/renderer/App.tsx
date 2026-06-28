@@ -888,10 +888,23 @@ function App() {
     if (!projectData?.projectPath || !analyticsLoaded || !analyticsRef.current) return;
     if (Object.keys(draftContentRef.current).length === 0) return;
     if (manuscriptSeededRef.current === projectData.projectPath) return;
-    manuscriptSeededRef.current = projectData.projectPath;
 
     const today = getTodayStr();
     const total = computeTotalManuscriptWords();
+
+    // Partial-load guard: drafts may still be streaming in, giving a spuriously
+    // low total. If we have prior history and the total looks implausibly low
+    // (a >50% drop), DON'T record it and DON'T mark seeded — the effect re-runs as
+    // draftContent fills in, so it retries until the real total is available.
+    // This is what produced phantom -44k/+44k swings in the word trend.
+    const dm = analyticsRef.current.dailyManuscript || {};
+    const priorDates = Object.keys(dm).filter(d => d < today).sort();
+    const priorLatest = priorDates.length > 0 ? dm[priorDates[priorDates.length - 1]].latest : undefined;
+    if (priorLatest !== undefined && priorLatest > 100 && total < priorLatest * 0.5) {
+      return;
+    }
+
+    manuscriptSeededRef.current = projectData.projectPath;
     const todaySessionWords = (analyticsRef.current.sceneSessions || [])
       .filter(s => s.date === today && s.sceneKey !== 'manual:checkin')
       .reduce((sum, s) => sum + s.wordsNet, 0);

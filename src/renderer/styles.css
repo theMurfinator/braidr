@@ -488,6 +488,10 @@ textarea:focus-visible {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: var(--text-primary);
+  /* Reserve a stable width so the pill doesn't resize as the time string grows
+     (M:SS -> MM:SS -> H:MM:SS), which was shoving the "+ New Task" button. */
+  min-width: 3.5em;
+  text-align: right;
 }
 
 .toolbar-timer-scene {
