@@ -441,14 +441,18 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
   const wordTrendGoalLinePx = deadlineGoal?.enabled && wordWeeklyTarget > 0
     ? TREND_LABEL_H + (Math.min(wordWeeklyTarget, maxWordTrend) / maxWordTrend) * TREND_TRACK_H
     : null;
-  // Chart geometry constants (must match .analytics-weekly-chart min-height and bar group layout)
-  const WORD_CHART_H = 140;
-  const WORD_LABEL_H = 14; // .analytics-weekly-bar-value min-height
-  const WORD_DAY_H = 14;   // .analytics-weekly-bar-label approx height
-  const WORD_GAP = 4;
-  const WORD_TRACK_H = WORD_CHART_H - WORD_LABEL_H - WORD_GAP - WORD_DAY_H - WORD_GAP;
-  const wordTargetLinePx = deadlineGoal?.enabled && wordDailyTarget > 0
-    ? (WORD_DAY_H + WORD_GAP) + (Math.min(wordDailyTarget, maxWeekWords) / maxWeekWords) * WORD_TRACK_H
+  // Chart geometry (must match the .analytics-weekly-bar-group column layout in CSS).
+  // The chart container is flex:1, so its real height is dynamic and NOT the 140px
+  // min-height. The bars size themselves as a percent of the (real) track, so the
+  // target line must use the same percent-of-track basis — expressed via calc() so
+  // it scales with the actual container height instead of a hardcoded pixel guess.
+  const WORD_VALUE_H = 14; // .analytics-weekly-bar-value min-height
+  const WORD_DAY_H = 14;   // .analytics-weekly-bar-label height
+  const WORD_GAP = 4;      // .analytics-weekly-bar-group gap (applied twice)
+  const wordTargetFrac = Math.min(wordDailyTarget, maxWeekWords) / maxWeekWords;
+  // trackH = 100% - value - gap - day - gap; bottom = (day + gap) + frac * trackH
+  const wordTargetLineBottom = deadlineGoal?.enabled && wordDailyTarget > 0
+    ? `calc(${(wordTargetFrac * 100).toFixed(3)}% + ${(WORD_DAY_H + WORD_GAP - wordTargetFrac * (WORD_VALUE_H + WORD_GAP + WORD_DAY_H + WORD_GAP)).toFixed(2)}px)`
     : null;
 
   // Preview calc for the edit form
@@ -803,8 +807,8 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
 
             {/* Right: 7-day bar chart */}
             <div className="analytics-weekly-chart">
-              {wordTargetLinePx !== null && (
-                <div className="analytics-weekly-word-target-line" style={{ bottom: wordTargetLinePx }}>
+              {wordTargetLineBottom !== null && (
+                <div className="analytics-weekly-word-target-line" style={{ bottom: wordTargetLineBottom }}>
                   <span className="analytics-weekly-word-target-label">{wordDailyTarget.toLocaleString()}/day</span>
                 </div>
               )}
