@@ -48,6 +48,11 @@ export interface WeeklyGoal {
   targetHours: number; // hours per week
 }
 
+export interface MonthlyGoal {
+  enabled: boolean;
+  targetWords: number; // words per calendar month (recurring; resets each month)
+}
+
 export interface Milestone {
   id: string;
   label: string;
@@ -72,6 +77,7 @@ export interface AnalyticsData {
   sceneSessions: SceneSession[];
   dailyGoal: DailyGoal;
   weeklyGoal: WeeklyGoal;
+  monthlyGoal: MonthlyGoal;
   deadlineGoal: DeadlineGoal;
   milestones: Milestone[];
   currentStreak: number;
@@ -87,6 +93,7 @@ const DEFAULT_ANALYTICS: AnalyticsData = {
   sceneSessions: [],
   dailyGoal: { enabled: false, target: 500 },
   weeklyGoal: { enabled: false, targetHours: 15 },
+  monthlyGoal: { enabled: false, targetWords: 20000 },
   deadlineGoal: { enabled: false, targetWords: 0, deadlineDate: '' },
   milestones: [],
   currentStreak: 0,
