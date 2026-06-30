@@ -91,12 +91,30 @@ function OutlineSceneRow({
   const showSynopsis = expandMode ? expanded : synopsisVisible;
 
   // Auto-size the synopsis textarea so the full text wraps and is visible
-  // without needing to focus/edit it.
+  // without needing to focus/edit it. Re-measure on reflow — a one-time measure
+  // locks in a too-tall height when the text later wraps to fewer lines (e.g.
+  // the body font loads after the initial measure, or the column widens). A
+  // ResizeObserver catches width changes and document.fonts.ready catches the
+  // font swap; the width guard keeps the height write from looping the observer.
   useEffect(() => {
     const el = synopsisRef.current;
     if (!el || !showSynopsis) return;
-    el.style.height = 'auto';
-    el.style.height = el.scrollHeight + 'px';
+    const measure = () => {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    };
+    measure();
+    let lastWidth = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth !== lastWidth) {
+        lastWidth = el.clientWidth;
+        measure();
+      }
+    });
+    ro.observe(el);
+    let cancelled = false;
+    document.fonts?.ready.then(() => { if (!cancelled) measure(); });
+    return () => { ro.disconnect(); cancelled = true; };
   }, [synopsisValue, showSynopsis]);
 
   const handleRowClick = (e: React.MouseEvent) => {

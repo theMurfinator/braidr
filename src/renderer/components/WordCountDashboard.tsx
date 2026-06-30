@@ -67,6 +67,9 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     const sceneCounts: number[] = [];
 
     scenes.forEach(scene => {
+      // Manuscript figures count braided scenes only (placed in the timeline);
+      // bullpen/unbraided scenes are excluded until braided.
+      if (scene.timelinePosition === null) return;
       const key = scene.id;
       const content = draftContent[key];
       const words = countWords(content || '');

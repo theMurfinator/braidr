@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { NoteMetadata } from '../../../shared/types';
 
 interface NotesSidebarProps {
+  projectPath: string;
   notes: NoteMetadata[];
   selectedNoteId: string | null;
   onSelectNote: (noteId: string) => void;
@@ -215,6 +216,7 @@ function NoteTreeItem({
 }
 
 export default function NotesSidebar({
+  projectPath,
   notes,
   selectedNoteId,
   onSelectNote,
@@ -228,20 +230,34 @@ export default function NotesSidebar({
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; noteId: string } | null>(null);
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => {
+  // Collapsed-folder state is persisted per project. The old global key got
+  // clobbered when switching projects, which is why expand state didn't stick.
+  const collapseKey = (path: string) => `braidr-notes-collapsed-folders::${path}`;
+  const loadCollapsed = (path: string): Set<string> => {
     try {
-      const stored = localStorage.getItem('braidr-notes-collapsed-folders');
+      const stored = localStorage.getItem(collapseKey(path));
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch { return new Set(); }
-  });
+  };
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => loadCollapsed(projectPath));
+  const loadedProjectRef = useRef(projectPath);
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ noteId: string; position: DropPosition } | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
+  // Reload collapsed state when switching to a different project.
   useEffect(() => {
-    localStorage.setItem('braidr-notes-collapsed-folders', JSON.stringify([...collapsedIds]));
-  }, [collapsedIds]);
+    loadedProjectRef.current = projectPath;
+    setCollapsedIds(loadCollapsed(projectPath));
+  }, [projectPath]);
+
+  // Persist per project, but only once the state belongs to the current project
+  // (avoids writing the prior project's state into the new project's key).
+  useEffect(() => {
+    if (loadedProjectRef.current !== projectPath) return;
+    localStorage.setItem(collapseKey(projectPath), JSON.stringify([...collapsedIds]));
+  }, [collapsedIds, projectPath]);
 
   useEffect(() => {
     if (renamingNoteId && renameInputRef.current) {
@@ -271,6 +287,18 @@ export default function NotesSidebar({
       else next.add(id);
       return next;
     });
+  };
+
+  // IDs of notes that have children (the collapsible folders) — drives the
+  // single expand/collapse-all toggle.
+  const parentIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const n of notes) if (n.parentId) ids.add(n.parentId);
+    return ids;
+  }, [notes]);
+  const allCollapsed = parentIds.size > 0 && [...parentIds].every(id => collapsedIds.has(id));
+  const toggleCollapseAll = () => {
+    setCollapsedIds(allCollapsed ? new Set() : new Set(parentIds));
   };
 
   const handleRenameSubmit = (noteId: string) => {
@@ -395,6 +423,18 @@ export default function NotesSidebar({
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           New Note
         </button>
+        {parentIds.size > 0 && (
+          <button
+            className="notes-sidebar-collapse-all-btn"
+            onClick={toggleCollapseAll}
+            title={allCollapsed ? 'Expand all' : 'Collapse all'}
+            aria-label={allCollapsed ? 'Expand all' : 'Collapse all'}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ transform: allCollapsed ? 'none' : 'rotate(90deg)', transition: 'transform 0.15s' }}>
+              <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="notes-sidebar-list">

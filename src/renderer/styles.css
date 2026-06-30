@@ -11056,6 +11056,25 @@ textarea.table-cell-input {
   border-color: var(--border);
 }
 
+/* Single expand/collapse-all toggle, sits next to "New Note". */
+.notes-sidebar-collapse-all-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 9px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.notes-sidebar-collapse-all-btn:hover {
+  color: var(--text-secondary);
+}
+
 .notes-sidebar-new-folder {
   display: flex;
   align-items: center;
@@ -11534,6 +11553,59 @@ textarea.table-cell-input {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
+}
+
+/* BlockNote's floating toolbars (formatting bar on selection, link editor) are
+   portaled to <body>, escaping the .bn-mantine scope — so they lose BOTH their
+   surface AND the --bn-colors-* theme vars their buttons resolve against, which
+   left them transparent and unstyled. Re-supply BlockNote's theme variables
+   mapped to our design tokens (so its own button/hover/selected rules theme
+   correctly), then restyle the container + add smooth state transitions.
+   Covers the formatting, link, and action toolbars. */
+.bn-toolbar {
+  /* theme vars lost outside .bn-mantine, remapped to the design system */
+  --bn-colors-menu-background: var(--bg-primary);
+  --bn-colors-menu-text: var(--text-secondary);
+  --bn-colors-hovered-background: var(--bg-secondary);
+  --bn-colors-hovered-text: var(--text-primary);
+  --bn-colors-selected-background: var(--color-primary-bg);
+  --bn-colors-selected-text: var(--color-primary);
+  --bn-colors-disabled-background: transparent;
+  --bn-colors-disabled-text: var(--text-muted);
+  --bn-colors-border: var(--border);
+  --bn-colors-tooltip-background: var(--text-primary);
+  --bn-colors-tooltip-text: var(--bg-primary);
+  --bn-border-radius-small: var(--radius-sm);
+  --bn-border-radius-medium: var(--radius-md);
+  --bn-shadow-medium: var(--shadow-lg);
+  --bn-font-family: var(--font-ui);
+
+  /* container surface */
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  gap: 2px;
+}
+
+/* Smooth, comfortable buttons (BlockNote's own rules supply the colors via the
+   vars above; this adds the polish those rules don't). */
+.bn-toolbar .mantine-Button-root,
+.bn-toolbar .mantine-ActionIcon-root {
+  border-radius: var(--radius-sm);
+  transition: background-color 0.12s ease, color 0.12s ease;
+  font-family: var(--font-ui);
+}
+
+/* Block-type select trigger ("Heading 1", "Paragraph", etc.): its icon sat
+   flush against the label ("H1Heading 1"). Space the label off the icon.
+   Only labeled buttons (the block-type select) have .mantine-Button-label —
+   the icon-only B/I/U buttons are MantineActionIcons, so they're untouched.
+   Targeting the label directly (not the aria-controls trigger) keeps the gap
+   visible whether the dropdown is open or closed. */
+.bn-toolbar .mantine-Button-label {
+  margin-left: 5px;
 }
 
 .note-editor-content {

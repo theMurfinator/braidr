@@ -84,11 +84,9 @@ A separate knowledge base alongside the outline.
 - Rich text notes with TipTap editor
 - **Tables**, **multi-column layouts**, **image embedding** (drag/paste)
 - **Wikilinks** (`[[note title]]`) for linking between notes
-- **Backlinks panel** — shows which notes link to the current note
 - **Slash commands** for quick insertion of blocks
 - **Tags** — notes can have multiple tags; tag bar in editor
-- **Graph view** — d3-force canvas showing notes and scenes as nodes, links as edges, with filter panel
-- Sidebar with search and tag filtering
+- Sidebar with search and tag filtering. Parent notes expand to show nested child notes; a single button collapses/expands all, and the expanded state is remembered per project.
 
 ### Tasks View
 A lightweight task tracker built into the project.
@@ -111,6 +109,7 @@ A visual timeline canvas.
 Writing session data and productivity trends.
 
 - Session history from check-ins (energy, focus, mood over time)
+- **Manuscript word counts are braided-only** — every word figure (the total, progress, per-character/status breakdowns, and the daily/weekly/monthly snapshots) counts only scenes placed in the timeline. Bullpen/unbraided scenes are excluded until braided; set-aside scenes are always excluded. Existing projects switch to this basis once, rebaselining the changeover day so it isn't recorded as a deletion; historical daily numbers stay on whatever basis recorded them.
 - **Daily word counts** are the *manuscript difference* for the day: each day stores the total manuscript word count, and "words written" = today's total − the day's starting baseline (which carries over from the prior day's ending total). This counts every change (including deletions, shown as negative) regardless of how time was tracked, rather than summing individual editing-session deltas. Days from before this model existed fall back to the older session-based totals.
 - **Weekly Words** — full-width bar chart of daily word counts (Sat–Fri week), configured with manuscript target length + deadline date; auto-calculates required words/day and words/week, shows pace vs. on-track status
 - **Weekly Hours** — full-width bar chart of daily writing time with configurable weekly target
