@@ -245,6 +245,9 @@ function App() {
   });
   const [draftContent, setDraftContent] = useState<Record<string, string>>({});
   const draftContentRef = useRef<Record<string, string>>({});
+  // IDs of braided scenes (timelinePosition !== null). The manuscript word total
+  // counts only these; bullpen/unbraided scenes are excluded until placed.
+  const braidedSceneIdsRef = useRef<Set<string>>(new Set());
   const [arcPreviewSceneId, setArcPreviewSceneId] = useState<string | null>(null);
   const [povPreviewSceneId, setPovPreviewSceneId] = useState<string | null>(null);
   const [povDetailSectionId, setPovDetailSectionId] = useState<string | null>(null);
@@ -874,10 +877,20 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [undoProjectData, redoProjectData, paneLayout, paneDispatch]);
 
-  // Total manuscript word count, computed live across all scene drafts.
+  // Keep the braided-scene-id set in sync so the manuscript total can exclude
+  // bullpen/unbraided scenes.
+  useEffect(() => {
+    braidedSceneIdsRef.current = new Set(
+      (projectData?.scenes || []).filter(s => s.timelinePosition !== null).map(s => s.id)
+    );
+  }, [projectData?.scenes]);
+
+  // Total manuscript word count — counts only braided scenes (drafts of scenes
+  // placed in the timeline). Bullpen/unbraided scenes are excluded.
   const computeTotalManuscriptWords = useCallback(() => {
     let total = 0;
-    for (const html of Object.values(draftContentRef.current)) {
+    for (const [id, html] of Object.entries(draftContentRef.current)) {
+      if (!braidedSceneIdsRef.current.has(id)) continue;
       if (html && html !== '<p></p>') {
         const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
         if (text) total += text.split(/\s+/).length;
@@ -899,24 +912,47 @@ function App() {
 
     const today = getTodayStr();
     const total = computeTotalManuscriptWords();
+    const isBraidedBasis = analyticsRef.current.manuscriptBasis === 'braided';
 
-    // Partial-load guard: drafts may still be streaming in, giving a spuriously
-    // low total. If we have prior history and the total looks implausibly low
-    // (a >50% drop), DON'T record it and DON'T mark seeded — the effect re-runs as
-    // draftContent fills in, so it retries until the real total is available.
-    // This is what produced phantom -44k/+44k swings in the word trend.
     const dm = analyticsRef.current.dailyManuscript || {};
     const priorDates = Object.keys(dm).filter(d => d < today).sort();
     const priorLatest = priorDates.length > 0 ? dm[priorDates[priorDates.length - 1]].latest : undefined;
-    if (priorLatest !== undefined && priorLatest > 100 && total < priorLatest * 0.5) {
-      return;
+
+    if (isBraidedBasis) {
+      // Partial-load guard: drafts may still be streaming in, giving a spuriously
+      // low total. If we have prior history and the total looks implausibly low
+      // (a >50% drop), DON'T record it and DON'T mark seeded — the effect re-runs
+      // as draftContent fills in, so it retries until the real total is available.
+      // This is what produced phantom -44k/+44k swings in the word trend.
+      if (priorLatest !== undefined && priorLatest > 100 && total < priorLatest * 0.5) {
+        return;
+      }
+    } else {
+      // Migrating an existing project to the braided basis: a drop from the old
+      // all-scenes total is EXPECTED, so the 50% heuristic doesn't apply. Instead
+      // require that every braided scene's draft has loaded so `total` is real.
+      const braidedIds = braidedSceneIdsRef.current;
+      const allBraidedLoaded = [...braidedIds].every(id => id in draftContentRef.current);
+      if (braidedIds.size > 0 && !allBraidedLoaded) return;
     }
 
     manuscriptSeededRef.current = projectData.projectPath;
     const todaySessionWords = (analyticsRef.current.sceneSessions || [])
       .filter(s => s.date === today && s.sceneKey !== 'manual:checkin')
       .reduce((sum, s) => sum + s.wordsNet, 0);
-    const updated = recordManuscriptSnapshot(analyticsRef.current, today, total, { seedWordsToday: todaySessionWords });
+
+    let updated;
+    if (!isBraidedBasis) {
+      // One-time switch to the braided basis. Rebaseline today so the definition
+      // change isn't recorded as a phantom deletion; preserve words already
+      // written today by backing them out of the baseline. Historical days keep
+      // whatever basis recorded them (stored snapshots only hold totals).
+      const newDm = { ...dm };
+      newDm[today] = { baseline: Math.max(0, total - todaySessionWords), latest: total };
+      updated = { ...analyticsRef.current, dailyManuscript: newDm, manuscriptBasis: 'braided' as const };
+    } else {
+      updated = recordManuscriptSnapshot(analyticsRef.current, today, total, { seedWordsToday: todaySessionWords });
+    }
     analyticsRef.current = updated;
     saveAnalytics(projectData.projectPath, updated);
   }, [projectData?.projectPath, analyticsLoaded, draftContent, computeTotalManuscriptWords]);

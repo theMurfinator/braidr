@@ -5,7 +5,6 @@ import { useToast } from '../ToastContext';
 import { track } from '../../utils/posthogTracker';
 import NotesSidebar from './NotesSidebar';
 import NoteEditor from './NoteEditor';
-import BacklinksPanel from './BacklinksPanel';
 
 type NotesWidthMode = 'narrow' | 'wide' | 'full';
 
@@ -25,29 +24,6 @@ interface NotesViewProps {
   storagePrefix?: string;
   allFontSettings?: AllFontSettings;
   onFontSettingsChange?: (s: AllFontSettings) => void;
-}
-
-// Remove wikilink spans with a given targetId from HTML
-function removeWikilinkFromHTML(html: string, targetId: string): string {
-  const regex = new RegExp(
-    `<span[^>]*data-type="wikilink"[^>]*data-target-id="${targetId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*>[^<]*</span>`,
-    'g'
-  );
-  return html.replace(regex, '');
-}
-
-// Parse wikilink nodes from HTML content to extract link targets
-function parseWikilinks(html: string): { noteLinks: string[]; sceneLinks: string[] } {
-  const noteLinks: string[] = [];
-  const sceneLinks: string[] = [];
-  const regex = /data-target-id="([^"]*)"[^>]*data-target-type="([^"]*)"/g;
-  let match;
-  while ((match = regex.exec(html)) !== null) {
-    const [, targetId, targetType] = match;
-    if (targetType === 'note') noteLinks.push(targetId);
-    else if (targetType === 'scene') sceneLinks.push(targetId);
-  }
-  return { noteLinks: [...new Set(noteLinks)], sceneLinks: [...new Set(sceneLinks)] };
 }
 
 // Get all descendant IDs of a note
@@ -174,17 +150,9 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     const saved = localStorage.getItem(sk('braidr-notes-sidebar-width'));
     return saved ? parseInt(saved, 10) : 280;
   });
-  const [backlinksPanelCollapsed, setBacklinksPanelCollapsed] = useState(() => {
-    const saved = localStorage.getItem(sk('braidr-notes-backlinks-collapsed'));
-    return saved !== null ? saved === 'true' : false;
-  });
-  const [backlinksWidth, setBacklinksWidth] = useState(() => {
-    const saved = localStorage.getItem(sk('braidr-notes-backlinks-width'));
-    return saved ? parseInt(saved, 10) : 240;
-  });
   const indexRef = useRef(notesIndex);
   indexRef.current = notesIndex;
-  const draggingRef = useRef<{ panel: 'sidebar' | 'backlinks'; startX: number; initialWidth: number } | null>(null);
+  const draggingRef = useRef<{ panel: 'sidebar'; startX: number; initialWidth: number } | null>(null);
   const notesViewRef = useRef<HTMLDivElement>(null);
 
   // Load notes index on mount
@@ -210,7 +178,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     }
   }, [initialNoteId, notesIndex.notes]);
 
-  // Keyboard shortcuts: Cmd+N new note, Cmd+[ toggle sidebar, Cmd+] toggle backlinks (only in active pane)
+  // Keyboard shortcuts: Cmd+N new note, Cmd+[ toggle sidebar (only in active pane)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!notesViewRef.current?.closest('.leaf-pane.active')) return;
@@ -222,9 +190,6 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
       } else if (modifier && e.key === '[') {
         e.preventDefault();
         setSidebarCollapsed(prev => !prev);
-      } else if (modifier && e.key === ']') {
-        e.preventDefault();
-        setBacklinksPanelCollapsed(prev => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -237,16 +202,8 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
   }, [sidebarWidth]);
 
   useEffect(() => {
-    localStorage.setItem(sk('braidr-notes-backlinks-width'), backlinksWidth.toString());
-  }, [backlinksWidth]);
-
-  useEffect(() => {
     localStorage.setItem(sk('braidr-notes-sidebar-collapsed'), String(sidebarCollapsed));
   }, [sidebarCollapsed]);
-
-  useEffect(() => {
-    localStorage.setItem(sk('braidr-notes-backlinks-collapsed'), String(backlinksPanelCollapsed));
-  }, [backlinksPanelCollapsed]);
 
   useEffect(() => {
     localStorage.setItem(sk('braidr-notes-width-mode'), notesWidthMode);
@@ -262,11 +219,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
       const drag = draggingRef.current;
       if (!drag) return;
       const delta = e.clientX - drag.startX;
-      if (drag.panel === 'sidebar') {
-        setSidebarWidth(Math.max(180, Math.min(500, drag.initialWidth + delta)));
-      } else {
-        setBacklinksWidth(Math.max(160, Math.min(450, drag.initialWidth - delta)));
-      }
+      setSidebarWidth(Math.max(180, Math.min(500, drag.initialWidth + delta)));
     };
     const onMouseUp = () => {
       draggingRef.current = null;
@@ -280,12 +233,12 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     };
   }, []);
 
-  const handleResizeStart = (e: React.MouseEvent, panel: 'sidebar' | 'backlinks') => {
+  const handleResizeStart = (e: React.MouseEvent, panel: 'sidebar') => {
     e.preventDefault();
     draggingRef.current = {
       panel,
       startX: e.clientX,
-      initialWidth: panel === 'sidebar' ? sidebarWidth : backlinksWidth,
+      initialWidth: sidebarWidth,
     };
     document.body.style.userSelect = 'none';
   };
@@ -550,61 +503,6 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     await saveIndex(newIndex);
   }, [saveIndex]);
 
-  // Remove an outgoing wikilink from the current note
-  const handleRemoveOutgoingLink = useCallback(async (targetId: string) => {
-    if (!selectedNoteId) return;
-    const note = indexRef.current.notes.find(n => n.id === selectedNoteId);
-    if (!note) return;
-
-    try {
-      const html = await dataService.readNote(projectPath, note.fileName);
-      const updatedHTML = removeWikilinkFromHTML(html, targetId);
-      await dataService.saveNote(projectPath, note.fileName, updatedHTML);
-
-      const { noteLinks, sceneLinks } = parseWikilinks(updatedHTML);
-      const newIndex: NotesIndex = {
-        ...indexRef.current,
-        notes: indexRef.current.notes.map(n =>
-          n.id === selectedNoteId
-            ? { ...n, modifiedAt: Date.now(), outgoingLinks: noteLinks, sceneLinks }
-            : n
-        ),
-        version: 2,
-      };
-      await saveIndex(newIndex);
-      setNoteContent(updatedHTML);
-    } catch (err) {
-      addToast('Couldn\u2019t remove link');
-    }
-  }, [selectedNoteId, projectPath, saveIndex]);
-
-  // Remove an incoming wikilink (from a source note that links to current)
-  const handleRemoveIncomingLink = useCallback(async (sourceNoteId: string) => {
-    if (!selectedNoteId) return;
-    const sourceNote = indexRef.current.notes.find(n => n.id === sourceNoteId);
-    if (!sourceNote) return;
-
-    try {
-      const html = await dataService.readNote(projectPath, sourceNote.fileName);
-      const updatedHTML = removeWikilinkFromHTML(html, selectedNoteId);
-      await dataService.saveNote(projectPath, sourceNote.fileName, updatedHTML);
-
-      const { noteLinks, sceneLinks } = parseWikilinks(updatedHTML);
-      const newIndex: NotesIndex = {
-        ...indexRef.current,
-        notes: indexRef.current.notes.map(n =>
-          n.id === sourceNoteId
-            ? { ...n, modifiedAt: Date.now(), outgoingLinks: noteLinks, sceneLinks }
-            : n
-        ),
-        version: 2,
-      };
-      await saveIndex(newIndex);
-    } catch (err) {
-      addToast('Couldn\u2019t remove link');
-    }
-  }, [selectedNoteId, projectPath, saveIndex]);
-
   const handleNavigateNote = useCallback((noteId: string) => {
     setSelectedNoteId(noteId);
   }, []);
@@ -630,6 +528,7 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
       {!sidebarCollapsed && (
         <>
           <NotesSidebar
+            projectPath={projectPath}
             notes={notesIndex.notes}
             selectedNoteId={selectedNoteId}
             onSelectNote={setSelectedNoteId}
@@ -677,12 +576,6 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
               </button>
             ))}
           </div>
-          <button className="notes-panel-toggle" onClick={() => setBacklinksPanelCollapsed(!backlinksPanelCollapsed)} title={backlinksPanelCollapsed ? 'Show links' : 'Hide links'}>
-            <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
-              <rect x="0.75" y="0.75" width="16.5" height="12.5" rx="2.25" stroke="currentColor" strokeWidth="1.5"/>
-              <line x1="12.5" y1="0.75" x2="12.5" y2="13.25" stroke="currentColor" strokeWidth="1.5"/>
-            </svg>
-          </button>
         </div>
         {selectedNote && noteContentLoaded ? (
           <NoteEditor
@@ -720,32 +613,6 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
           </div>
         )}
       </div>
-      {!backlinksPanelCollapsed && (
-        <div className="notes-resize-handle" onMouseDown={(e) => handleResizeStart(e, 'backlinks')} />
-      )}
-      {!backlinksPanelCollapsed && (
-        selectedNote ? (
-          <BacklinksPanel
-            currentNoteId={selectedNote.id}
-            allNotes={notesIndex.notes}
-            scenes={scenes}
-            characters={characters}
-            onNavigateNote={handleNavigateNote}
-            onRemoveOutgoingLink={handleRemoveOutgoingLink}
-            onRemoveIncomingLink={handleRemoveIncomingLink}
-            width={backlinksWidth}
-          />
-        ) : (
-          <div className="backlinks-panel" style={backlinksWidth ? { width: backlinksWidth } : undefined}>
-            <div className="backlinks-panel-header">
-              <span className="backlinks-panel-title">Links</span>
-            </div>
-            <div className="backlinks-panel-content">
-              <div className="backlinks-empty" style={{ padding: '14px' }}>Select a note to see links</div>
-            </div>
-          </div>
-        )
-      )}
     </div>
   );
 }

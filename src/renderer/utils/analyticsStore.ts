@@ -86,6 +86,15 @@ export interface AnalyticsData {
   customCheckinCategories?: CustomCheckinCategory[];
   /** Daily total-manuscript snapshots, keyed by YYYY-MM-DD. */
   dailyManuscript?: Record<string, DailyManuscript>;
+  /**
+   * Which scenes the manuscript word total counts. 'braided' = only scenes
+   * placed in the timeline (timelinePosition !== null); legacy/undefined =
+   * 'all' active scenes (braided + bullpen). A one-time rebaseline on first
+   * load switches existing projects to 'braided' without a phantom deletion;
+   * historical daily numbers stay on whatever basis recorded them (the stored
+   * snapshots only hold totals, so braided-only history can't be reconstructed).
+   */
+  manuscriptBasis?: 'all' | 'braided';
 }
 
 const DEFAULT_ANALYTICS: AnalyticsData = {
