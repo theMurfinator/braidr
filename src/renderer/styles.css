@@ -3234,6 +3234,24 @@ textarea.scene-metadata-field-input {
   color: var(--text-secondary);
 }
 
+/* POV section header "Add Scene" button — inline, revealed on section hover */
+.pov-add-scene-btn {
+  opacity: 0;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: var(--font-ui);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.1s;
+}
+.pov-outline-section-header:hover .pov-add-scene-btn { opacity: 1; }
+.pov-add-scene-btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
 /* POV Scene Dragging */
 .pov-scene-wrapper {
   position: relative;
@@ -15810,7 +15828,7 @@ textarea.table-cell-input {
   background: var(--bg-subtle, rgba(127,127,127,0.04));
 }
 .task-row-subtask .task-title-cell {
-  padding-left: 36px;
+  padding-left: 55px;
 }
 
 .task-add-subtask-inline {
