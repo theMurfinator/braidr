@@ -41,8 +41,11 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
   const [deadlineDateInput, setDeadlineDateInput] = useState('');
   const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week, etc.
   const [wordWeekOffset, setWordWeekOffset] = useState(0);
+  const [wordMonthOffset, setWordMonthOffset] = useState(0); // 0 = current month, -1 = last month, etc.
   const [editingWeeklyGoal, setEditingWeeklyGoal] = useState(false);
   const [weeklyGoalInput, setWeeklyGoalInput] = useState('');
+  const [editingMonthlyGoal, setEditingMonthlyGoal] = useState(false);
+  const [monthlyGoalInput, setMonthlyGoalInput] = useState('');
 
   // Load analytics on mount
   useEffect(() => {
@@ -340,6 +343,41 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     return { days, dayLabels, perDayWords, totalWords, todayIdx, isCurrentWeek, label: formatWeekLabel(viewedSat) };
   }, [wordWeekOffset, wordsForDate]);
 
+  // Monthly word count data — net manuscript growth across the viewed calendar
+  // month, bucketed into 7-day weeks (W1..W5/6) for the mini-chart. Same word
+  // source as the weekly widgets and calendar (wordsForDate).
+  const monthWordData = useMemo(() => {
+    const now = new Date();
+    const viewed = new Date(now.getFullYear(), now.getMonth() + wordMonthOffset, 1);
+    const year = viewed.getFullYear();
+    const month = viewed.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const isCurrentMonth = wordMonthOffset === 0;
+
+    let totalWords = 0;
+    const perDayWords: number[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const w = wordsForDate(dateStr);
+      totalWords += w;
+      perDayWords.push(w);
+    }
+
+    // 7-day chunks from the 1st → predictable W1..W5(/6) labels.
+    const weeks: { label: string; words: number }[] = [];
+    for (let i = 0; i < perDayWords.length; i += 7) {
+      weeks.push({
+        label: `W${weeks.length + 1}`,
+        words: perDayWords.slice(i, i + 7).reduce((s, x) => s + x, 0),
+      });
+    }
+
+    // Day-of-month for pace (1-based). Past/future months pace against the full month.
+    const todayDom = isCurrentMonth ? now.getDate() : daysInMonth;
+    const label = viewed.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return { year, month, daysInMonth, totalWords, weeks, isCurrentMonth, todayDom, label };
+  }, [wordMonthOffset, wordsForDate]);
+
   const weeklyGoal = analytics?.weeklyGoal;
   const weeklyTargetHours = weeklyGoal?.enabled ? weeklyGoal.targetHours : 0;
 
@@ -479,6 +517,40 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
       persistPatch(patch, updated);
     }
     setEditingWeeklyGoal(false);
+  };
+
+  // Monthly word goal — recurring target, resets each calendar month.
+  const monthlyGoal = analytics?.monthlyGoal;
+  const monthlyTargetWords = monthlyGoal?.enabled ? monthlyGoal.targetWords : 0;
+  const monthlyProgress = monthlyTargetWords > 0 ? Math.min(monthWordData.totalWords / monthlyTargetWords, 1) : 0;
+  const monthlyTargetPerDay = monthlyTargetWords / monthWordData.daysInMonth;
+  const monthlyTargetThroughToday = monthWordData.isCurrentMonth
+    ? monthlyTargetPerDay * monthWordData.todayDom
+    : monthlyTargetWords;
+  const monthlyPace = monthWordData.totalWords - monthlyTargetThroughToday;
+  const monthlyOnTrack = monthlyPace >= 0;
+  const maxMonthWeekWords = Math.max(...monthWordData.weeks.map(w => Math.abs(w.words)), 1);
+
+  const handleMonthlyGoalSave = () => {
+    if (!analytics || !projectPath) return;
+    const parsed = parseInt(monthlyGoalInput.replace(/,/g, ''), 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      track('goal_set', { type: 'monthly' });
+      const patch = { monthlyGoal: { enabled: true, targetWords: parsed } };
+      const updated = applyAnalyticsPatch(analytics, patch);
+      setAnalytics(updated);
+      persistPatch(patch, updated);
+    }
+    setEditingMonthlyGoal(false);
+  };
+
+  const handleMonthlyGoalClear = () => {
+    if (!analytics || !projectPath) return;
+    const patch = { monthlyGoal: { enabled: false, targetWords: monthlyGoal?.targetWords || 20000 } };
+    const updated = applyAnalyticsPatch(analytics, patch);
+    setAnalytics(updated);
+    persistPatch(patch, updated);
+    setEditingMonthlyGoal(false);
   };
 
   // Check-in averages
@@ -883,6 +955,120 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
           </div>
         </div>
       )}
+
+      {/* Monthly Words Tracker */}
+      <div className="analytics-weekly-tracker">
+        <div className="analytics-card full">
+          <div className="analytics-card-header">
+            <div className="analytics-calendar-nav">
+              <button onClick={() => setWordMonthOffset(prev => prev - 1)}>&#8249;</button>
+            </div>
+            <div className="analytics-weekly-title-group">
+              <span className="analytics-card-title">Monthly Words</span>
+              <span className="analytics-card-subtitle">{monthWordData.label}</span>
+            </div>
+            <div className="analytics-calendar-nav">
+              <button onClick={() => setWordMonthOffset(prev => Math.min(prev + 1, 0))}>&#8250;</button>
+            </div>
+          </div>
+
+          <div className="analytics-weekly-body">
+            {/* Left: summary */}
+            <div className="analytics-weekly-summary">
+              <div className="analytics-weekly-hours-big">
+                <span className="analytics-weekly-hours-current">{monthWordData.totalWords.toLocaleString()}</span>
+                {monthlyGoal?.enabled && (
+                  <span className="analytics-weekly-hours-target"> / {monthlyTargetWords.toLocaleString()}</span>
+                )}
+              </div>
+
+              {monthlyGoal?.enabled && (
+                <>
+                  <div className="analytics-goal-bar-track">
+                    <div className="analytics-goal-bar-fill weekly" style={{ width: `${monthlyProgress * 100}%` }} />
+                  </div>
+                  {monthWordData.isCurrentMonth && (
+                    <div className="analytics-weekly-pace">
+                      Target through today: <strong>{Math.round(monthlyTargetThroughToday).toLocaleString()}</strong>
+                      {' · '}
+                      {monthlyPace >= 0
+                        ? <>Ahead by <strong>{Math.round(monthlyPace).toLocaleString()}</strong></>
+                        : <>Behind by <strong>{Math.round(-monthlyPace).toLocaleString()}</strong></>}
+                    </div>
+                  )}
+                  <span className={`analytics-deadline-pill ${monthlyOnTrack ? 'on-track' : 'behind'}`}>
+                    {monthWordData.totalWords >= monthlyTargetWords
+                      ? '✓ Target hit'
+                      : monthWordData.isCurrentMonth
+                        ? (monthlyOnTrack ? '✓ On track' : '⚠ Behind pace')
+                        : '✗ Missed'
+                    }
+                  </span>
+                </>
+              )}
+
+              <div className="analytics-weekly-goal-edit">
+                {editingMonthlyGoal ? (
+                  <div className="analytics-goal-edit inline" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={monthlyGoalInput}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                        setMonthlyGoalInput(raw === '' ? '' : parseInt(raw, 10).toLocaleString());
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleMonthlyGoalSave();
+                        if (e.key === 'Escape') setEditingMonthlyGoal(false);
+                      }}
+                      placeholder="Words per month"
+                      autoFocus
+                    />
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button className="analytics-goal-edit-btn" onClick={handleMonthlyGoalSave}>Save</button>
+                      {monthlyGoal?.enabled && (
+                        <button className="analytics-goal-edit-btn" onClick={handleMonthlyGoalClear} style={{ opacity: 0.6 }}>Clear</button>
+                      )}
+                      <button className="analytics-goal-edit-btn" onClick={() => setEditingMonthlyGoal(false)} style={{ opacity: 0.6 }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button className="analytics-goal-edit-btn" onClick={() => {
+                    setMonthlyGoalInput(monthlyGoal?.targetWords ? monthlyGoal.targetWords.toLocaleString() : '');
+                    setEditingMonthlyGoal(true);
+                  }}>
+                    {monthlyGoal?.enabled ? `${monthlyTargetWords.toLocaleString()}/mo target` : 'Set monthly target'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Right: per-week bar chart */}
+            <div className="analytics-weekly-chart">
+              {monthWordData.weeks.map((week, i) => {
+                const barHeight = (Math.abs(week.words) / maxMonthWeekWords) * 100;
+                const isNegative = week.words < 0;
+                const absWords = Math.abs(week.words);
+                return (
+                  <div key={`mw-${i}`} className="analytics-weekly-bar-group">
+                    <div className="analytics-weekly-bar-value" style={isNegative ? { color: '#ef4444' } : undefined}>
+                      {week.words !== 0 ? (absWords >= 1000 ? `${isNegative ? '-' : ''}${(absWords / 1000).toFixed(1)}k` : week.words) : ''}
+                    </div>
+                    <div className="analytics-weekly-bar-track">
+                      <div
+                        className={`analytics-weekly-bar ${week.words !== 0 ? 'has-hours' : ''} ${isNegative ? 'negative' : ''}`}
+                        style={{ height: `${Math.max(barHeight, week.words !== 0 ? 4 : 0)}%` }}
+                      />
+                    </div>
+                    <div className="analytics-weekly-bar-label">{week.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Main Grid */}
       <div className="analytics-grid">

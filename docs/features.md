@@ -114,6 +114,7 @@ Writing session data and productivity trends.
 - **Daily word counts** are the *manuscript difference* for the day: each day stores the total manuscript word count, and "words written" = today's total − the day's starting baseline (which carries over from the prior day's ending total). This counts every change (including deletions, shown as negative) regardless of how time was tracked, rather than summing individual editing-session deltas. Days from before this model existed fall back to the older session-based totals.
 - **Weekly Words** — full-width bar chart of daily word counts (Sat–Fri week), configured with manuscript target length + deadline date; auto-calculates required words/day and words/week, shows pace vs. on-track status
 - **Weekly Hours** — full-width bar chart of daily writing time with configurable weekly target
+- **Monthly Words** — full-width widget with a recurring monthly word target (resets each calendar month); shows current vs. target, progress bar, pace vs. on-track status, and a per-week (W1–W5) bar chart for the viewed month. Navigate between months independently of the calendar heatmap.
 - **12-week trend** — rolling chart of output by week
 - Manuscript progress bar (total words vs. target)
 - Calendar heatmap, words over time, words by character
