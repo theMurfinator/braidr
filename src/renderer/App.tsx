@@ -351,7 +351,15 @@ function App() {
   const taskVisibleColumnsRef = useRef<string[] | undefined>(undefined);
   const [taskPanelOpen, setTaskPanelOpen] = useState(false);
   const [taskPanelTaskId, setTaskPanelTaskId] = useState<string | null>(null);
-  const taskPanelTask = taskPanelTaskId ? tasks.find(t => t.id === taskPanelTaskId) ?? null : null;
+  const findTaskById = (list: Task[], id: string): Task | null => {
+    for (const t of list) {
+      if (t.id === id) return t;
+      const found = t.subtasks && t.subtasks.length ? findTaskById(t.subtasks, id) : null;
+      if (found) return found;
+    }
+    return null;
+  };
+  const taskPanelTask = taskPanelTaskId ? findTaskById(tasks, taskPanelTaskId) : null;
 
   const {
     timerRunning,
@@ -4370,6 +4378,7 @@ function App() {
                   onSectionChange={handlePlotPointChange}
                   onDeleteSection={handleDeletePlotPoint}
                   onOpenSectionDetails={setPovDetailSectionId}
+                  onAddScene={handleAddSceneToSection}
                   getCharacterName={getCharacterName}
                   povReorderedScenes={povReorderedScenes}
                 />
