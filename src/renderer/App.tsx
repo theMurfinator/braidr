@@ -931,13 +931,19 @@ function App() {
       if (priorLatest !== undefined && priorLatest > 100 && total < priorLatest * 0.5) {
         return;
       }
-    } else {
-      // Migrating an existing project to the braided basis: a drop from the old
-      // all-scenes total is EXPECTED, so the 50% heuristic doesn't apply. Instead
-      // require that every braided scene's draft has loaded so `total` is real.
-      const braidedIds = braidedSceneIdsRef.current;
-      const allBraidedLoaded = [...braidedIds].every(id => id in draftContentRef.current);
-      if (braidedIds.size > 0 && !allBraidedLoaded) return;
+    } else if (
+      braidedSceneIdsRef.current.size === 0 &&
+      (projectData?.scenes || []).some(s => s.timelinePosition !== null)
+    ) {
+      // Migrating an existing project to the braided basis. The braided-scene set
+      // isn't populated yet, so `total` would be a spurious 0 — wait for a re-run.
+      // (We deliberately do NOT require every braided scene to appear in
+      // draftContent: drafts are bulk-loaded atomically and guarded non-empty
+      // above, and un-drafted braided scenes legitimately have no draftContent
+      // entry and count 0 words. The old per-scene gate blocked the migration
+      // forever on any project with an un-drafted braided scene, leaving the
+      // basis un-migrated and the dashboard showing a phantom deletion.)
+      return;
     }
 
     manuscriptSeededRef.current = projectData.projectPath;
