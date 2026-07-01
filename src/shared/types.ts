@@ -170,6 +170,8 @@ export interface TimelineData {
   drafts?: Record<string, DraftVersion[]>;
   // Scratchpad content keyed by "characterId:sceneNumber"
   scratchpad?: Record<string, string>;
+  // Outline flat-text content keyed by scene id
+  outlines?: Record<string, string>;
   // Comments keyed by "characterId:sceneNumber"
   sceneComments?: Record<string, SceneComment[]>;
   // Saved table view configurations
@@ -571,6 +573,8 @@ export const IPC_CHANNELS = {
   BRAIDR_SAVE_DRAFT: 'braidr:save-draft',
   BRAIDR_READ_SCRATCHPAD: 'braidr:read-scratchpad',
   BRAIDR_SAVE_SCRATCHPAD: 'braidr:save-scratchpad',
+  BRAIDR_READ_OUTLINE: 'braidr:read-outline',
+  BRAIDR_SAVE_OUTLINE: 'braidr:save-outline',
   BRAIDR_READ_DRAFT_VERSIONS: 'braidr:read-draft-versions',
   BRAIDR_SAVE_DRAFT_VERSIONS: 'braidr:save-draft-versions',
   BRAIDR_READ_SCENE_COMMENTS: 'braidr:read-scene-comments',

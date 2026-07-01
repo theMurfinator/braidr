@@ -250,6 +250,7 @@ export class CapacitorDataService implements DataService {
       drafts: Record<string, DraftVersion[]>;
       wordCountGoal: number;
       scratchpad: Record<string, string>;
+      outlines: Record<string, string>;
       sceneComments: Record<string, SceneComment[]>;
       tasks: Task[];
       taskFieldDefs: TaskFieldDef[];
@@ -414,6 +415,7 @@ export class CapacitorDataService implements DataService {
       scratchpad: Object.keys(scratchpad).length > 0
         ? scratchpad
         : (timelineData.scratchpad || {}),
+      outlines: timelineData.outlines || {},
       sceneComments: Object.keys(sceneCommentsMap).length > 0
         ? sceneCommentsMap
         : (timelineData.sceneComments || {}),
@@ -696,6 +698,15 @@ export class CapacitorDataService implements DataService {
 
   async saveScratchpad(projectPath: string, sceneId: string, content: string): Promise<void> {
     await writeTextFile(`${projectPath}/scratchpad/${sceneId}.html`, content);
+  }
+
+  async readOutline(projectPath: string, sceneId: string): Promise<string> {
+    const raw = await readTextFile(`${projectPath}/outlines/${sceneId}.txt`);
+    return raw || '';
+  }
+
+  async saveOutline(projectPath: string, sceneId: string, content: string): Promise<void> {
+    await writeTextFile(`${projectPath}/outlines/${sceneId}.txt`, content);
   }
 
   async readDraftVersions(projectPath: string, sceneId: string): Promise<DraftVersion[]> {

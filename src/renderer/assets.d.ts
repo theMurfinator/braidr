@@ -110,6 +110,8 @@ interface Window {
     braidrSaveDraft: (braidrPath: string, sceneId: string, content: string) => Promise<any>;
     braidrReadScratchpad: (braidrPath: string, sceneId: string) => Promise<any>;
     braidrSaveScratchpad: (braidrPath: string, sceneId: string, content: string) => Promise<any>;
+    braidrReadOutline: (braidrPath: string, sceneId: string) => Promise<any>;
+    braidrSaveOutline: (braidrPath: string, sceneId: string, content: string) => Promise<any>;
     braidrReadDraftVersions: (braidrPath: string, sceneId: string) => Promise<any>;
     braidrSaveDraftVersions: (braidrPath: string, sceneId: string, versions: any[]) => Promise<any>;
     braidrReadSceneComments: (braidrPath: string, sceneId: string) => Promise<any>;

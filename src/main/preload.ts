@@ -70,6 +70,8 @@ const IPC_CHANNELS = {
   BRAIDR_SAVE_DRAFT: 'braidr:save-draft',
   BRAIDR_READ_SCRATCHPAD: 'braidr:read-scratchpad',
   BRAIDR_SAVE_SCRATCHPAD: 'braidr:save-scratchpad',
+  BRAIDR_READ_OUTLINE: 'braidr:read-outline',
+  BRAIDR_SAVE_OUTLINE: 'braidr:save-outline',
   BRAIDR_READ_DRAFT_VERSIONS: 'braidr:read-draft-versions',
   BRAIDR_SAVE_DRAFT_VERSIONS: 'braidr:save-draft-versions',
   BRAIDR_READ_SCENE_COMMENTS: 'braidr:read-scene-comments',
@@ -287,6 +289,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_READ_SCRATCHPAD, braidrPath, sceneId),
   braidrSaveScratchpad: (braidrPath: string, sceneId: string, content: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_SCRATCHPAD, braidrPath, sceneId, content),
+  braidrReadOutline: (braidrPath: string, sceneId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_READ_OUTLINE, braidrPath, sceneId),
+  braidrSaveOutline: (braidrPath: string, sceneId: string, content: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_OUTLINE, braidrPath, sceneId, content),
   braidrReadDraftVersions: (braidrPath: string, sceneId: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_READ_DRAFT_VERSIONS, braidrPath, sceneId),
   braidrSaveDraftVersions: (braidrPath: string, sceneId: string, versions: any[]) =>
