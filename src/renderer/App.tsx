@@ -253,6 +253,7 @@ function App() {
   const scratchpadContentRef = useRef<Record<string, string>>({});
   const [outlines, setOutlines] = useState<Record<string, string>>({});
   const outlinesRef = useRef<Record<string, string>>({});
+  const [outlineCharFilter, setOutlineCharFilter] = useState<string>('all');
   const [sceneComments, setSceneComments] = useState<Record<string, SceneComment[]>>({});
   const sceneCommentsRef = useRef<Record<string, SceneComment[]>>({});
   const [drafts, setDrafts] = useState<Record<string, DraftVersion[]>>({});
@@ -4635,7 +4636,8 @@ function App() {
               />
             ) : braidedSubMode === 'outline' ? (
               <OutlineView
-                scenes={displayedScenes}
+                scenes={outlineCharFilter === 'all' ? displayedScenes : displayedScenes.filter(s => s.characterId === outlineCharFilter)}
+                chapters={chapters}
                 outlines={outlines}
                 getCharacterName={getCharacterName}
                 getCharacterHexColor={getCharacterHexColor}
@@ -4863,6 +4865,20 @@ function App() {
                 value={selectedCharacterId || ''}
                 onChange={(e) => setSelectedCharacterId(e.target.value)}
               >
+                {projectData.characters.map(char => (
+                  <option key={char.id} value={char.id}>
+                    {char.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (viewMode === 'braided' && braidedSubMode === 'outline') ? (
+            <div className="character-selector">
+              <select
+                value={outlineCharFilter}
+                onChange={(e) => setOutlineCharFilter(e.target.value)}
+              >
+                <option value="all">All characters</option>
                 {projectData.characters.map(char => (
                   <option key={char.id} value={char.id}>
                     {char.name}

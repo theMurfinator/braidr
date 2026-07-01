@@ -141,6 +141,13 @@
   --font-body-size: 16px;
   --font-body-weight: 400;
   --font-body-color: var(--text-primary);
+  /* Reading scale — for immersive full-page reading/writing surfaces (Outline view). */
+  --font-reading-title: 'Literata', Georgia, serif;
+  --font-reading-title-size: 24px;
+  --font-reading-title-weight: 600;
+  --font-reading-body: 'Literata', Georgia, serif;
+  --font-reading-body-size: 18px;
+  --font-reading-body-weight: 400;
   --font-ui: Arial, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
@@ -22766,115 +22773,247 @@ tr:hover .task-add-subtask-inline {
   background: var(--accent-light, #f0ecff);
 }
 
-/* ── Outline View (braided lens) ─────────────────────────────────────────── */
-.outline-view {
-  height: 100%;
+/* ── Outline lens — manuscript / distraction-free ───────────────────────── */
+.ms-scroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   background: var(--bg-primary);
-  padding: var(--space-lg) 0 var(--space-2xl);
 }
-.outline-view__meta {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-md);
-  max-width: 760px;
-  margin: 0 auto var(--space-lg);
-  padding: 0 var(--space-lg);
+.ms-sheet {
+  max-width: 600px;
+  margin: 0;
+  padding: 88px 32px 200px 64px;
 }
-.outline-view__progress {
+.ms-empty {
   font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.outline-view__hint {
-  font-family: var(--font-ui);
-  font-size: 12px;
   color: var(--text-muted);
-}
-.outline-view__stack {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 0 var(--space-lg);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-.outline-view__empty {
-  font-family: var(--font-ui);
-  color: var(--text-secondary);
   text-align: center;
-  padding: var(--space-2xl) 0;
+  padding: 96px 0;
 }
 
-.outline-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-primary);
-  padding: var(--space-md);
+.ms-passage {
+  position: relative;
+  margin-bottom: var(--space-2xl);
 }
-.outline-card--empty {
-  border-style: dashed;
-  background: var(--bg-secondary);
-}
-.outline-card__header {
+
+/* Header row: [num | POV] sits to the LEFT of the scene title */
+.ms-head {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-sm);
+  gap: 12px;
+  margin-bottom: var(--space-lg);
 }
-.outline-card__pov {
+.ms-slug {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
   font-family: var(--font-ui);
   font-size: 11px;
-  font-weight: 600;
-  color: #fff;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
+  line-height: 1.4;
   white-space: nowrap;
 }
-.outline-card__title {
-  font-family: var(--font-scene-title);
-  font-size: var(--font-scene-title-size);
-  font-weight: var(--font-scene-title-weight);
+.ms-slug__num {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.ms-slug__sep {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+.ms-slug__pov {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+.ms-title {
+  margin: 0;
+  font-family: var(--font-reading-title);
+  font-size: var(--font-reading-title-size);
+  font-weight: var(--font-reading-title-weight);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
 }
-.outline-card__synopsis {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-.outline-card__body {
+
+/* The outline prose — the hero */
+.ms-body {
+  display: block;
   width: 100%;
   border: none;
   outline: none;
   resize: none;
-  background: transparent;
-  font-family: var(--font-body);
-  font-size: var(--font-body-size);
-  line-height: 1.5;
-  color: var(--text-primary);
   overflow: hidden;
-  min-height: 1.5em;
+  background: transparent;
+  padding: 0;
+  font-family: var(--font-reading-body);
+  font-size: var(--font-reading-body-size);
+  line-height: 1.75;
+  color: var(--text-primary);
+  min-height: 1.75em;
 }
-.outline-card__body::placeholder {
-  color: var(--text-muted);
-}
-.outline-card__footer {
-  margin-top: var(--space-sm);
-  display: flex;
-  justify-content: flex-end;
-}
-.outline-card__count {
-  font-family: var(--font-ui);
-  font-size: 11px;
-  color: var(--text-muted);
-}
-.outline-card__count.is-near { color: var(--tag-time); }
-.outline-card__count.is-over { color: var(--tag-arcs); font-weight: 600; }
-.outline-card__hole {
-  font-family: var(--font-ui);
-  font-size: 11px;
+.ms-body::placeholder {
   color: var(--text-muted);
   font-style: italic;
+}
+.ms-passage.is-empty .ms-body { opacity: 0.9; }
+
+/* Word count whispers in only while writing */
+.ms-passage__count {
+  height: 16px;
+  margin-top: 4px;
+  text-align: right;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.ms-passage.is-focused .ms-passage__count { opacity: 1; }
+.ms-passage__count .near { color: var(--tag-time); }
+.ms-passage__count .over { color: var(--tag-arcs); font-weight: 600; }
+
+/* ── Outline lens — focus mode + scene nav ──────────────────────────────── */
+.ms-focus {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--bg-primary);
+}
+.ms-focus-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+/* Right-hand scene list — muted at rest, lights up on hover/active */
+.ms-nav {
+  flex-shrink: 0;
+  width: 264px;
+  overflow-y: auto;
+  padding: 16px 8px 40px;
+  border-left: 1px solid var(--border);
+  background: var(--bg-primary);
+  transition: opacity 0.35s ease;
+}
+/* While writing, the list recedes to near-transparent; hovering it brings it back. */
+.ms-focus.is-writing .ms-nav {
+  opacity: 0.15;
+}
+.ms-focus.is-writing .ms-nav:hover {
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+.ms-nav__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 12px;
+}
+.ms-nav__title {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+.ms-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ms-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.ms-nav__item:hover,
+.ms-nav__item.is-active {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+.ms-nav__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  box-sizing: border-box;
+}
+.ms-nav__item:not(.is-empty) .ms-nav__dot {
+  background: currentColor;
+}
+.ms-nav__item:hover .ms-nav__dot,
+.ms-nav__item.is-active .ms-nav__dot {
+  color: var(--pov);
+}
+.ms-nav__num {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+.ms-nav__title-text {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Outline lens — chapter headers ─────────────────────────────────────── */
+.ms-group + .ms-group { margin-top: var(--space-xl); }
+.ms-chapter {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding-bottom: 10px;
+  margin-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--border);
+}
+.ms-nav__group + .ms-nav__group { margin-top: 16px; }
+.ms-nav__chapter {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding: 4px 10px 6px;
+}
+
+/* Scene anchors in the continuous main scroll get headroom when jumped to. */
+.ms-anchor { scroll-margin-top: 88px; }
+
+/* Focus: nothing moves. The other scenes and the list just fade to transparent,
+   and fade back as you scroll — so there's no position jump, only opacity. */
+.ms-anchor { transition: opacity 0.9s ease; }
+/* --reveal (0..1) is driven live by scroll distance while focused. */
+.ms-focus.is-focusing .ms-anchor { opacity: var(--reveal, 0); transition: opacity 0.35s ease; }
+.ms-focus.is-focusing .ms-anchor.is-current { opacity: 1; }
+.ms-focus.is-focusing .ms-nav { opacity: var(--reveal, 0); pointer-events: none; transition: opacity 0.35s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .ms-anchor, .ms-nav { transition: none; }
+}
+
+/* Outline body is a page, not a form field: kill the global focus box. */
+.ms-body:focus {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none;
 }

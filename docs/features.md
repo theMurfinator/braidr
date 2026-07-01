@@ -65,14 +65,16 @@ Spreadsheet-style view of all scenes.
 - Chapter grouping as section headers
 
 ### Braided Timeline — Outline View
-A reading lens for locking the arc before drafting. Every scene in braided order shown as a card with a short, flat-text outline of what happens (not prose).
+A distraction-free surface for locking the arc before drafting. Each scene gets a short, flat-text outline of what happens (not prose), written as a manuscript page.
 
-- Write each scene's outline inline; edits auto-save
-- Scenes with no outline yet render as visible "holes" (dashed, muted) so gaps in the arc are obvious at a glance
-- Per-card word count with soft gravity toward ~250–300 words (calm under target, warns past 300 — never blocks)
-- Header shows character, scene title, and the scene's synopsis
-- Progress readout ("N of M scenes outlined") at the top
-- Stored separately from prose drafts, so the outline stays as a scaffold you draft against
+- **Continuous scroll** of every scene in braided order, grouped under chapter headers (scenes with no chapter fall under "Unassigned")
+- Each scene shows a quiet slug line (braid number · POV in the character's color · title) above the outline text
+- **Persistent scene list on the right** — grouped by chapter, muted at rest, lighting up on hover; a filled dot means the scene is outlined, a hollow dot means it's still a hole. Tracks your scroll position
+- **Focus a scene** by clicking it in the list: the other scenes and the list fade to transparent so only that scene is on screen, cursor ready. Nothing moves — it's pure opacity, so there's no position jump
+- **Scroll to come back**: the rest fade in proportional to how far you scroll. `Esc` or `Cmd/Ctrl + ↑/↓` also navigate
+- Character filter in the toolbar narrows the view to one POV's scenes
+- Per-scene word count with soft gravity toward ~250–300 words (calm under target, warns past 300 — never blocks)
+- Edits auto-save; stored separately from prose drafts, so the outline stays a scaffold you draft against
 
 ### Editor View
 Full-screen writing environment.
