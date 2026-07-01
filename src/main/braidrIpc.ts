@@ -444,6 +444,13 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
       if (row.content) scratchpad[row.scene_id] = row.content;
     }
 
+    // Outlines (bulk) — short flat-text scene outline, keyed by scene id
+    const olRows = db.prepare('SELECT scene_id, content FROM scene_outlines').all() as { scene_id: string; content: string }[];
+    const outlines: Record<string, string> = {};
+    for (const row of olRows) {
+      if (row.content) outlines[row.scene_id] = row.content;
+    }
+
     // Scene comments (bulk)
     const scRows = db.prepare(
       'SELECT * FROM scene_comments ORDER BY scene_id, created_at'
@@ -607,6 +614,7 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_PROJECT, (_event, braidrPath: string) =>
         drafts,
         wordCountGoal,
         scratchpad,
+        outlines,
         sceneComments,
         tasks,
         taskFieldDefs,
@@ -711,6 +719,26 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SCRATCHPAD, (_event, braidrPath: string,
   try {
     const db = getDb(braidrPath);
     db.upsertScratchpad(sceneId, content);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_READ_OUTLINE, (_event, braidrPath: string, sceneId: string) => {
+  try {
+    const db = getDb(braidrPath);
+    const row = db.getOutline(sceneId);
+    return { success: true, data: row?.content || '' };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_OUTLINE, (_event, braidrPath: string, sceneId: string, content: string) => {
+  try {
+    const db = getDb(braidrPath);
+    db.upsertOutline(sceneId, content);
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };

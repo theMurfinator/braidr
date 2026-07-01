@@ -64,6 +64,16 @@ Spreadsheet-style view of all scenes.
 - Sortable, editable inline
 - Chapter grouping as section headers
 
+### Braided Timeline — Outline View
+A reading lens for locking the arc before drafting. Every scene in braided order shown as a card with a short, flat-text outline of what happens (not prose).
+
+- Write each scene's outline inline; edits auto-save
+- Scenes with no outline yet render as visible "holes" (dashed, muted) so gaps in the arc are obvious at a glance
+- Per-card word count with soft gravity toward ~250–300 words (calm under target, warns past 300 — never blocks)
+- Header shows character, scene title, and the scene's synopsis
+- Progress readout ("N of M scenes outlined") at the top
+- Stored separately from prose drafts, so the outline stays as a scaffold you draft against
+
 ### Editor View
 Full-screen writing environment.
 

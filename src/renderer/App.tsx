@@ -10,6 +10,7 @@ import FilterBar from './components/FilterBar';
 import TagManager from './components/TagManager';
 import CharacterManager from './components/CharacterManager';
 import RailsView from './components/RailsView';
+import OutlineView from './components/OutlineView';
 import TableView from './components/TableView';
 import FloatingEditor from './components/FloatingEditor';
 import FontPicker from './components/FontPicker';
@@ -55,7 +56,7 @@ import ScenePreviewPanel from './components/ScenePreviewPanel';
 import CharacterHubPanel from './components/CharacterHubPanel';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account' | 'arc';
-type BraidedSubMode = 'list' | 'table' | 'rails';
+type BraidedSubMode = 'list' | 'table' | 'rails' | 'outline';
 
 function SyncCooldownDialog({ savedByName, initialWaitSeconds, onOpenAnyway, onCancel }: {
   savedByName: string;
@@ -250,6 +251,8 @@ function App() {
   const [povDetailSectionId, setPovDetailSectionId] = useState<string | null>(null);
   const [scratchpadContent, setScratchpadContent] = useState<Record<string, string>>({});
   const scratchpadContentRef = useRef<Record<string, string>>({});
+  const [outlines, setOutlines] = useState<Record<string, string>>({});
+  const outlinesRef = useRef<Record<string, string>>({});
   const [sceneComments, setSceneComments] = useState<Record<string, SceneComment[]>>({});
   const sceneCommentsRef = useRef<Record<string, SceneComment[]>>({});
   const [drafts, setDrafts] = useState<Record<string, DraftVersion[]>>({});
@@ -1342,6 +1345,7 @@ function App() {
     const loadedDraft = data.draftContent || {};
     const loadedDrafts = data.drafts || {};
     const loadedScratchpad = data.scratchpad || {};
+    const loadedOutlines = data.outlines || {};
     const loadedComments = data.sceneComments || {};
     const loadedMetaDefs = data.metadataFieldDefs || [];
     setMetadataFieldDefs(loadedMetaDefs);
@@ -1391,6 +1395,8 @@ function App() {
     draftContentRef.current = loadedDraft;
     setScratchpadContent(loadedScratchpad);
     scratchpadContentRef.current = loadedScratchpad;
+    setOutlines(loadedOutlines);
+    outlinesRef.current = loadedOutlines;
     setSceneComments(loadedComments);
     sceneCommentsRef.current = loadedComments;
     setDrafts(loadedDrafts);
@@ -3599,6 +3605,18 @@ function App() {
     }
   };
 
+  const handleOutlineChange = (sceneKey: string, text: string) => {
+    isDirtyRef.current = true;
+    const updated = { ...outlinesRef.current, [sceneKey]: text };
+    setOutlines(updated);
+    outlinesRef.current = updated;
+
+    if (projectData?.projectPath) {
+      dataService.saveOutline(projectData.projectPath, sceneKey, text)
+        .catch(err => console.error('Failed to save outline:', err));
+    }
+  };
+
   const handleAddComment = (sceneKey: string, text: string) => {
     isDirtyRef.current = true;
     const existing = sceneCommentsRef.current[sceneKey] || [];
@@ -4615,6 +4633,14 @@ function App() {
                 onInsertSceneAtPosition={handleInsertSceneAtPosition}
                 onDeleteChapter={handleDeleteChapter}
               />
+            ) : braidedSubMode === 'outline' ? (
+              <OutlineView
+                scenes={displayedScenes}
+                outlines={outlines}
+                getCharacterName={getCharacterName}
+                getCharacterHexColor={getCharacterHexColor}
+                onOutlineChange={handleOutlineChange}
+              />
             ) : (
               <BraidedListView
                 displayedScenes={displayedScenes}
@@ -4723,6 +4749,18 @@ function App() {
             <line x1="3" y1="16" x2="21" y2="16"/>
           </svg>
           <span className="app-sidebar-label">Rails</span>
+        </button>
+        <button
+          className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'outline' ? 'active' : ''}`}
+          onClick={() => { setBraidedSubMode('outline'); setViewMode('braided'); const p = findLeafPane(paneLayout.root, paneLayout.activePaneId); if (p) { const tid = findTabByType(p, 'braided') || p.activeTabId; paneDispatch({ type: 'UPDATE_TAB_PARAMS', paneId: p.id, tabId: tid, params: { type: 'braided', subMode: 'outline' } as TabParams }); } track('braided_subview_changed', { subview: 'outline' }); }}
+          title="Outline"
+          aria-label="Outline view"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M4 6h6M4 12h6M4 18h6"/>
+            <path d="M14 6h6M14 12h6M14 18h6" opacity="0.4"/>
+          </svg>
+          <span className="app-sidebar-label">Outline</span>
         </button>
         <button
           className={`app-sidebar-btn ${viewMode === 'editor' ? 'active' : ''}`}
@@ -4835,7 +4873,7 @@ function App() {
           ) : (
             <h1>{projectData.projectName || 'Braidr'}</h1>
           )}
-          {(viewMode === 'pov' || (viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table')) && (
+          {(viewMode === 'pov' || (viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table' && braidedSubMode !== 'outline')) && (
             <>
               <div className="toolbar-divider" />
               {viewMode === 'pov' ? (
@@ -4964,7 +5002,7 @@ function App() {
               )}
             </>
           )}
-          {viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table' && (
+          {viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table' && braidedSubMode !== 'outline' && (
             <>
               <div className="toolbar-divider" />
               <button
