@@ -928,12 +928,15 @@ function App() {
         return;
       }
     } else {
-      // Migrating an existing project to the braided basis: a drop from the old
-      // all-scenes total is EXPECTED, so the 50% heuristic doesn't apply. Instead
-      // require that every braided scene's draft has loaded so `total` is real.
-      const braidedIds = braidedSceneIdsRef.current;
-      const allBraidedLoaded = [...braidedIds].every(id => id in draftContentRef.current);
-      if (braidedIds.size > 0 && !allBraidedLoaded) return;
+      // Migrating an existing project to the braided basis: the drop from the old
+      // all-scenes total (bullpen words leaving the count) is EXPECTED, so the
+      // drop itself isn't suspicious. Still guard against a partial draft load
+      // giving a spuriously low total — wait until it clears the same 50% floor.
+      // (The old per-scene "all braided drafts loaded" check never passed:
+      // braided scenes with no draft row never get a draftContent key.)
+      if (priorLatest !== undefined && priorLatest > 100 && total < priorLatest * 0.5) {
+        return;
+      }
     }
 
     manuscriptSeededRef.current = projectData.projectPath;
