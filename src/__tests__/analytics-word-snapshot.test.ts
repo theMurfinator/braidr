@@ -19,6 +19,8 @@ import {
   getWordsForDay,
   applyAnalyticsPatch,
   appendSceneSession,
+  repairManuscriptSnapshots,
+  canPersistAnalytics,
   SceneSession,
 } from '../renderer/utils/analyticsStore';
 
@@ -142,5 +144,90 @@ describe('applyAnalyticsPatch (Bug 2 seam)', () => {
 
     expect(load().deadlineGoal.targetWords).toBe(120000);
     expect(load().sceneSessions).toHaveLength(1);
+  });
+});
+
+/**
+ * Bug 3 (cross-project clobber follow-on): the old repair unconditionally
+ * re-chained every day's baseline to the previous day's `latest`, even for
+ * a day that intentionally starts a new running total (e.g. a manuscript-
+ * basis change, or a manual data repair). That silently overwrote a
+ * legitimate lower baseline with the old high total, producing a large
+ * phantom negative delta. `rebased: true` marks a day whose own
+ * baseline/latest are authoritative and must not be touched by the chain.
+ */
+describe('repairManuscriptSnapshots, rebased entries', () => {
+  it('does not re-chain baseline or treat the drop as a collapse for a rebased entry; later days chain from its latest', () => {
+    const analytics = makeAnalytics({
+      dailyManuscript: {
+        '2026-07-01': { baseline: 30000, latest: 44837 },
+        '2026-07-02': { baseline: 44837, latest: 44837 },
+        '2026-07-03': { baseline: 39959, latest: 39959, rebased: true },
+        '2026-07-04': { baseline: 0, latest: 41000 }, // wrong-on-disk baseline; should be re-chained
+      },
+    });
+
+    const repaired = repairManuscriptSnapshots(analytics);
+    const dm = repaired.dailyManuscript!;
+
+    // The rebased entry is untouched: no baseline rechain, no collapse healing.
+    expect(dm['2026-07-03']).toEqual({ baseline: 39959, latest: 39959, rebased: true });
+    expect(getWordsForDay(repaired, '2026-07-03')).toBe(0); // not -4878
+
+    // The following day's baseline chains from the rebased entry's latest.
+    expect(dm['2026-07-04'].baseline).toBe(39959);
+    expect(dm['2026-07-04'].latest).toBe(41000);
+    expect(getWordsForDay(repaired, '2026-07-04')).toBe(1041);
+  });
+
+  it('still heals a spurious near-zero dip that later recovers (regression)', () => {
+    const analytics = makeAnalytics({
+      dailyManuscript: {
+        '2026-06-24': { baseline: 40000, latest: 44837 },
+        '2026-06-25': { baseline: 44837, latest: 859 }, // spurious partial-load dip
+        '2026-06-26': { baseline: 859, latest: 44900 }, // recovers
+      },
+    });
+
+    const repaired = repairManuscriptSnapshots(analytics);
+    const dm = repaired.dailyManuscript!;
+
+    // The dip is healed: the prior total carries across, net 0 that day.
+    expect(dm['2026-06-25'].latest).toBe(44837);
+    expect(getWordsForDay(repaired, '2026-06-25')).toBe(0);
+
+    // The next day's baseline chains from the healed latest, not the poisoned 859.
+    expect(dm['2026-06-26'].baseline).toBe(44837);
+    expect(getWordsForDay(repaired, '2026-06-26')).toBe(63);
+  });
+});
+
+describe('recordManuscriptSnapshot, rebased flag', () => {
+  it('preserves an existing rebased flag when updating latest for the same day', () => {
+    const base = makeAnalytics({
+      dailyManuscript: { '2026-07-03': { baseline: 39959, latest: 39959, rebased: true } },
+    });
+
+    const updated = recordManuscriptSnapshot(base, '2026-07-03', 40200);
+
+    expect(updated.dailyManuscript!['2026-07-03']).toEqual({ baseline: 39959, latest: 40200, rebased: true });
+  });
+});
+
+describe('canPersistAnalytics', () => {
+  it('is false when nothing has been loaded yet', () => {
+    expect(canPersistAnalytics(null, '/path/to/project.braidr')).toBe(false);
+  });
+
+  it('is false when both are null', () => {
+    expect(canPersistAnalytics(null, null)).toBe(false);
+  });
+
+  it('is false when the loaded path and target path differ (project-switch race)', () => {
+    expect(canPersistAnalytics('/path/A.braidr', '/path/B.braidr')).toBe(false);
+  });
+
+  it('is true when the loaded path matches the target path', () => {
+    expect(canPersistAnalytics('/path/A.braidr', '/path/A.braidr')).toBe(true);
   });
 });

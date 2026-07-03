@@ -1547,15 +1547,30 @@ ipcMain.handle(IPC_CHANNELS.READ_ANALYTICS, async (_event, projectPath: string) 
 ipcMain.handle(IPC_CHANNELS.SAVE_ANALYTICS, async (_event, projectPath: string, data: any) => {
   try {
     const braidrPath = findBraidrFile(projectPath);
+    // Absolute identity of the project we're about to write into. Used to
+    // detect a cross-project blob transplant (defense in depth against a
+    // renderer-side regression of the analyticsRef/analyticsPathRef guard).
+    const targetStamp = path.resolve(braidrPath || projectPath);
+
+    const incomingStamp = data && typeof data === 'object' ? data._projectStamp : undefined;
+    if (incomingStamp && incomingStamp !== targetStamp) {
+      console.error(
+        `[analytics] Rejected cross-project write: blob stamped for "${incomingStamp}" but target is "${targetStamp}"`
+      );
+      return { success: false, error: 'analytics stamp mismatch' };
+    }
+
+    const stamped = { ...data, _projectStamp: targetStamp };
+
     if (braidrPath) {
       const { openDatabase } = require('./database') as typeof import('./database');
       const db = openDatabase(braidrPath);
-      db.setSetting('analytics', JSON.stringify(data));
+      db.setSetting('analytics', JSON.stringify(stamped));
       return { success: true };
     }
     // Fallback: write JSON file if no .braidr found
     const analyticsPath = path.join(projectPath, 'analytics.json');
-    fs.writeFileSync(analyticsPath, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(analyticsPath, JSON.stringify(stamped, null, 2), 'utf-8');
     return { success: true };
   } catch (error) {
     return { success: false, error: String(error) };

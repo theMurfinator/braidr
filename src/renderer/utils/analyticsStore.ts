@@ -70,6 +70,15 @@ export interface Milestone {
 export interface DailyManuscript {
   baseline: number;
   latest: number;
+  /**
+   * True when this day's baseline/latest were deliberately set as a new
+   * running-total anchor (e.g. a manuscript-basis switch or a manual data
+   * repair) rather than derived by normal day-to-day tracking. Repair must
+   * not re-chain this entry's baseline from the previous day's latest, and
+   * must not treat its (possibly lower) latest as a spurious collapse.
+   * Later days chain normally from THIS entry's latest.
+   */
+  rebased?: boolean;
 }
 
 export interface AnalyticsData {
@@ -145,6 +154,19 @@ export async function saveAnalytics(projectPath: string, data: AnalyticsData): P
 }
 
 /**
+ * Guard against cross-project analytics clobbers: a save is only allowed
+ * when the analytics blob currently held in memory was loaded FOR the same
+ * project path we're about to write to. On project switch there's a window
+ * where `projectData.projectPath` already points at the new project but the
+ * in-memory analytics blob still belongs to the old one (loadAnalytics is
+ * async), so any save during that window must be blocked, not routed to the
+ * new project's file.
+ */
+export function canPersistAnalytics(loadedForPath: string | null, targetPath: string | null): boolean {
+  return loadedForPath !== null && targetPath !== null && loadedForPath === targetPath;
+}
+
+/**
  * Record/update today's manuscript snapshot.
  *
  * - If the date already has an entry, only `latest` is updated (baseline is fixed
@@ -163,7 +185,7 @@ export function recordManuscriptSnapshot(
   const dm: Record<string, DailyManuscript> = { ...(analytics.dailyManuscript || {}) };
 
   if (dm[date]) {
-    dm[date] = { baseline: dm[date].baseline, latest: currentTotal };
+    dm[date] = { ...dm[date], latest: currentTotal };
   } else {
     // Most recent prior day's ending total becomes today's starting baseline.
     const priorDates = Object.keys(dm).filter(d => d < date).sort();
@@ -213,6 +235,18 @@ export function repairManuscriptSnapshots(analytics: AnalyticsData): AnalyticsDa
   for (let i = 0; i < dates.length; i++) {
     const d = dates[i];
     const entry = dm[d];
+
+    if (entry.rebased) {
+      // Deliberate new anchor: keep its own baseline/latest untouched. Do not
+      // re-chain from prevLatest, and do not run collapse-detection on it.
+      // A legitimate lower total here (e.g. a basis change) must not be
+      // "healed" into a phantom negative delta. Later days chain from
+      // THIS entry's latest, same as any other day.
+      fixed[d] = { ...entry };
+      prevLatest = entry.latest;
+      continue;
+    }
+
     let latest = entry.latest;
 
     if (prevLatest !== undefined && prevLatest > 100 && latest < prevLatest * 0.5) {
