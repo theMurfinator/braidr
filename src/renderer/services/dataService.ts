@@ -6,7 +6,7 @@ import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } fro
 export interface DataService {
   selectProjectFolder(): Promise<string | null>;
   selectBraidrFile(): Promise<string | null>;
-  loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; arcFieldDefs: ArcFieldDef[]; arcFieldValues: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }>;
+  loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; arcFieldDefs: ArcFieldDef[]; arcFieldValues: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; outlines: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }>;
   createCharacter(folderPath: string, name: string): Promise<Character>;
   /** iOS/Capacitor path only — Electron uses named mutations instead. */
   saveTimeline?(payload: SaveTimelinePayload): Promise<void>;
@@ -40,6 +40,8 @@ export interface DataService {
   saveDraft(projectPath: string, sceneId: string, content: string): Promise<void>;
   readScratchpad(projectPath: string, sceneId: string): Promise<string>;
   saveScratchpad(projectPath: string, sceneId: string, content: string): Promise<void>;
+  readOutline(projectPath: string, sceneId: string): Promise<string>;
+  saveOutline(projectPath: string, sceneId: string, content: string): Promise<void>;
   readDraftVersions(projectPath: string, sceneId: string): Promise<DraftVersion[]>;
   saveDraftVersions(projectPath: string, sceneId: string, versions: DraftVersion[]): Promise<void>;
   readSceneComments(projectPath: string, sceneId: string): Promise<SceneComment[]>;
@@ -95,7 +97,7 @@ class ElectronDataService implements DataService {
     return window.electronAPI.selectBraidrFile();
   }
 
-  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; arcFieldDefs: ArcFieldDef[]; arcFieldValues: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }> {
+  async loadProject(folderPath: string): Promise<ProjectData & { connections: Record<string, string[]>; chapters: Chapter[]; characterColors: Record<string, string>; fontSettings: FontSettings; allFontSettings?: AllFontSettings; archivedScenes: ArchivedScene[]; draftContent: Record<string, string>; metadataFieldDefs: MetadataFieldDef[]; sceneMetadata: Record<string, Record<string, string | string[]>>; arcFieldDefs: ArcFieldDef[]; arcFieldValues: Record<string, Record<string, string | string[]>>; drafts: Record<string, DraftVersion[]>; wordCountGoal: number; scratchpad: Record<string, string>; outlines: Record<string, string>; sceneComments: Record<string, SceneComment[]>; tasks: Task[]; taskFieldDefs: TaskFieldDef[]; taskViews: TaskViewConfig[]; taskColumnWidths: Record<string, number>; taskVisibleColumns?: string[]; inlineMetadataFields?: string[]; showInlineLabels?: boolean; timelineDates: Record<string, string>; worldEvents: WorldEvent[]; _migrated?: boolean }> {
     const formatResult = await window.electronAPI.detectProjectFormat(folderPath);
     if (formatResult?.format === 'braidr' && formatResult.braidrPath) {
       const result = await window.electronAPI.braidrLoadProject(formatResult.braidrPath);
@@ -292,6 +294,19 @@ class ElectronDataService implements DataService {
     if (!this.braidrPath) throw new Error('No project loaded');
     const result = await window.electronAPI.braidrSaveScratchpad(this.braidrPath, sceneId, content);
     if (!result.success) throw new Error(result.error || 'Failed to save scratchpad');
+  }
+
+  async readOutline(_projectPath: string, sceneId: string): Promise<string> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrReadOutline(this.braidrPath, sceneId);
+    if (!result.success) throw new Error(result.error || 'Failed to read outline');
+    return result.data;
+  }
+
+  async saveOutline(_projectPath: string, sceneId: string, content: string): Promise<void> {
+    if (!this.braidrPath) throw new Error('No project loaded');
+    const result = await window.electronAPI.braidrSaveOutline(this.braidrPath, sceneId, content);
+    if (!result.success) throw new Error(result.error || 'Failed to save outline');
   }
 
   async readDraftVersions(_projectPath: string, sceneId: string): Promise<DraftVersion[]> {

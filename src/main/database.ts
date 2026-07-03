@@ -122,6 +122,12 @@ const CREATE_SCHEMA = `
     updated_at INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS scene_outlines (
+    scene_id TEXT PRIMARY KEY REFERENCES scenes(id) ON DELETE CASCADE,
+    content TEXT NOT NULL DEFAULT '',
+    updated_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS scene_notes (
     id TEXT PRIMARY KEY,
     scene_id TEXT NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
@@ -908,6 +914,29 @@ export class BraidrDB {
       INSERT INTO scene_scratchpads (scene_id, content, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(scene_id) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at
     `).run(sceneId, content, Date.now());
+  }
+
+  // ── Scene Outlines ────────────────────────────────────────────────────────
+  // Short flat-text scene outline (the "what happens" beat), separate from the
+  // prose draft (scene_drafts) and the messy scratchpad. Read across scenes in
+  // the Outline lens to lock the arc before drafting.
+
+  getOutline(sceneId: string) {
+    return this.db.prepare('SELECT content FROM scene_outlines WHERE scene_id = ?').get(sceneId) as { content: string } | undefined;
+  }
+
+  upsertOutline(sceneId: string, content: string) {
+    this.db.prepare(`
+      INSERT INTO scene_outlines (scene_id, content, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(scene_id) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at
+    `).run(sceneId, content, Date.now());
+  }
+
+  getAllOutlines(): Record<string, string> {
+    const rows = this.db.prepare('SELECT scene_id, content FROM scene_outlines').all() as { scene_id: string; content: string }[];
+    const out: Record<string, string> = {};
+    for (const r of rows) out[r.scene_id] = r.content;
+    return out;
   }
 
   // ── Scene Notes ───────────────────────────────────────────────────────────

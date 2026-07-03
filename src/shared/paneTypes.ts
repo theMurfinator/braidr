@@ -4,7 +4,7 @@ export type TabViewType = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'ti
 /** View-specific parameters that distinguish tabs of the same type */
 export type TabParams =
   | { type: 'pov'; characterId?: string | null }
-  | { type: 'braided'; subMode?: 'list' | 'table' | 'rails' }
+  | { type: 'braided'; subMode?: 'list' | 'table' | 'rails' | 'outline' }
   | { type: 'editor'; sceneKey?: string | null }
   | { type: 'notes'; noteId?: string | null }
   | { type: 'tasks' }

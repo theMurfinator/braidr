@@ -109,6 +109,22 @@ Two fonts. No others.
 --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 ```
 
+### Reading Scale (immersive surfaces)
+
+For full-page reading/writing surfaces where the prose is the whole screen (the Outline view), the compact content sizes above read too small against the generous layout. This scale is reserved for those surfaces only — do not use it in list/panel UI.
+
+```css
+--font-reading-title: 'Literata', Georgia, serif;
+--font-reading-title-size: 24px;
+--font-reading-title-weight: 600;
+
+--font-reading-body: 'Literata', Georgia, serif;
+--font-reading-body-size: 18px;
+--font-reading-body-weight: 400;
+```
+
+Pair with a reading measure of ~600px (roughly 66 characters) for comfortable line length.
+
 ### Type Scale (UI — DM Sans)
 
 | Size | Weight | Case | Use |

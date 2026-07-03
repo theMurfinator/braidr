@@ -10,6 +10,7 @@ import FilterBar from './components/FilterBar';
 import TagManager from './components/TagManager';
 import CharacterManager from './components/CharacterManager';
 import RailsView from './components/RailsView';
+import OutlineView from './components/OutlineView';
 import TableView from './components/TableView';
 import FloatingEditor from './components/FloatingEditor';
 import FontPicker from './components/FontPicker';
@@ -55,7 +56,7 @@ import ScenePreviewPanel from './components/ScenePreviewPanel';
 import CharacterHubPanel from './components/CharacterHubPanel';
 
 type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account' | 'arc';
-type BraidedSubMode = 'list' | 'table' | 'rails';
+type BraidedSubMode = 'list' | 'table' | 'rails' | 'outline';
 
 function SyncCooldownDialog({ savedByName, initialWaitSeconds, onOpenAnyway, onCancel }: {
   savedByName: string;
@@ -253,6 +254,9 @@ function App() {
   const [povDetailSectionId, setPovDetailSectionId] = useState<string | null>(null);
   const [scratchpadContent, setScratchpadContent] = useState<Record<string, string>>({});
   const scratchpadContentRef = useRef<Record<string, string>>({});
+  const [outlines, setOutlines] = useState<Record<string, string>>({});
+  const outlinesRef = useRef<Record<string, string>>({});
+  const [outlineCharFilter, setOutlineCharFilter] = useState<string>('all');
   const [sceneComments, setSceneComments] = useState<Record<string, SceneComment[]>>({});
   const sceneCommentsRef = useRef<Record<string, SceneComment[]>>({});
   const [drafts, setDrafts] = useState<Record<string, DraftVersion[]>>({});
@@ -954,16 +958,19 @@ function App() {
       if (priorLatest !== undefined && priorLatest > 100 && total < priorLatest * 0.5) {
         return;
       }
-    } else {
-      // Migrating an existing project to the braided basis: the drop from the old
-      // all-scenes total (bullpen words leaving the count) is EXPECTED, so the
-      // drop itself isn't suspicious. Still guard against a partial draft load
-      // giving a spuriously low total — wait until it clears the same 50% floor.
-      // (The old per-scene "all braided drafts loaded" check never passed:
-      // braided scenes with no draft row never get a draftContent key.)
-      if (priorLatest !== undefined && priorLatest > 100 && total < priorLatest * 0.5) {
-        return;
-      }
+    } else if (
+      braidedSceneIdsRef.current.size === 0 &&
+      (projectData?.scenes || []).some(s => s.timelinePosition !== null)
+    ) {
+      // Migrating an existing project to the braided basis. The braided-scene set
+      // isn't populated yet, so `total` would be a spurious 0 — wait for a re-run.
+      // (We deliberately do NOT require every braided scene to appear in
+      // draftContent: drafts are bulk-loaded atomically and guarded non-empty
+      // above, and un-drafted braided scenes legitimately have no draftContent
+      // entry and count 0 words. The old per-scene gate blocked the migration
+      // forever on any project with an un-drafted braided scene, leaving the
+      // basis un-migrated and the dashboard showing a phantom deletion.)
+      return;
     }
 
     manuscriptSeededRef.current = projectData.projectPath;
@@ -1436,6 +1443,7 @@ function App() {
     const loadedDraft = data.draftContent || {};
     const loadedDrafts = data.drafts || {};
     const loadedScratchpad = data.scratchpad || {};
+    const loadedOutlines = data.outlines || {};
     const loadedComments = data.sceneComments || {};
     const loadedMetaDefs = data.metadataFieldDefs || [];
     setMetadataFieldDefs(loadedMetaDefs);
@@ -1485,6 +1493,8 @@ function App() {
     draftContentRef.current = loadedDraft;
     setScratchpadContent(loadedScratchpad);
     scratchpadContentRef.current = loadedScratchpad;
+    setOutlines(loadedOutlines);
+    outlinesRef.current = loadedOutlines;
     setSceneComments(loadedComments);
     sceneCommentsRef.current = loadedComments;
     setDrafts(loadedDrafts);
@@ -3693,6 +3703,18 @@ function App() {
     }
   };
 
+  const handleOutlineChange = (sceneKey: string, text: string) => {
+    isDirtyRef.current = true;
+    const updated = { ...outlinesRef.current, [sceneKey]: text };
+    setOutlines(updated);
+    outlinesRef.current = updated;
+
+    if (projectData?.projectPath) {
+      dataService.saveOutline(projectData.projectPath, sceneKey, text)
+        .catch(err => console.error('Failed to save outline:', err));
+    }
+  };
+
   const handleAddComment = (sceneKey: string, text: string) => {
     isDirtyRef.current = true;
     const existing = sceneCommentsRef.current[sceneKey] || [];
@@ -4709,6 +4731,15 @@ function App() {
                 onInsertSceneAtPosition={handleInsertSceneAtPosition}
                 onDeleteChapter={handleDeleteChapter}
               />
+            ) : braidedSubMode === 'outline' ? (
+              <OutlineView
+                scenes={outlineCharFilter === 'all' ? displayedScenes : displayedScenes.filter(s => s.characterId === outlineCharFilter)}
+                chapters={chapters}
+                outlines={outlines}
+                getCharacterName={getCharacterName}
+                getCharacterHexColor={getCharacterHexColor}
+                onOutlineChange={handleOutlineChange}
+              />
             ) : (
               <BraidedListView
                 displayedScenes={displayedScenes}
@@ -4819,6 +4850,18 @@ function App() {
           <span className="app-sidebar-label">Rails</span>
         </button>
         <button
+          className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'outline' ? 'active' : ''}`}
+          onClick={() => { setBraidedSubMode('outline'); setViewMode('braided'); const p = findLeafPane(paneLayout.root, paneLayout.activePaneId); if (p) { const tid = findTabByType(p, 'braided') || p.activeTabId; paneDispatch({ type: 'UPDATE_TAB_PARAMS', paneId: p.id, tabId: tid, params: { type: 'braided', subMode: 'outline' } as TabParams }); } track('braided_subview_changed', { subview: 'outline' }); }}
+          title="Outline"
+          aria-label="Outline view"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M4 6h6M4 12h6M4 18h6"/>
+            <path d="M14 6h6M14 12h6M14 18h6" opacity="0.4"/>
+          </svg>
+          <span className="app-sidebar-label">Outline</span>
+        </button>
+        <button
           className={`app-sidebar-btn ${viewMode === 'editor' ? 'active' : ''}`}
           onClick={() => { setEditorInitialSceneKey(null); setViewMode('editor'); }}
           title="Editor"
@@ -4926,10 +4969,24 @@ function App() {
                 ))}
               </select>
             </div>
+          ) : (viewMode === 'braided' && braidedSubMode === 'outline') ? (
+            <div className="character-selector">
+              <select
+                value={outlineCharFilter}
+                onChange={(e) => setOutlineCharFilter(e.target.value)}
+              >
+                <option value="all">All characters</option>
+                {projectData.characters.map(char => (
+                  <option key={char.id} value={char.id}>
+                    {char.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           ) : (
             <h1>{projectData.projectName || 'Braidr'}</h1>
           )}
-          {(viewMode === 'pov' || (viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table')) && (
+          {(viewMode === 'pov' || (viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table' && braidedSubMode !== 'outline')) && (
             <>
               <div className="toolbar-divider" />
               {viewMode === 'pov' ? (
@@ -5058,7 +5115,7 @@ function App() {
               )}
             </>
           )}
-          {viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table' && (
+          {viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table' && braidedSubMode !== 'outline' && (
             <>
               <div className="toolbar-divider" />
               <button
