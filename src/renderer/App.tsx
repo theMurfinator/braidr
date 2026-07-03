@@ -26,7 +26,7 @@ import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { indexPlotPoints, isSceneInPlay, isScenePlaced, enforceBraidingInvariant } from '../shared/placement';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
-import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, appendSceneSession, getTodayStr, getWeekSaturday, getWeekDays, toLocalDateStr, recordManuscriptSnapshot, applyAnalyticsPatch } from './utils/analyticsStore';
+import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, appendSceneSession, getTodayStr, getWeekSaturday, getWeekDays, toLocalDateStr, recordManuscriptSnapshot, applyAnalyticsPatch, canPersistAnalytics } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
 import FeedbackModal from './components/FeedbackModal';
 import { UpdateBanner } from './components/UpdateBanner';
@@ -321,6 +321,10 @@ function App() {
   // Session tracker for time tracking
   const sessionTrackerRef = useRef<SessionTracker | null>(null);
   const analyticsRef = useRef<AnalyticsData | null>(null);
+  // Which project path the blob currently in analyticsRef was loaded FOR.
+  // Guards against writing project A's in-memory blob into project B's file
+  // during the async window after switching projects. See canPersistAnalytics.
+  const analyticsPathRef = useRef<string | null>(null);
   const [sceneSessions, setSceneSessions] = useState<SceneSession[]>([]);
   const [pendingSession, setPendingSession] = useState<SessionSummary | null>(null);
   const [showManualCheckin, setShowManualCheckin] = useState(false);
@@ -903,6 +907,29 @@ function App() {
     return total;
   }, []);
 
+  // Persist analytics data only when the in-memory blob currently held was
+  // loaded FOR the project we're about to write to. Blocks the cross-project
+  // clobber: on project switch there's an async window where
+  // projectData.projectPath already points at the new project but
+  // analyticsRef.current (and its stamp, analyticsPathRef) still hold the OLD
+  // project's blob, so any save issued in that window must be dropped, not
+  // routed to the new project's file (or vice versa).
+  const persistAnalytics = useCallback((updated: AnalyticsData): Promise<void> => {
+    const targetPath = projectData?.projectPath ?? null;
+    if (!canPersistAnalytics(analyticsPathRef.current, targetPath)) {
+      console.error('Blocked analytics write: project mismatch', {
+        loadedFor: analyticsPathRef.current,
+        target: targetPath,
+      });
+      track('analytics_write_blocked', {
+        loaded_for: analyticsPathRef.current,
+        target: targetPath,
+      });
+      return Promise.resolve();
+    }
+    return saveAnalytics(targetPath!, updated);
+  }, [projectData]);
+
   // Seed/refresh today's manuscript snapshot once drafts + analytics are loaded.
   // Establishes today's baseline (carried over from prior days, or seeded from
   // words already counted today on first run) so the dashboard can show the real
@@ -964,8 +991,8 @@ function App() {
       updated = recordManuscriptSnapshot(analyticsRef.current, today, total, { seedWordsToday: todaySessionWords });
     }
     analyticsRef.current = updated;
-    saveAnalytics(projectData.projectPath, updated);
-  }, [projectData?.projectPath, analyticsLoaded, draftContent, computeTotalManuscriptWords]);
+    persistAnalytics(updated);
+  }, [projectData?.projectPath, analyticsLoaded, draftContent, computeTotalManuscriptWords, persistAnalytics]);
 
   // Initialize session tracker when project loads
   useEffect(() => {
@@ -975,10 +1002,20 @@ function App() {
     const tracker = createSessionTracker();
     sessionTrackerRef.current = tracker;
 
-    // Load analytics data for the project
+    // Load analytics data for the project. Null the in-memory blob and its
+    // path stamp SYNCHRONOUSLY first, before the async load resolves.
+    // loadAnalytics is async, so without this there is a window where
+    // projectData.projectPath already points at the new project but
+    // analyticsRef.current still holds the OLD project's blob; any save
+    // (e.g. from a lingering timer callback) during that window must be
+    // blocked by persistAnalytics, not routed to either project's file.
+    analyticsRef.current = null;
+    analyticsPathRef.current = null;
     setAnalyticsLoaded(false);
-    loadAnalytics(projectData.projectPath).then(data => {
+    const loadedForPath = projectData.projectPath;
+    loadAnalytics(loadedForPath).then(data => {
       analyticsRef.current = data;
+      analyticsPathRef.current = loadedForPath;
       setSceneSessions(data.sceneSessions || []);
       setAnalyticsLoaded(true);
     });
@@ -994,7 +1031,7 @@ function App() {
       const updated = recordManuscriptSnapshot(merged, getTodayStr(), totalWords);
       analyticsRef.current = updated;
       setSceneSessions(updated.sceneSessions || []);
-      saveAnalytics(projectData.projectPath, updated);
+      persistAnalytics(updated);
       track('writing_session_ended', {
         duration_ms: summary.durationMs,
         words_net: summary.wordsNet,
@@ -1004,6 +1041,24 @@ function App() {
     });
 
     return () => {
+      // Flush any session still in progress BEFORE this effect's own re-run
+      // nulls analyticsRef/analyticsPathRef above. tracker.destroy() alone
+      // does NOT do this: it only clears the idle timer and drops the
+      // in-memory session, so a session active at the moment of a project
+      // switch was silently lost (never merged into either project's
+      // analytics). Everything referenced here (tracker, projectData,
+      // analyticsRef.current, persistAnalytics) is this render's closure, so
+      // it still targets the project being LEFT, not the one being entered.
+      if (tracker.isActive()) {
+        const currentWordCount = computeTotalManuscriptWords();
+        const summary = tracker.endSession(currentWordCount);
+        if (summary && analyticsRef.current && projectData) {
+          const merged = mergeSessionIntoAnalytics(analyticsRef.current, summary, currentWordCount, null);
+          const updated = recordManuscriptSnapshot(merged, getTodayStr(), currentWordCount);
+          analyticsRef.current = updated;
+          persistAnalytics(updated);
+        }
+      }
       tracker.destroy();
       sessionTrackerRef.current = null;
     };
@@ -1020,7 +1075,7 @@ function App() {
     const updated = recordManuscriptSnapshot(merged, getTodayStr(), pendingTotalWordsRef.current);
     analyticsRef.current = updated;
     setSceneSessions(updated.sceneSessions || []);
-    saveAnalytics(projectData.projectPath, updated);
+    persistAnalytics(updated);
     track('writing_session_ended', {
       duration_ms: summary.durationMs,
       words_net: summary.wordsNet,
@@ -1033,7 +1088,7 @@ function App() {
 
     pendingSessionRef.current = null;
     setPendingSession(null);
-  }, [projectData]);
+  }, [projectData, persistAnalytics]);
 
   const handleCheckinSkip = useCallback(() => {
     const summary = pendingSessionRef.current;
@@ -1045,11 +1100,11 @@ function App() {
     const updated = recordManuscriptSnapshot(merged, getTodayStr(), pendingTotalWordsRef.current);
     analyticsRef.current = updated;
     setSceneSessions(updated.sceneSessions || []);
-    saveAnalytics(projectData.projectPath, updated);
+    persistAnalytics(updated);
 
     pendingSessionRef.current = null;
     setPendingSession(null);
-  }, [projectData]);
+  }, [projectData, persistAnalytics]);
 
   // Manual (standalone) check-in handler
   const handleManualCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number; custom?: Record<string, number> }) => {
@@ -1067,9 +1122,9 @@ function App() {
     const updated = appendSceneSession(analyticsRef.current, session);
     analyticsRef.current = updated;
     setSceneSessions(updated.sceneSessions || []);
-    saveAnalytics(projectData.projectPath, updated);
+    persistAnalytics(updated);
     setShowManualCheckin(false);
-  }, [projectData]);
+  }, [projectData, persistAnalytics]);
 
   // Custom check-in category management
   const handleAddCheckinCategory = useCallback((category: CustomCheckinCategory) => {
@@ -1080,8 +1135,8 @@ function App() {
       customCheckinCategories: [...existing, category],
     };
     analyticsRef.current = updated;
-    saveAnalytics(projectData.projectPath, updated);
-  }, [projectData]);
+    persistAnalytics(updated);
+  }, [projectData, persistAnalytics]);
 
   const handleRemoveCheckinCategory = useCallback((categoryId: string) => {
     if (!analyticsRef.current || !projectData) return;
@@ -1091,8 +1146,8 @@ function App() {
       customCheckinCategories: existing.filter(c => c.id !== categoryId),
     };
     analyticsRef.current = updated;
-    saveAnalytics(projectData.projectPath, updated);
-  }, [projectData]);
+    persistAnalytics(updated);
+  }, [projectData, persistAnalytics]);
 
   // End session when switching away from editor view
   useEffect(() => {
@@ -3122,10 +3177,10 @@ function App() {
             const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
             const wordCount = text ? text.split(/\s+/).length : 0;
             sessionTrackerRef.current.endSession(wordCount);
-            // onSessionEnd updates analyticsRef.current synchronously but its saveAnalytics
-            // is fire-and-forget — await it explicitly so the snapshot survives the close.
+            // onSessionEnd updates analyticsRef.current synchronously but its persistAnalytics
+            // call is fire-and-forget, so await it explicitly here so the snapshot survives the close.
             if (projectData && analyticsRef.current) {
-              await saveAnalytics(projectData.projectPath, analyticsRef.current);
+              await persistAnalytics(analyticsRef.current);
             }
           }
         }
@@ -4175,7 +4230,7 @@ function App() {
                   if (!analyticsRef.current || !projectData) return;
                   const updated = applyAnalyticsPatch(analyticsRef.current, patch);
                   analyticsRef.current = updated;
-                  saveAnalytics(projectData.projectPath, updated);
+                  persistAnalytics(updated);
                 }}
                 sceneSessions={sceneSessions}
                 customCheckinCategories={analyticsRef.current?.customCheckinCategories}
