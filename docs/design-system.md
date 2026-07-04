@@ -2,6 +2,8 @@
 
 Instructions for Claude Code: Read this file at the start of any session that touches UI. Every color, font, spacing, and component decision should use the tokens defined here. Do not introduce new values — extend the token system if needed and document additions in this file.
 
+**Known gap (as of 2026-07-04):** an audit found ~45 CSS variables actively used in `styles.css` that aren't documented here, and ~285 hardcoded hex colors outside `:root` that should be tokens. Rules 1 and 7 below are aspirational until that's cleaned up — don't assume "not in this file" means "doesn't exist," grep `styles.css`'s `:root` block too.
+
 ## Design Philosophy
 
 White background. Black text. Minimal chrome. Power accessible but not foregrounded. Calm, restrained, content-forward. Obsidian/Notion aesthetic — the writing is what matters, not the interface.
@@ -9,7 +11,7 @@ White background. Black text. Minimal chrome. Power accessible but not foregroun
 - Side panels over hard navigation transitions
 - Hover reveals over permanent controls
 - Blue (`--color-primary`) for interactive/selected states only — not decoration
-- Literata for content. DM Sans for UI chrome. Never reversed.
+- Literata for content. Arial for UI chrome. Never reversed.
 
 ---
 
@@ -82,13 +84,15 @@ Used exclusively for: selected/active states, focus rings, primary actions, prog
 
 ## Typography
 
-Two fonts. No others.
+Two fonts for app chrome/content. No others — **except** the Notes Font Editor ("Aa" button), which lets users pick from ~15 fonts for note body text only (`src/renderer/components/FontPicker.tsx`); that's an intentional user preference, not a design-system violation.
 
 | Role | Font | Use |
 |------|------|-----|
 | Literata | Editorial serif | Scene titles, section titles, body prose, all content |
-| DM Sans | UI sans-serif | All chrome: labels, buttons, metadata, toolbar text, dropdowns |
+| Arial | UI sans-serif | All chrome: labels, buttons, metadata, toolbar text, dropdowns |
 | SF Mono / Fira Code | Monospace | Code only |
+
+`--font-ui` was DM Sans until 2026-06-28, when it was deliberately reverted to a stock system font (commit `15f94748` — a custom heading/font override had broken notes-editor alignment, so it and related overrides were reverted to stock). If DM Sans comes back, update `--font-ui` below and this table together — they drifted out of sync for over a week last time.
 
 ### Font Variables
 
@@ -105,7 +109,7 @@ Two fonts. No others.
 --font-body-size: 16px;
 --font-body-weight: 400;
 
---font-ui: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+--font-ui: Arial, sans-serif;
 --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 ```
 
@@ -337,7 +341,7 @@ letter-spacing: 0.5px;
 ## Rules for Claude Code
 
 1. **Never hardcode hex values** in component files. Always use a CSS variable from this system.
-2. **Never introduce a new font.** Literata for content, DM Sans for UI. Full stop.
+2. **Never introduce a new font.** Literata for content, Arial for UI. Full stop. (Notes body text is the one user-facing exception — see Typography section above.)
 3. **Hover reveals, not permanent controls.** Secondary actions (delete, duplicate, drag) should be `opacity: 0` and revealed on parent hover.
 4. **Blue is for interaction, not decoration.** `--color-primary` and its variants are reserved for selected/active/focus states. Don't use them for visual interest.
 5. **Side panels, not page transitions.** Detail views open in a panel alongside the list, not by replacing it.

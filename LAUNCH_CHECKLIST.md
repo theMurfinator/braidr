@@ -25,7 +25,7 @@
   - [x] `POST /api/portal/billing` — Stripe billing portal session
 
 ## Stripe
-- [x] Create product ($39/year subscription)
+- [x] Create product ($49/year subscription)
 - [x] Register webhook URL: `https://braidr-api.vercel.app/api/webhooks/stripe`
 - [x] Webhook events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
 - [ ] Test purchase end-to-end with real card
@@ -77,7 +77,7 @@
 - [x] Font settings apply to editor scene headers (fixed CSS var mismatch)
 
 ## Website (getbraidr.com)
-- [x] Landing page live with hero, features, pricing ($39/year)
+- [x] Landing page live with hero, features, pricing ($49/year)
 - [x] "Get Started" buttons link to Stripe checkout
 - [x] Download links for macOS and Windows
 - [ ] Verify download links point to latest release

@@ -22,17 +22,8 @@ The character arc view. One character at a time, scenes in their narrative order
   - **Return a scene** two ways: the inline **Return** button (opens a section picker that pre-highlights the previous location), or **right-click → Assign to Section** (also offers **Delete**)
   - **+ Add Scene** creates a new loose scene directly in the bullpen
 
-### Arc View
-The character-arc planning view. An outline-table for one character, organized Novel → Acts → Sections → Scenes, with columns for beginning/ending state, transformation, dilemma, propelling action, and polarity.
-
-- Inline-editable cells at every level (act, section, scene)
-- **Section synopsis** — each plot point section has its own synopsis field (separate from the scene-level synopsis), edited under the section title
-- **Scene preview panel** — click a scene's Preview button to open a right-side panel showing the scene's draft text. The text is **editable inline** with auto-save (same draft the Editor View uses), and a **Go to Scene** button at the top jumps to that scene in the full Editor View
-- **Right-click a scene → Send to Bullpen** — removes the scene from its section and unbraids it (loose scenes can't be braided)
-- **Right-click a section** — move to act, return to bullpen, or delete
-- Acts/Sections toggles and collapsible groups
-- Companion **Bullpen panel** for parking sections and scenes that aren't yet placed
-- **Drag scenes within the Bullpen panel** — drop a scene onto a section to file it there, onto another scene to reorder, or onto empty panel space to set it aside. Works for act-less sections, which live entirely in the Bullpen.
+### Arc View (retired, folded into Table view)
+The old character-arc planning view (outline-table for one character: Novel → Acts → Sections → Scenes, with columns for beginning/ending state, transformation, dilemma, propelling action, polarity) was hidden from navigation on 2026-06-13. Its functionality is now covered by the Braided Timeline — Table View below. The `ArcView` component and `'arc'` view mode still exist in `src/renderer/App.tsx` but are unreachable from the UI (no toolbar button, no code path sets `viewMode` to `'arc'`) — dead code pending cleanup, not a live feature.
 
 ### Braided Timeline — List View
 All characters' scenes combined into reading/chronological order. The "meta" view of the whole novel.

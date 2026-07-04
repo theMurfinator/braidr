@@ -1,25 +1,28 @@
 # Braidr
 
-The only writing tool built for multi-POV novels. Organize by character arc or reading order. Own your data with local markdown files.
+The only writing tool built for multi-POV novels. Organize by character arc or reading order. Own your data in a single local file.
 
-## Features
+See `docs/features.md` for the full, actively-maintained feature list. Highlights:
 
-- **POV Outline View** — Each character gets their own outline with plot point sections, drag-and-drop scenes, and story structure templates
-- **Braided Timeline** — See all scenes from every character in reading order. List, table, and rails layouts
+- **POV Outline View** — Each character gets their own outline with plot point sections, drag-and-drop scenes, and a bullpen for loose scenes/sections
+- **Braided Timeline** — All characters' scenes in reading order, in list, table, rails, or outline layouts
 - **Editor** — Full-screen writing environment with scene navigator, writing timer, and draft versioning
-- **Notes** — Wiki-style notebook with `[[wikilinks]]`, backlinks, and an interactive knowledge graph
-- **Analytics** — Calendar heatmap, per-character word counts, daily goals, and milestone tracking
+- **Notes** — Wiki-style notebook (BlockNote) with `[[wikilinks]]`, backlinks, tables, and images
+- **Tasks** — Lightweight task tracker with custom fields, timer, and subtasks
+- **Analytics** — Calendar heatmap, per-character word counts, weekly/monthly targets, session check-ins
+- **Draft Branches** — Explore alternate plot/character directions, compare and merge back
 - **Tags & Metadata** — Five tag categories (people, locations, arcs, things, time) with autocomplete and custom metadata fields
-- **Compile & Export** — Export to Markdown, DOCX, or PDF
-- **Search** — Cmd+K to search across scenes, notes, and tags
-- **Local Storage** — Your outlines are plain `.md` files on your hard drive. Human-readable, git-compatible, editable in any text editor
+- **Compile & Export** — Export to Markdown, HTML, DOCX, or PDF
+- **Search** — Cmd+K to search across scenes and notes
+- **Local Storage** — A single `.braidr` SQLite file per project. Local-first, no cloud sync. (Legacy folder-of-markdown projects are converted to `.braidr` automatically on first open.)
 
 ## Tech Stack
 
 - **Electron** + **React** + **TypeScript**
 - **Vite** for bundling
-- **TipTap** for rich text editing
-- **LemonSqueezy** for licensing
+- **better-sqlite3** for local project storage
+- **TipTap** + **BlockNote** for rich text editing
+- **Stripe** for payment + subscription management, with a custom license API (`braidr-api` on Vercel)
 - **PostHog** for analytics
 - **electron-updater** for auto-updates
 
@@ -43,4 +46,4 @@ Do **not** run `npm run package` locally — it requires code-signing credential
 
 ## License
 
-Proprietary. See [braidr.com](https://getbraider.com) for pricing.
+Proprietary. See [getbraidr.com](https://getbraidr.com) for pricing.

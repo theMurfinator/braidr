@@ -9,7 +9,7 @@
 
 1. Open a terminal and navigate to the project folder:
    ```bash
-   cd "/Users/brian/Writing app"
+   cd "/Users/brian/braidr"
    ```
 
 2. Install dependencies:
@@ -33,20 +33,24 @@ npm run build
 
 The built app will be in the `dist-electron` folder.
 
-### Package Signed macOS Release
+### Package a Release Build (local testing only)
 ```bash
 npm run package
 ```
 
-This builds, code signs, notarizes, and creates a `.dmg` + `.zip`. See the **macOS Code Signing** section below.
+This builds, code signs, notarizes, and creates a `.dmg` + `.zip`. See the **macOS Code Signing** section below for one-time local cert setup.
+
+**Do not use this for actual releases.** Real releases are fully automated: merging a PR to `main` bumps the version, builds all platforms, signs, notarizes, and publishes to GitHub Releases via GitHub Actions (see `CLAUDE.md` → Release Process). `npm run package` here is only for testing a signed build locally; running it will prompt for credentials that in CI come from GitHub Secrets.
 
 ## Project Structure
 
 ```
-Writing app/
+braidr/
 ├── src/
 │   ├── main/           # Electron main process
 │   │   ├── main.ts     # Main entry point
+│   │   ├── database.ts # SQLite schema + BraidrDB class
+│   │   ├── braidrIpc.ts# IPC handlers for project data
 │   │   └── preload.ts  # Preload script for IPC
 │   ├── renderer/       # React frontend
 │   │   ├── App.tsx     # Main React component
@@ -56,6 +60,7 @@ Writing app/
 │   └── shared/         # Shared types
 │       └── types.ts    # TypeScript interfaces
 ├── CLAUDE.md           # Product documentation
+├── JOURNAL.md          # Session-level work log
 ├── package.json        # Dependencies and scripts
 └── INSTALL.md          # This file
 ```
@@ -63,32 +68,19 @@ Writing app/
 ## Usage
 
 1. Launch the app
-2. Click "Open Project Folder" to select a folder containing your character markdown files
+2. Click "New Project" or "Open Project" to create or open a `.braidr` file (a single SQLite file holds the whole project — characters, scenes, notes, tasks, everything)
 3. Use **POV View** to edit individual character outlines
 4. Use **Braided View** to arrange scenes in reading order
 
-### File Format
-
-Each character should have a markdown file with this format:
-
-```markdown
----
-character: Character Name
----
-
-## Plot Point Title (expected_scene_count)
-Description of this section...
-
-1. Scene description with #tags
-   1. Sub-note for scene 1
-
-2. Another scene #location #character
-```
+Legacy projects (a folder of per-character markdown files + `timeline.json`) are converted to a `.braidr` file automatically the first time they're opened.
 
 ### Keyboard Shortcuts
 
 - **Escape** - Cancel editing
 - **Enter** - Confirm title edits
+- **Cmd+K** - Search across scenes and notes
+
+See `docs/features.md` for the full feature list.
 
 ## macOS Code Signing & Notarization
 
