@@ -51,6 +51,7 @@ import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
 import { CompareView } from './components/branches/CompareView';
 import ArcView, { buildSectionDetailFields } from './components/ArcView';
+import { isFullTier } from './tier';
 import ArcDetailModal from './components/ArcDetailModal';
 import ScenePreviewPanel from './components/ScenePreviewPanel';
 import CharacterHubPanel from './components/CharacterHubPanel';
@@ -223,7 +224,8 @@ function App() {
     if (activeTab?.params.type === 'braided' && 'subMode' in activeTab.params && activeTab.params.subMode) {
       return activeTab.params.subMode;
     }
-    return 'list';
+    // Production builds don't show the List sub-mode button (redundant with Rails) — default there instead.
+    return isFullTier ? 'list' : 'rails';
   });
   useEffect(() => {
     if (activeTab?.params.type === 'braided' && 'subMode' in activeTab.params && activeTab.params.subMode) {
@@ -4809,6 +4811,7 @@ function App() {
           </svg>
           <span className="app-sidebar-label">POV</span>
         </button>
+        {isFullTier && (
         <button
           className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'list' ? 'active' : ''}`}
           onClick={() => { setBraidedSubMode('list'); setViewMode('braided'); const p = findLeafPane(paneLayout.root, paneLayout.activePaneId); if (p) { const tid = findTabByType(p, 'braided') || p.activeTabId; paneDispatch({ type: 'UPDATE_TAB_PARAMS', paneId: p.id, tabId: tid, params: { type: 'braided', subMode: 'list' } as TabParams }); } track('braided_subview_changed', { subview: 'list' }); }}
@@ -4820,6 +4823,7 @@ function App() {
           </svg>
           <span className="app-sidebar-label">Braider</span>
         </button>
+        )}
         <button
           className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'table' ? 'active' : ''}`}
           onClick={() => { setBraidedSubMode('table'); setViewMode('braided'); const p = findLeafPane(paneLayout.root, paneLayout.activePaneId); if (p) { const tid = findTabByType(p, 'braided') || p.activeTabId; paneDispatch({ type: 'UPDATE_TAB_PARAMS', paneId: p.id, tabId: tid, params: { type: 'braided', subMode: 'table' } as TabParams }); } track('braided_subview_changed', { subview: 'table' }); }}
@@ -4849,6 +4853,7 @@ function App() {
           </svg>
           <span className="app-sidebar-label">Rails</span>
         </button>
+        {isFullTier && (
         <button
           className={`app-sidebar-btn ${viewMode === 'braided' && braidedSubMode === 'outline' ? 'active' : ''}`}
           onClick={() => { setBraidedSubMode('outline'); setViewMode('braided'); const p = findLeafPane(paneLayout.root, paneLayout.activePaneId); if (p) { const tid = findTabByType(p, 'braided') || p.activeTabId; paneDispatch({ type: 'UPDATE_TAB_PARAMS', paneId: p.id, tabId: tid, params: { type: 'braided', subMode: 'outline' } as TabParams }); } track('braided_subview_changed', { subview: 'outline' }); }}
@@ -4861,6 +4866,7 @@ function App() {
           </svg>
           <span className="app-sidebar-label">Outline</span>
         </button>
+        )}
         <button
           className={`app-sidebar-btn ${viewMode === 'editor' ? 'active' : ''}`}
           onClick={() => { setEditorInitialSceneKey(null); setViewMode('editor'); }}
@@ -4898,6 +4904,7 @@ function App() {
           </svg>
           <span className="app-sidebar-label">Tasks</span>
         </button>
+        {isFullTier && (
         <button
           className={`app-sidebar-btn ${viewMode === 'timeline' ? 'active' : ''}`}
           onClick={() => setViewMode('timeline')}
@@ -4912,6 +4919,8 @@ function App() {
           </svg>
           <span className="app-sidebar-label">Timeline</span>
         </button>
+        )}
+        {isFullTier && (
         <button
           className={`app-sidebar-btn ${viewMode === 'analytics' ? 'active' : ''}`}
           onClick={() => setViewMode('analytics')}
@@ -4925,6 +4934,7 @@ function App() {
           </svg>
           <span className="app-sidebar-label">Analytics</span>
         </button>
+        )}
         <div className="app-sidebar-spacer" />
         <button
           className="app-sidebar-btn"
@@ -5173,7 +5183,7 @@ function App() {
               </div>
             </>
           )}
-          {projectData && (
+          {isFullTier && projectData && (
             <>
               <div className="toolbar-divider" />
               <BranchSelector
@@ -5330,6 +5340,7 @@ function App() {
                   </svg>
                   Compile
                 </button>
+                {isFullTier && (
                 <button onClick={() => { setViewMode('analytics'); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="12" width="4" height="9"/>
@@ -5338,6 +5349,7 @@ function App() {
                   </svg>
                   Goals & Analytics
                 </button>
+                )}
                 <button onClick={() => { setShowManualCheckin(true); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10"/>
