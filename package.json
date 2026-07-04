@@ -12,6 +12,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "preview": "vite preview",
     "package": "npm run build && electron-builder",
+    "package:studio": "VITE_APP_TIER=full npm run build && electron-builder -c.appId=com.brian.braidr.studio -c.productName=\"Braidr Studio\" --publish never",
     "cap:build": "npm run build:vite && npx cap sync",
     "cap:open": "npx cap open ios",
     "cap:run": "npx cap run ios",

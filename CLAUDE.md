@@ -142,6 +142,15 @@ When Brian says anything like "push for release", "merge to main", "ship it", "r
 
 ## Documentation
 - **Always update `docs/features.md`** when adding, changing, or removing any user-facing feature. Keep it current — it is the canonical feature reference for the project.
+- **Update the specific doc in the same sitting as the change, not later.** If a change makes any living doc's claim wrong — `design-system.md`, schema docs, pricing, launch-readiness, `STATUS.md` — fix it before moving on. This is how docs go stale: not from neglect, but from fixing the code and meaning to update the doc "later."
+- **When a new doc replaces an old one, kill the old one immediately** — add a superseded banner or delete it outright. Never leave two living docs describing the same thing; the reader has no way to know which one is real. (A 2026-07-04 audit found this exact failure repeatedly: `docs/schema-design.md` vs `docs/data-model/`, `docs/brand-assets.md` vs `docs/design-system.md`, root `LAUNCH_READINESS.md` vs `docs/launch-readiness.md`.)
+- **`STATUS.md`** (repo root) is the live list of active/blocked/backlog work — current-state, not a log. Update it whenever something starts, finishes, blocks, or gets deprioritized. Prune finished items instead of leaving them marked done forever; move them to "Recently shipped" for a session or two, then drop them.
+- **Whenever you edit `STATUS.md`, say so in one line in the chat response** (e.g. "Added to STATUS.md: X" / "Moved X to Recently Shipped"). Brian shouldn't have to open the file to know it changed.
+
+## Session Journal
+- `JOURNAL.md` (repo root) is a chronological, session-level log — what was worked on, decisions made, where things got left. Distinct from `docs/` (curated reference) and from Claude's cross-project memory (durable, topic-indexed facts).
+- Before starting work on a topic Brian references vaguely ("pick up with the website"), grep `JOURNAL.md` for it first instead of asking him to re-explain.
+- At the end of any session with substantive work, append a short entry (date, topics, what happened, decisions, where it was left). Skip it for trivial Q&A sessions.
 
 ## Bug Workflow
 - When a bug is reported, **do not start by trying to fix it**

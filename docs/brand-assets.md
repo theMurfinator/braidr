@@ -1,5 +1,11 @@
 # Braidr Brand Assets Audit
 
+> **SUPERSEDED (2026-07-04).** This was written 2026-05-20 alongside the brand-retheme work.
+> `docs/design-system.md` (created 2026-06-24, referenced from `CLAUDE.md`) replaced it with a
+> fuller token system plus typography/spacing/component rules. Values that still overlap match;
+> this file just doesn't get new tokens added. Use `docs/design-system.md` going forward —
+> recommend deleting this file rather than maintaining two token references.
+
 ## Design Tokens (`:root`) — Official System
 
 ### Backgrounds
