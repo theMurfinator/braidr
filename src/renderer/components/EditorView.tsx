@@ -87,7 +87,7 @@ const DEFAULT_STATUSES = [
 ];
 
 // ── Inline TipTap editor for meta text fields ─────────────────────────────────
-function MetaRichField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function MetaRichField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const onChangeRef = useRef(onChange);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   const isFocused = useRef(false);
@@ -136,7 +136,7 @@ function MetaRichField({ value, onChange }: { value: string; onChange: (v: strin
 // ── Creatable multi-select for meta fields ─────────────────────────────────────
 const LABEL_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16'];
 
-function CreatableMultiSelect({ fieldId, options, optionColors, value, onValueChange, onAddOption }: {
+export function CreatableMultiSelect({ fieldId, options, optionColors, value, onValueChange, onAddOption }: {
   fieldId: string;
   options: string[];
   optionColors?: Record<string, string>;

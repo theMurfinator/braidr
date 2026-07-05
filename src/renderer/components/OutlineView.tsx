@@ -1,22 +1,43 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Scene, Chapter } from '../../shared/types';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import type { Scene, Chapter, MetadataFieldDef } from '../../shared/types';
+import { MetaRichField, CreatableMultiSelect } from './EditorView';
+
+// Outline notes used to be stored as plain text (newline-separated). Existing
+// content still comes back that way; wrap it as paragraphs the first time it
+// loads into the rich editor. New saves go out as real HTML from then on.
+function legacyOutlineToHtml(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (/<[a-z][\s\S]*>/i.test(trimmed)) return raw; // already HTML
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return trimmed.split(/\n+/).filter(Boolean).map(line => `<p>${esc(line)}</p>`).join('');
+}
 
 interface OutlineViewProps {
   scenes: Scene[]; // braid order, already filtered
   chapters: Chapter[];
   outlines: Record<string, string>;
+  draftContent: Record<string, string>;
+  metadataFieldDefs: MetadataFieldDef[];
+  sceneMetadata: Record<string, Record<string, string | string[]>>;
   getCharacterName: (characterId: string) => string;
   getCharacterHexColor: (characterId: string) => string;
   onOutlineChange: (sceneId: string, text: string) => void;
+  onDraftChange: (sceneId: string, html: string) => void;
+  onMetadataChange: (sceneId: string, fieldId: string, value: string | string[]) => void;
+  onMetadataFieldDefsChange: (defs: MetadataFieldDef[]) => void;
+}
+
+function countHtmlWords(html: string): number {
+  const text = html.replace(/<[^>]+>/g, ' ').trim();
+  return text ? text.split(/\s+/).length : 0;
 }
 
 const TARGET_WORDS = 250;
 const MAX_WORDS = 300;
-
-function countWords(text: string): number {
-  const t = text.trim();
-  return t ? t.split(/\s+/).length : 0;
-}
 
 interface Group {
   key: string;
@@ -53,70 +74,90 @@ interface PassageProps {
   value: string;
   onChange: (sceneId: string, text: string) => void;
   onWritingChange?: (writing: boolean) => void;
+  onOpenMeta: (sceneId: string) => void;
+  onOpenText: (sceneId: string) => void;
 }
 
-function Passage({ scene, number, characterName, accent, value, onChange, onWritingChange }: PassageProps) {
-  const [text, setText] = useState(value);
+function Passage({ scene, number, characterName, accent, value, onChange, onWritingChange, onOpenMeta, onOpenText }: PassageProps) {
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  const isFocusedRef = useRef(false);
   const [focused, setFocused] = useState(false);
-  const taRef = useRef<HTMLTextAreaElement | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latest = useRef(value);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [wordCount, setWordCount] = useState(() => countHtmlWords(value));
+
+  const editor = useEditor({
+    extensions: [StarterKit, Placeholder.configure({ placeholder: 'What happens here…' })],
+    content: value || '',
+    onFocus: () => { isFocusedRef.current = true; setFocused(true); onWritingChange?.(true); },
+    onBlur: ({ editor: e }) => {
+      isFocusedRef.current = false;
+      setFocused(false);
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+      onChangeRef.current(scene.id, e.isEmpty ? '' : e.getHTML());
+      onWritingChange?.(false);
+    },
+    onUpdate: ({ editor: e }) => {
+      setWordCount(countHtmlWords(e.getHTML()));
+      if (!isFocusedRef.current) return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        debounceRef.current = null;
+        onChangeRef.current(scene.id, e.isEmpty ? '' : e.getHTML());
+      }, 600);
+    },
+  });
 
   useEffect(() => {
-    if (value !== latest.current) {
-      latest.current = value;
-      setText(value);
+    return () => {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+      if (editor && !editor.isDestroyed) onChangeRef.current(scene.id, editor.isEmpty ? '' : editor.getHTML());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || isFocusedRef.current) return;
+    const current = editor.isEmpty ? '' : editor.getHTML();
+    if (current !== value) {
+      editor.commands.setContent(value || '');
+      setWordCount(countHtmlWords(value));
     }
-  }, [value]);
+  }, [editor, value]);
 
-  useEffect(() => {
-    const ta = taRef.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    ta.style.height = `${ta.scrollHeight}px`;
-  }, [text]);
-
-  const flush = () => {
-    if (timer.current) { clearTimeout(timer.current); timer.current = null; }
-    if (text !== value) onChange(scene.id, text);
-  };
-  useEffect(() => () => { if (timer.current) { clearTimeout(timer.current); onChange(scene.id, latest.current); } }, []);
-
-  const handleChange = (next: string) => {
-    setText(next);
-    latest.current = next;
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => onChange(scene.id, next), 600);
-  };
-
-  const words = countWords(text);
-  const isEmpty = words === 0;
+  const isEmpty = wordCount === 0;
 
   return (
     <section className={`ms-passage${isEmpty ? ' is-empty' : ''}${focused ? ' is-focused' : ''}`}>
       <div className="ms-head">
-        <span className="ms-slug">
+        <span
+          className="ms-slug"
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpenMeta(scene.id)}
+        >
           <span className="ms-slug__num">{String(number).padStart(2, '0')}</span>
           <span className="ms-slug__sep">|</span>
           <span className="ms-slug__pov" style={{ color: accent }}>{characterName}</span>
         </span>
-        {scene.title && <h2 className="ms-title">{scene.title}</h2>}
+        {scene.title && (
+          <h2 className="ms-title" role="button" tabIndex={0} onClick={() => onOpenMeta(scene.id)}>
+            {scene.title}
+          </h2>
+        )}
+        <button
+          type="button"
+          className="ms-head__preview-btn"
+          onClick={() => onOpenText(scene.id)}
+        >
+          Preview
+        </button>
       </div>
-      <textarea
-        ref={taRef}
-        className="ms-body"
-        value={text}
-        rows={1}
-        spellCheck
-        placeholder="What happens here…"
-        onFocus={() => { setFocused(true); onWritingChange?.(true); }}
-        onBlur={() => { setFocused(false); flush(); onWritingChange?.(false); }}
-        onChange={(e) => handleChange(e.target.value)}
-      />
+      <EditorContent editor={editor} className="ms-body" />
       <div className="ms-passage__count" aria-hidden={!focused}>
-        {words > 0 && (
-          <span className={words > MAX_WORDS ? 'over' : words > TARGET_WORDS ? 'near' : ''}>
-            {words} {words === 1 ? 'word' : 'words'}
+        {wordCount > 0 && (
+          <span className={wordCount > MAX_WORDS ? 'over' : wordCount > TARGET_WORDS ? 'near' : ''}>
+            {wordCount} {wordCount === 1 ? 'word' : 'words'}
           </span>
         )}
       </div>
@@ -124,7 +165,151 @@ function Passage({ scene, number, characterName, accent, value, onChange, onWrit
   );
 }
 
-export default function OutlineView({ scenes, chapters, outlines, getCharacterName, getCharacterHexColor, onOutlineChange }: OutlineViewProps) {
+interface MetaPanelProps {
+  scene: Scene;
+  chapter: Chapter | undefined;
+  characterName: string;
+  accent: string;
+  wordCount: number;
+  fieldDefs: MetadataFieldDef[];
+  values: Record<string, string | string[]>;
+  onFieldChange: (fieldId: string, value: string | string[]) => void;
+  onFieldDefsChange: (defs: MetadataFieldDef[]) => void;
+  onOpenText: () => void;
+  onClose: () => void;
+}
+
+function MetaPanel({ scene, chapter, characterName, accent, wordCount, fieldDefs, values, onFieldChange, onFieldDefsChange, onOpenText, onClose }: MetaPanelProps) {
+  const sortedFields = fieldDefs.filter(f => f.id !== '_status').sort((a, b) => a.order - b.order);
+
+  return (
+    <div className="ms-panel">
+      <div className="ms-panel__header">
+        <button type="button" className="ms-panel__close" onClick={onClose} title="Close">×</button>
+        <button type="button" className="ms-panel__preview-btn" onClick={onOpenText}>Preview</button>
+      </div>
+      <div className="ms-panel__body">
+        <div className="ms-panel__field">
+          <span className="ms-panel__label">Title</span>
+          <span className="ms-panel__value">{scene.title || 'Untitled scene'}</span>
+        </div>
+        <div className="ms-panel__field">
+          <span className="ms-panel__label">Character</span>
+          <span className="ms-panel__value" style={{ color: accent }}>{characterName}</span>
+        </div>
+        <div className="ms-panel__field">
+          <span className="ms-panel__label">Chapter</span>
+          <span className="ms-panel__value">{chapter?.title || 'Unassigned'}</span>
+        </div>
+        <div className="ms-panel__field">
+          <span className="ms-panel__label">Word count</span>
+          <span className="ms-panel__value">{wordCount}</span>
+        </div>
+
+        {/* Same custom-properties editor as Editor view's meta panel. */}
+        <div className="editor-meta-section">
+          <div className="editor-meta-label-row">
+            <h4 className="editor-meta-label">Properties</h4>
+          </div>
+          <div className="editor-meta-fields">
+            {sortedFields.map(field => (
+              <div key={field.id} className="editor-meta-field">
+                <div className="editor-meta-field-header">
+                  <label className="editor-meta-field-label">{field.label}</label>
+                </div>
+                {field.type === 'text' && (
+                  <MetaRichField
+                    value={(values[field.id] as string) || ''}
+                    onChange={v => onFieldChange(field.id, v)}
+                  />
+                )}
+                {field.type === 'dropdown' && (
+                  <select
+                    className="editor-meta-field-select"
+                    value={(values[field.id] as string) || ''}
+                    onChange={e => onFieldChange(field.id, e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {(field.options || []).map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                )}
+                {field.type === 'multiselect' && (
+                  <CreatableMultiSelect
+                    fieldId={field.id}
+                    options={field.options || []}
+                    optionColors={field.optionColors}
+                    value={(values[field.id] as string[]) || []}
+                    onValueChange={v => onFieldChange(field.id, v)}
+                    onAddOption={(fid, opt, color) => {
+                      const updatedDefs = fieldDefs.map(f =>
+                        f.id === fid ? { ...f, options: [...(f.options || []), opt], optionColors: { ...(f.optionColors ?? {}), [opt]: color } } : f
+                      );
+                      onFieldDefsChange(updatedDefs);
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+            {sortedFields.length === 0 && (
+              <p className="editor-meta-empty">No properties yet — add some from Editor view.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface TextPanelProps {
+  scene: Scene;
+  draftHtml: string;
+  onDraftChange: (sceneId: string, html: string) => void;
+  onClose: () => void;
+}
+
+function TextPanel({ scene, draftHtml, onDraftChange, onClose }: TextPanelProps) {
+  const editableRef = useRef<HTMLDivElement | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (editableRef.current) editableRef.current.innerHTML = draftHtml || '<p></p>';
+    return () => { if (timer.current) clearTimeout(timer.current); };
+    // Only re-sync the editable DOM when the panel switches scene, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene.id]);
+
+  const handleInput = () => {
+    const html = editableRef.current?.innerHTML ?? '';
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => onDraftChange(scene.id, html), 600);
+  };
+
+  return (
+    <div className="ms-text-panel">
+      <div className="ms-panel__header">
+        <button type="button" className="ms-panel__close" onClick={onClose} title="Close">×</button>
+        <span className="ms-panel__title-label">{scene.title || 'Untitled scene'}</span>
+      </div>
+      <div
+        ref={editableRef}
+        className="ms-text-panel__body"
+        contentEditable
+        suppressContentEditableWarning
+        onInput={handleInput}
+      />
+    </div>
+  );
+}
+
+export default function OutlineView({
+  scenes, chapters, outlines, draftContent, metadataFieldDefs, sceneMetadata,
+  getCharacterName, getCharacterHexColor, onOutlineChange, onDraftChange, onMetadataChange, onMetadataFieldDefsChange,
+}: OutlineViewProps) {
+  const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
+  const [metaOpen, setMetaOpen] = useState(false);
+  const [textOpen, setTextOpen] = useState(false);
   const [writing, setWriting] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -137,6 +322,11 @@ export default function OutlineView({ scenes, chapters, outlines, getCharacterNa
   const flat = groups.flatMap(g => g.scenes);
   const flatIndexById = new Map(flat.map((s, i) => [s.id, i]));
   const active = focusedId ?? activeId ?? flat[0]?.id ?? null;
+
+  const openMeta = (id: string) => { setActiveSceneId(id); setMetaOpen(true); };
+  const openText = (id: string) => { setActiveSceneId(id); setMetaOpen(true); setTextOpen(true); };
+  const closeMeta = () => { setMetaOpen(false); setTextOpen(false); };
+  const closeText = () => setTextOpen(false);
 
   // Scroll-spy: highlight whichever scene is nearest the top of the view.
   useEffect(() => {
@@ -165,9 +355,9 @@ export default function OutlineView({ scenes, chapters, outlines, getCharacterNa
     setFocusedId(id);
     const el = mainRef.current?.querySelector(`[data-scene-id="${id}"]`) as HTMLElement | null;
     if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    const ta = el?.querySelector('textarea') as HTMLTextAreaElement | null;
+    const editable = el?.querySelector('[contenteditable="true"]') as HTMLElement | null;
     setTimeout(() => {
-      ta?.focus({ preventScroll: true });
+      editable?.focus({ preventScroll: true });
       restScroll.current = mainRef.current?.scrollTop ?? 0;
       armed.current = true;
     }, 420);
@@ -207,6 +397,8 @@ export default function OutlineView({ scenes, chapters, outlines, getCharacterNa
     );
   }
 
+  const panelScene = activeSceneId ? flat.find(s => s.id === activeSceneId) : undefined;
+
   return (
     <div ref={containerRef} className={`ms-focus${writing ? ' is-writing' : ''}${focusedId ? ' is-focusing' : ''}`}>
       <div
@@ -229,9 +421,11 @@ export default function OutlineView({ scenes, chapters, outlines, getCharacterNa
                     number={(flatIndexById.get(s.id) ?? 0) + 1}
                     characterName={getCharacterName(s.characterId)}
                     accent={getCharacterHexColor(s.characterId)}
-                    value={outlines[s.id] || ''}
+                    value={legacyOutlineToHtml(outlines[s.id] || '')}
                     onChange={onOutlineChange}
                     onWritingChange={setWriting}
+                    onOpenMeta={openMeta}
+                    onOpenText={openText}
                   />
                 </div>
               ))}
@@ -239,37 +433,63 @@ export default function OutlineView({ scenes, chapters, outlines, getCharacterNa
           ))}
         </div>
       </div>
-      <nav className="ms-nav">
-        <div className="ms-nav__top">
-          <span className="ms-nav__title">Scenes</span>
-        </div>
-        {groups.map(g => (
-          <div key={g.key} className="ms-nav__group">
-            {g.title !== null && <div className="ms-nav__chapter">{g.title}</div>}
-            <ul className="ms-nav__list">
-              {g.scenes.map(s => {
-                const gi = flatIndexById.get(s.id) ?? 0;
-                const outlined = (outlines[s.id] || '').trim().length > 0;
-                return (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      className={`ms-nav__item${s.id === active ? ' is-active' : ''}${outlined ? '' : ' is-empty'}`}
-                      style={{ '--pov': getCharacterHexColor(s.characterId) } as Record<string, string>}
-                      onClick={() => enterFocus(s.id)}
-                      title={s.title || 'Untitled scene'}
-                    >
-                      <span className="ms-nav__dot" />
-                      <span className="ms-nav__num">{String(gi + 1).padStart(2, '0')}</span>
-                      <span className="ms-nav__title-text">{s.title || 'Untitled scene'}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+      {metaOpen && panelScene ? (
+        <>
+          <MetaPanel
+            scene={panelScene}
+            chapter={chapters.find(c => c.id === panelScene.chapterId)}
+            characterName={getCharacterName(panelScene.characterId)}
+            accent={getCharacterHexColor(panelScene.characterId)}
+            wordCount={panelScene.wordCount ?? countHtmlWords(draftContent[panelScene.id] || '')}
+            fieldDefs={metadataFieldDefs}
+            values={sceneMetadata[panelScene.id] || {}}
+            onFieldChange={(fieldId, value) => onMetadataChange(panelScene.id, fieldId, value)}
+            onFieldDefsChange={onMetadataFieldDefsChange}
+            onOpenText={() => openText(panelScene.id)}
+            onClose={closeMeta}
+          />
+          {textOpen && (
+            <TextPanel
+              scene={panelScene}
+              draftHtml={draftContent[panelScene.id] || ''}
+              onDraftChange={onDraftChange}
+              onClose={closeText}
+            />
+          )}
+        </>
+      ) : (
+        <nav className="ms-nav">
+          <div className="ms-nav__top">
+            <span className="ms-nav__title">Scenes</span>
           </div>
-        ))}
-      </nav>
+          {groups.map(g => (
+            <div key={g.key} className="ms-nav__group">
+              {g.title !== null && <div className="ms-nav__chapter">{g.title}</div>}
+              <ul className="ms-nav__list">
+                {g.scenes.map(s => {
+                  const gi = flatIndexById.get(s.id) ?? 0;
+                  const outlined = (outlines[s.id] || '').trim().length > 0;
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        className={`ms-nav__item${s.id === active ? ' is-active' : ''}${outlined ? '' : ' is-empty'}`}
+                        style={{ '--pov': getCharacterHexColor(s.characterId) } as Record<string, string>}
+                        onClick={() => enterFocus(s.id)}
+                        title={s.title || 'Untitled scene'}
+                      >
+                        <span className="ms-nav__dot" />
+                        <span className="ms-nav__num">{String(gi + 1).padStart(2, '0')}</span>
+                        <span className="ms-nav__title-text">{s.title || 'Untitled scene'}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }

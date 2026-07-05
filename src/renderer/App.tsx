@@ -4738,9 +4738,15 @@ function App() {
                 scenes={outlineCharFilter === 'all' ? displayedScenes : displayedScenes.filter(s => s.characterId === outlineCharFilter)}
                 chapters={chapters}
                 outlines={outlines}
+                draftContent={draftContent}
+                metadataFieldDefs={metadataFieldDefs}
+                sceneMetadata={sceneMetadata}
                 getCharacterName={getCharacterName}
                 getCharacterHexColor={getCharacterHexColor}
                 onOutlineChange={handleOutlineChange}
+                onDraftChange={handleDraftChange}
+                onMetadataChange={handleMetadataChange}
+                onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
               />
             ) : (
               <BraidedListView
