@@ -22919,7 +22919,6 @@ tr:hover .task-add-subtask-inline {
 .ms-body {
   display: block;
   width: 100%;
-  outline: none;
   background: transparent;
   padding: 0;
   font-family: var(--font-body);
@@ -22929,6 +22928,9 @@ tr:hover .task-add-subtask-inline {
   letter-spacing: 0.005em;
   color: var(--font-body-color);
   min-height: 1.75em;
+}
+.ms-body .tiptap {
+  outline: none;
 }
 .ms-body p {
   margin: 0 0 1.15em;
