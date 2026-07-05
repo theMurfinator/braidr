@@ -1,5 +1,6 @@
 import React, { useState, useRef, useLayoutEffect, useEffect, useCallback } from 'react';
 import { Scene, Character, Tag, TagCategory, PlotPoint, Chapter } from '../../shared/types';
+import { deriveChapterSpans } from '../../shared/chapterSpans';
 import RailsSceneCard from './RailsSceneCard';
 import FloatingEditor from './FloatingEditor';
 import ScenePreviewPanel from './ScenePreviewPanel';
@@ -40,6 +41,94 @@ interface RailsViewProps {
   onInsertSceneAtPosition?: (position: number, characterId: string, plotPointId: string) => void;
   chapters: Chapter[];
   onDeleteChapter?: (chapterId: string) => void;
+  onUpdateChapter?: (chapterId: string, updates: Partial<Pick<Chapter, 'title' | 'description'>>) => void;
+  onInsertChapterAt?: (afterChapterId: string | null, title: string) => void;
+  onAddChapter?: (title: string) => void;
+  showAddChapterInput?: boolean;
+  onDismissAddChapter?: () => void;
+}
+
+// ---------- Inline "+ Chapter" affordance (between groups / top / bottom) ----------
+function InsertChapterAffordance({ onInsert }: { onInsert: (title: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+
+  if (!open) {
+    return (
+      <div className="rails-insert-chapter-zone" style={{ gridColumn: '1 / -1' } as React.CSSProperties}>
+        <button type="button" className="rails-insert-chapter-btn" onClick={() => setOpen(true)}>
+          + Chapter
+        </button>
+      </div>
+    );
+  }
+
+  const commit = () => {
+    const trimmed = value.trim();
+    if (trimmed) onInsert(trimmed);
+    setValue('');
+    setOpen(false);
+  };
+
+  return (
+    <div className="add-chapter-input-container" style={{ gridColumn: '1 / -1' } as React.CSSProperties}>
+      <input
+        autoFocus
+        className="add-chapter-input"
+        placeholder="Chapter title..."
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); commit(); }
+          if (e.key === 'Escape') { setValue(''); setOpen(false); }
+        }}
+      />
+      <button type="button" className="add-chapter-confirm-btn" disabled={!value.trim()} onClick={commit}>Add</button>
+      <button type="button" className="add-chapter-cancel-btn" onClick={() => { setValue(''); setOpen(false); }}>Cancel</button>
+    </div>
+  );
+}
+
+// ---------- Inline-editable chapter title (click to edit, same pattern as Outline scene titles) ----------
+function ChapterTitle({ title, onCommit }: { title: string; onCommit: (newTitle: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(title);
+
+  const commit = () => {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== title) onCommit(trimmed);
+    else setDraft(title);
+  };
+
+  if (editing) {
+    return (
+      <input
+        className="rails-chapter-group-title-input"
+        autoFocus
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onClick={e => e.stopPropagation()}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+          if (e.key === 'Escape') { setDraft(title); setEditing(false); }
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      className="rails-chapter-group-title"
+      role="button"
+      tabIndex={0}
+      title="Click to rename"
+      onClick={e => { e.stopPropagation(); setDraft(title); setEditing(true); }}
+    >
+      {title}
+    </span>
+  );
 }
 
 export default function RailsView({
@@ -77,6 +166,11 @@ export default function RailsView({
   onInsertSceneAtPosition,
   chapters,
   onDeleteChapter,
+  onUpdateChapter,
+  onInsertChapterAt,
+  onAddChapter,
+  showAddChapterInput,
+  onDismissAddChapter,
 }: RailsViewProps) {
   const [inboxCharFilter, setInboxCharFilter] = useState<string>('all');
   const [floatingEditorScene, setFloatingEditorScene] = useState<Scene | null>(null);
@@ -88,6 +182,7 @@ export default function RailsView({
   const [draggedRailIndex, setDraggedRailIndex] = useState<number | null>(null);
   const [railDropTarget, setRailDropTarget] = useState<number | null>(null);
   const [insertAtPosition, setInsertAtPosition] = useState<number | null>(null);
+  const [newChapterTitleDraft, setNewChapterTitleDraft] = useState('');
   const [insertCharacterId, setInsertCharacterId] = useState<string | null>(null);
   const [inboxCollapsed, setInboxCollapsed] = useState(false);
   const userToggledInbox = useRef(false);
@@ -646,6 +741,34 @@ export default function RailsView({
             </svg>
           )}
 
+          {/* Toolbar-triggered "New Chapter" — always appends an empty chapter at the end */}
+          {showAddChapterInput && onAddChapter && (
+            <div className="add-chapter-input-container">
+              <input
+                autoFocus
+                className="add-chapter-input"
+                placeholder="Chapter title..."
+                value={newChapterTitleDraft}
+                onChange={e => setNewChapterTitleDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newChapterTitleDraft.trim()) {
+                    onAddChapter(newChapterTitleDraft.trim());
+                    setNewChapterTitleDraft('');
+                    onDismissAddChapter?.();
+                  }
+                  if (e.key === 'Escape') { setNewChapterTitleDraft(''); onDismissAddChapter?.(); }
+                }}
+              />
+              <button
+                type="button"
+                className="add-chapter-confirm-btn"
+                disabled={!newChapterTitleDraft.trim()}
+                onClick={() => { onAddChapter(newChapterTitleDraft.trim()); setNewChapterTitleDraft(''); onDismissAddChapter?.(); }}
+              >Add</button>
+              <button type="button" className="add-chapter-cancel-btn" onClick={() => { setNewChapterTitleDraft(''); onDismissAddChapter?.(); }}>Cancel</button>
+            </div>
+          )}
+
           {/* Empty state drop zone */}
           {scenes.length === 0 && (
             <div
@@ -784,77 +907,94 @@ export default function RailsView({
               };
 
               if (chapters.length > 0) {
-                const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
-                const indexedRows = gridRows.map((row, idx) => ({ row, idx }));
-                const processedChapters = new Set<string>();
+                // Single source of truth: contiguous spans derived from the
+                // braid + chapter list (see shared/chapterSpans.ts). Handles
+                // legacy non-contiguous data AND first-class empty chapters.
+                const spans = deriveChapterSpans(scenes, chapters);
                 const result: React.ReactNode[] = [];
+                let cumulativeIndex = 0;
+                let chapterNum = 0;
+                let lastRealChapterId: string | null = null;
 
-                // Walk rows in braided order; when hitting a chapter's first scene, render the whole chapter group
-                for (let i = 0; i < indexedRows.length; i++) {
-                  const { row, idx } = indexedRows[i];
-                  if (!row.scene.chapterId) {
-                    result.push(renderGridRow(row, idx));
-                  } else {
-                    const chId = row.scene.chapterId;
-                    if (!processedChapters.has(chId)) {
-                      processedChapters.add(chId);
-                      const chapter = sortedChapters.find(ch => ch.id === chId);
-                      const chapterNum = sortedChapters.findIndex(ch => ch.id === chId) + 1;
-                      const chapterRows = indexedRows.filter(({ row: r }) => r.scene.chapterId === chId);
-                      if (chapter) {
-                        result.push(
-                          <div
-                            key={chapter.id}
-                            className="rails-chapter-group"
-                            style={{ gridColumn: '1 / -1' } as React.CSSProperties}
-                          >
-                            <div className="rails-chapter-group-header">
-                              <span className="rails-chapter-group-num">Ch. {chapterNum}</span>
-                              <span className="rails-chapter-group-title">{chapter.title}</span>
-                              <span className="rails-chapter-group-count">{chapterRows.length} scene{chapterRows.length !== 1 ? 's' : ''}</span>
-                              {onDeleteChapter && (
-                                <button
-                                  className="rails-chapter-group-delete"
-                                  onClick={() => onDeleteChapter(chapter.id)}
-                                  title="Delete chapter"
-                                >×</button>
-                              )}
-                            </div>
-                            {chapterRows.map(({ row: r, idx: ridx }) => renderGridRow(r, ridx))}
-                          </div>
-                        );
-                      }
-                    }
-                    // Already rendered as part of its chapter group — skip
-                  }
-                }
+                const confirmDelete = (chapter: Chapter) => {
+                  const spanIdx = spans.findIndex(s => s.chapterId === chapter.id);
+                  const preceding = spanIdx > 0 ? spans[spanIdx - 1] : null;
+                  const targetLabel = preceding ? `"${preceding.chapter?.title || 'the preceding chapter'}"` : 'No chapter (unassigned)';
+                  const scenesCount = spans[spanIdx]?.scenes.length ?? 0;
+                  const message = scenesCount > 0
+                    ? `Delete "${chapter.title}"? Its ${scenesCount} scene${scenesCount !== 1 ? 's' : ''} will merge into ${targetLabel}. No scene is deleted or unbraided.`
+                    : `Delete "${chapter.title}"? It has no scenes assigned.`;
+                  if (window.confirm(message)) onDeleteChapter?.(chapter.id);
+                };
 
-                // Append empty chapters (no scenes assigned yet) at the end
-                sortedChapters.forEach((chapter, chIdx) => {
-                  if (!processedChapters.has(chapter.id)) {
+                spans.forEach((span, spanIdx) => {
+                  if (onInsertChapterAt) {
                     result.push(
-                      <div
-                        key={chapter.id}
-                        className="rails-chapter-group"
-                        style={{ gridColumn: '1 / -1' } as React.CSSProperties}
-                      >
-                        <div className="rails-chapter-group-header">
-                          <span className="rails-chapter-group-num">Ch. {chIdx + 1}</span>
-                          <span className="rails-chapter-group-title">{chapter.title}</span>
-                          <span className="rails-chapter-group-count">0 scenes</span>
-                          {onDeleteChapter && (
-                            <button
-                              className="rails-chapter-group-delete"
-                              onClick={() => onDeleteChapter(chapter.id)}
-                              title="Delete chapter"
-                            >×</button>
-                          )}
-                        </div>
-                        <div className="rails-chapter-empty">No scenes assigned to this chapter</div>
-                      </div>
+                      <InsertChapterAffordance
+                        key={`insert-${spanIdx}`}
+                        onInsert={(title) => onInsertChapterAt(lastRealChapterId, title)}
+                      />
                     );
                   }
+
+                  if (span.chapterId === null) {
+                    // "No chapter" span: plain rows, no wrapper group.
+                    span.scenes.forEach(scene => {
+                      const idx = cumulativeIndex++;
+                      result.push(renderGridRow({ position: idx + 1, scene, characterId: scene.characterId }, idx));
+                    });
+                    return;
+                  }
+
+                  chapterNum++;
+                  lastRealChapterId = span.chapterId;
+                  const chapter = span.chapter!;
+                  const startIndex = cumulativeIndex;
+                  const rows = span.scenes.map(scene => {
+                    const idx = cumulativeIndex++;
+                    return renderGridRow({ position: idx + 1, scene, characterId: scene.characterId }, idx);
+                  });
+
+                  result.push(
+                    <div key={chapter.id} className="rails-chapter-group" style={{ gridColumn: '1 / -1' } as React.CSSProperties}>
+                      <div className="rails-chapter-group-header">
+                        <span className="rails-chapter-group-num">Ch. {chapterNum}</span>
+                        <ChapterTitle
+                          title={chapter.title}
+                          onCommit={(newTitle) => onUpdateChapter?.(chapter.id, { title: newTitle })}
+                        />
+                        <span className="rails-chapter-group-count">{span.scenes.length} scene{span.scenes.length !== 1 ? 's' : ''}</span>
+                        {onDeleteChapter && (
+                          <button
+                            className="rails-chapter-group-delete"
+                            onClick={() => confirmDelete(chapter)}
+                            title="Delete chapter"
+                          >×</button>
+                        )}
+                      </div>
+                      {span.scenes.length > 0 ? rows : (
+                        <div
+                          className={`rails-chapter-empty rails-drop-zone ${dropTargetIndex === startIndex ? 'active' : ''}`}
+                          data-drop-index={startIndex}
+                          onDragOver={(e) => handleDragOver(e, startIndex)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, startIndex)}
+                        >
+                          Drop a scene here to start this chapter
+                        </div>
+                      )}
+                    </div>
+                  );
                 });
+
+                if (onInsertChapterAt) {
+                  result.push(
+                    <InsertChapterAffordance
+                      key="insert-end"
+                      onInsert={(title) => onInsertChapterAt(lastRealChapterId, title)}
+                    />
+                  );
+                }
 
                 return result;
               }

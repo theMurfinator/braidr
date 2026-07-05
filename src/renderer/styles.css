@@ -4706,6 +4706,64 @@ textarea.scene-metadata-field-input {
   font-style: italic;
 }
 
+.rails-chapter-empty.rails-drop-zone {
+  border: 1px dashed rgba(59, 130, 246, 0.25);
+  border-radius: var(--radius-sm);
+  margin: 4px 10px;
+  cursor: default;
+}
+
+.rails-chapter-empty.rails-drop-zone.active {
+  border-color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--color-primary);
+}
+
+.rails-chapter-group-title-input {
+  flex: 1;
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-family: var(--font-section-title);
+  background: var(--bg-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  padding: 1px 6px;
+  outline: none;
+}
+
+/* Rails "+ Chapter" insertion affordance — between chapter groups and at the
+   top/bottom of the braid. */
+.rails-insert-chapter-zone {
+  display: flex;
+  justify-content: center;
+  padding: 2px 0;
+}
+
+.rails-insert-chapter-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  padding: 2px 10px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.rails-insert-chapter-zone:hover .rails-insert-chapter-btn,
+.rails-insert-chapter-btn:focus-visible {
+  opacity: 1;
+}
+
+.rails-insert-chapter-btn:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
 /* Add Chapter Input */
 .add-chapter-input-container {
   display: flex;

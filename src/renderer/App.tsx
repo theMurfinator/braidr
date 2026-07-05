@@ -25,6 +25,7 @@ import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { indexPlotPoints, isSceneInPlay, isScenePlaced, enforceBraidingInvariant } from '../shared/placement';
+import { deriveChapterSpans, reconcileChaptersAfterBraidChange, computeDeleteChapterAssignments } from '../shared/chapterSpans';
 import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
 import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, appendSceneSession, getTodayStr, getWeekSaturday, getWeekDays, toLocalDateStr, recordManuscriptSnapshot, applyAnalyticsPatch, canPersistAnalytics } from './utils/analyticsStore';
 import CheckinModal from './components/CheckinModal';
@@ -2271,6 +2272,11 @@ function App() {
   }, [selectedCharacterId]);
 
   // Chapter handlers
+  //
+  // Core semantic (Launch/plans/chapters-first-class.md): a chapter is a
+  // CONTIGUOUS run of scenes in braid order, derived at read time by
+  // deriveChapterSpans — chapterId assignment on scenes is never bulk-
+  // rewritten on load, only through the explicit actions below.
   const handleAddChapter = async (title: string) => {
     const newChapter: Chapter = {
       id: crypto.randomUUID(),
@@ -2284,6 +2290,44 @@ function App() {
       await dataService.saveChapter(newChapter);
     } catch {
       addToast("Couldn't save chapter");
+    }
+  };
+
+  // Rails' in-canvas "+ Chapter" affordance: creates an empty chapter
+  // positioned by `order` relative to its neighbors (never grabs scenes —
+  // amendment 2026-07-05). `afterChapterId` is the real chapter that should
+  // immediately precede it in span order; null = insert at the very start.
+  const handleInsertChapterAt = async (afterChapterId: string | null, title: string) => {
+    if (!projectData) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const newChapter: Chapter = { id: crypto.randomUUID(), title: trimmed, order: 0 };
+
+    const braidedScenes = projectData.scenes
+      .filter(s => s.timelinePosition !== null)
+      .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+    const spans = deriveChapterSpans(braidedScenes, chaptersRef.current);
+    const realChapterIds = spans.filter(s => s.chapterId !== null).map(s => s.chapterId as string);
+    // Chapters with zero scenes that also aren't in `spans` shouldn't happen
+    // (deriveChapterSpans always includes every chapter), but guard anyway.
+    for (const ch of chaptersRef.current) {
+      if (!realChapterIds.includes(ch.id)) realChapterIds.push(ch.id);
+    }
+
+    const insertIdx = afterChapterId === null ? 0 : realChapterIds.indexOf(afterChapterId) + 1;
+    const newOrderIds = [...realChapterIds];
+    newOrderIds.splice(insertIdx, 0, newChapter.id);
+
+    const updatedChapters = newOrderIds.map((id, idx) =>
+      id === newChapter.id ? { ...newChapter, order: idx } : { ...chaptersRef.current.find(c => c.id === id)!, order: idx }
+    );
+    setChapters(updatedChapters);
+    chaptersRef.current = updatedChapters;
+    try {
+      await dataService.saveChapter(newChapter);
+      await dataService.reorderChapters(newOrderIds);
+    } catch {
+      addToast("Couldn't create chapter");
     }
   };
 
@@ -2306,7 +2350,33 @@ function App() {
     }
   };
 
+  // Delete semantics (plan): scenes in the deleted chapter merge into the
+  // PRECEDING chapter's span (or "No chapter" if none precedes) — no scene
+  // is ever deleted or unbraided by a chapter operation.
   const handleDeleteChapter = async (chapterId: string) => {
+    if (projectData) {
+      const braidedScenes = projectData.scenes
+        .filter(s => s.timelinePosition !== null)
+        .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
+      const mergeAssignments = computeDeleteChapterAssignments(braidedScenes, chaptersRef.current, chapterId);
+      if (mergeAssignments.length > 0) {
+        setProjectData({
+          ...projectData,
+          scenes: projectData.scenes.map(s => {
+            const a = mergeAssignments.find(u => u.sceneId === s.id);
+            return a ? { ...s, chapterId: a.chapterId, sceneOrder: a.sceneOrder } : s;
+          }),
+        });
+        for (const a of mergeAssignments) {
+          try {
+            await dataService.assignSceneToChapter(a.sceneId, a.chapterId, a.sceneOrder);
+          } catch {
+            addToast("Couldn't merge scenes into the preceding chapter");
+          }
+        }
+      }
+    }
+
     const updated = chaptersRef.current.filter(ch => ch.id !== chapterId);
     setChapters(updated);
     chaptersRef.current = updated;
@@ -2351,6 +2421,25 @@ function App() {
       addToast("Couldn't assign scene to chapter");
     }
   };
+
+  // Phase 2 — assignment automation: the ONE place every braid-mutation call
+  // site routes through to keep "chapter membership follows contiguous braid
+  // position" true after a move. Synchronous — patches the in-memory scenes
+  // array immediately and fires (non-blocking) persistence for just the
+  // scenes whose derived chapter actually changed.
+  const reconcileChaptersForScenes = useCallback((finalScenes: Scene[], affectedSceneIds: string[]): Scene[] => {
+    if (chaptersRef.current.length === 0) return finalScenes;
+    const updates = reconcileChaptersAfterBraidChange(finalScenes, chaptersRef.current, affectedSceneIds);
+    if (updates.length === 0) return finalScenes;
+    for (const u of updates) {
+      dataService.assignSceneToChapter(u.sceneId, u.chapterId, u.sceneOrder)
+        .catch(() => addToast("Couldn't update chapter assignment"));
+    }
+    return finalScenes.map(s => {
+      const u = updates.find(x => x.sceneId === s.id);
+      return u ? { ...s, chapterId: u.chapterId, sceneOrder: u.sceneOrder } : s;
+    });
+  }, [addToast]);
 
   const handlePovSceneDrop = async (targetSceneNumber: number, targetPlotPointId: string) => {
     const scene = draggedPovSceneRef.current;
@@ -3255,13 +3344,14 @@ function App() {
     });
 
     // Update all scenes with new positions
-    const finalScenes = projectData.scenes.map(scene => {
+    let finalScenes = projectData.scenes.map(scene => {
       const newPos = newPositions.get(scene.id);
       if (newPos !== undefined) {
         return { ...scene, timelinePosition: newPos };
       }
       return scene;
     });
+    finalScenes = reconcileChaptersForScenes(finalScenes, [draggedScene.id]);
 
     setProjectData({ ...projectData, scenes: finalScenes });
     setDraggedScene(null);
@@ -3292,13 +3382,14 @@ function App() {
       .filter(s => s.timelinePosition !== null)
       .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
 
-    const finalScenes = updatedScenes.map(scene => {
+    let finalScenes = updatedScenes.map(scene => {
       const idx = braidedScenes.findIndex(s => s.id === scene.id);
       if (idx !== -1) {
         return { ...scene, timelinePosition: idx + 1 };
       }
       return scene;
     });
+    finalScenes = reconcileChaptersForScenes(finalScenes, [draggedScene.id]);
 
     setProjectData({ ...projectData, scenes: finalScenes });
     setDraggedScene(null);
@@ -3323,16 +3414,17 @@ function App() {
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(braidedScenes, oldIndex, newIndex);
     const newPositions = new Map(reordered.map((s, i) => [s.id, i + 1]));
-    const finalScenes = projectData.scenes.map(s => {
+    let finalScenes = projectData.scenes.map(s => {
       const pos = newPositions.get(s.id);
       return pos !== undefined ? { ...s, timelinePosition: pos } : s;
     });
+    finalScenes = reconcileChaptersForScenes(finalScenes, [activeId]);
     setProjectData({ ...projectData, scenes: finalScenes });
     await dataService.mutate('scenes.setBraidedPositions', {
       updates: [...newPositions.entries()].map(([sceneId, position]) => ({ sceneId, position })),
     });
     track('scene_reordered', { view: 'braided' });
-  }, [projectData, saveTimelineData]);
+  }, [projectData, saveTimelineData, reconcileChaptersForScenes]);
 
   const handleBraidedMoveToInbox = useCallback(async (sceneId: string) => {
     if (!projectData) return;
@@ -3342,17 +3434,18 @@ function App() {
     const braidedRemaining = updatedScenes
       .filter(s => s.timelinePosition !== null)
       .sort((a, b) => (a.timelinePosition ?? 0) - (b.timelinePosition ?? 0));
-    const finalScenes = updatedScenes.map(scene => {
+    let finalScenes = updatedScenes.map(scene => {
       const idx = braidedRemaining.findIndex(s => s.id === scene.id);
       return idx !== -1 ? { ...scene, timelinePosition: idx + 1 } : scene;
     });
+    finalScenes = reconcileChaptersForScenes(finalScenes, [sceneId]);
     setProjectData({ ...projectData, scenes: finalScenes });
     const updates = [
       { sceneId, position: null as null },
       ...braidedRemaining.map((s, i) => ({ sceneId: s.id, position: i + 1 })),
     ];
     await dataService.mutate('scenes.setBraidedPositions', { updates });
-  }, [projectData, saveTimelineData]);
+  }, [projectData, saveTimelineData, reconcileChaptersForScenes]);
 
   const handleBraidedMoveFromInbox = useCallback(async (sceneId: string, overSceneId: string) => {
     if (!projectData) return;
@@ -3366,15 +3459,16 @@ function App() {
     const withInbox = [...braidedScenes];
     withInbox.splice(insertAt, 0, inboxScene);
     const newPositions = new Map(withInbox.map((s, i) => [s.id, i + 1]));
-    const finalScenes = projectData.scenes.map(s => {
+    let finalScenes = projectData.scenes.map(s => {
       const pos = newPositions.get(s.id);
       return pos !== undefined ? { ...s, timelinePosition: pos } : s;
     });
+    finalScenes = reconcileChaptersForScenes(finalScenes, [sceneId]);
     setProjectData({ ...projectData, scenes: finalScenes });
     await dataService.mutate('scenes.setBraidedPositions', {
       updates: [...newPositions.entries()].map(([sid, position]) => ({ sceneId: sid, position })),
     });
-  }, [projectData, saveTimelineData]);
+  }, [projectData, saveTimelineData, reconcileChaptersForScenes]);
 
   // Tag management handlers
   const handleUpdateTag = (tagId: string, category: TagCategory) => {
@@ -3477,11 +3571,12 @@ function App() {
     const positionMap = new Map<string, number>();
     braidedScenes.forEach((s, idx) => { positionMap.set(s.id, idx + 1); });
 
-    const finalScenes = updatedScenes.map(s => {
+    let finalScenes = updatedScenes.map(s => {
       const newPos = positionMap.get(s.id);
       if (newPos !== undefined) return { ...s, timelinePosition: newPos };
       return s;
     });
+    finalScenes = reconcileChaptersForScenes(finalScenes, [newScene.id]);
 
     const updatedData = { ...projectData, scenes: finalScenes };
     setProjectData(updatedData);
@@ -3588,17 +3683,18 @@ function App() {
       return s;
     });
 
-    const updatedScenes = projectData.scenes.map(s => {
+    let updatedScenes = projectData.scenes.map(s => {
       const pos = newOrder.findIndex(o => o.id === s.id);
       return pos !== -1 ? { ...s, timelinePosition: pos + 1 } : s;
     });
+    updatedScenes = reconcileChaptersForScenes(updatedScenes, orderedIds);
 
     setProjectData({ ...projectData, scenes: updatedScenes });
     const braidedUpdates = updatedScenes
       .filter(s => s.timelinePosition !== null)
       .map(s => ({ sceneId: s.id, position: s.timelinePosition as number }));
     dataService.mutate('scenes.setBraidedPositions', { updates: braidedUpdates });
-  }, [projectData, saveTimelineData]);
+  }, [projectData, saveTimelineData, reconcileChaptersForScenes]);
 
   const handleInsertSceneOnTimeline = async (characterId: string, plotPointId: string, date: string): Promise<string | null> => {
     if (!projectData) return null;
@@ -4732,6 +4828,11 @@ function App() {
                 povReorderedScenes={povReorderedScenes}
                 onInsertSceneAtPosition={handleInsertSceneAtPosition}
                 onDeleteChapter={handleDeleteChapter}
+                onUpdateChapter={handleUpdateChapter}
+                onInsertChapterAt={handleInsertChapterAt}
+                onAddChapter={handleAddChapter}
+                showAddChapterInput={showAddChapterInput}
+                onDismissAddChapter={() => setShowAddChapterInput(false)}
               />
             ) : braidedSubMode === 'outline' ? (
               <OutlineView
@@ -5123,6 +5224,18 @@ function App() {
                 )}
               </div>
               )}
+            </>
+          )}
+          {viewMode === 'braided' && braidedSubMode === 'rails' && (
+            <>
+              <div className="toolbar-divider" />
+              <button
+                className="toolbar-btn toolbar-btn--primary"
+                onClick={() => setShowAddChapterInput(true)}
+                title="Add a new chapter at the end of the braid"
+              >
+                + New Chapter
+              </button>
             </>
           )}
           {viewMode === 'braided' && braidedSubMode !== 'rails' && braidedSubMode !== 'table' && braidedSubMode !== 'outline' && (
