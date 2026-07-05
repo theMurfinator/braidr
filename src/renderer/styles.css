@@ -81,19 +81,6 @@
   --status-warning-bg: #FEF3C7;
   --status-warning-text: #92400E;
 
-  /* Wellness check-in level scale */
-  --level-1: #e57373;   /* 1/5 — poor */
-  --level-2: #ffb74d;   /* 2/5 — below avg */
-  --level-3: #ffd54f;   /* 3/5 — neutral */
-  --level-4: #81c784;   /* 4/5 — good */
-  --level-5: #4caf50;   /* 5/5 — great */
-
-  /* Check-in metric colors */
-  --checkin-energy: #ffb74d;
-  --checkin-focus: #42a5f5;
-  --checkin-mood: #66bb6a;
-  --checkin-custom: #ab47bc;
-
   /* Scratchpad / notepad widget */
   --scratchpad-bg: #FFFBE6;
   --scratchpad-border: #EDE5B4;
@@ -506,26 +493,6 @@ textarea:focus-visible {
   max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* Check-in button next to timer */
-.toolbar-checkin-btn {
-  padding: 3px 10px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--bg-secondary);
-  cursor: pointer;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  color: var(--text-secondary);
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.toolbar-checkin-btn:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--text-muted);
-  color: var(--text-primary);
 }
 
 /* Manual time entry (editor meta) */
@@ -14132,171 +14099,7 @@ textarea.table-cell-input {
   font-variant-numeric: tabular-nums;
 }
 
-/* =========================================
-   Check-in Modal
-   ========================================= */
-
-.checkin-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  background: rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  animation: checkin-fade-in 0.2s ease;
-}
-
-.checkin-modal {
-  background: var(--bg-primary);
-  border-radius: 16px 16px 0 0;
-  padding: 32px 36px;
-  width: 100%;
-  max-width: 480px;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
-  animation: checkin-slide-up 0.25s ease;
-}
-
-.checkin-header {
-  margin-bottom: 24px;
-  text-align: center;
-}
-
-.checkin-title {
-  font-family: var(--font-ui);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 6px;
-}
-
-.checkin-summary {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-}
-
-.checkin-summary-sep {
-  margin: 0 4px;
-}
-
-.checkin-scales {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 28px;
-}
-
-.checkin-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.checkin-row-label {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  width: 52px;
-  flex-shrink: 0;
-  text-align: right;
-}
-
-.checkin-buttons {
-  display: flex;
-  gap: 6px;
-}
-
-.checkin-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  border: 1.5px solid var(--border);
-  background: var(--bg-primary);
-  font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.checkin-btn:hover {
-  border-color: var(--text-muted);
-  background: var(--bg-secondary);
-}
-
-.checkin-btn.selected {
-  border-color: transparent;
-  color: #fff;
-}
-
-.checkin-btn.selected.level-1 { background: var(--level-1); }
-.checkin-btn.selected.level-2 { background: var(--level-2); }
-.checkin-btn.selected.level-3 { background: var(--level-3); color: var(--text-primary); }
-.checkin-btn.selected.level-4 { background: var(--level-4); }
-.checkin-btn.selected.level-5 { background: var(--level-5); }
-
-.checkin-row-hint {
-  font-family: var(--font-ui);
-  font-size: 11px;
-  color: var(--text-muted);
-  min-width: 60px;
-  flex-shrink: 0;
-}
-
-.checkin-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.checkin-skip-btn {
-  font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 500;
-  padding: 8px 20px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.checkin-skip-btn:hover {
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-}
-
-.checkin-save-btn {
-  font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 24px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: var(--accent);
-  color: #fff;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.checkin-save-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.checkin-save-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
+/* Shared modal entrance animations (used by Update, Feedback modals) */
 @keyframes checkin-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -14306,129 +14109,6 @@ textarea.table-cell-input {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
-
-/* Custom check-in categories */
-.checkin-row-custom {
-  position: relative;
-}
-
-.checkin-remove-cat-btn {
-  position: absolute;
-  right: -8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  border: none;
-  border-radius: 50%;
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.checkin-row-custom:hover .checkin-remove-cat-btn {
-  opacity: 1;
-}
-
-.checkin-remove-cat-btn:hover {
-  background: #fde8e8;
-  color: #e74c3c;
-}
-
-.checkin-add-cat-btn {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: none;
-  border: 1.5px dashed var(--border);
-  border-radius: 8px;
-  padding: 8px 16px;
-  cursor: pointer;
-  transition: all 0.15s;
-  width: 100%;
-  text-align: center;
-}
-
-.checkin-add-cat-btn:hover {
-  color: var(--text-secondary);
-  border-color: var(--text-muted);
-  background: var(--bg-secondary);
-}
-
-.checkin-add-cat-form {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.checkin-add-cat-input {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  padding: 6px 10px;
-  border: 1.5px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  outline: none;
-  flex: 1;
-  min-width: 80px;
-}
-
-.checkin-add-cat-input.small {
-  flex: 0 1 90px;
-  min-width: 60px;
-}
-
-.checkin-add-cat-input:focus {
-  border-color: var(--accent);
-}
-
-.checkin-add-cat-confirm,
-.checkin-add-cat-cancel {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 500;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.checkin-add-cat-confirm {
-  background: var(--accent);
-  color: #fff;
-}
-
-.checkin-add-cat-confirm:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.checkin-add-cat-confirm:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.checkin-add-cat-cancel {
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.checkin-add-cat-cancel:hover {
-  background: var(--bg-secondary);
-}
-
-/* Custom category bar color in dashboard */
-.analytics-checkin-bar-fill.custom { background: var(--checkin-custom); }
 
 /* Deadline Goal (analytics dashboard) */
 .analytics-deadline-section {
@@ -14529,63 +14209,6 @@ textarea.table-cell-input {
   border-radius: var(--radius-sm);
   font-size: 12px;
   font-family: var(--font-ui);
-}
-
-/* Check-in Averages Card (analytics dashboard) */
-.analytics-checkin-averages {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.analytics-checkin-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.analytics-checkin-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-family: var(--font-ui);
-  font-size: 12px;
-}
-
-.analytics-checkin-name {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.analytics-checkin-score {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.analytics-checkin-bar-track {
-  height: 8px;
-  background: var(--bg-tertiary);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.analytics-checkin-bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
-.analytics-checkin-bar-fill.energy { background: var(--checkin-energy); }
-.analytics-checkin-bar-fill.focus  { background: var(--checkin-focus); }
-.analytics-checkin-bar-fill.mood   { background: var(--checkin-mood); }
-
-.analytics-checkin-range {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-ui);
-  font-size: 10px;
-  color: var(--text-tertiary);
 }
 
 /* Top Scenes by Time Card */
@@ -15411,8 +15034,7 @@ textarea.table-cell-input {
   .editor-meta,
   .editor-draft-toolbar,
   .editor-draft-scene-subtitle,
-  .modal-overlay,
-  .checkin-floating {
+  .modal-overlay {
     display: none !important;
   }
 
@@ -15870,6 +15492,13 @@ textarea.table-cell-input {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+}
+
+.task-title-text {
+  white-space: normal;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .task-expand-toggle {
@@ -15908,7 +15537,7 @@ textarea.table-cell-input {
   background: var(--bg-subtle, rgba(127,127,127,0.04));
 }
 .task-row-subtask .task-title-cell {
-  padding-left: 55px;
+  padding-left: 88px;
 }
 
 .task-add-subtask-inline {
@@ -16058,6 +15687,7 @@ tr:hover .task-add-subtask-inline {
 }
 
 .task-inline-input {
+  display: block;
   width: 100%;
   padding: 2px 4px;
   border: 1px solid var(--accent);
@@ -16067,6 +15697,10 @@ tr:hover .task-add-subtask-inline {
   background: var(--bg-primary);
   color: var(--text-primary);
   outline: none;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .task-inline-dropdown {
@@ -22913,8 +22547,24 @@ tr:hover .task-add-subtask-inline {
   line-height: 1.25;
   letter-spacing: -0.01em;
   color: var(--text-primary);
+  cursor: text;
 }
-
+.ms-title-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  background: transparent;
+  font-family: var(--font-reading-title);
+  font-size: var(--font-reading-title-size);
+  font-weight: var(--font-reading-title-weight);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  outline: none;
+}
 /* The outline prose — the hero */
 .ms-body {
   display: block;
@@ -23006,6 +22656,22 @@ tr:hover .task-add-subtask-inline {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
+}
+.ms-nav__filter {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 0 8px 12px;
+  padding: 5px 8px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+}
+.ms-nav__filter:focus {
+  border-color: var(--accent);
 }
 .ms-nav__list {
   list-style: none;
@@ -23170,6 +22836,24 @@ tr:hover .task-add-subtask-inline {
   font-family: var(--font-ui);
   font-size: 13px;
   color: var(--text-primary);
+}
+.ms-panel__title-input {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  margin: -3px -6px;
+  outline: none;
+}
+.ms-panel__title-input:hover {
+  border-color: var(--border);
+}
+.ms-panel__title-input:focus {
+  border-color: var(--accent);
+  background: var(--bg-primary);
 }
 
 /* Scene text panel — sits to the right of the metadata panel. */

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Scene, Character, PlotPoint, MetadataFieldDef, Task } from '../../shared/types';
-import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getTodayStr, toLocalDateStr, getCheckinAverages, getWeekSaturday, getWeekDays, formatWeekLabel, applyAnalyticsPatch } from '../utils/analyticsStore';
+import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, getTodayStr, toLocalDateStr, getWeekSaturday, getWeekDays, formatWeekLabel, applyAnalyticsPatch } from '../utils/analyticsStore';
 import { track } from '../utils/posthogTracker';
 
 interface WordCountDashboardProps {
@@ -18,7 +18,6 @@ interface WordCountDashboardProps {
   onAnalyticsChange?: (patch: Partial<AnalyticsData>) => void;
   onClose?: () => void; // optional — unused when inline
   sceneSessions?: SceneSession[];
-  customCheckinCategories?: CustomCheckinCategory[];
   tasks?: Task[];
 }
 
@@ -30,7 +29,7 @@ function countWords(html: string): number {
 }
 
 
-export default function WordCountDashboard({ scenes, characters, plotPoints: _plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, onAnalyticsChange, sceneSessions = [], customCheckinCategories = [], tasks = [] }: WordCountDashboardProps) {
+export default function WordCountDashboard({ scenes, characters, plotPoints: _plotPoints, characterColors, draftContent, sceneMetadata, metadataFieldDefs, wordCountGoal, projectPath, onGoalChange, onAnalyticsChange, sceneSessions = [], tasks = [] }: WordCountDashboardProps) {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -555,9 +554,6 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
     persistPatch(patch, updated);
     setEditingMonthlyGoal(false);
   };
-
-  // Check-in averages
-  const checkinAvgs = useMemo(() => getCheckinAverages(sceneSessions), [sceneSessions]);
 
   // Top scenes by time (exclude manual check-ins)
   const topScenesByTime = useMemo(() => {
@@ -1229,63 +1225,6 @@ export default function WordCountDashboard({ scenes, characters, plotPoints: _pl
                   );
                 });
               })()}
-            </div>
-          </div>
-        )}
-
-        {/* Check-in Averages */}
-        {checkinAvgs && (
-          <div className="analytics-card">
-            <div className="analytics-card-header">
-              <span className="analytics-card-title">Check-in Averages</span>
-              <span className="analytics-card-subtitle">{checkinAvgs.count} session{checkinAvgs.count !== 1 ? 's' : ''}</span>
-            </div>
-            <div className="analytics-checkin-averages">
-              {([
-                { key: 'energy', label: 'Energy', lowLabel: 'Low', highLabel: 'High', value: checkinAvgs.energy },
-                { key: 'focus', label: 'Focus', lowLabel: 'Scattered', highLabel: 'Locked in', value: checkinAvgs.focus },
-                { key: 'mood', label: 'Mood', lowLabel: 'Rough', highLabel: 'Great', value: checkinAvgs.mood },
-              ] as const).map(row => (
-                <div key={row.key} className="analytics-checkin-row">
-                  <div className="analytics-checkin-label">
-                    <span className="analytics-checkin-name">{row.label}</span>
-                    <span className="analytics-checkin-score">{row.value.toFixed(1)}</span>
-                  </div>
-                  <div className="analytics-checkin-bar-track">
-                    <div
-                      className={`analytics-checkin-bar-fill ${row.key}`}
-                      style={{ width: `${(row.value / 5) * 100}%` }}
-                    />
-                  </div>
-                  <div className="analytics-checkin-range">
-                    <span>{row.lowLabel}</span>
-                    <span>{row.highLabel}</span>
-                  </div>
-                </div>
-              ))}
-              {/* Custom category averages */}
-              {checkinAvgs.custom && customCheckinCategories.map(cat => {
-                const data = checkinAvgs.custom![cat.id];
-                if (!data) return null;
-                return (
-                  <div key={cat.id} className="analytics-checkin-row">
-                    <div className="analytics-checkin-label">
-                      <span className="analytics-checkin-name">{cat.label}</span>
-                      <span className="analytics-checkin-score">{data.avg.toFixed(1)}</span>
-                    </div>
-                    <div className="analytics-checkin-bar-track">
-                      <div
-                        className="analytics-checkin-bar-fill custom"
-                        style={{ width: `${(data.avg / 5) * 100}%` }}
-                      />
-                    </div>
-                    <div className="analytics-checkin-range">
-                      <span>{cat.lowLabel}</span>
-                      <span>{cat.highLabel}</span>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </div>
         )}

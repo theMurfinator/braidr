@@ -166,7 +166,6 @@ export function useTimers({
           endTime: now,
           durationMs,
           wordsNet: 0,
-          checkin: null,
         };
         const updated = appendSceneSession(analyticsRef.current, session);
         analyticsRef.current = updated;

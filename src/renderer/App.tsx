@@ -25,9 +25,8 @@ import { useHistory } from './hooks/useHistory';
 import { useToast } from './components/ToastContext';
 import { extractTodosFromNotes, toggleTodoInNoteHtml, SceneTodo } from './utils/parseTodoWidgets';
 import { indexPlotPoints, isSceneInPlay, isScenePlaced, enforceBraidingInvariant } from '../shared/placement';
-import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker, SessionSummary } from './services/sessionTracker';
-import { AnalyticsData, SceneSession, CustomCheckinCategory, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, appendSceneSession, getTodayStr, getWeekSaturday, getWeekDays, toLocalDateStr, recordManuscriptSnapshot, applyAnalyticsPatch, canPersistAnalytics } from './utils/analyticsStore';
-import CheckinModal from './components/CheckinModal';
+import { createSessionTracker, mergeSessionIntoAnalytics, SessionTracker } from './services/sessionTracker';
+import { AnalyticsData, SceneSession, loadAnalytics, saveAnalytics, getSceneSessionsByDate, getSceneSessionsList, getTodayStr, getWeekSaturday, getWeekDays, toLocalDateStr, recordManuscriptSnapshot, applyAnalyticsPatch, canPersistAnalytics } from './utils/analyticsStore';
 import FeedbackModal from './components/FeedbackModal';
 import { UpdateBanner } from './components/UpdateBanner';
 import UpdateModal from './components/UpdateModal';
@@ -328,10 +327,6 @@ function App() {
   // during the async window after switching projects. See canPersistAnalytics.
   const analyticsPathRef = useRef<string | null>(null);
   const [sceneSessions, setSceneSessions] = useState<SceneSession[]>([]);
-  const [pendingSession, setPendingSession] = useState<SessionSummary | null>(null);
-  const [showManualCheckin, setShowManualCheckin] = useState(false);
-  const pendingSessionRef = useRef<SessionSummary | null>(null);
-  const pendingTotalWordsRef = useRef<number>(0);
   const isClosingRef = useRef(false);
 
   // Reset drag ref on mouseup (in case drag is cancelled without dragEnd firing)
@@ -1029,7 +1024,7 @@ function App() {
       const totalWords = computeTotalManuscriptWords();
 
       // Always save immediately — check-in is manual only
-      const merged = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords, null);
+      const merged = mergeSessionIntoAnalytics(analyticsRef.current, summary, totalWords);
       const updated = recordManuscriptSnapshot(merged, getTodayStr(), totalWords);
       analyticsRef.current = updated;
       setSceneSessions(updated.sceneSessions || []);
@@ -1038,7 +1033,6 @@ function App() {
         duration_ms: summary.durationMs,
         words_net: summary.wordsNet,
         scene_key: summary.sceneKey,
-        had_checkin: false,
       });
     });
 
@@ -1055,7 +1049,7 @@ function App() {
         const currentWordCount = computeTotalManuscriptWords();
         const summary = tracker.endSession(currentWordCount);
         if (summary && analyticsRef.current && projectData) {
-          const merged = mergeSessionIntoAnalytics(analyticsRef.current, summary, currentWordCount, null);
+          const merged = mergeSessionIntoAnalytics(analyticsRef.current, summary, currentWordCount);
           const updated = recordManuscriptSnapshot(merged, getTodayStr(), currentWordCount);
           analyticsRef.current = updated;
           persistAnalytics(updated);
@@ -1065,91 +1059,6 @@ function App() {
       sessionTrackerRef.current = null;
     };
   }, [projectData?.projectPath]);
-
-  // Check-in modal handlers
-  const handleCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number; custom?: Record<string, number> }) => {
-    const summary = pendingSessionRef.current;
-    if (!summary || !analyticsRef.current || !projectData) return;
-
-    const merged = mergeSessionIntoAnalytics(
-      analyticsRef.current, summary, pendingTotalWordsRef.current, checkin
-    );
-    const updated = recordManuscriptSnapshot(merged, getTodayStr(), pendingTotalWordsRef.current);
-    analyticsRef.current = updated;
-    setSceneSessions(updated.sceneSessions || []);
-    persistAnalytics(updated);
-    track('writing_session_ended', {
-      duration_ms: summary.durationMs,
-      words_net: summary.wordsNet,
-      scene_key: summary.sceneKey,
-      had_checkin: true,
-      checkin_energy: checkin.energy,
-      checkin_focus: checkin.focus,
-      checkin_mood: checkin.mood,
-    });
-
-    pendingSessionRef.current = null;
-    setPendingSession(null);
-  }, [projectData, persistAnalytics]);
-
-  const handleCheckinSkip = useCallback(() => {
-    const summary = pendingSessionRef.current;
-    if (!summary || !analyticsRef.current || !projectData) return;
-
-    const merged = mergeSessionIntoAnalytics(
-      analyticsRef.current, summary, pendingTotalWordsRef.current, null
-    );
-    const updated = recordManuscriptSnapshot(merged, getTodayStr(), pendingTotalWordsRef.current);
-    analyticsRef.current = updated;
-    setSceneSessions(updated.sceneSessions || []);
-    persistAnalytics(updated);
-
-    pendingSessionRef.current = null;
-    setPendingSession(null);
-  }, [projectData, persistAnalytics]);
-
-  // Manual (standalone) check-in handler
-  const handleManualCheckinSubmit = useCallback((checkin: { energy: number; focus: number; mood: number; custom?: Record<string, number> }) => {
-    if (!analyticsRef.current || !projectData) return;
-    const session: SceneSession = {
-      id: `ss-manual-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      sceneKey: 'manual:checkin',
-      date: getTodayStr(),
-      startTime: Date.now(),
-      endTime: Date.now(),
-      durationMs: 0,
-      wordsNet: 0,
-      checkin,
-    };
-    const updated = appendSceneSession(analyticsRef.current, session);
-    analyticsRef.current = updated;
-    setSceneSessions(updated.sceneSessions || []);
-    persistAnalytics(updated);
-    setShowManualCheckin(false);
-  }, [projectData, persistAnalytics]);
-
-  // Custom check-in category management
-  const handleAddCheckinCategory = useCallback((category: CustomCheckinCategory) => {
-    if (!analyticsRef.current || !projectData) return;
-    const existing = analyticsRef.current.customCheckinCategories || [];
-    const updated = {
-      ...analyticsRef.current,
-      customCheckinCategories: [...existing, category],
-    };
-    analyticsRef.current = updated;
-    persistAnalytics(updated);
-  }, [projectData, persistAnalytics]);
-
-  const handleRemoveCheckinCategory = useCallback((categoryId: string) => {
-    if (!analyticsRef.current || !projectData) return;
-    const existing = analyticsRef.current.customCheckinCategories || [];
-    const updated = {
-      ...analyticsRef.current,
-      customCheckinCategories: existing.filter(c => c.id !== categoryId),
-    };
-    analyticsRef.current = updated;
-    persistAnalytics(updated);
-  }, [projectData, persistAnalytics]);
 
   // End session when switching away from editor view
   useEffect(() => {
@@ -4235,7 +4144,6 @@ function App() {
                   persistAnalytics(updated);
                 }}
                 sceneSessions={sceneSessions}
-                customCheckinCategories={analyticsRef.current?.customCheckinCategories}
                 tasks={tasks}
               />
             ) : mode === 'notes' ? (
@@ -4747,6 +4655,14 @@ function App() {
                 onDraftChange={handleDraftChange}
                 onMetadataChange={handleMetadataChange}
                 onMetadataFieldDefsChange={handleMetadataFieldDefsChange}
+                onTitleChange={(sceneId, newTitle) => {
+                  const scene = projectData.scenes.find(s => s.id === sceneId);
+                  if (scene) handleSceneChange(sceneId, newTitle, scene.notes);
+                }}
+                timerRunning={timerRunning}
+                timerSceneKey={timerSceneKey}
+                onStartTimer={handleStartTimer}
+                onStopTimer={handleStopTimer}
               />
             ) : (
               <BraidedListView
@@ -5258,13 +5174,6 @@ function App() {
               </button>
             );
           })()}
-          {timerSceneKey && (
-            <button
-              className="toolbar-checkin-btn"
-              onClick={() => setShowManualCheckin(true)}
-              title="Mood check-in"
-            >Check in</button>
-          )}
           {taskTimerTaskId && (() => {
             const activeTask = tasks.find(t => t.id === taskTimerTaskId);
             const label = activeTask?.title || 'Task';
@@ -5356,15 +5265,6 @@ function App() {
                   Goals & Analytics
                 </button>
                 )}
-                <button onClick={() => { setShowManualCheckin(true); setShowSettingsMenu(false); }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-                    <line x1="9" y1="9" x2="9.01" y2="9"/>
-                    <line x1="15" y1="9" x2="15.01" y2="9"/>
-                  </svg>
-                  Mood Check-in
-                </button>
                 <div className="settings-dropdown-divider" />
                 <button onClick={() => { setShowCharacterManager(true); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -5557,38 +5457,6 @@ function App() {
           onClose={() => setShowSearch(false)}
         />
       )}
-
-      {/* Manual Mood Check-in */}
-      {showManualCheckin && (
-        <CheckinModal
-          standalone
-          customCategories={analyticsRef.current?.customCheckinCategories}
-          onSubmit={handleManualCheckinSubmit}
-          onSkip={() => setShowManualCheckin(false)}
-          onAddCategory={handleAddCheckinCategory}
-          onRemoveCategory={handleRemoveCheckinCategory}
-        />
-      )}
-
-      {/* Check-in Modal */}
-      {pendingSession && projectData && (() => {
-        const pendingScene = projectData.scenes.find(s => s.id === pendingSession.sceneKey);
-        const charName = pendingScene ? (projectData.characters.find(c => c.id === pendingScene.characterId)?.name || 'Unknown') : 'Unknown';
-        const sceneTitle = pendingScene?.title ? ` — ${pendingScene.title}` : '';
-        const sceneLabel = `${charName} — ${pendingScene?.sceneNumber ?? '?'}${sceneTitle}`;
-        return (
-          <CheckinModal
-            sceneLabel={sceneLabel}
-            durationMs={pendingSession.durationMs}
-            wordsNet={pendingSession.wordsNet}
-            customCategories={analyticsRef.current?.customCheckinCategories}
-            onSubmit={handleCheckinSubmit}
-            onSkip={handleCheckinSkip}
-            onAddCategory={handleAddCheckinCategory}
-            onRemoveCategory={handleRemoveCheckinCategory}
-          />
-        );
-      })()}
 
       {/* Archive Panel Modal */}
       {showArchivePanel && (

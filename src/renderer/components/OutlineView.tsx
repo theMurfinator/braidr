@@ -3,7 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import type { Scene, Chapter, MetadataFieldDef } from '../../shared/types';
-import { MetaRichField, CreatableMultiSelect } from './EditorView';
+import { MetaRichField, CreatableMultiSelect, cleanContent } from './EditorView';
 
 // Outline notes used to be stored as plain text (newline-separated). Existing
 // content still comes back that way; wrap it as paragraphs the first time it
@@ -29,7 +29,14 @@ interface OutlineViewProps {
   onDraftChange: (sceneId: string, html: string) => void;
   onMetadataChange: (sceneId: string, fieldId: string, value: string | string[]) => void;
   onMetadataFieldDefsChange: (defs: MetadataFieldDef[]) => void;
+  onTitleChange: (sceneId: string, newTitle: string) => void;
+  timerRunning?: boolean;
+  timerSceneKey?: string | null;
+  onStartTimer?: (sceneKey: string) => void;
+  onStopTimer?: () => void;
 }
+
+const LAST_SCENE_KEY = 'braidr-outline-last-scene';
 
 function countHtmlWords(html: string): number {
   const text = html.replace(/<[^>]+>/g, ' ').trim();
@@ -76,9 +83,18 @@ interface PassageProps {
   onWritingChange?: (writing: boolean) => void;
   onOpenMeta: (sceneId: string) => void;
   onOpenText: (sceneId: string) => void;
+  onTitleChange: (sceneId: string, newTitle: string) => void;
 }
 
-function Passage({ scene, number, characterName, accent, value, onChange, onWritingChange, onOpenMeta, onOpenText }: PassageProps) {
+function Passage({ scene, number, characterName, accent, value, onChange, onWritingChange, onOpenMeta, onOpenText, onTitleChange }: PassageProps) {
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(() => cleanContent(scene.content) || scene.title || '');
+
+  const commitTitle = () => {
+    setEditingTitle(false);
+    const trimmed = titleDraft.trim();
+    if (trimmed !== (cleanContent(scene.content) || scene.title || '')) onTitleChange(scene.id, trimmed);
+  };
   const onChangeRef = useRef(onChange);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   const isFocusedRef = useRef(false);
@@ -140,9 +156,28 @@ function Passage({ scene, number, characterName, accent, value, onChange, onWrit
           <span className="ms-slug__sep">|</span>
           <span className="ms-slug__pov" style={{ color: accent }}>{characterName}</span>
         </span>
-        {scene.title && (
-          <h2 className="ms-title" role="button" tabIndex={0} onClick={() => onOpenMeta(scene.id)}>
-            {scene.title}
+        {editingTitle ? (
+          <input
+            className="ms-title-input"
+            autoFocus
+            value={titleDraft}
+            onChange={e => setTitleDraft(e.target.value)}
+            onBlur={commitTitle}
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+              if (e.key === 'Escape') { setTitleDraft(cleanContent(scene.content) || scene.title || ''); setEditingTitle(false); }
+            }}
+          />
+        ) : (
+          <h2
+            className="ms-title"
+            role="button"
+            tabIndex={0}
+            title="Click to edit"
+            onClick={e => { e.stopPropagation(); setTitleDraft(cleanContent(scene.content) || scene.title || ''); setEditingTitle(true); }}
+          >
+            {cleanContent(scene.content) || scene.title || 'Untitled scene'}
           </h2>
         )}
         <button
@@ -175,12 +210,21 @@ interface MetaPanelProps {
   values: Record<string, string | string[]>;
   onFieldChange: (fieldId: string, value: string | string[]) => void;
   onFieldDefsChange: (defs: MetadataFieldDef[]) => void;
+  onTitleChange: (sceneId: string, newTitle: string) => void;
+  timerRunning?: boolean;
+  timerSceneKey?: string | null;
+  onStartTimer?: (sceneKey: string) => void;
+  onStopTimer?: () => void;
   onOpenText: () => void;
   onClose: () => void;
 }
 
-function MetaPanel({ scene, chapter, characterName, accent, wordCount, fieldDefs, values, onFieldChange, onFieldDefsChange, onOpenText, onClose }: MetaPanelProps) {
+function MetaPanel({ scene, chapter, characterName, accent, wordCount, fieldDefs, values, onFieldChange, onFieldDefsChange, onTitleChange, timerRunning, timerSceneKey, onStartTimer, onStopTimer, onOpenText, onClose }: MetaPanelProps) {
+  const isTimerForThisScene = timerSceneKey === scene.id;
   const sortedFields = fieldDefs.filter(f => f.id !== '_status').sort((a, b) => a.order - b.order);
+  const currentTitle = cleanContent(scene.content) || scene.title || '';
+  const [titleDraft, setTitleDraft] = useState(currentTitle);
+  useEffect(() => setTitleDraft(currentTitle), [scene.id, currentTitle]);
 
   return (
     <div className="ms-panel">
@@ -191,7 +235,14 @@ function MetaPanel({ scene, chapter, characterName, accent, wordCount, fieldDefs
       <div className="ms-panel__body">
         <div className="ms-panel__field">
           <span className="ms-panel__label">Title</span>
-          <span className="ms-panel__value">{scene.title || 'Untitled scene'}</span>
+          <input
+            className="ms-panel__title-input"
+            value={titleDraft}
+            placeholder="Untitled scene"
+            onChange={e => setTitleDraft(e.target.value)}
+            onBlur={() => { if (titleDraft.trim() !== currentTitle) onTitleChange(scene.id, titleDraft.trim()); }}
+            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+          />
         </div>
         <div className="ms-panel__field">
           <span className="ms-panel__label">Character</span>
@@ -205,6 +256,16 @@ function MetaPanel({ scene, chapter, characterName, accent, wordCount, fieldDefs
           <span className="ms-panel__label">Word count</span>
           <span className="ms-panel__value">{wordCount}</span>
         </div>
+        {onStartTimer && (
+          <div className="ms-panel__field">
+            <span className="ms-panel__label">Timer</span>
+            {isTimerForThisScene && timerRunning ? (
+              <button type="button" className="editor-timer-btn stop" onClick={() => onStopTimer?.()}>Stop</button>
+            ) : (
+              <button type="button" className="editor-timer-btn start" onClick={() => onStartTimer(scene.id)}>Start</button>
+            )}
+          </div>
+        )}
 
         {/* Same custom-properties editor as Editor view's meta panel. */}
         <div className="editor-meta-section">
@@ -306,6 +367,7 @@ function TextPanel({ scene, draftHtml, onDraftChange, onClose }: TextPanelProps)
 export default function OutlineView({
   scenes, chapters, outlines, draftContent, metadataFieldDefs, sceneMetadata,
   getCharacterName, getCharacterHexColor, onOutlineChange, onDraftChange, onMetadataChange, onMetadataFieldDefsChange,
+  onTitleChange, timerRunning, timerSceneKey, onStartTimer, onStopTimer,
 }: OutlineViewProps) {
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
   const [metaOpen, setMetaOpen] = useState(false);
@@ -313,10 +375,12 @@ export default function OutlineView({
   const [writing, setWriting] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [navFilter, setNavFilter] = useState('');
   const mainRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const armed = useRef(false);
   const restScroll = useRef(0);
+  const restoredScroll = useRef(false);
 
   const groups = buildGroups(scenes, chapters);
   const flat = groups.flatMap(g => g.scenes);
@@ -338,13 +402,30 @@ export default function OutlineView({
         const top = entries
           .filter(e => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (top) setActiveId(top.target.getAttribute('data-scene-id'));
+        const id = top?.target.getAttribute('data-scene-id') ?? null;
+        if (id) {
+          setActiveId(id);
+          if (restoredScroll.current) localStorage.setItem(LAST_SCENE_KEY, id);
+        }
       },
       { root, rootMargin: '-12% 0px -70% 0px', threshold: 0 }
     );
     root.querySelectorAll('[data-scene-id]').forEach(el => obs.observe(el));
     return () => obs.disconnect();
   }, [flat.length, focusedId]);
+
+  // On first mount, jump straight to wherever the writer left off instead of
+  // resetting to the top of the manuscript every time this view is switched to.
+  useEffect(() => {
+    const lastId = localStorage.getItem(LAST_SCENE_KEY);
+    const root = mainRef.current;
+    if (lastId && root) {
+      const el = root.querySelector(`[data-scene-id="${lastId}"]`) as HTMLElement | null;
+      if (el) el.scrollIntoView({ block: 'start' });
+    }
+    restoredScroll.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Focus a scene: it stays exactly where it is; the others just go transparent.
   // Scrolling then reveals them back proportional to how far you scroll.
@@ -353,6 +434,7 @@ export default function OutlineView({
     armed.current = false;
     containerRef.current?.style.setProperty('--reveal', '0');
     setFocusedId(id);
+    localStorage.setItem(LAST_SCENE_KEY, id);
     const el = mainRef.current?.querySelector(`[data-scene-id="${id}"]`) as HTMLElement | null;
     if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
     const editable = el?.querySelector('[contenteditable="true"]') as HTMLElement | null;
@@ -426,6 +508,7 @@ export default function OutlineView({
                     onWritingChange={setWriting}
                     onOpenMeta={openMeta}
                     onOpenText={openText}
+                    onTitleChange={onTitleChange}
                   />
                 </div>
               ))}
@@ -445,6 +528,11 @@ export default function OutlineView({
             values={sceneMetadata[panelScene.id] || {}}
             onFieldChange={(fieldId, value) => onMetadataChange(panelScene.id, fieldId, value)}
             onFieldDefsChange={onMetadataFieldDefsChange}
+            onTitleChange={onTitleChange}
+            timerRunning={timerRunning}
+            timerSceneKey={timerSceneKey}
+            onStartTimer={onStartTimer}
+            onStopTimer={onStopTimer}
             onOpenText={() => openText(panelScene.id)}
             onClose={closeMeta}
           />
@@ -462,32 +550,60 @@ export default function OutlineView({
           <div className="ms-nav__top">
             <span className="ms-nav__title">Scenes</span>
           </div>
-          {groups.map(g => (
-            <div key={g.key} className="ms-nav__group">
-              {g.title !== null && <div className="ms-nav__chapter">{g.title}</div>}
-              <ul className="ms-nav__list">
-                {g.scenes.map(s => {
-                  const gi = flatIndexById.get(s.id) ?? 0;
-                  const outlined = (outlines[s.id] || '').trim().length > 0;
-                  return (
-                    <li key={s.id}>
-                      <button
-                        type="button"
-                        className={`ms-nav__item${s.id === active ? ' is-active' : ''}${outlined ? '' : ' is-empty'}`}
-                        style={{ '--pov': getCharacterHexColor(s.characterId) } as Record<string, string>}
-                        onClick={() => enterFocus(s.id)}
-                        title={s.title || 'Untitled scene'}
-                      >
-                        <span className="ms-nav__dot" />
-                        <span className="ms-nav__num">{String(gi + 1).padStart(2, '0')}</span>
-                        <span className="ms-nav__title-text">{s.title || 'Untitled scene'}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+          <input
+            type="text"
+            className="ms-nav__filter"
+            placeholder="Go to scene…"
+            value={navFilter}
+            onChange={e => setNavFilter(e.target.value)}
+            onKeyDown={e => {
+              if (e.key !== 'Enter') return;
+              const q = navFilter.trim().toLowerCase();
+              if (!q) return;
+              const match = flat.find(s => {
+                const title = (cleanContent(s.content) || s.title || '').toLowerCase();
+                return title.includes(q) || getCharacterName(s.characterId).toLowerCase().includes(q);
+              });
+              if (match) { enterFocus(match.id); setNavFilter(''); }
+            }}
+          />
+          {groups.map(g => {
+            const navQuery = navFilter.trim().toLowerCase();
+            const visibleScenes = navQuery
+              ? g.scenes.filter(s => {
+                  const title = (cleanContent(s.content) || s.title || '').toLowerCase();
+                  return title.includes(navQuery) || getCharacterName(s.characterId).toLowerCase().includes(navQuery);
+                })
+              : g.scenes;
+            if (visibleScenes.length === 0) return null;
+            return (
+              <div key={g.key} className="ms-nav__group">
+                {g.title !== null && <div className="ms-nav__chapter">{g.title}</div>}
+                <ul className="ms-nav__list">
+                  {visibleScenes.map(s => {
+                    const gi = flatIndexById.get(s.id) ?? 0;
+                    const outlined = (outlines[s.id] || '').trim().length > 0;
+                    const title = cleanContent(s.content) || s.title || 'Untitled scene';
+                    return (
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          className={`ms-nav__item${s.id === active ? ' is-active' : ''}${outlined ? '' : ' is-empty'}`}
+                          style={{ '--pov': getCharacterHexColor(s.characterId) } as Record<string, string>}
+                          onClick={() => enterFocus(s.id)}
+                          title={title}
+                        >
+                          <span className="ms-nav__dot" />
+                          <span className="ms-nav__num">{String(gi + 1).padStart(2, '0')}</span>
+                          <span className="ms-nav__title-text">{title}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
         </nav>
       )}
     </div>

@@ -59,13 +59,17 @@ Spreadsheet-style view of all scenes.
 A distraction-free surface for locking the arc before drafting. Each scene gets a short, flat-text outline of what happens (not prose), written as a manuscript page.
 
 - **Continuous scroll** of every scene in braided order, grouped under chapter headers (scenes with no chapter fall under "Unassigned")
-- Each scene shows a quiet slug line (braid number · POV in the character's color · title) above the outline text
+- Each scene shows a quiet slug line (braid number · POV in the character's color · title) above the outline text; the title is editable inline (click to edit, same underlying field as every other view's scene title)
 - **Persistent scene list on the right** — grouped by chapter, muted at rest, lighting up on hover; a filled dot means the scene is outlined, a hollow dot means it's still a hole. Tracks your scroll position
+- **"Go to scene" filter** at the top of the scene list — type to filter by title or character name, `Enter` jumps straight to the first match
+- **Reopens where you left off** — the view remembers the last scene you were at and scrolls straight there instead of resetting to the top every time you switch back to Outline mode
+- **Start/Stop timer** per scene, right in the passage header — same session timer used everywhere else in the app
 - **Focus a scene** by clicking it in the list: the other scenes and the list fade to transparent so only that scene is on screen, cursor ready. Nothing moves — it's pure opacity, so there's no position jump
 - **Scroll to come back**: the rest fade in proportional to how far you scroll. `Esc` or `Cmd/Ctrl + ↑/↓` also navigate
 - Character filter in the toolbar narrows the view to one POV's scenes
 - Per-scene word count with soft gravity toward ~250–300 words (calm under target, warns past 300 — never blocks)
 - Edits auto-save; stored separately from prose drafts, so the outline stays a scaffold you draft against
+- Metadata panel (opened from the slug/number) shows the scene's title (editable), character, chapter, word count, and custom Properties fields — same editor as Editor view's meta panel
 
 ### Editor View
 Full-screen writing environment.
@@ -76,7 +80,6 @@ Full-screen writing environment.
 - **Comments** — inline threaded comments per scene
 - **Word count** with session goal progress bar
 - **Session timer** — tracks time spent writing in the editor
-- **Writing check-in** — prompts for energy/focus/mood rating at session start; custom check-in fields supported
 - Auto-save with 800ms debounce
 - Per-screen typography settings (font family, size, color)
 - "Open in Editor" quick-launch from any scene in other views
@@ -111,7 +114,6 @@ A visual timeline canvas.
 ### Analytics View
 Writing session data and productivity trends.
 
-- Session history from check-ins (energy, focus, mood over time)
 - **Manuscript word counts are braided-only** — every word figure (the total, progress, per-character/status breakdowns, and the daily/weekly/monthly snapshots) counts only scenes placed in the timeline. Bullpen/unbraided scenes are excluded until braided; set-aside scenes are always excluded. Existing projects switch to this basis once, rebaselining the changeover day so it isn't recorded as a deletion; historical daily numbers stay on whatever basis recorded them.
 - **Daily word counts** are the *manuscript difference* for the day: each day stores the total manuscript word count, and "words written" = today's total − the day's starting baseline (which carries over from the prior day's ending total). This counts every change (including deletions, shown as negative) regardless of how time was tracked, rather than summing individual editing-session deltas. Days from before this model existed fall back to the older session-based totals.
 - **Weekly Words** — full-width bar chart of daily word counts (Sat–Fri week), configured with manuscript target length + deadline date; auto-calculates required words/day and words/week, shows pace vs. on-track status
@@ -219,6 +221,6 @@ License and subscription management.
 | **Draft Version** | Manual snapshot of a draft |
 | **Scene Comment** | Threaded comment on a scene |
 | **Branch** | Named snapshot of the timeline for parallel drafting |
-| **Analytics** | Session check-ins (energy, focus, mood, time, word count) |
+| **Analytics** | Writing sessions (time, word count) |
 | **Metadata Field** | User-defined custom field definition |
 | **Scene Metadata** | Custom field values per scene |

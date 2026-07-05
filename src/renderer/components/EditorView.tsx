@@ -222,7 +222,7 @@ export function CreatableMultiSelect({ fieldId, options, optionColors, value, on
 
 
 
-function cleanContent(text: string): string {
+export function cleanContent(text: string): string {
   return text
     .replace(/==\*\*/g, '').replace(/\*\*==/g, '').replace(/==/g, '')
     .replace(/#[a-zA-Z0-9_]+/g, '').replace(/\s+/g, ' ').trim();

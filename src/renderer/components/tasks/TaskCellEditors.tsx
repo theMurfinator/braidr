@@ -12,23 +12,31 @@ interface InlineTextInputProps {
 
 export function InlineTextInput({ value, onCommit, onCancel, placeholder }: InlineTextInputProps) {
   const [draft, setDraft] = useState(value);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const resize = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
 
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
+    resize();
   }, []);
 
   return (
-    <input
+    <textarea
       ref={inputRef}
-      type="text"
+      rows={1}
       className="task-inline-input"
       value={draft}
       placeholder={placeholder}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => { setDraft(e.target.value); resize(); }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onCommit(draft);
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onCommit(draft); }
         if (e.key === 'Escape') onCancel();
       }}
       onBlur={() => onCommit(draft)}

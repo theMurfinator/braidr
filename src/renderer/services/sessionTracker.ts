@@ -209,7 +209,6 @@ export function mergeSessionIntoAnalytics(
   analytics: AnalyticsData,
   summary: SessionSummary,
   totalProjectWords: number,
-  checkin?: { energy: number; focus: number; mood: number; custom?: Record<string, number> } | null,
 ): AnalyticsData {
   const minutes = Math.max(1, Math.round(summary.durationMs / 60000));
   const wordsWritten = summary.wordsNet;
@@ -226,7 +225,6 @@ export function mergeSessionIntoAnalytics(
     endTime: summary.endTime,
     durationMs: summary.durationMs,
     wordsNet: summary.wordsNet,
-    checkin: checkin ?? null,
   };
 
   return appendSceneSession(withDaily, sceneSession);
