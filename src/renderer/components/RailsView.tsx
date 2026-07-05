@@ -929,10 +929,14 @@ export default function RailsView({
 
                 spans.forEach((span, spanIdx) => {
                   if (onInsertChapterAt) {
+                    // Snapshot the value now — this closure fires later (on
+                    // click), well after `lastRealChapterId` has moved on to
+                    // later spans, so it must not close over the mutable let.
+                    const afterId = lastRealChapterId;
                     result.push(
                       <InsertChapterAffordance
                         key={`insert-${spanIdx}`}
-                        onInsert={(title) => onInsertChapterAt(lastRealChapterId, title)}
+                        onInsert={(title) => onInsertChapterAt(afterId, title)}
                       />
                     );
                   }
@@ -988,10 +992,11 @@ export default function RailsView({
                 });
 
                 if (onInsertChapterAt) {
+                  const afterId = lastRealChapterId;
                   result.push(
                     <InsertChapterAffordance
                       key="insert-end"
-                      onInsert={(title) => onInsertChapterAt(lastRealChapterId, title)}
+                      onInsert={(title) => onInsertChapterAt(afterId, title)}
                     />
                   );
                 }
