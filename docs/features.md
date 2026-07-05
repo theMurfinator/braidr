@@ -12,7 +12,7 @@ The character arc view. One character at a time, scenes in their narrative order
 - Scene list organized into **plot point sections** (user-defined story beats)
 - Drag-and-drop reorder scenes within the POV
 - Inline scene title editing
-- **Chapter grouping** — scenes organized under named chapters, drag-drop to assign
+- **Chapter grouping** — scenes organized under named chapters, drag-drop to assign (still the pre-redesign independent-bucket model — see "Chapters" under Data Model)
 - **POV reorder indicator** — scenes highlighted red when their POV position conflicts with the braided timeline order
 - Filter bar to narrow scenes by tag
 - **Sections toggle** — toolbar button hides section headers entirely
@@ -32,7 +32,7 @@ All characters' scenes combined into reading/chronological order. The "meta" vie
 - Color-coded by character
 - Drag-and-drop to reorder the timeline
 - **Inbox** — unbraided scenes per character, drag to place them in the timeline
-- **Chapter grouping** — scenes organized under chapter headers; create, rename, delete, and drag-drop chapters
+- **Chapter grouping** — scenes organized under chapter headers; create, rename, delete, and drag-drop chapters (still the pre-redesign independent-bucket model, including independently reordering chapters — see "Chapters" under Data Model; this contradicts the new Rails semantic and is a known gap, not yet reconciled)
 - Scene card shows title, word count, tags, and character
 
 ### Braided Timeline — Rails View
@@ -42,7 +42,7 @@ A grid layout showing all characters in parallel columns, timeline rows going do
 - **Gap word count** — shows words written between two scenes of the same character when other characters have scenes in between
 - **Connector lines** — optional SVG arcs showing scene connections across characters
 - **POV color mode** — tints each scene cell by character color
-- **Chapter envelopes** — chapters rendered as bordered boxes wrapping their scenes
+- **Chapter management home** — chapters rendered as bordered boxes wrapping their contiguous braid span; create ("+ Chapter" between groups/top/bottom, or toolbar "+ New Chapter" for an empty one at the end), rename inline (click the title), delete (scenes merge into the preceding chapter, confirmed via dialog). See "Chapters" under Data Model below for the underlying semantic.
 - Inline drag-and-drop reorder (within rails)
 - **Scene preview panel** — click a scene to pop out the same right-side reading pane used in the Arc and POV views: editable draft text with auto-save plus a **Go to Scene** button. Click the same scene again (or Esc) to close
 - **Floating editor** — right-click a scene to open the full in-place draft editor (tags, scene connections, metadata)
@@ -151,10 +151,12 @@ License and subscription management.
 
 ### Chapters
 - Project-wide chapters (not per-character)
-- Named, ordered, drag-drop reorderable
-- Scenes explicitly assigned to chapters (persisted in SQLite)
-- Shown in List, Rails, POV, and Table views
-- Create from toolbar; delete from chapter header
+- **Core semantic (2026-07-05 redesign, Rails view only so far):** a chapter is a *contiguous run of scenes in the braided reading order* — not an independent bucket. Chapter membership follows braid position automatically: dragging a scene across a chapter boundary in Rails reassigns its chapter with no extra step. Single source of truth for "what's in which chapter" is `src/shared/chapterSpans.ts` (`deriveChapterSpans`), used for both display and reassignment.
+- **Empty chapters are first-class** — create a chapter before it has any scenes (a chapter-first / synopsis-first workflow); it renders as a header with an explicit drop zone, positioned among its neighbors by creation order until scenes make its position concrete
+- **Rails view is the chapter management home**: create ("+ Chapter" between groups or at the top/bottom of the braid, or "+ New Chapter" in the toolbar for an empty chapter at the end), rename (click the title inline), delete (scenes merge into the *preceding* chapter, or "No chapter" if none precedes — confirmed via dialog; no scene is ever deleted or unbraided by a chapter operation)
+- Chapter order is **not** independently reorderable — it's derived from the order of chapters' spans in the braid; the underlying `order` column is kept in sync as bookkeeping, not something a user drags directly in Rails
+- **List, POV, Table, and Outline views still use the pre-redesign per-scene chapter assignment** (`chapterId`/`sceneOrder` as an independent field, not braid-derived) — bringing them onto the same contiguous-braid model is planned but not yet done (`Launch/plans/chapters-first-class.md` Phase 3). Until then, chapter groupings can disagree between Rails and these other views if scenes aren't contiguous.
+- Scenes persisted in SQLite (`chapter_id` on `scenes`, `chapters` table); branch snapshot/restore round-trips both
 
 ### Custom Scene Metadata
 - User-defined metadata fields (text, select, etc.) per scene
