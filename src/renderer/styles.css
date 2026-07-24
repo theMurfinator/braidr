@@ -209,7 +209,7 @@ textarea:focus-visible {
   -webkit-app-region: drag;
   transition: width 0.2s ease 0.15s, box-shadow 0.2s ease 0.15s;
   overflow: hidden;
-  z-index: 100;
+  z-index: 250;
 }
 
 .app-sidebar:hover {
