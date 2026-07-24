@@ -84,7 +84,7 @@ Used exclusively for: selected/active states, focus rings, primary actions, prog
 
 ## Typography
 
-Two fonts for app chrome/content. No others — **except** the Notes Font Editor ("Aa" button), which lets users pick from ~15 fonts for note body text only (`src/renderer/components/FontPicker.tsx`); that's an intentional user preference, not a design-system violation.
+Two fonts for app chrome/content. No others, no per-screen or per-note overrides — the font picker ("Fonts" settings-menu entry, formerly `src/renderer/components/FontPicker.tsx`) was removed 2026-07-24; both fonts are hardcoded in `styles.css` and can no longer be changed at runtime.
 
 | Role | Font | Use |
 |------|------|-----|
@@ -92,7 +92,7 @@ Two fonts for app chrome/content. No others — **except** the Notes Font Editor
 | Arial | UI sans-serif | All chrome: labels, buttons, metadata, toolbar text, dropdowns |
 | SF Mono / Fira Code | Monospace | Code only |
 
-`--font-ui` was DM Sans until 2026-06-28, when it was deliberately reverted to a stock system font (commit `15f94748` — a custom heading/font override had broken notes-editor alignment, so it and related overrides were reverted to stock). If DM Sans comes back, update `--font-ui` below and this table together — they drifted out of sync for over a week last time.
+`--font-ui` is Arial, hardcoded. It was briefly DM Sans until 2026-06-28 (reverted in commit `15f94748` after a custom heading/font override broke notes-editor alignment); the 2026-07-24 removal of the font picker closes out that drift for good — there's no longer a UI path to change it.
 
 ### Font Variables
 
@@ -341,7 +341,7 @@ letter-spacing: 0.5px;
 ## Rules for Claude Code
 
 1. **Never hardcode hex values** in component files. Always use a CSS variable from this system.
-2. **Never introduce a new font.** Literata for content, Arial for UI. Full stop. (Notes body text is the one user-facing exception — see Typography section above.)
+2. **Never introduce a new font.** Literata for content, Arial for UI. Full stop. No exceptions — the font picker that once allowed per-screen/per-note overrides was removed 2026-07-24.
 3. **Hover reveals, not permanent controls.** Secondary actions (delete, duplicate, drag) should be `opacity: 0` and revealed on parent hover.
 4. **Blue is for interaction, not decoration.** `--color-primary` and its variants are reserved for selected/active/focus states. Don't use them for visual interest.
 5. **Side panels, not page transitions.** Detail views open in a panel alongside the list, not by replacing it.

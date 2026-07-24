@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { NoteMetadata, NotesIndex, ArchivedNote, Scene, Character, Tag, FontSettings, AllFontSettings } from '../../../shared/types';
+import { NoteMetadata, NotesIndex, ArchivedNote, Scene, Character, Tag } from '../../../shared/types';
 import { dataService } from '../../services/dataService';
 import { useToast } from '../ToastContext';
 import { track } from '../../utils/posthogTracker';
@@ -22,8 +22,6 @@ interface NotesViewProps {
   initialNoteId?: string | null;
   onNoteNavigated?: () => void;
   storagePrefix?: string;
-  allFontSettings?: AllFontSettings;
-  onFontSettingsChange?: (s: AllFontSettings) => void;
 }
 
 // Get all descendant IDs of a note
@@ -110,7 +108,7 @@ async function migrateNotesIndex(oldIndex: any, projectPath: string): Promise<No
   return { notes: newNotes, version: 2 };
 }
 
-export default function NotesView({ projectPath, scenes, characters, tags, initialNoteId, onNoteNavigated, storagePrefix, allFontSettings: allFontSettingsProp, onFontSettingsChange: _onFontSettingsChange }: NotesViewProps) {
+export default function NotesView({ projectPath, scenes, characters, tags, initialNoteId, onNoteNavigated, storagePrefix }: NotesViewProps) {
   const sk = (key: string) => storagePrefix ? `${key}-${storagePrefix}` : key;
   const { addToast } = useToast();
   const [notesWidthMode, setNotesWidthMode] = useState<NotesWidthMode>(() => {
@@ -122,14 +120,8 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
     return NOTES_SIZE_MODES.includes(saved as NotesSizeMode) ? saved as NotesSizeMode : 'medium';
   });
 
-  const allFontSettings: AllFontSettings = allFontSettingsProp ?? { global: {} };
-
-  // Notes font/size are now driven by the style guide (Literata) + the
-  // Small/Medium/Large preset (notesSizeMode), not the old per-level font editor.
-  const resolvedNotesFontSettings: FontSettings = {
-    ...allFontSettings.global,
-    ...(allFontSettings.screens?.notes ?? {}),
-  };
+  // Notes font/size are driven by the style guide (Literata) + the
+  // Small/Medium/Large preset (notesSizeMode), not a per-level font editor.
   const [notesIndex, setNotesIndex] = useState<NotesIndex>({ notes: [], version: 2 });
   const [selectedNoteId, _setSelectedNoteId] = useState<string | null>(
     () => localStorage.getItem('braidr-last-note-id')
@@ -580,7 +572,6 @@ export default function NotesView({ projectPath, scenes, characters, tags, initi
         {selectedNote && noteContentLoaded ? (
           <NoteEditor
             noteId={selectedNote.id}
-            fontSettings={resolvedNotesFontSettings}
             title={selectedNote.title}
             content={noteContent}
             projectPath={projectPath}
