@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ScreenKey, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology, ArcFieldDef, ArcTemplate } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology, ArcFieldDef, ArcTemplate } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -13,7 +13,6 @@ import RailsView from './components/RailsView';
 import OutlineView from './components/OutlineView';
 import TableView from './components/TableView';
 import FloatingEditor from './components/FloatingEditor';
-import FontPicker from './components/FontPicker';
 import NotesView from './components/notes/NotesView';
 import TasksView from './components/tasks/TasksView';
 import TaskDetailPanel from './components/tasks/TaskDetailPanel';
@@ -207,7 +206,6 @@ function App() {
   const [characterPsychologies, setCharacterPsychologies] = useState<Record<string, CharacterPsychology>>({});
   const [characterColors, setCharacterColors] = useState<Record<string, string>>({});
   const characterColorsRef = useRef<Record<string, string>>({});
-  const allFontSettingsRef = useRef<AllFontSettings>({ global: {} });
   const canDragSceneRef = useRef(false);
   const draggedPovSceneRef = useRef<Scene | null>(null);
   const [povActiveId, setPovActiveId] = useState<string | null>(null);
@@ -216,8 +214,6 @@ function App() {
   const [arcActiveId, setArcActiveId] = useState<string | null>(null);
   const arcSensors = useSortableSensors();
   const [showCharacterManager, setShowCharacterManager] = useState(false);
-  const [showFontPicker, setShowFontPicker] = useState(false);
-  const [allFontSettings, setAllFontSettings] = useState<AllFontSettings>({ global: {} });
 
   const [braidedSubMode, setBraidedSubMode] = useState<BraidedSubMode>(() => {
     if (activeTab?.params.type === 'braided' && 'subMode' in activeTab.params && activeTab.params.subMode) {
@@ -1267,25 +1263,6 @@ function App() {
     setCharacterColors(loadedColors);
     characterColorsRef.current = loadedColors;
 
-    // Load font settings (with backward compat migration)
-    let loadedAllFonts: AllFontSettings;
-    if (data.allFontSettings) {
-      loadedAllFonts = data.allFontSettings;
-    } else if (data.fontSettings && Object.keys(data.fontSettings).length > 0) {
-      loadedAllFonts = { global: data.fontSettings };
-    } else {
-      loadedAllFonts = { global: {} };
-    }
-    setAllFontSettings(loadedAllFonts);
-    allFontSettingsRef.current = loadedAllFonts;
-    applyFontSettings(loadedAllFonts.global);
-    // Apply per-screen overrides immediately (the viewMode effect already ran on mount with empty settings)
-    applyScreenFontOverrides(viewMode, loadedAllFonts);
-    // Ensure screen overrides apply after React renders the .scene-list
-    requestAnimationFrame(() => {
-      applyScreenFontOverrides(viewMode, loadedAllFonts);
-    });
-
     // Load archived scenes
     const loadedArchived = data.archivedScenes || [];
     setArchivedScenes(loadedArchived);
@@ -1816,124 +1793,6 @@ function App() {
     return character?.name || 'Unknown';
   }, [projectData?.characters]);
 
-  // Apply global font settings to CSS variables on :root
-  const applyFontSettings = (settings: FontSettings) => {
-    const root = document.documentElement;
-    const vars: Array<[keyof FontSettings, string, string?]> = [
-      ['sectionTitle', '--font-section-title'],
-      ['sectionTitleSize', '--font-section-title-size', 'px'],
-      ['sectionTitleColor', '--font-section-title-color'],
-      ['sceneTitle', '--font-scene-title'],
-      ['sceneTitleSize', '--font-scene-title-size', 'px'],
-      ['sceneTitleColor', '--font-scene-title-color'],
-      ['body', '--font-body'],
-      ['bodySize', '--font-body-size', 'px'],
-      ['bodyColor', '--font-body-color'],
-      ['heading1', '--font-h1'],
-      ['heading1Size', '--font-h1-size', 'px'],
-      ['heading2', '--font-h2'],
-      ['heading2Size', '--font-h2-size', 'px'],
-      ['heading3', '--font-h3'],
-      ['heading3Size', '--font-h3-size', 'px'],
-    ];
-    for (const [key, varName, suffix] of vars) {
-      const val = settings[key];
-      if (val !== undefined && val !== null) {
-        root.style.setProperty(varName, suffix ? `${val}${suffix}` : String(val));
-      } else {
-        root.style.removeProperty(varName);
-      }
-    }
-    // Bold weight variables
-    const boldVars: Array<[keyof FontSettings, string, boolean]> = [
-      ['sectionTitleBold', '--font-section-title-weight', true],
-      ['sceneTitleBold', '--font-scene-title-weight', true],
-      ['bodyBold', '--font-body-weight', false],
-    ];
-    for (const [key, varName, defaultBold] of boldVars) {
-      const val = settings[key];
-      if (val !== undefined && val !== null) {
-        root.style.setProperty(varName, val ? '700' : '400');
-      } else {
-        root.style.setProperty(varName, defaultBold ? '700' : '400');
-      }
-    }
-  };
-
-  // Apply per-screen font overrides on :root.
-  // Re-applies global first so switching screens never leaves stale overrides.
-  const applyScreenFontOverrides = (screen: ScreenKey | string, all: AllFontSettings) => {
-    applyFontSettings(all.global);
-    const root = document.documentElement;
-    const screenSettings = (all.screens as Record<string, FontSettings> | undefined)?.[screen];
-    if (!screenSettings) return;
-    const vars: Array<[keyof FontSettings, string, string?]> = [
-      ['sectionTitle', '--font-section-title'],
-      ['sectionTitleSize', '--font-section-title-size', 'px'],
-      ['sectionTitleColor', '--font-section-title-color'],
-      ['sceneTitle', '--font-scene-title'],
-      ['sceneTitleSize', '--font-scene-title-size', 'px'],
-      ['sceneTitleColor', '--font-scene-title-color'],
-      ['body', '--font-body'],
-      ['bodySize', '--font-body-size', 'px'],
-      ['bodyColor', '--font-body-color'],
-      ['heading1', '--font-h1'],
-      ['heading1Size', '--font-h1-size', 'px'],
-      ['heading2', '--font-h2'],
-      ['heading2Size', '--font-h2-size', 'px'],
-      ['heading3', '--font-h3'],
-      ['heading3Size', '--font-h3-size', 'px'],
-    ];
-    for (const [key, varName, suffix] of vars) {
-      const val = screenSettings[key];
-      if (val !== undefined && val !== null) {
-        root.style.setProperty(varName, suffix ? `${val}${suffix}` : String(val));
-      }
-    }
-    const boldVars: Array<[keyof FontSettings, string]> = [
-      ['sectionTitleBold', '--font-section-title-weight'],
-      ['sceneTitleBold', '--font-scene-title-weight'],
-      ['bodyBold', '--font-body-weight'],
-    ];
-    for (const [key, varName] of boldVars) {
-      const val = screenSettings[key];
-      if (val !== undefined && val !== null) {
-        root.style.setProperty(varName, val ? '700' : '400');
-      }
-    }
-  };
-
-  // Reapply per-screen overrides when view changes
-  useEffect(() => {
-    applyScreenFontOverrides(viewMode, allFontSettingsRef.current);
-  }, [viewMode]);
-
-  // Reapply global + screen font settings whenever allFontSettings state changes
-  // (covers HMR, Fast Refresh, or any state restoration that bypasses loadProjectFromPath)
-  useEffect(() => {
-    const hasGlobal = Object.keys(allFontSettings.global).length > 0;
-    const hasScreenOverrides = !!allFontSettings.screens && Object.keys(allFontSettings.screens).length > 0;
-    if (hasGlobal || hasScreenOverrides) {
-      applyFontSettings(allFontSettings.global);
-      applyScreenFontOverrides(viewMode, allFontSettings);
-    }
-  }, [allFontSettings, viewMode]);
-
-  // Handle font settings change (now receives AllFontSettings)
-  const handleFontSettingsChange = async (settings: AllFontSettings) => {
-    setAllFontSettings(settings);
-    allFontSettingsRef.current = settings;
-    applyFontSettings(settings.global);
-    applyScreenFontOverrides(viewMode, settings);
-
-    try {
-      await dataService.mutate('settings.set', { key: 'allFontSettings', value: JSON.stringify(settings) });
-      await dataService.mutate('settings.set', { key: 'fontSettings', value: JSON.stringify(settings.global) });
-    } catch (err) {
-      console.error('Failed to save font settings:', err);
-      addToast('Failed to save font settings');
-    }
-  };
 
   const getConnectedScenes = useCallback((sceneId: string): { id: string; label: string }[] => {
     const connections = sceneConnections[sceneId] || [];
@@ -4155,8 +4014,6 @@ function App() {
                 initialNoteId={pendingNoteId}
                 onNoteNavigated={() => setPendingNoteId(null)}
                 storagePrefix={tabId}
-                allFontSettings={allFontSettings}
-                onFontSettingsChange={handleFontSettingsChange}
               />
             ) : mode === 'tasks' ? (
               <TasksView
@@ -5282,14 +5139,6 @@ function App() {
                   </svg>
                   Tags
                 </button>
-                <button onClick={() => { setShowFontPicker(true); setShowSettingsMenu(false); }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="4 7 4 4 20 4 20 7"/>
-                    <line x1="9" y1="20" x2="15" y2="20"/>
-                    <line x1="12" y1="4" x2="12" y2="20"/>
-                  </svg>
-                  Fonts
-                </button>
                 <button onClick={() => { setShowArchivePanel(true); setShowSettingsMenu(false); }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="21 8 21 21 3 21 3 8"/>
@@ -5402,15 +5251,6 @@ function App() {
           onRenameCharacter={handleRenameCharacter}
           onColorChange={handleCharacterColorChange}
           onDeleteCharacter={handleDeleteCharacter}
-        />
-      )}
-
-      {/* Font Picker Modal */}
-      {showFontPicker && (
-        <FontPicker
-          allFontSettings={allFontSettings}
-          onFontSettingsChange={handleFontSettingsChange}
-          onClose={() => setShowFontPicker(false)}
         />
       )}
 

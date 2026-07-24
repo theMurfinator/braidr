@@ -115,7 +115,7 @@
   --event-accent: #D4A83A;         /* selected border, diamond icon */
   --event-text: #6B5A2A;           /* card text */
 
-  /* Font variables — Literata for all editorial, DM Sans for UI chrome */
+  /* Font variables — Literata for all editorial, Arial for UI chrome */
   --font-section-title: 'Literata', Georgia, serif;
   --font-section-title-size: 18px;
   --font-section-title-weight: 600;
