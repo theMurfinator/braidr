@@ -15,7 +15,7 @@ const projectPath = process.argv[2];
 
 if (!projectPath) {
   console.error('Usage: braidr-mcp <project-path>');
-  console.error('  project-path: absolute path to a Braidr project directory');
+  console.error('  project-path: absolute path to a Braidr project .braidr file');
   process.exit(1);
 }
 
