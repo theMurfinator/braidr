@@ -14,7 +14,7 @@ import {
   locales as multiColumnLocales,
 } from '@blocknote/xl-multi-column';
 import { isBlockJson } from '../../../shared/noteContent';
-import { NoteMetadata, Scene, Character, Tag, FontSettings } from '../../../shared/types';
+import { NoteMetadata, Scene, Character, Tag } from '../../../shared/types';
 import { dataService } from '../../services/dataService';
 
 // Custom side menu: clicking the six-dot handle (1) selects & highlights the whole
@@ -63,7 +63,6 @@ interface NoteEditorProps {
   characters: Character[];
   tags: string[];
   allTags: Tag[];
-  fontSettings?: FontSettings;
   onTitleChange: (title: string) => void;
   onContentChange: (html: string) => void;
   onNavigateNote: (noteId: string) => void;
