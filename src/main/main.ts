@@ -5,7 +5,7 @@ import * as crypto from 'crypto';
 import * as os from 'os';
 import { autoUpdater } from 'electron-updater';
 import windowStateKeeper from 'electron-window-state';
-import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata } from '../shared/types';
+import { IPC_CHANNELS, RecentProject, ProjectTemplate, NotesIndex, NoteMetadata, TENSION_FIELD_SEEDS, TENSION_SCALE_MAX } from '../shared/types';
 import { getLicenseStatus, activateLicense, deactivateLicense, startTrial, openPurchaseUrl, openBillingPortal, refreshLicenseStatus, getStoredEmail, getApiBase } from './license';
 import { initPostHog, captureEvent, identifyUser, aliasUser, getSessionDurationMs, shutdownPostHog } from './posthog';
 import { saveTimelineToDisk } from './saveTimeline';
@@ -1336,6 +1336,18 @@ ipcMain.handle(IPC_CHANNELS.CREATE_PROJECT, async (_event, parentPath: string, p
         db.insertScene(rId(), charId, ppId, 'First scene', 'First scene', sceneNumber, null, false, null);
         sceneNumber++;
       }
+      // Seed the Shaper's built-in tension fields so every project shares one
+      // taxonomy. Arc scope puts them on acts, sections and scenes alike.
+      db.replaceArcFieldDefs(TENSION_FIELD_SEEDS.map((f, i) => ({
+        id: f.id,
+        label: f.label,
+        field_type: 'rating',
+        options: null,
+        option_colors: null,
+        rating_max: TENSION_SCALE_MAX,
+        display_order: i,
+        scope: 'arc',
+      })));
     });
 
     return { success: true, projectPath };

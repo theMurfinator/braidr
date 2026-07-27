@@ -108,6 +108,20 @@ A visual timeline canvas.
 - Sidebar with character/filter controls
 - Context bar for selected scenes
 
+### Shaper View
+A line chart of the story's tension shape across braided reading order.
+
+- **Only braided scenes are plotted.** A scene with no timeline position has no place in reading order, so it never appears in any scope. Scope counts reflect braided scenes, not total scenes.
+- **Built-in tension fields** — every new project is seeded with `Internal Tension` and `External Tension`, arc-scoped 1–10 rating fields, so the chart has a consistent taxonomy to plot. Existing projects add them with one click from the Shaper's empty state or series picker. They are ordinary fields afterwards: renameable, deletable, and any other 1–10 rating field can be plotted alongside them.
+- **Scope is composable** — POV, then Section, stacked. Sections belong to a POV (each POV owns its own "Setup", "Build up", etc.), so the Section dropdown stays disabled until a POV is chosen. Chapters are not yet supported; chapters are novel-wide while sections are per-POV, which needs the per-POV chapter migration first.
+- **Lines toggle** — one line for the book (each field its own series) or one line per POV (a single field, one series per character, using that character's colour). The per-POV mode is disabled when a single POV is already scoped.
+- **X axis toggle** — one point per scene, or one point per section (the mean of its scenes).
+- **Trend toggle** — raw, raw + trend, or trend only. The trend is a centred rolling mean; it is suppressed below 12 points, where a rolling mean flattens into a line that looks like a finding but is only arithmetic.
+- **Broken lines are meaningful.** A line breaks at a scene the writer has not scored. A scene belonging to a *different* POV is not a break in per-POV mode — that line simply connects across it.
+- **Fixed 1–10 y axis, never dual-axis.** The 1–10 cap is enforced at entry (rating fields), which is what keeps two series on one axis honest.
+- **POV ribbon** under the axis in whole-story scope shows the braid rhythm; single-POV scope shows section bands instead, since section runs are only contiguous within one POV.
+- **Slide-out scoring panel** — click any point to score that scene in place, with prev/next scene navigation and an "open in editor" handoff. Saves on click; the chart updates live.
+
 ### Analytics View
 Writing session data and productivity trends.
 
