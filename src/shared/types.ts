@@ -392,6 +392,29 @@ export interface RecentProject {
 
 export type ProjectTemplate = 'blank' | 'three-act' | 'save-the-cat' | 'heros-journey';
 
+// ── Shaper: built-in tension fields ─────────────────────────────────────────
+// Seeded into every new project so the Shaper always has a consistent taxonomy
+// to plot. They are ordinary arc-scoped fields once created (renameable,
+// deletable); nothing in the Shaper special-cases them beyond sort order.
+// Scope 'arc' attaches them to acts, sections AND scenes (see substrate.ts).
+// Type 'rating' gives the 1-10 cap for free — RatingField already renders dots.
+export const TENSION_SCALE_MAX = 10;
+
+export const TENSION_FIELD_IDS = {
+  internal: 'builtin-internal-tension',
+  external: 'builtin-external-tension',
+} as const;
+
+export const TENSION_FIELD_SEEDS: { id: string; label: string }[] = [
+  { id: TENSION_FIELD_IDS.internal, label: 'Internal Tension' },
+  { id: TENSION_FIELD_IDS.external, label: 'External Tension' },
+];
+
+// A field the Shaper can plot: bounded numeric, one shared 1-10 axis.
+export function isShaperPlottable(def: ArcFieldDef): boolean {
+  return def.type === 'rating';
+}
+
 // Notes types
 export interface NoteMetadata {
   id: string;

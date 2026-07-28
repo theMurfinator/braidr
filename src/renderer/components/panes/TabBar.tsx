@@ -18,6 +18,7 @@ const VIEW_ICONS: Record<TabParams['type'], string> = {
   timeline: 'M3 12h18M7 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM16 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM21 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0z',
   analytics: 'M3 12h4v9H3zM10 6h4v15h-4zM17 2h4v19h-4z',
   account: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
+  shaper: 'M3 17c3-1 4-9 7-9s4 6 7 6 3-4 4-5',
 };
 
 export default function TabBar({ paneId, tabs, activeTabId }: TabBarProps) {

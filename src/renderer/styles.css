@@ -47,6 +47,18 @@
   --tag-things-bg: rgba(123, 79, 162, 0.12);
   --tag-time-bg: rgba(212, 130, 10, 0.12);
 
+  /* Shaper series palette — fixed order, never cycled.
+     Validated for colour-vision deficiency on the light surface
+     (worst adjacent pair delta-E 24.7 protan). */
+  --shaper-series-1: #2a78d6;
+  --shaper-series-2: #eb6834;
+  --shaper-series-3: #1baf7a;
+  --shaper-series-4: #eda100;
+  --shaper-series-5: #e87ba4;
+  --shaper-series-6: #008300;
+  --shaper-series-7: #4a3aa7;
+  --shaper-series-8: #e34948;
+
   /* Spacing scale */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -23089,3 +23101,180 @@ tr:hover .task-add-subtask-inline {
   box-shadow: none !important;
   outline: none;
 }
+
+/* ─── Shaper view ────────────────────────────────────────────────────────── */
+.shaper-root {
+  display:flex; flex-direction:column; height:100%; min-width:0;
+  width:100%;
+}
+
+.shaper-hdr { padding:14px 20px 0; border-bottom:1px solid var(--border); flex:0 0 auto; }
+.shaper-hdr-top { display:flex; align-items:baseline; gap:12px; }
+.shaper-hdr-top h1 { margin:0; font-size:14px; font-weight:600; }
+.shaper-crumb { color:var(--text-muted); font-size:12px; }
+
+.shaper-controls { display:flex; align-items:center; gap:20px; flex-wrap:wrap; padding:12px 0 0; }
+.shaper-ctl { display:flex; align-items:center; gap:6px; }
+.shaper-ctl label, .shaper-ctl-label {
+  color:var(--text-muted); font-size:10px; font-weight:600;
+  text-transform:uppercase; letter-spacing:0.5px;
+}
+.shaper-ctl select {
+  font-family:var(--font-ui); font-size:13px; color:var(--text-primary);
+  background:var(--bg-tertiary); border:1px solid transparent;
+  border-radius:var(--radius-sm); padding:5px 8px; cursor:pointer;
+}
+.shaper-ctl select:focus { outline:none; border-color:var(--color-primary); }
+.shaper-ctl select:disabled { opacity:.45; cursor:not-allowed; }
+
+.shaper-seg { display:flex; background:var(--bg-tertiary); border-radius:var(--radius-sm); padding:2px; }
+.shaper-seg button {
+  font-family:var(--font-ui); font-size:12px; font-weight:500; border:0;
+  background:transparent; color:var(--text-secondary);
+  padding:4px 10px; border-radius:3px; cursor:pointer;
+}
+.shaper-seg button.on {
+  background:var(--bg-primary); color:var(--text-primary); font-weight:700;
+  box-shadow:0 1px 2px rgba(0,0,0,0.06);
+}
+.shaper-seg button:disabled { opacity:.4; cursor:not-allowed; }
+
+.shaper-series-picker { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 0 12px; }
+.shaper-chip {
+  display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+  font-size:12px; font-weight:500; color:var(--text-primary);
+  background:none; border:0; font-family:var(--font-ui); padding:0;
+}
+.shaper-chip.off { color:var(--text-muted); }
+.shaper-swatch { width:11px; height:11px; border-radius:2px; flex:0 0 11px; }
+.shaper-link-btn {
+  background:none; border:0; padding:0; font-family:var(--font-ui); font-size:11.5px;
+  color:var(--color-primary); cursor:pointer; text-decoration:underline;
+}
+
+.shaper-body { flex:1; display:flex; min-height:0; }
+.shaper-chart-wrap {
+  flex:1; padding:18px 20px 12px; min-width:0; min-height:0;
+  display:flex; flex-direction:column;
+}
+/* measured separately from the wrap so the SVG fills the real plot area
+   instead of capping short and leaving a void beneath it */
+.shaper-chart-area { flex:1; min-height:0; display:flex; align-items:center; }
+.shaper-chart { width:100%; height:100%; display:block; overflow:visible; }
+.shaper-legend-note { color:var(--text-muted); font-size:11px; padding-top:12px; flex:0 0 auto; }
+
+.shaper-grid { stroke:var(--border); stroke-width:1; }
+.shaper-axis { stroke:var(--border); stroke-width:1; }
+.shaper-tick { font-family:var(--font-ui); font-size:10px; fill:var(--text-muted); }
+.shaper-ax-title {
+  font-family:var(--font-ui); font-size:10px; font-weight:600;
+  fill:var(--text-muted); letter-spacing:0.5px;
+}
+.shaper-pov-tick { font-family:var(--font-ui); font-size:10px; fill:var(--text-muted); }
+.shaper-band { fill:var(--bg-secondary); }
+.shaper-band.alt { fill:var(--bg-tertiary); }
+.shaper-band-txt { font-family:var(--font-ui); font-size:10px; fill:var(--text-secondary); }
+.shaper-path { fill:none; stroke-linejoin:round; stroke-linecap:round; }
+.shaper-pt { stroke:var(--bg-primary); cursor:pointer; }
+.shaper-hit { cursor:pointer; }
+.shaper-crosshair { stroke:var(--text-muted); stroke-width:1; stroke-dasharray:3 3; }
+.shaper-sel-line { stroke:var(--color-primary); stroke-width:1.5; opacity:.5; }
+
+/* Scene strip — one pill per scene, coloured by POV. Unscored scenes are the
+   same hue at low opacity (set inline), so "whose scene" and "scored yet" read
+   as one mark instead of two stacked rows. */
+.shaper-scene-pill { cursor:pointer; transition:fill-opacity 0.15s ease; }
+.shaper-scene-pill:hover { fill-opacity:0.7 !important; }
+.shaper-scene-pill.scored:hover { fill-opacity:0.85 !important; }
+.shaper-scene-pill.selected { fill:var(--color-primary); }
+.shaper-scene-pill-txt {
+  font-family:var(--font-ui); font-size:10px; fill:var(--text-secondary);
+  pointer-events:none;
+}
+.shaper-scene-pill-txt.on-fill { fill:var(--surface-light); font-weight:600; }
+
+/* Scene titles run at 45°: their length is bounded by the band height we give
+   them, not by pill width, so the distinguishing half of a title survives. */
+.shaper-scene-label {
+  font-family:var(--font-ui); font-size:10px; fill:var(--text-secondary);
+  cursor:pointer;
+}
+.shaper-scene-label:hover { fill:var(--text-primary); }
+.shaper-scene-label.selected { fill:var(--color-primary); font-weight:600; }
+
+.shaper-panel {
+  width:300px; flex:0 0 300px; border-left:1px solid var(--border);
+  background:var(--bg-primary); display:flex; flex-direction:column;
+  animation:slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.shaper-panel-empty {
+  padding:40px 20px; text-align:center; color:var(--text-muted);
+  font-size:12.5px; line-height:1.6; animation:none;
+}
+.shaper-panel-hd { padding:16px 16px 12px; border-bottom:1px solid var(--border); }
+.shaper-panel-eyebrow {
+  display:flex; align-items:center; gap:6px; color:var(--text-muted);
+  font-size:11px; margin-bottom:6px;
+}
+.shaper-panel-hd h2 {
+  margin:0; line-height:1.35;
+  font-family:var(--font-scene-title);
+  font-size:var(--font-scene-title-size);
+  font-weight:var(--font-scene-title-weight);
+}
+.shaper-panel-crumb { color:var(--text-muted); font-size:11.5px; margin-top:5px; }
+.shaper-panel-bd { padding:16px; flex:1; overflow-y:auto; }
+.shaper-panel-nav { display:flex; gap:6px; margin-bottom:14px; }
+.shaper-panel-nav button {
+  flex:1; border:1px solid var(--border); background:var(--bg-primary);
+  border-radius:var(--radius-sm); font-family:var(--font-ui); font-size:11.5px;
+  color:var(--text-secondary); padding:5px; cursor:pointer;
+}
+.shaper-panel-nav button:hover:not(:disabled) { background:var(--bg-secondary); }
+.shaper-panel-nav button:disabled { opacity:.4; cursor:not-allowed; }
+
+.shaper-fld { margin-bottom:20px; }
+.shaper-fld-hd { display:flex; align-items:center; gap:7px; margin-bottom:9px; }
+.shaper-fld-name { font-size:12px; font-weight:600; }
+.shaper-fld-num {
+  margin-left:auto; font-variant-numeric:tabular-nums; font-weight:700;
+  font-size:13px; min-width:34px; text-align:right;
+}
+.shaper-fld-num.empty { color:var(--text-muted); font-weight:400; font-style:italic; font-size:11.5px; }
+.shaper-steps { display:flex; gap:3px; }
+.shaper-steps button {
+  flex:1; height:30px; border:1px solid var(--border); background:var(--bg-primary);
+  border-radius:var(--radius-sm); font-family:var(--font-ui); font-size:11.5px;
+  color:var(--text-secondary); cursor:pointer; padding:0;
+}
+.shaper-steps button:hover { background:var(--bg-secondary); }
+.shaper-steps button.on { color:var(--surface-light); font-weight:700; }
+.shaper-clr {
+  margin-top:7px; background:none; border:0; padding:0; font-family:var(--font-ui);
+  font-size:11px; color:var(--text-muted); cursor:pointer; text-decoration:underline;
+}
+.shaper-panel-ft {
+  padding:12px 16px; border-top:1px solid var(--border);
+  display:flex; gap:14px; align-items:center;
+}
+
+.shaper-tip {
+  position:fixed; pointer-events:none; z-index:50;
+  background:var(--bg-primary); border:1px solid var(--border);
+  box-shadow:0 4px 16px rgba(0,0,0,0.12); border-radius:var(--radius-md);
+  padding:8px 10px; font-size:12px; max-width:260px;
+}
+.shaper-tip-title { font-weight:700; margin-bottom:2px; line-height:1.3; }
+.shaper-tip-meta { color:var(--text-muted); font-size:11px; margin-bottom:6px; }
+.shaper-tip-row { display:flex; align-items:center; gap:6px; margin-top:3px; }
+.shaper-tip-val { margin-left:auto; font-weight:700; font-variant-numeric:tabular-nums; }
+.shaper-tip-none { color:var(--text-muted); font-style:italic; font-size:11.5px; }
+
+.shaper-empty { padding:60px 40px; max-width:520px; margin:0 auto; text-align:center; }
+.shaper-empty h2 { margin:0 0 10px; font-size:16px; font-weight:700; }
+.shaper-empty p { color:var(--text-secondary); font-size:13px; line-height:1.6; margin:0 0 20px; }
+.shaper-primary-btn {
+  background:var(--color-primary); color:var(--surface-light); border:0; border-radius:var(--radius-md);
+  font-family:var(--font-ui); font-size:13px; font-weight:700; padding:9px 18px; cursor:pointer;
+}
+.shaper-primary-btn:hover { background:var(--color-primary-dark); }

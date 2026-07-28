@@ -50,12 +50,13 @@ import { BranchSelector } from './components/branches/BranchSelector';
 import { MergeDialog } from './components/branches/MergeDialog';
 import { CompareView } from './components/branches/CompareView';
 import ArcView, { buildSectionDetailFields } from './components/ArcView';
+import ShaperView from './components/ShaperView';
 import { isFullTier } from './tier';
 import ArcDetailModal from './components/ArcDetailModal';
 import ScenePreviewPanel from './components/ScenePreviewPanel';
 import CharacterHubPanel from './components/CharacterHubPanel';
 
-type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account' | 'arc';
+type ViewMode = 'pov' | 'braided' | 'editor' | 'notes' | 'tasks' | 'timeline' | 'analytics' | 'account' | 'arc' | 'shaper';
 type BraidedSubMode = 'list' | 'table' | 'rails' | 'outline';
 
 function SyncCooldownDialog({ savedByName, initialWaitSeconds, onOpenAnyway, onCancel }: {
@@ -4049,7 +4050,7 @@ function App() {
     return (
       <div
         className={`main-content main-content--${mode}`}
-        style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account' || mode === 'arc' || mode === 'pov'
+        style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account' || mode === 'arc' || mode === 'shaper' || mode === 'pov'
           ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, overflow: 'hidden' }
           : undefined}
       >
@@ -4059,7 +4060,7 @@ function App() {
           <div
             className={`scene-list scene-list--${mode}`}
 
-            style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account' || mode === 'arc'
+            style={mode === 'editor' || mode === 'braided' || mode === 'notes' || mode === 'tasks' || mode === 'timeline' || mode === 'account' || mode === 'arc' || mode === 'shaper'
               ? { flex: 1, display: 'flex', flexDirection: 'column' as const, padding: 0, margin: 0, maxWidth: 'none', minHeight: 0 }
               : undefined}
           >
@@ -4228,6 +4229,19 @@ function App() {
                 arcFieldDefs={arcFieldDefs}
                 onSaveSceneFieldDefs={handleSaveSceneFieldDefs}
                 onSaveSceneFieldValues={handleSaveSceneFieldValues}
+              />
+            ) : mode === 'shaper' ? (
+              // Shaper — tension shape across braided reading order
+              <ShaperView
+                characters={projectData.characters}
+                scenes={projectData.scenes}
+                plotPoints={projectData.plotPoints}
+                characterColors={characterColors}
+                arcFieldDefs={arcFieldDefs}
+                arcFieldValues={arcFieldValues}
+                onSaveArcFieldValues={handleSaveArcFieldValues}
+                onSaveArcFieldDefs={handleSaveArcFieldDefs}
+                onGoToScene={handleOpenInEditor}
               />
             ) : mode === 'arc' ? (
               // Arc Planning View
@@ -4777,6 +4791,17 @@ function App() {
           <span className="app-sidebar-label">Timeline</span>
         </button>
         )}
+        <button
+          className={`app-sidebar-btn ${viewMode === 'shaper' ? 'active' : ''}`}
+          onClick={() => setViewMode('shaper')}
+          title="Shaper"
+          aria-label="Shaper view"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M3 17c3-1 4-9 7-9s4 6 7 6 3-4 4-5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span className="app-sidebar-label">Shaper</span>
+        </button>
         {isFullTier && (
         <button
           className={`app-sidebar-btn ${viewMode === 'analytics' ? 'active' : ''}`}
