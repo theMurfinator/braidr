@@ -4791,7 +4791,6 @@ function App() {
           <span className="app-sidebar-label">Timeline</span>
         </button>
         )}
-        {isFullTier && (
         <button
           className={`app-sidebar-btn ${viewMode === 'shaper' ? 'active' : ''}`}
           onClick={() => setViewMode('shaper')}
@@ -4803,7 +4802,6 @@ function App() {
           </svg>
           <span className="app-sidebar-label">Shaper</span>
         </button>
-        )}
         {isFullTier && (
         <button
           className={`app-sidebar-btn ${viewMode === 'analytics' ? 'active' : ''}`}

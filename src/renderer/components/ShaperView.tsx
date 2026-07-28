@@ -22,6 +22,7 @@ const MIN_POINTS_TO_SMOOTH = 12;
 type LineMode = 'book' | 'pov';
 type XMode = 'scene' | 'section';
 type SmoothMode = 'raw' | 'both' | 'trend';
+type CurveMode = 'straight' | 'smooth';
 
 interface Point {
   scene: Scene;
@@ -60,6 +61,49 @@ export interface ShaperViewProps {
   onGoToScene?: (sceneKey: string) => void;
 }
 
+type Pt = { x: number; y: number };
+
+function straightRun(r: Pt[]): string {
+  if (!r.length) return '';
+  return `M${r.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join('L')}`;
+}
+
+// Monotone cubic (Fritsch-Carlson), NOT a plain cardinal spline. On a hard 1-10
+// axis a cardinal spline overshoots past a peak — a run of 9,10,9 would bulge
+// above 10 and draw tension the writer never scored. Monotone interpolation is
+// the version that cannot overshoot its own data points.
+function smoothRun(r: Pt[]): string {
+  const nPts = r.length;
+  if (nPts < 3) return straightRun(r);
+
+  const dx: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < nPts - 1; i++) {
+    dx.push(r[i + 1].x - r[i].x);
+    slope.push((r[i + 1].y - r[i].y) / (r[i + 1].x - r[i].x));
+  }
+
+  const m: number[] = new Array(nPts);
+  m[0] = slope[0];
+  m[nPts - 1] = slope[nPts - 2];
+  for (let i = 1; i < nPts - 1; i++) {
+    // a local extremum gets a flat tangent, which is what kills the overshoot
+    if (slope[i - 1] * slope[i] <= 0) { m[i] = 0; continue; }
+    const w1 = 2 * dx[i] + dx[i - 1];
+    const w2 = dx[i] + 2 * dx[i - 1];
+    m[i] = (w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]);
+  }
+
+  let d = `M${r[0].x.toFixed(1)},${r[0].y.toFixed(1)}`;
+  for (let i = 0; i < nPts - 1; i++) {
+    const t = dx[i] / 3;
+    d += `C${(r[i].x + t).toFixed(1)},${(r[i].y + m[i] * t).toFixed(1)}` +
+         ` ${(r[i + 1].x - t).toFixed(1)},${(r[i + 1].y - m[i + 1] * t).toFixed(1)}` +
+         ` ${r[i + 1].x.toFixed(1)},${r[i + 1].y.toFixed(1)}`;
+  }
+  return d;
+}
+
 // Centred rolling mean over scored points only. Returns null where the window
 // holds too few real values to mean anything.
 function rollingMean(pts: { i: number; v: number | null }[], win: number) {
@@ -90,6 +134,7 @@ export default function ShaperView({
   const [lineMode, setLineMode] = useState<LineMode>('book');
   const [xMode, setXMode] = useState<XMode>('scene');
   const [smooth, setSmooth] = useState<SmoothMode>('both');
+  const [curve, setCurve] = useState<CurveMode>('straight');
   const [activeFieldIds, setActiveFieldIds] = useState<string[] | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number; idx: number } | null>(null);
@@ -250,8 +295,27 @@ export default function ShaperView({
 
   // ── geometry ───────────────────────────────────────────────────────────────
   const W = Math.max(320, size.w);
-  const H = Math.max(260, Math.min(size.h, 470));
-  const M = { t: 16, r: 20, b: usingGroups ? 46 : 74, l: 40 };
+  // Cap the aspect as well as the width. A line chart that fills a tall window
+  // stretches the y axis and turns ordinary scene-to-scene variation into cliffs;
+  // the shape should read the same on a laptop and a 32" monitor.
+  const H = Math.max(300, Math.min(size.h, Math.round(W * 0.58)));
+  // Bottom band stacks under the plot: scene strip, then the POV ribbon (story
+  // scope) or section bands (single-POV scope), then the axis caption.
+  const SCENE_STRIP_Y = 8;
+  const SCENE_STRIP_H = 14;
+  // Scene titles run at 45°, so their width is bounded by the height we give
+  // them rather than by pill width. Horizontal labels truncate to ~8 characters
+  // at 24 scenes, which cuts exactly the half of a title that distinguishes it.
+  const LABEL_ANGLE = 45;
+  const LABEL_MAX_CHARS = 22;
+  // whole-story scope draws no scene labels, so it reserves no band for them
+  const showSceneLabels = !usingGroups && (soloPov || !!sectionId);
+  const LABEL_BAND = showSceneLabels ? 84 : 0;
+  const LABEL_Y = SCENE_STRIP_Y + SCENE_STRIP_H + 6;
+  const ROW2_Y = LABEL_Y + LABEL_BAND + 4;
+  // story scope now needs only a legend row under the strip; single-POV scope
+  // still stacks section bands beneath it
+  const M = { t: 16, r: 20, b: usingGroups ? 46 : ROW2_Y + (soloPov ? 40 : 16), l: 40 };
   const iw = W - M.l - M.r;
   const ih = H - M.t - M.b;
   const X = (i: number) => M.l + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
@@ -263,14 +327,16 @@ export default function ShaperView({
   const win = Math.max(3, (Math.min(7, Math.round(n / 7)) | 1));
 
   const pathFor = (pts: { i: number; v: number | null }[]) => {
-    let d = '';
-    let pen = false;
+    // Split into contiguous scored runs; a null is a real break in the line.
+    const runs: { x: number; y: number }[][] = [];
+    let run: { x: number; y: number }[] = [];
     for (const p of pts) {
-      if (p.v == null) { pen = false; continue; }
-      d += `${pen ? 'L' : 'M'}${X(p.i).toFixed(1)},${Y(p.v).toFixed(1)} `;
-      pen = true;
+      if (p.v == null) { if (run.length) runs.push(run); run = []; continue; }
+      run.push({ x: X(p.i), y: Y(p.v) });
     }
-    return d;
+    if (run.length) runs.push(run);
+
+    return runs.map(r => (curve === 'smooth' ? smoothRun(r) : straightRun(r))).join(' ');
   };
 
   const selectedScene = selectedSceneId ? scenes.find(s => s.id === selectedSceneId) ?? null : null;
@@ -396,6 +462,14 @@ export default function ShaperView({
               <button className={smooth === 'trend' ? 'on' : ''} onClick={() => setSmooth('trend')}>Trend only</button>
             </div>
           </div>
+
+          <div className="shaper-ctl">
+            <span className="shaper-ctl-label">Shape</span>
+            <div className="shaper-seg">
+              <button className={curve === 'straight' ? 'on' : ''} onClick={() => setCurve('straight')}>Straight</button>
+              <button className={curve === 'smooth' ? 'on' : ''} onClick={() => setCurve('smooth')}>Smooth</button>
+            </div>
+          </div>
         </div>
 
         <div className="shaper-series-picker">
@@ -424,7 +498,8 @@ export default function ShaperView({
       </header>
 
       <div className="shaper-body">
-        <div className="shaper-chart-wrap" ref={wrapRef}>
+        <div className="shaper-chart-wrap">
+          <div className="shaper-chart-area" ref={wrapRef}>
           <svg
             className="shaper-chart"
             viewBox={`0 0 ${W} ${H}`}
@@ -433,31 +508,91 @@ export default function ShaperView({
             role="img"
             aria-label={`Tension across ${n} ${usingGroups ? 'sections' : 'scenes'} in braided reading order`}
           >
-            {/* POV ribbon (story scope) — sections belong to a POV, so they do not
-                form contiguous bands once the braid interleaves them. */}
-            {!usingGroups && !soloPov && points.map((p, i) => {
+            {/* Scene strip — one pill per scene, coloured by POV. This carries the
+                scene progression AND the braid rhythm in a single row; a separate
+                POV ribbon underneath was the same information stacked twice.
+                Pills butt together inside a POV run and gap at each switch, so
+                the chunking ("three Noahs, one Maya") reads without counting. */}
+            {!usingGroups && (() => {
               const step = n > 1 ? iw / (n - 1) : iw;
-              return (
-                <rect
-                  key={p.scene.id}
-                  x={X(i) - step / 2}
-                  y={M.t + ih + 9}
-                  width={Math.max(1.5, step - 1.5)}
-                  height={11}
-                  rx={1.5}
-                  style={{ fill: characterColors[p.povId] || FALLBACK_COLOR }}
-                />
-              );
-            })}
+              const RUN_GAP = Math.min(5, Math.max(2, step * 0.28));
+              const INNER_GAP = step > 14 ? 1 : 0.5;
+
+              return points.map((p, i) => {
+                const scored = activeFields.some(f => p.values[f.id] != null);
+                const selected = p.scene.id === selectedSceneId;
+                const startsRun = i === 0 || points[i - 1].povId !== p.povId;
+                const endsRun = i === points.length - 1 || points[i + 1].povId !== p.povId;
+
+                const leftGap = (startsRun ? RUN_GAP : INNER_GAP) / 2;
+                const rightGap = (endsRun ? RUN_GAP : INNER_GAP) / 2;
+                const x0 = X(i) - step / 2 + leftGap;
+                const pillW = Math.max(1.5, step - leftGap - rightGap);
+
+                const povColor = characterColors[p.povId] || FALLBACK_COLOR;
+                return (
+                  <g key={`strip-${p.scene.id}`}>
+                    <rect
+                      x={x0}
+                      y={M.t + ih + SCENE_STRIP_Y}
+                      width={pillW}
+                      height={SCENE_STRIP_H}
+                      rx={startsRun || endsRun ? 3 : 1}
+                      className={`shaper-scene-pill${selected ? ' selected' : ''}${scored ? ' scored' : ''}`}
+                      style={selected ? undefined : { fill: povColor, fillOpacity: scored ? 1 : 0.28 }}
+                      onMouseMove={e => setHover({ x: e.clientX, y: e.clientY, idx: i })}
+                      onMouseLeave={() => setHover(null)}
+                      onClick={() => setSelectedSceneId(p.scene.id)}
+                    />
+                  </g>
+                );
+              });
+            })()}
+
+            {/* Scene titles at 45°, POV/Section scope only. On whole-story scope
+                there are 100+ scenes at ~12px each: no label survives that, and
+                anything written along the bottom competes with the line for
+                attention. Identifying a single scene there is what hover is for;
+                reading the shape is what that view is actually for. */}
+            {showSceneLabels && (() => {
+              const step = n > 1 ? iw / (n - 1) : iw;
+              // at 45° the perpendicular gap between baselines is step / sqrt(2)
+              const every = step / Math.SQRT2 >= 11 ? 1 : Math.ceil(11 / (step / Math.SQRT2));
+              return points.map((p, i) => {
+                if (i % every !== 0 && p.scene.id !== selectedSceneId) return null;
+                const selected = p.scene.id === selectedSceneId;
+                const raw = p.scene.title || `Scene ${p.scene.timelinePosition ?? ''}`;
+                const label = raw.length > LABEL_MAX_CHARS
+                  ? `${raw.slice(0, LABEL_MAX_CHARS - 1)}…`
+                  : raw;
+                const lx = X(i);
+                const ly = M.t + ih + LABEL_Y;
+                return (
+                  <text
+                    key={`lbl-${p.scene.id}`}
+                    x={lx}
+                    y={ly}
+                    transform={`rotate(-${LABEL_ANGLE} ${lx} ${ly})`}
+                    textAnchor="end"
+                    className={`shaper-scene-label${selected ? ' selected' : ''}`}
+                    onMouseMove={e => setHover({ x: e.clientX, y: e.clientY, idx: i })}
+                    onMouseLeave={() => setHover(null)}
+                    onClick={() => setSelectedSceneId(p.scene.id)}
+                  >{label}</text>
+                );
+              });
+            })()}
+
+            {/* POV legend — the strip above is now the ribbon, so this is just the key */}
             {!usingGroups && !soloPov && (
               <>
-                <text x={M.l} y={M.t + ih + 36} className="shaper-ax-title">POV</text>
+                <text x={M.l} y={M.t + ih + ROW2_Y + 8} className="shaper-ax-title">POV</text>
                 {[...new Set(points.map(p => p.povId))].map((id, i, all) => {
                   const x = M.l + 30 + all.slice(0, i).reduce((acc, pid) => acc + 22 + (povName[pid] ?? '').length * 5.6, 0);
                   return (
                     <g key={id}>
-                      <rect x={x} y={M.t + ih + 29} width={9} height={9} rx={1.5} style={{ fill: characterColors[id] || FALLBACK_COLOR }} />
-                      <text x={x + 13} y={M.t + ih + 37} className="shaper-pov-tick">{povName[id]}</text>
+                      <rect x={x} y={M.t + ih + ROW2_Y} width={9} height={9} rx={1.5} style={{ fill: characterColors[id] || FALLBACK_COLOR }} />
+                      <text x={x + 13} y={M.t + ih + ROW2_Y + 8} className="shaper-pov-tick">{povName[id]}</text>
                     </g>
                   );
                 })}
@@ -483,13 +618,13 @@ export default function ShaperView({
                     const label = wpx < 26 ? '' : b.label.length > fits ? `${b.label.slice(0, Math.max(1, fits))}…` : b.label;
                     return (
                       <g key={`${b.label}-${bi}`}>
-                        <rect x={x0} y={M.t + ih + 8} width={Math.max(1, wpx)} height={17} rx={2}
+                        <rect x={x0} y={M.t + ih + ROW2_Y} width={Math.max(1, wpx)} height={17} rx={2}
                           className={`shaper-band${bi % 2 ? ' alt' : ''}`} />
-                        <text x={(x0 + x1) / 2} y={M.t + ih + 20} className="shaper-band-txt" textAnchor="middle">{label}</text>
+                        <text x={(x0 + x1) / 2} y={M.t + ih + ROW2_Y + 12} className="shaper-band-txt" textAnchor="middle">{label}</text>
                       </g>
                     );
                   })}
-                  <text x={M.l} y={H - 24} className="shaper-ax-title">SECTION</text>
+                  <text x={M.l} y={M.t + ih + ROW2_Y + 30} className="shaper-ax-title">SECTION</text>
                 </>
               );
             })()}
@@ -561,6 +696,7 @@ export default function ShaperView({
               );
             })}
           </svg>
+          </div>
 
           <div className="shaper-legend-note">
             {usingGroups
