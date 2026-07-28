@@ -46,3 +46,19 @@ Entry format: date, topics touched, what happened, decisions made, where we left
 - **Built it same session:** `src/renderer/tier.ts` (`isFullTier`, driven by `VITE_APP_TIER=full`), gated the Braided List/Outline/Timeline/Analytics sidebar buttons, the Branch Selector, and the Analytics settings-menu shortcut behind it in `App.tsx`; changed the default `braidedSubMode` to `'rails'` in production. Added `npm run package:studio` (distinct `appId`/`productName` so it installs side-by-side with the real app, `--publish never` so it can't accidentally reach GitHub). Verified both `npm run build:vite` and `VITE_APP_TIER=full npm run build:vite` compile clean. Parked (not deleted) the 2026-07-02 per-project toggle design in memory and `STATUS.md` — still valid if Brian ever wants end users themselves flipping switches per project, which a build-time flag can't do.
 - **Confirmed end-to-end 2026-07-04.** Ran `npm run package:studio` myself first — hit a real bug (`-c.publish=never` makes electron-builder look for a publish plugin literally named "never" and fail; correct form is the top-level `--publish never` flag). Fixed, reran clean: found Brian's existing local Developer ID cert, signed `Braidr Studio.app`, skipped notarization gracefully (no Apple ID env vars), produced a working `.dmg`. Launched it, confirmed the process running. Brian then confirmed visually: "Braidr studio has the entire line up of apps." Mechanism is done — this MVP scope item is fully closed, not just decided.
 - Pruned `STATUS.md`'s Recently Shipped list while updating it — dropped items from 2026-06-15 through 2026-07-01 per the file's own "drop after a session or two" rule, since they'd started accumulating past their useful window.
+
+---
+
+## 2026-07-28
+
+**Topics:** new `problem-trees` skill; folding it into the launch team.
+
+**What happened.** Brian shared the McKinsey issue-tree method (Why/What/How trees + MECE) and asked how to build it into a skill and fold it into his existing teams. Built it as a **standalone method skill** rather than pasting the method into the team — one source of truth, each team applies it grounded in Braidr context (same pattern the source article describes).
+
+- **New skill:** `.claude/skills/problem-trees/` — `SKILL.md` (procedure: pick Why/What/How → frame root → cut branches → MECE check → expand leaves → order → render) plus `references/tree-types.md` (per-tree detail + Braidr activation worked examples), `references/mece-and-facilitation.md` (the MECE drill + human/AI division of labor), and `references/team-integration.md` (the wiring, captured in-repo).
+- **Placement:** lives in the **repo** at `.claude/skills/` (committed to the branch, and loads as a project skill in braidr sessions). Also installed a copy to `~/.claude/skills/problem-trees/` so it's live in *all* sessions, and registered in `~/.claude/skills/manifest.json`.
+- **Folded into the team:** added a "Disentangle before you opine" section to the live `braidr-launch-team/SKILL.md` — the responsible senior (or Alex, when it spans teams) invokes `problem-trees` on tangled prompts before the team researches, then works the tree's output (hypotheses / workplan / ranked options). Brian owns the problem statement and the prune.
+
+**Decision:** method skill kept product-agnostic and reusable; Braidr grounding comes from the team wiring, not the method.
+
+**Left off:** `braidr-launch-team` still lives only in the personal skills dir (not the repo), so its edit isn't in this branch — the exact wiring block is mirrored in `references/team-integration.md` so the branch is a complete record. Open question for Brian: whether to also version-control the team skill in the repo so future edits are tracked/reviewable.
