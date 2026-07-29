@@ -415,6 +415,71 @@ export function isShaperPlottable(def: ArcFieldDef): boolean {
   return def.type === 'rating';
 }
 
+// ── Shaper saved views ───────────────────────────────────────────────────────
+
+export type ShaperLineMode = 'book' | 'pov';
+export type ShaperXMode = 'scene' | 'section';
+export type ShaperSmoothMode = 'raw' | 'both' | 'trend';
+export type ShaperCurveMode = 'straight' | 'smooth';
+
+export interface ShaperViewConfig {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  povId: string;
+  sectionId: string;
+  lineMode: ShaperLineMode;
+  xMode: ShaperXMode;
+  smooth: ShaperSmoothMode;
+  curve: ShaperCurveMode;
+  // null means "every plottable field", which is also the Shaper's own default
+  activeFieldIds: string[] | null;
+  createdAt: number;
+}
+
+export const SHAPER_VIEW_DEFAULTS = {
+  povId: '',
+  sectionId: '',
+  lineMode: 'book',
+  xMode: 'scene',
+  smooth: 'both',
+  curve: 'straight',
+  activeFieldIds: null,
+} as const satisfies Omit<ShaperViewConfig, 'id' | 'name' | 'isDefault' | 'createdAt'>;
+
+const SHAPER_LINE_MODES: readonly string[] = ['book', 'pov'];
+const SHAPER_X_MODES: readonly string[] = ['scene', 'section'];
+const SHAPER_SMOOTH_MODES: readonly string[] = ['raw', 'both', 'trend'];
+const SHAPER_CURVE_MODES: readonly string[] = ['straight', 'smooth'];
+
+function oneOf<T extends string>(value: unknown, legal: readonly string[], fallback: T): T {
+  return typeof value === 'string' && legal.includes(value) ? (value as T) : fallback;
+}
+
+// Reading a saved view is the one place old data meets new code. A view saved
+// before a control existed has no key for it, and a view saved by a build that
+// later renamed an option has an illegal one. Both fall back to the current
+// default rather than rendering a chart nobody asked for — without this, every
+// new Shaper control silently breaks every previously-saved view.
+export function normalizeShaperViewConfig(
+  raw: unknown
+): Omit<ShaperViewConfig, 'id' | 'name' | 'isDefault' | 'createdAt'> {
+  const o: Record<string, unknown> =
+    raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+
+  return {
+    povId: typeof o.povId === 'string' ? o.povId : SHAPER_VIEW_DEFAULTS.povId,
+    sectionId: typeof o.sectionId === 'string' ? o.sectionId : SHAPER_VIEW_DEFAULTS.sectionId,
+    lineMode: oneOf<ShaperLineMode>(o.lineMode, SHAPER_LINE_MODES, SHAPER_VIEW_DEFAULTS.lineMode),
+    xMode: oneOf<ShaperXMode>(o.xMode, SHAPER_X_MODES, SHAPER_VIEW_DEFAULTS.xMode),
+    smooth: oneOf<ShaperSmoothMode>(o.smooth, SHAPER_SMOOTH_MODES, SHAPER_VIEW_DEFAULTS.smooth),
+    curve: oneOf<ShaperCurveMode>(o.curve, SHAPER_CURVE_MODES, SHAPER_VIEW_DEFAULTS.curve),
+    activeFieldIds: Array.isArray(o.activeFieldIds)
+      ? o.activeFieldIds.filter((x): x is string => typeof x === 'string')
+      : SHAPER_VIEW_DEFAULTS.activeFieldIds,
+  };
+}
+
 // Notes types
 export interface NoteMetadata {
   id: string;
@@ -617,6 +682,8 @@ export const IPC_CHANNELS = {
   BRAIDR_ASSIGN_SCENE_TO_CHAPTER: 'braidr:assign-scene-to-chapter',
   BRAIDR_LOAD_TABLE_VIEWS: 'braidr:load-table-views',
   BRAIDR_SAVE_TABLE_VIEWS: 'braidr:save-table-views',
+  BRAIDR_LOAD_SHAPER_VIEWS: 'braidr:load-shaper-views',
+  BRAIDR_SAVE_SHAPER_VIEWS: 'braidr:save-shaper-views',
   // Arc Planning
   BRAIDR_LOAD_ACTS: 'braidr:load-acts',
   BRAIDR_SAVE_ACT: 'braidr:save-act',

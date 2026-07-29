@@ -121,6 +121,8 @@ A line chart of the story's tension shape across braided reading order.
 - **Fixed 1–10 y axis, never dual-axis.** The 1–10 cap is enforced at entry (rating fields), which is what keeps two series on one axis honest.
 - **POV ribbon** under the axis in whole-story scope shows the braid rhythm; single-POV scope shows section bands instead, since section runs are only contiguous within one POV.
 - **Slide-out scoring panel** — click any point to score that scene in place, with prev/next scene navigation and an "open in editor" handoff. Saves on click; the chart updates live.
+- **Curve toggle** — straight segments or smoothed. Smoothing is monotone cubic (Fritsch-Carlson), not a cardinal spline, so a run like 9, 10, 9 can never bulge above the hard 10 axis and draw tension nobody scored.
+- **Saved views** — save the current setup (POV, section, lines, x axis, trend, curve, and which fields are plotted) as a named view, shown as a tab strip above the controls. One view can be marked default and opens automatically. Views are stored per project in the `shaper_views` table; existing projects gain it on open, no migration. A saved view restores the shape only, never a previously selected scene. Loading a view falls back to current defaults for any setting it does not carry, so views saved before a new control existed keep working.
 
 ### Analytics View
 Writing session data and productivity trends.

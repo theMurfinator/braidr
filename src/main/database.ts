@@ -376,6 +376,13 @@ const CREATE_SCHEMA = `
     created_at INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS shaper_views (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    config_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS branches (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
@@ -1158,6 +1165,20 @@ export class BraidrDB {
     this.db.prepare('DELETE FROM table_views').run();
     const insert = this.db.prepare('INSERT INTO table_views (id, name, config_json, created_at) VALUES (?, ?, ?, ?)');
     for (const v of views) insert.run(v.id, v.name, v.config_json, v.created_at);
+  }
+
+  // ── Shaper Views ──────────────────────────────────────────────────────────
+
+  getShaperViews(): TableViewRow[] {
+    return this.db.prepare('SELECT * FROM shaper_views ORDER BY created_at ASC').all() as TableViewRow[];
+  }
+
+  // Whole-list replace, same as table views: the list is tiny and always saved
+  // in full, so there is no partial-update path to get out of sync.
+  replaceShaperViews(views: { id: string; name: string; createdAt: number; [k: string]: unknown }[]) {
+    this.db.prepare('DELETE FROM shaper_views').run();
+    const insert = this.db.prepare('INSERT INTO shaper_views (id, name, config_json, created_at) VALUES (?, ?, ?, ?)');
+    for (const v of views) insert.run(v.id, v.name, JSON.stringify(v), v.createdAt);
   }
 
   // ── Acts ─────────────────────────────────────────────────────────────────────

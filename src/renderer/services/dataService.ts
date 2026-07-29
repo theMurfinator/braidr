@@ -1,4 +1,5 @@
-import { Character, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload, Act, CharacterPsychology, ArcFieldDef } from '../../shared/types';
+import { Character, ProjectData, Chapter, RecentProject, ProjectTemplate, FontSettings, AllFontSettings, ArchivedScene, MetadataFieldDef, DraftVersion, NotesIndex, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, SaveTimelinePayload, Act, CharacterPsychology, ArcFieldDef, ShaperViewConfig } from '../../shared/types';
+import { normalizeShaperViewConfig } from '../../shared/types';
 import { CapacitorDataService } from './capacitorDataService';
 import { acquireLock, releaseLock, startHeartbeat, stopHeartbeat, LockData } from './projectLock';
 
@@ -17,6 +18,8 @@ export interface DataService {
   assignSceneToChapter(sceneId: string, chapterId: string | null, sceneOrder: number): Promise<void>;
   loadTableViews(): Promise<TableViewConfig[]>;
   saveTableViews(views: TableViewConfig[]): Promise<void>;
+  loadShaperViews(): Promise<ShaperViewConfig[]>;
+  saveShaperViews(views: ShaperViewConfig[]): Promise<void>;
   getRecentProjects(): Promise<RecentProject[]>;
   addRecentProject(project: RecentProject): Promise<void>;
   removeRecentProject(projectPath: string): Promise<void>;
@@ -169,6 +172,27 @@ class ElectronDataService implements DataService {
       created_at: v.createdAt,
     }));
     await window.electronAPI.braidrSaveTableViews(this.braidrPath, rows);
+  }
+
+  async loadShaperViews(): Promise<ShaperViewConfig[]> {
+    if (!this.braidrPath) return [];
+    const result = await window.electronAPI.braidrLoadShaperViews(this.braidrPath);
+    if (!result?.success || !result.data) return [];
+    return (result.data as Array<{ id: string; name: string; config_json: string; created_at: number }>).map(row => {
+      const stored = JSON.parse(row.config_json);
+      return {
+        ...normalizeShaperViewConfig(stored),
+        id: row.id,
+        name: row.name,
+        isDefault: !!stored.isDefault,
+        createdAt: row.created_at,
+      };
+    });
+  }
+
+  async saveShaperViews(views: ShaperViewConfig[]): Promise<void> {
+    if (!this.braidrPath) return;
+    await window.electronAPI.braidrSaveShaperViews(this.braidrPath, views);
   }
 
   async getRecentProjects(): Promise<RecentProject[]> {

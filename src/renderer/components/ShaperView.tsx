@@ -1,10 +1,11 @@
 import { useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
-import type { Character, Scene, PlotPoint, ArcFieldDef } from '../../shared/types';
+import type { Character, Scene, PlotPoint, ArcFieldDef, ShaperViewConfig } from '../../shared/types';
 import {
   TENSION_SCALE_MAX,
   TENSION_FIELD_IDS,
   TENSION_FIELD_SEEDS,
   isShaperPlottable,
+  normalizeShaperViewConfig,
 } from '../../shared/types';
 
 // ── Series palette ───────────────────────────────────────────────────────────
@@ -59,7 +60,11 @@ export interface ShaperViewProps {
   ) => void;
   onSaveArcFieldDefs: (defs: ArcFieldDef[]) => void;
   onGoToScene?: (sceneKey: string) => void;
+  shaperViews: ShaperViewConfig[];
+  onShaperViewsChange: (views: ShaperViewConfig[]) => void;
 }
+
+const MAX_VISIBLE_TABS = 5;
 
 type Pt = { x: number; y: number };
 
@@ -128,6 +133,8 @@ export default function ShaperView({
   onSaveArcFieldValues,
   onSaveArcFieldDefs,
   onGoToScene,
+  shaperViews,
+  onShaperViewsChange,
 }: ShaperViewProps) {
   const [povId, setPovId] = useState('');
   const [sectionId, setSectionId] = useState('');
@@ -138,6 +145,70 @@ export default function ShaperView({
   const [activeFieldIds, setActiveFieldIds] = useState<string[] | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number; idx: number } | null>(null);
+
+  // ── Saved views ────────────────────────────────────────────────────────────
+  const [currentViewId, setCurrentViewId] = useState<string | null>(null);
+  const [showNewViewDialog, setShowNewViewDialog] = useState(false);
+  const [newViewName, setNewViewName] = useState('');
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+
+  const applyView = useCallback((view: ShaperViewConfig) => {
+    const cfg = normalizeShaperViewConfig(view);
+    setPovId(cfg.povId);
+    setSectionId(cfg.sectionId);
+    setLineMode(cfg.lineMode);
+    setXMode(cfg.xMode);
+    setSmooth(cfg.smooth);
+    setCurve(cfg.curve);
+    setActiveFieldIds(cfg.activeFieldIds);
+    setCurrentViewId(view.id);
+    // a saved view restores the shape, never a scene you had open last week
+    setSelectedSceneId(null);
+    setShowOverflowMenu(false);
+  }, []);
+
+  // Load the default view once, on first arrival with views available.
+  const appliedDefaultRef = useRef(false);
+  useLayoutEffect(() => {
+    if (appliedDefaultRef.current || shaperViews.length === 0) return;
+    appliedDefaultRef.current = true;
+    const def = shaperViews.find(v => v.isDefault);
+    if (def) applyView(def);
+  }, [shaperViews, applyView]);
+
+  const saveCurrentView = () => {
+    const name = newViewName.trim();
+    if (!name) return;
+    const id = `shaper-view-${Date.now()}`;
+    onShaperViewsChange([...shaperViews, {
+      id,
+      name,
+      isDefault: false,
+      povId,
+      sectionId,
+      lineMode,
+      xMode,
+      smooth,
+      curve,
+      activeFieldIds,
+      createdAt: Date.now(),
+    }]);
+    setCurrentViewId(id);
+    setNewViewName('');
+    setShowNewViewDialog(false);
+  };
+
+  const deleteView = (viewId: string) => {
+    onShaperViewsChange(shaperViews.filter(v => v.id !== viewId));
+    if (currentViewId === viewId) setCurrentViewId(null);
+    setShowOverflowMenu(false);
+  };
+
+  // Exactly one default: setting one clears the rest.
+  const makeDefault = (viewId: string) => {
+    onShaperViewsChange(shaperViews.map(v => ({ ...v, isDefault: v.id === viewId })));
+    setShowOverflowMenu(false);
+  };
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 900, h: 400 });
@@ -391,6 +462,78 @@ export default function ShaperView({
             {sectionId ? ` · ${sectionTitle[sectionId]}` : ''}
           </span>
         </div>
+
+        <div className="shaper-view-tabs">
+          {shaperViews.slice(0, MAX_VISIBLE_TABS).map(v => (
+            <button
+              key={v.id}
+              className={`shaper-view-tab${currentViewId === v.id ? ' on' : ''}`}
+              onClick={() => applyView(v)}
+              title={v.isDefault ? `${v.name} (opens by default)` : v.name}
+            >
+              {v.name}
+              {v.isDefault && <span className="shaper-view-tab-star" aria-label="default view">★</span>}
+              <span
+                className="shaper-view-tab-x"
+                role="button"
+                tabIndex={0}
+                aria-label={`Delete ${v.name}`}
+                onClick={e => { e.stopPropagation(); deleteView(v.id); }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); deleteView(v.id); } }}
+              >×</span>
+            </button>
+          ))}
+
+          {shaperViews.length > MAX_VISIBLE_TABS && (
+            <div className="shaper-view-overflow">
+              <button className="shaper-view-tab" onClick={() => setShowOverflowMenu(o => !o)}>
+                +{shaperViews.length - MAX_VISIBLE_TABS} more
+              </button>
+              {showOverflowMenu && (
+                <div className="shaper-view-menu">
+                  {shaperViews.slice(MAX_VISIBLE_TABS).map(v => (
+                    <div key={v.id} className="shaper-view-menu-row">
+                      <button onClick={() => applyView(v)}>{v.name}</button>
+                      <span onClick={() => deleteView(v.id)} role="button" tabIndex={0}>×</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            className="shaper-view-add"
+            onClick={() => setShowNewViewDialog(true)}
+            title="Save the current setup as a view"
+          >+</button>
+
+          {currentViewId && !shaperViews.find(v => v.id === currentViewId)?.isDefault && (
+            <button
+              className="shaper-view-default-btn"
+              onClick={() => makeDefault(currentViewId)}
+              title="Open the Shaper on this view by default"
+            >Set default</button>
+          )}
+        </div>
+
+        {showNewViewDialog && (
+          <div className="shaper-view-dialog">
+            <input
+              autoFocus
+              type="text"
+              placeholder="Name this view"
+              value={newViewName}
+              onChange={e => setNewViewName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') saveCurrentView();
+                if (e.key === 'Escape') { setShowNewViewDialog(false); setNewViewName(''); }
+              }}
+            />
+            <button onClick={saveCurrentView} disabled={!newViewName.trim()}>Save</button>
+            <button onClick={() => { setShowNewViewDialog(false); setNewViewName(''); }}>Cancel</button>
+          </div>
+        )}
 
         <div className="shaper-controls">
           <div className="shaper-ctl">

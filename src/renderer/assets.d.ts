@@ -130,6 +130,8 @@ interface Window {
     braidrAssignSceneToChapter: (braidrPath: string, sceneId: string, chapterId: string | null, sceneOrder: number) => Promise<any>;
     braidrLoadTableViews: (braidrPath: string) => Promise<any>;
     braidrSaveTableViews: (braidrPath: string, views: unknown[]) => Promise<any>;
+    braidrLoadShaperViews: (braidrPath: string) => Promise<any>;
+    braidrSaveShaperViews: (braidrPath: string, views: unknown[]) => Promise<any>;
     braidrLoadActs: (braidrPath: string, characterId: string) => Promise<any>;
     braidrSaveAct: (braidrPath: string, act: unknown) => Promise<any>;
     braidrDeleteAct: (braidrPath: string, actId: string) => Promise<any>;
