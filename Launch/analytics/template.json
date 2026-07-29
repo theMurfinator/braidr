@@ -1,0 +1,72 @@
+{
+  "week": "YYYY-MM-DD",
+  "date_range": "YYYY-MM-DD to YYYY-MM-DD",
+
+  "meta_ads": {
+    "total_spend": 0,
+    "impressions": 0,
+    "clicks": 0,
+    "cpm": 0,
+    "cpc": 0,
+    "ctr_percent": 0,
+    "leads": 0,
+    "cost_per_lead": 0,
+    "ads": [
+      {
+        "name": "Ad Name Here",
+        "spend": 0,
+        "impressions": 0,
+        "clicks": 0,
+        "ctr_percent": 0,
+        "leads": 0,
+        "cost_per_lead": 0
+      }
+    ]
+  },
+
+  "landing_page": {
+    "unique_visitors": 0,
+    "pageviews": 0,
+    "bounce_rate_percent": 0,
+    "avg_session_duration_seconds": 0,
+    "waitlist_signups": 0,
+    "signup_conversion_rate_percent": 0,
+    "traffic_sources": {
+      "paid_social": 0,
+      "organic_search": 0,
+      "direct": 0,
+      "referral": 0
+    }
+  },
+
+  "email": {
+    "total_subscribers": 0,
+    "new_subscribers_this_week": 0,
+    "open_rate_percent": 0,
+    "click_rate_percent": 0,
+    "unsubscribes": 0
+  },
+
+  "product": {
+    "trial_starts": 0,
+    "active_trials": 0,
+    "purchases": 0,
+    "trial_to_paid_percent": 0,
+    "revenue": 0,
+    "refunds": 0
+  },
+
+  "ab_tests": [
+    {
+      "name": "landing-hero-headline",
+      "status": "running",
+      "variants": {
+        "control": { "visitors": 0, "signups": 0, "conversion_percent": 0 },
+        "variant-a": { "visitors": 0, "signups": 0, "conversion_percent": 0 },
+        "variant-b": { "visitors": 0, "signups": 0, "conversion_percent": 0 }
+      }
+    }
+  ],
+
+  "notes": ""
+}

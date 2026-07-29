@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Braidr — Writing Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #FAFAFA;
+    --surface: #FFFFFF;
+    --text: #1A1A1A;
+    --text-2: #6B6B6B;
+    --text-3: #A0A0A0;
+    --border: #E8E8E8;
+    --blue-1: #e8f0fe;
+    --blue-2: #a8c5f7;
+    --blue-3: #3b82f6;
+    --blue-4: #1d4ed8;
+    --red: #ef4444;
+    --green: #22c55e;
+    --purple: #a855f7;
+    --orange: #f59e0b;
+    --font-ui: 'DM Sans', -apple-system, sans-serif;
+    --font-serif: 'Lora', Georgia, serif;
+    --radius: 14px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03);
+  }
+
+  body {
+    background: var(--bg);
+    font-family: var(--font-ui);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 48px 40px 64px;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 36px;
+  }
+  .header h1 {
+    font-family: var(--font-serif);
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .period-toggle {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .period-toggle button {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .period-toggle button.active {
+    background: var(--text);
+    color: #fff;
+  }
+  .project-select {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--text-2);
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23A0A0A0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+
+  /* ── Summary strip ── */
+  .summary-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .summary-card .label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+  }
+  .summary-card .value {
+    font-family: var(--font-serif);
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .summary-card .value .icon { font-size: 24px; }
+  .summary-card .change {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--green);
+  }
+  .summary-card .change.neutral { color: var(--text-3); }
+
+  /* ── Insights (horizontal strip) ── */
+  .insights-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .insight-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 18px;
+    background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+    border-radius: 12px;
+    border: 1px solid #e8eeff;
+  }
+  .insight-card .insight-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .insight-card .insight-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text);
+  }
+  .insight-card .insight-text strong {
+    color: var(--blue-4);
+    font-weight: 600;
+  }
+  .insight-card.green {
+    background: linear-gradient(135deg, #f6fef8 0%, #ecfdf1 100%);
+    border-color: #d4f5dc;
+  }
+  .insight-card.green strong { color: #15803d; }
+  .insight-card.purple {
+    background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+    border-color: #e9d5ff;
+  }
+  .insight-card.purple strong { color: #7c3aed; }
+
+  /* ── Grid ── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .grid .full { grid-column: 1 / -1; }
+
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+  }
+  .card-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-family: var(--font-serif);
+    font-size: 16px;
+    font-weight: 600;
+    font-style: italic;
+  }
+  .card-subtitle {
+    font-size: 11px;
+    color: var(--text-3);
+    font-weight: 500;
+  }
+
+  /* ── Calendar Heatmap ── */
+  .calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .calendar-nav button {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.12s;
+  }
+  .calendar-nav button:hover {
+    background: var(--bg);
+    border-color: var(--text-3);
+  }
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .calendar-dow {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-align: center;
+    padding: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .calendar-cell {
+    aspect-ratio: 1;
+    max-width: 56px;
+    border-radius: 6px;
+    background: #f5f5f5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: default;
+    transition: transform 0.1s, box-shadow 0.15s;
+  }
+  .calendar-cell:hover {
+    transform: scale(1.08);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 1;
+  }
+  .calendar-cell.empty {
+    background: transparent;
+    cursor: default;
+  }
+  .calendar-cell.empty:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .calendar-day {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    line-height: 1;
+  }
+  .calendar-words {
+    font-size: 8px;
+    font-weight: 500;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+  .calendar-cell.l1 { background: var(--blue-1); }
+  .calendar-cell.l1 .calendar-day { color: var(--blue-4); }
+  .calendar-cell.l1 .calendar-words { color: var(--blue-3); }
+  .calendar-cell.l2 { background: var(--blue-2); }
+  .calendar-cell.l2 .calendar-day { color: var(--blue-4); }
+  .calendar-cell.l2 .calendar-words { color: var(--blue-4); }
+  .calendar-cell.l3 { background: var(--blue-3); }
+  .calendar-cell.l3 .calendar-day { color: #fff; }
+  .calendar-cell.l3 .calendar-words { color: rgba(255,255,255,0.75); }
+  .calendar-cell.l4 { background: var(--blue-4); }
+  .calendar-cell.l4 .calendar-day { color: #fff; }
+  .calendar-cell.l4 .calendar-words { color: rgba(255,255,255,0.7); }
+  .calendar-cell.today {
+    box-shadow: 0 0 0 2px var(--blue-3);
+  }
+  .calendar-cell.future {
+    background: transparent;
+    border: 1px dashed #e0e0e0;
+  }
+  .calendar-cell.future .calendar-day { color: var(--text-3); }
+  .calendar-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+    justify-content: flex-end;
+  }
+  .calendar-legend span {
+    font-size: 10px;
+    color: var(--text-3);
+  }
+  .legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+
+  /* ── Chart ── */
+  .chart-area {
+    position: relative;
+    height: 160px;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .chart-bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .chart-bar {
+    width: 100%;
+    max-width: 14px;
+    border-radius: 3px 3px 0 0;
+    transition: opacity 0.15s;
+  }
+  .chart-bar.written { background: var(--blue-3); opacity: 0.8; }
+  .chart-bar.deleted {
+    background: var(--red);
+    opacity: 0.3;
+    border-radius: 0 0 3px 3px;
+    margin-top: 1px;
+  }
+  .chart-bar-group:hover .chart-bar { opacity: 1; }
+  .chart-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+  .chart-labels span {
+    font-size: 10px;
+    color: var(--text-3);
+    font-weight: 500;
+  }
+  .chart-y-axis {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+  .chart-y-axis span {
+    font-size: 9px;
+    color: var(--text-3);
+    transform: translateX(-28px);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Time of day ── */
+  .time-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 120px;
+    padding-bottom: 24px;
+  }
+  .time-bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .time-bar {
+    width: 100%;
+    max-width: 28px;
+    border-radius: 4px 4px 2px 2px;
+    background: var(--blue-1);
+    transition: all 0.15s;
+    min-height: 3px;
+  }
+  .time-bar.peak { background: var(--blue-3); }
+  .time-bar.high { background: var(--blue-2); }
+  .time-bar-col:hover .time-bar { transform: scaleY(1.05); }
+  .time-bar-label {
+    font-size: 9px;
+    color: var(--text-3);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .peak-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 14px;
+    padding: 5px 10px;
+    background: #f0f7ff;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--blue-4);
+  }
+
+  /* ── Check-in ── */
+  .checkin-row {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .checkin-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .checkin-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    width: 52px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .checkin-emojis {
+    display: flex;
+    gap: 4px;
+  }
+  .checkin-emoji {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border-radius: 8px;
+    background: #f5f5f5;
+    transition: all 0.15s;
+  }
+  .checkin-emoji.active {
+    background: var(--blue-3);
+    box-shadow: 0 0 0 2px var(--blue-4), 0 2px 8px rgba(59,130,246,0.3);
+    transform: scale(1.1);
+  }
+  .checkin-emoji.dim { opacity: 0.35; }
+  .checkin-avg {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-left: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Streak ── */
+  .streak-visual {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .streak-day {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-3);
+    background: #f5f5f5;
+  }
+  .streak-day.active { background: var(--blue-3); color: white; }
+  .streak-day.today {
+    background: var(--blue-4);
+    color: white;
+    box-shadow: 0 0 0 2px white, 0 0 0 3.5px var(--blue-3);
+  }
+  .streak-day.rest {
+    background: #f5f5f5;
+    color: var(--text-3);
+  }
+  .streak-day.rest::after { content: '—'; font-size: 10px; }
+
+  /* ── Sessions table ── */
+  .sessions-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .sessions-table th {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    text-align: left;
+    padding: 0 0 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .sessions-table td {
+    font-size: 13px;
+    padding: 12px 0;
+    border-bottom: 1px solid #f5f5f5;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .sessions-table tr:last-child td { border-bottom: none; }
+  .sessions-table .scene-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+  }
+  .sessions-table .char-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .sessions-table .scene-name {
+    font-weight: 600;
+    color: var(--text);
+  }
+  .sessions-table .char-name {
+    font-weight: 400;
+    color: var(--text-3);
+    font-size: 12px;
+  }
+  .sessions-table .duration { color: var(--text-2); }
+  .sessions-table .words { font-weight: 600; }
+  .sessions-table .wph { color: var(--text-2); font-size: 12px; }
+  .sessions-table .mood-cell { font-size: 16px; letter-spacing: 2px; }
+
+  /* ── Goal ring ── */
+  .goal-section {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .goal-ring-wrapper {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+  }
+  .goal-ring-wrapper svg {
+    width: 120px;
+    height: 120px;
+    transform: rotate(-90deg);
+  }
+  .goal-ring-bg { fill: none; stroke: #f0f0f0; stroke-width: 8; }
+  .goal-ring-fill {
+    fill: none;
+    stroke: var(--blue-3);
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s ease;
+  }
+  .goal-ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .goal-ring-pct {
+    font-family: var(--font-serif);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .goal-ring-label {
+    font-size: 10px;
+    color: var(--text-3);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  .goal-details { flex: 1; }
+  .goal-details .goal-title {
+    font-family: var(--font-serif);
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .goal-details .goal-numbers {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-bottom: 12px;
+  }
+  .goal-details .goal-numbers strong { color: var(--text); font-weight: 600; }
+  .goal-bar-track {
+    width: 100%;
+    height: 6px;
+    background: #f0f0f0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .goal-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--blue-3), var(--blue-4));
+    transition: width 1s ease;
+  }
+  .goal-pace { font-size: 11px; color: var(--green); font-weight: 500; }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .summary-card, .insight-card, .card {
+    animation: fadeUp 0.4s ease both;
+  }
+  .summary-card:nth-child(1) { animation-delay: 0.0s; }
+  .summary-card:nth-child(2) { animation-delay: 0.05s; }
+  .summary-card:nth-child(3) { animation-delay: 0.1s; }
+  .summary-card:nth-child(4) { animation-delay: 0.15s; }
+  .insights-strip .insight-card:nth-child(1) { animation-delay: 0.12s; }
+  .insights-strip .insight-card:nth-child(2) { animation-delay: 0.17s; }
+  .insights-strip .insight-card:nth-child(3) { animation-delay: 0.22s; }
+  .grid .card:nth-child(1) { animation-delay: 0.2s; }
+  .grid .card:nth-child(2) { animation-delay: 0.25s; }
+  .grid .card:nth-child(3) { animation-delay: 0.3s; }
+  .grid .card:nth-child(4) { animation-delay: 0.35s; }
+  .grid .card:nth-child(5) { animation-delay: 0.4s; }
+  .grid .card:nth-child(6) { animation-delay: 0.45s; }
+
+  /* ── Tooltip ── */
+  .calendar-cell .tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text);
+    color: white;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .calendar-cell .tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: var(--text);
+  }
+  .calendar-cell:hover .tooltip { display: block; }
+</style>
+</head>
+<body>
+
+<div class="dashboard">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Analytics</h1>
+    <div class="header-right">
+      <div class="period-toggle">
+        <button>Week</button>
+        <button class="active">Month</button>
+        <button>Year</button>
+      </div>
+      <select class="project-select">
+        <option>AA — V5</option>
+        <option>All Projects</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Summary Strip -->
+  <div class="summary-strip">
+    <div class="summary-card">
+      <span class="label">Current Streak</span>
+      <span class="value"><span class="icon">🔥</span>12</span>
+      <span class="change">Best: 21 days</span>
+    </div>
+    <div class="summary-card">
+      <span class="label">Words This Month</span>
+      <span class="value">15,247</span>
+      <span class="change">+23% vs last month</span>
+    </div>
+    <div class="summary-card">
+      <span class="label">Avg Words / Day</span>
+      <span class="value">508</span>
+      <span class="change neutral">Target: 500</span>
+    </div>
+    <div class="summary-card">
+      <span class="label">Sessions This Month</span>
+      <span class="value">22</span>
+      <span class="change">↑ 4 more than Jan</span>
+    </div>
+  </div>
+
+  <!-- Insights — moved up -->
+  <div class="insights-strip">
+    <div class="insight-card">
+      <span class="insight-icon">⚡</span>
+      <span class="insight-text">You write <strong>43% more words/hr</strong> when energy is 4+. Morning sessions have higher energy.</span>
+    </div>
+    <div class="insight-card green">
+      <span class="insight-icon">🌅</span>
+      <span class="insight-text">Peak writing window: <strong>7–9 AM</strong>. 642 words/hr avg vs 380 at other times.</span>
+    </div>
+    <div class="insight-card purple">
+      <span class="insight-icon">📈</span>
+      <span class="insight-text"><strong>12-day streak</strong> — your 2nd longest. Sessions up 18 min avg vs last month.</span>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="grid">
+
+    <!-- Calendar Heatmap -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">February 2026</span>
+        <div class="calendar-nav">
+          <button>‹</button>
+          <button>›</button>
+        </div>
+      </div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+      <div class="calendar-legend">
+        <span>0 words</span>
+        <div class="legend-swatch" style="background:#f5f5f5"></div>
+        <div class="legend-swatch" style="background:var(--blue-1)"></div>
+        <div class="legend-swatch" style="background:var(--blue-2)"></div>
+        <div class="legend-swatch" style="background:var(--blue-3)"></div>
+        <div class="legend-swatch" style="background:var(--blue-4)"></div>
+        <span>2,000+</span>
+      </div>
+    </div>
+
+    <!-- Writing Goal -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Monthly Goal</span>
+        <span class="card-subtitle">February 2026</span>
+      </div>
+      <div class="goal-section">
+        <div class="goal-ring-wrapper">
+          <svg viewBox="0 0 120 120">
+            <circle class="goal-ring-bg" cx="60" cy="60" r="50" />
+            <circle class="goal-ring-fill" cx="60" cy="60" r="50"
+              stroke-dasharray="314.16"
+              stroke-dashoffset="219.9" />
+          </svg>
+          <div class="goal-ring-center">
+            <span class="goal-ring-pct">30%</span>
+            <span class="goal-ring-label">complete</span>
+          </div>
+        </div>
+        <div class="goal-details">
+          <div class="goal-title">50,000 words</div>
+          <div class="goal-numbers"><strong>15,247</strong> of 50,000 words</div>
+          <div class="goal-bar-track">
+            <div class="goal-bar-fill" style="width:30%"></div>
+          </div>
+          <div class="goal-pace">↑ 2 days ahead of pace</div>
+          <div style="margin-top:12px;font-size:11px;color:var(--text-3)">
+            Need <strong style="color:var(--text)">1,836</strong> words/day to finish on time
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Words Over Time -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Words Over Time</span>
+        <span class="card-subtitle">Last 30 days</span>
+      </div>
+      <div style="position:relative;padding-left:32px">
+        <div class="chart-y-axis">
+          <span>2k</span>
+          <span>1k</span>
+          <span>0</span>
+        </div>
+        <div class="chart-area" id="wordChart"></div>
+      </div>
+      <div class="chart-labels">
+        <span>Jan 10</span>
+        <span>Jan 17</span>
+        <span>Jan 24</span>
+        <span>Feb 1</span>
+        <span>Feb 9</span>
+      </div>
+    </div>
+
+    <!-- Time of Day -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Time of Day</span>
+        <span class="card-subtitle">Avg words/hour</span>
+      </div>
+      <div class="time-bars" id="timeBars"></div>
+      <div class="peak-badge">⚡ Peak hours: 7–9 AM &nbsp;·&nbsp; 642 words/hr avg</div>
+    </div>
+
+    <!-- Session Check-ins -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Check-in Averages</span>
+        <span class="card-subtitle">Last 30 days</span>
+      </div>
+      <div class="checkin-row">
+        <div class="checkin-item">
+          <span class="checkin-label">Energy</span>
+          <div class="checkin-emojis">
+            <span class="checkin-emoji dim">😴</span>
+            <span class="checkin-emoji dim">😐</span>
+            <span class="checkin-emoji dim">😊</span>
+            <span class="checkin-emoji active">😄</span>
+            <span class="checkin-emoji dim">🔥</span>
+          </div>
+          <span class="checkin-avg">3.8</span>
+        </div>
+        <div class="checkin-item">
+          <span class="checkin-label">Focus</span>
+          <div class="checkin-emojis">
+            <span class="checkin-emoji dim">🌫️</span>
+            <span class="checkin-emoji dim">😶</span>
+            <span class="checkin-emoji active">🎯</span>
+            <span class="checkin-emoji dim">💡</span>
+            <span class="checkin-emoji dim">⚡</span>
+          </div>
+          <span class="checkin-avg">3.2</span>
+        </div>
+        <div class="checkin-item">
+          <span class="checkin-label">Mood</span>
+          <div class="checkin-emojis">
+            <span class="checkin-emoji dim">😞</span>
+            <span class="checkin-emoji dim">😐</span>
+            <span class="checkin-emoji dim">🙂</span>
+            <span class="checkin-emoji active">😊</span>
+            <span class="checkin-emoji dim">🥳</span>
+          </div>
+          <span class="checkin-avg">3.6</span>
+        </div>
+      </div>
+      <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:12px;font-weight:600;color:var(--text-2)">This Week</span>
+          <span style="font-size:11px;color:var(--text-3)">Rest day: Sunday</span>
+        </div>
+        <div class="streak-visual">
+          <div class="streak-day active">M</div>
+          <div class="streak-day active">T</div>
+          <div class="streak-day active">W</div>
+          <div class="streak-day active">T</div>
+          <div class="streak-day active">F</div>
+          <div class="streak-day today">S</div>
+          <div class="streak-day rest">S</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Scenes -->
+    <div class="card full">
+      <div class="card-header">
+        <span class="card-title">Recent Scenes</span>
+        <span class="card-subtitle">Time spent &amp; vibe</span>
+      </div>
+      <table class="sessions-table">
+        <thead>
+          <tr>
+            <th>Scene</th>
+            <th>Time Spent</th>
+            <th>Words</th>
+            <th>W/hr</th>
+            <th>Avg Vibe</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><div class="scene-cell"><span class="char-dot" style="background:#3b82f6"></span><span class="scene-name">Scene 14 — Chasing Miguel</span><span class="char-name">Noah</span></div></td>
+            <td class="duration">3h 22m</td>
+            <td class="words">2,847</td>
+            <td class="wph">846</td>
+            <td class="mood-cell">🔥🎯🥳</td>
+          </tr>
+          <tr>
+            <td><div class="scene-cell"><span class="char-dot" style="background:#ef4444"></span><span class="scene-name">Scene 8 — The Cathedral</span><span class="char-name">Maya</span></div></td>
+            <td class="duration">2h 45m</td>
+            <td class="words">1,934</td>
+            <td class="wph">703</td>
+            <td class="mood-cell">😄💡😊</td>
+          </tr>
+          <tr>
+            <td><div class="scene-cell"><span class="char-dot" style="background:#22c55e"></span><span class="scene-name">Scene 3 — Brooklyn Morning</span><span class="char-name">Kate</span></div></td>
+            <td class="duration">1h 50m</td>
+            <td class="words">1,067</td>
+            <td class="wph">582</td>
+            <td class="mood-cell">😊🎯😊</td>
+          </tr>
+          <tr>
+            <td><div class="scene-cell"><span class="char-dot" style="background:#3b82f6"></span><span class="scene-name">Scene 15 — Meeting Cormac</span><span class="char-name">Noah</span></div></td>
+            <td class="duration">1h 15m</td>
+            <td class="words">734</td>
+            <td class="wph">587</td>
+            <td class="mood-cell">😐😶🙂</td>
+          </tr>
+          <tr>
+            <td><div class="scene-cell"><span class="char-dot" style="background:#a855f7"></span><span class="scene-name">Scene 1 — The Confession</span><span class="char-name">Narrator</span></div></td>
+            <td class="duration">0h 48m</td>
+            <td class="words">412</td>
+            <td class="wph">515</td>
+            <td class="mood-cell">😴😶😐</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Calendar Heatmap ──
+const grid = document.getElementById('calendarGrid');
+const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+dows.forEach(d => {
+  const el = document.createElement('div');
+  el.className = 'calendar-dow';
+  el.textContent = d;
+  grid.appendChild(el);
+});
+
+// February 2026 starts on Sunday (day 0)
+const firstDay = 0; // Sunday
+const daysInMonth = 28;
+const today = 9; // Feb 9
+
+// Sample word count data for Feb 2026
+const wordData = {
+  1: 1247, 2: 892, 3: 0, 4: 1563, 5: 1067, 6: 934, 7: 312,
+  8: 1203, 9: 847,
+  // future days have no data
+};
+
+function getLevel(words) {
+  if (!words || words === 0) return '';
+  if (words < 300) return 'l1';
+  if (words < 800) return 'l2';
+  if (words < 1500) return 'l3';
+  return 'l4';
+}
+
+// Empty cells before first day
+for (let i = 0; i < firstDay; i++) {
+  const cell = document.createElement('div');
+  cell.className = 'calendar-cell empty';
+  grid.appendChild(cell);
+}
+
+// Day cells
+for (let d = 1; d <= daysInMonth; d++) {
+  const cell = document.createElement('div');
+  const words = wordData[d] || 0;
+  const level = getLevel(words);
+  const isFuture = d > today;
+
+  cell.className = 'calendar-cell';
+  if (level && !isFuture) cell.classList.add(level);
+  if (d === today) cell.classList.add('today');
+  if (isFuture) cell.classList.add('future');
+
+  const dayNum = document.createElement('span');
+  dayNum.className = 'calendar-day';
+  dayNum.textContent = d;
+  cell.appendChild(dayNum);
+
+  if (words > 0 && !isFuture) {
+    const wLabel = document.createElement('span');
+    wLabel.className = 'calendar-words';
+    wLabel.textContent = words >= 1000 ? (words/1000).toFixed(1)+'k' : words;
+    cell.appendChild(wLabel);
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    tooltip.textContent = `Feb ${d}: ${words.toLocaleString()} words`;
+    cell.appendChild(tooltip);
+  } else if (!isFuture && d <= today) {
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    tooltip.textContent = `Feb ${d}: Rest day`;
+    cell.appendChild(tooltip);
+  }
+
+  grid.appendChild(cell);
+}
+
+// ── Word Chart ──
+const chart = document.getElementById('wordChart');
+const maxWords = 2000;
+for (let i = 0; i < 30; i++) {
+  const group = document.createElement('div');
+  group.className = 'chart-bar-group';
+  const dayOfWeek = i % 7;
+  const isRest = dayOfWeek === 6;
+  let written = isRest ? Math.random() * 200 : 200 + Math.random() * 1800;
+  if (Math.random() > 0.8) written *= 1.5;
+  written = Math.min(written, maxWords);
+  const deleted = written * (0.05 + Math.random() * 0.15);
+
+  const writtenBar = document.createElement('div');
+  writtenBar.className = 'chart-bar written';
+  writtenBar.style.height = (written / maxWords * 130) + 'px';
+
+  const deletedBar = document.createElement('div');
+  deletedBar.className = 'chart-bar deleted';
+  deletedBar.style.height = (deleted / maxWords * 130) + 'px';
+
+  group.appendChild(writtenBar);
+  group.appendChild(deletedBar);
+  chart.appendChild(group);
+}
+
+// ── Time of Day ──
+const timeBars = document.getElementById('timeBars');
+const hourData = [
+  { h: '5a', v: 10 }, { h: '6a', v: 25 },
+  { h: '7a', v: 85, peak: true }, { h: '8a', v: 95, peak: true },
+  { h: '9a', v: 70, high: true }, { h: '10a', v: 40 },
+  { h: '11a', v: 20 }, { h: '12p', v: 15 },
+  { h: '1p', v: 10 }, { h: '2p', v: 25 },
+  { h: '3p', v: 35 }, { h: '4p', v: 45, high: true },
+  { h: '5p', v: 50, high: true }, { h: '6p', v: 30 },
+  { h: '7p', v: 15 }, { h: '8p', v: 20 },
+  { h: '9p', v: 35 }, { h: '10p', v: 15 },
+];
+hourData.forEach(d => {
+  const col = document.createElement('div');
+  col.className = 'time-bar-col';
+  const bar = document.createElement('div');
+  bar.className = 'time-bar';
+  if (d.peak) bar.classList.add('peak');
+  else if (d.high) bar.classList.add('high');
+  bar.style.height = (d.v / 100 * 90) + 'px';
+  const label = document.createElement('span');
+  label.className = 'time-bar-label';
+  label.textContent = d.h;
+  col.appendChild(bar);
+  col.appendChild(label);
+  timeBars.appendChild(col);
+});
+</script>
+
+</body>
+</html>

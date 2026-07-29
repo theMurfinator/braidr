@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Braidr — Redesign Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #FFFFFF;
+  --paper-deep: #F3F4F7;
+  --paper-card: #FFFFFF;
+  --ink: #15171C;
+  --ink-soft: #5C6270;
+  --ink-faint: #969DA9;
+  --hairline: #E9EBEF;
+  --hairline-strong: #D7DBE2;
+  --maya: #ED2EB4;
+  --kate: #6B3DF5;
+  --noah: #1B6DFF;
+  --narrator: #757B86;
+  --amber: #F77F00;
+  --amber-bg: #FFF1E3;
+  --green: #15B26B;
+  --shadow-soft: 0 1px 2px rgba(21,23,28,.05), 0 8px 24px rgba(21,23,28,.07);
+  --shadow-panel: -12px 0 40px rgba(21,23,28,.12);
+  --sans: "Instrument Sans", sans-serif;
+  --serif-display: "Fraunces", serif;
+  --serif-body: "Newsreader", serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; }
+body {
+  font-family: var(--sans);
+  background: var(--paper);
+  color: var(--ink);
+  overflow: hidden;
+}
+.app { display:flex; height:100vh; }
+
+/* ============ RAIL ============ */
+.rail {
+  width: 196px; flex-shrink:0;
+  border-right: 1px solid var(--hairline);
+  display:flex; flex-direction:column;
+  padding: 22px 14px 18px;
+  background: #FAFBFC;
+}
+.wordmark {
+  font-family: var(--serif-display);
+  font-weight: 600; font-size: 27px; letter-spacing: -.01em;
+  padding: 2px 10px 18px; display:flex; align-items:center; gap:9px;
+}
+.wordmark .dot { color: var(--maya); }
+.braid-glyph { width:26px; height:30px; }
+.modes { display:flex; flex-direction:column; gap:2px; margin-top:6px; }
+.mode-label {
+  font-size:10.5px; letter-spacing:.14em; color:var(--ink-faint);
+  padding: 0 10px 8px; font-weight:600;
+}
+.mode-btn {
+  display:flex; align-items:center; gap:11px;
+  padding: 9px 10px; border-radius: 9px; border:none; background:none;
+  font-family:var(--sans); font-size:13.5px; font-weight:500; color:var(--ink-soft);
+  cursor:pointer; text-align:left; width:100%;
+  transition: background .15s ease, color .15s ease;
+}
+.mode-btn svg { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.6; flex-shrink:0; }
+.mode-btn:hover { background: rgba(28,36,64,.05); color:var(--ink); }
+.mode-btn.active { background: var(--ink); color: var(--paper-card); box-shadow: var(--shadow-soft); }
+.mode-btn .key {
+  margin-left:auto; font-size:10px; color:inherit; opacity:.45;
+  border:1px solid currentColor; border-radius:4px; padding:1px 4.5px;
+}
+.rail-foot { margin-top:auto; display:flex; flex-direction:column; gap:2px; }
+.rail-divider { height:1px; background:var(--hairline); margin: 10px 6px; }
+
+/* ============ MAIN ============ */
+.main { flex:1; display:flex; flex-direction:column; min-width:0; position:relative; }
+
+/* unified toolbar shell */
+.topbar {
+  height: 54px; flex-shrink:0;
+  display:flex; align-items:center; gap:14px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+.project-chunk { display:flex; align-items:baseline; gap:10px; min-width:0; }
+.project-name { font-family:var(--serif-display); font-weight:600; font-size:16.5px; white-space:nowrap; }
+.branch-chip {
+  display:flex; align-items:center; gap:5px;
+  font-size:11.5px; color:var(--ink-soft);
+  border:1px solid var(--hairline-strong); border-radius:99px;
+  padding: 2.5px 10px 2.5px 8px; cursor:pointer; background:var(--paper-card);
+  transition: border-color .15s;
+}
+.branch-chip:hover { border-color: var(--ink-soft); }
+.branch-chip svg { width:11px; height:11px; stroke:currentColor; fill:none; stroke-width:1.8; }
+.subtabs { display:flex; gap:2px; margin:0 auto; background:var(--paper-deep); border-radius:99px; padding:3px; }
+.subtab {
+  border:none; background:none; font-family:var(--sans); cursor:pointer;
+  font-size:12.5px; font-weight:500; color:var(--ink-soft);
+  padding: 5px 16px; border-radius:99px; transition: all .15s;
+}
+.subtab.active { background:var(--paper-card); color:var(--ink); box-shadow: 0 1px 3px rgba(28,36,64,.10); }
+.topbar-actions { display:flex; align-items:center; gap:4px; }
+.icon-btn {
+  width:32px; height:32px; border:none; background:none; border-radius:8px;
+  display:grid; place-items:center; cursor:pointer; color:var(--ink-soft);
+  transition: background .15s;
+}
+.icon-btn:hover { background:rgba(28,36,64,.06); color:var(--ink); }
+.icon-btn svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.7; }
+.save-state { font-size:11px; color:var(--ink-faint); margin-right:6px; font-style:italic; font-family:var(--serif-body); }
+
+/* ============ VIEWS ============ */
+.view { flex:1; display:none; min-height:0; }
+.view.active { display:flex; }
+@keyframes rise { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:none; } }
+.view.active .reveal { animation: rise .5s cubic-bezier(.2,.7,.2,1) both; }
+.view.active .reveal:nth-child(2) { animation-delay:.05s; }
+.view.active .reveal:nth-child(3) { animation-delay:.10s; }
+.view.active .reveal:nth-child(4) { animation-delay:.15s; }
+.view.active .reveal:nth-child(5) { animation-delay:.20s; }
+.view.active .reveal:nth-child(6) { animation-delay:.25s; }
+
+/* ---- PLAN ---- */
+.plan-canvas { flex:1; overflow-y:auto; padding: 38px 56px 80px; }
+.plan-inner { max-width: 660px; margin: 0 auto; }
+.plan-head { display:flex; align-items:center; gap:14px; margin-bottom: 30px; }
+.char-select {
+  display:flex; align-items:center; gap:9px; cursor:pointer;
+  border:1px solid var(--hairline-strong); background:var(--paper-card);
+  border-radius:10px; padding: 7px 13px; box-shadow: var(--shadow-soft);
+}
+.char-thread { width:3px; height:17px; border-radius:2px; }
+.char-select .name { font-family:var(--serif-display); font-weight:600; font-size:15px; }
+.char-select svg { width:12px; height:12px; stroke:var(--ink-soft); fill:none; stroke-width:2; }
+.btn-primary {
+  border:none; cursor:pointer; font-family:var(--sans); font-weight:600; font-size:12.5px;
+  background:var(--ink); color:var(--paper-card); border-radius:9px; padding: 8.5px 15px;
+  box-shadow: var(--shadow-soft); transition: transform .12s ease, box-shadow .12s ease;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 3px 6px rgba(28,36,64,.12), 0 10px 28px rgba(28,36,64,.10); }
+.plan-tools { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.toggle {
+  display:flex; align-items:center; gap:7px; cursor:pointer;
+  font-size:12px; color:var(--ink-soft); user-select:none;
+}
+.toggle .track {
+  width:30px; height:17px; border-radius:99px; background:var(--hairline-strong);
+  position:relative; transition: background .18s;
+}
+.toggle .track::after {
+  content:""; position:absolute; top:2px; left:2px; width:13px; height:13px;
+  border-radius:50%; background:var(--paper-card); transition: left .18s;
+  box-shadow: 0 1px 2px rgba(28,36,64,.2);
+}
+.toggle.on .track { background:var(--ink); }
+.toggle.on .track::after { left:15px; }
+
+.section { margin-bottom: 34px; }
+.section-head { display:flex; align-items:baseline; gap:11px; padding-bottom:7px; border-bottom:1px solid var(--hairline-strong); }
+.section-title { font-family:var(--serif-display); font-weight:600; font-size:22px; letter-spacing:-.01em; }
+.section-count { font-size:11px; color:var(--ink-faint); font-weight:500; letter-spacing:.02em; }
+.section-count.over { color:var(--amber); background:var(--amber-bg); border-radius:99px; padding:2px 8px; font-weight:600; }
+.section-syn { font-family:var(--serif-body); font-size:14.5px; color:var(--ink-soft); line-height:1.55; padding:10px 0 4px; font-style:italic; }
+.scene-row {
+  display:flex; gap:13px; padding: 11px 12px 11px 0; border-radius:10px;
+  position:relative; cursor:pointer; transition: background .14s;
+}
+.scene-row:hover { background: rgba(28,36,64,.035); }
+.scene-row:hover .scene-actions { opacity:1; }
+.scene-row::before {
+  content:""; position:absolute; left:-16px; top:10px; bottom:10px; width:3px;
+  border-radius:2px; background: var(--thread, var(--hairline-strong));
+  opacity:.85;
+}
+.scene-id {
+  font-size:10.5px; color:var(--ink-faint); font-weight:600; letter-spacing:.04em;
+  min-width:38px; padding-top:4px; text-align:right;
+}
+.scene-body { flex:1; min-width:0; }
+.scene-title { font-family:var(--serif-display); font-weight:600; font-size:15.5px; }
+.scene-syn { font-family:var(--serif-body); font-size:14px; color:var(--ink-soft); line-height:1.5; margin-top:3px; }
+.hide-syn .scene-syn, .hide-syn .section-syn { display:none; }
+.scene-meta { display:flex; gap:6px; align-items:center; padding-top:4px; }
+.pill {
+  font-size:9.5px; font-weight:600; letter-spacing:.05em; border-radius:5px; padding: 2.5px 7px;
+}
+.pill.v1 { background:#FFF1E3; color:#E06D00; }
+.pill.composing { background:#E5EDFF; color:#1B6DFF; }
+.task-dot { width:6px; height:6px; border-radius:50%; background:var(--amber); }
+.scene-actions { opacity:0; transition:opacity .15s; display:flex; gap:2px; }
+
+/* bullpen */
+.bullpen {
+  width: 252px; flex-shrink:0; border-left:1px solid var(--hairline);
+  padding: 26px 20px; background: #FAFBFC;
+  overflow-y:auto;
+}
+.panel-label { font-size:10.5px; letter-spacing:.14em; color:var(--ink-faint); font-weight:600; display:flex; align-items:center; gap:8px; }
+.panel-label .n { background:var(--paper-deep); border-radius:99px; padding:1px 7px; color:var(--ink-soft); letter-spacing:0; }
+.bullpen-scene {
+  margin-top:12px; background:var(--paper-card); border:1px solid var(--hairline);
+  border-radius:10px; padding: 11px 13px; cursor:grab; box-shadow:var(--shadow-soft);
+  position:relative; overflow:hidden; transition: transform .14s ease, box-shadow .14s ease;
+}
+.bullpen-scene:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(28,36,64,.10); }
+.bullpen-scene::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--thread); }
+.bullpen-scene .t { font-family:var(--serif-display); font-weight:600; font-size:13.5px; }
+.bullpen-scene .c { font-size:10.5px; color:var(--ink-faint); margin-top:2px; }
+.bullpen-hint { font-size:11px; color:var(--ink-faint); font-style:italic; font-family:var(--serif-body); margin-top:14px; line-height:1.5; }
+.add-ghost {
+  margin-top:12px; width:100%; border:1.5px dashed var(--hairline-strong); background:none;
+  border-radius:10px; padding:10px; font-family:var(--sans); font-size:12px; color:var(--ink-faint);
+  cursor:pointer; transition: all .15s;
+}
+.add-ghost:hover { border-color:var(--ink-soft); color:var(--ink-soft); }
+
+/* ---- BRAID ---- */
+.braid-canvas { flex:1; overflow-y:auto; padding: 30px 30px 90px 30px; position:relative; }
+
+/* rails lens (default) */
+.rails-grid {
+  display:grid; grid-template-columns: 34px repeat(4, minmax(0, 1fr));
+  column-gap: 16px; max-width: 1000px; margin: 0 auto;
+}
+.rails-headcell {
+  position:sticky; top:-30px; z-index:5; background:var(--paper);
+  padding: 6px 0 12px; text-align:center;
+}
+.rails-headcell .name {
+  display:inline-flex; align-items:center; gap:7px;
+  font-size:11px; font-weight:600; letter-spacing:.1em; color:var(--railc);
+  background:var(--paper-card); border:1px solid var(--hairline);
+  border-bottom: 2.5px solid var(--railc);
+  border-radius: 9px; padding: 6px 16px; box-shadow: var(--shadow-soft);
+}
+.rails-headcell .swatch { width:7px; height:7px; border-radius:50%; background:var(--railc); }
+.rail-cell { position:relative; padding: 5px 0; min-height: 50px; }
+.rail-cell::before {
+  content:""; position:absolute; left:50%; top:0; bottom:0; width:2px; margin-left:-1px;
+  background: var(--railc); opacity:.14;
+}
+.pos-cell {
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px; color:var(--ink-faint); font-weight:600;
+}
+.rails-card {
+  position:relative; z-index:2;
+  background:var(--paper-card); border:1px solid var(--hairline);
+  border-left: 3px solid var(--railc);
+  border-radius: 10px; padding: 9px 12px;
+  box-shadow: var(--shadow-soft); cursor:grab;
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.rails-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(28,36,64,.12); }
+.rails-card .t {
+  font-family:var(--serif-display); font-weight:600; font-size:13px; line-height:1.3;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.rails-card .m { display:flex; justify-content:space-between; margin-top:5px; font-size:9.5px; color:var(--ink-faint); font-weight:600; letter-spacing:.04em; }
+.braid-inner { max-width: 620px; margin:0 auto; position:relative; }
+.threads-svg { position:absolute; left:-64px; top:0; width:72px; height:100%; overflow:visible; }
+.threads-svg path { fill:none; stroke-width:2.5; stroke-linecap:round; opacity:.8; }
+.braid-row {
+  display:flex; align-items:center; gap:13px; padding: 13px 16px; margin-bottom:10px;
+  background:var(--paper-card); border:1px solid var(--hairline); border-radius:12px;
+  box-shadow: var(--shadow-soft); cursor:pointer; position:relative;
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.braid-row:hover { transform: translateX(3px); box-shadow: 0 3px 10px rgba(28,36,64,.10); }
+.braid-row .knot {
+  width:11px; height:11px; border-radius:50%; background:var(--thread);
+  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--thread) 18%, transparent);
+  flex-shrink:0;
+}
+.braid-row .who { font-size:10.5px; font-weight:600; letter-spacing:.06em; color:var(--thread); width:74px; flex-shrink:0; }
+.braid-row .t { font-family:var(--serif-display); font-weight:600; font-size:15px; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.braid-row .pos { font-size:10.5px; color:var(--ink-faint); font-weight:600; }
+.braid-row.ghost-slot {
+  border-style:dashed; background:transparent; box-shadow:none; opacity:0;
+  height:0; padding:0; margin:0; overflow:hidden;
+  transition: all .25s ease;
+}
+.braid-canvas.dragging .ghost-slot { opacity:1; height:auto; padding:13px 16px; margin-bottom:10px; }
+.tobraid { width: 270px; flex-shrink:0; border-left:1px solid var(--hairline); padding: 26px 20px; overflow-y:auto; }
+.tb-group { margin-top:18px; }
+.tb-char { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:600; letter-spacing:.08em; }
+.tb-char .swatch { width:8px; height:8px; border-radius:50%; }
+.tb-char .n { margin-left:auto; color:var(--ink-faint); font-weight:500; }
+.tb-scene {
+  display:flex; gap:9px; align-items:baseline; padding: 7px 9px; margin-top:4px;
+  border-radius:8px; cursor:grab; font-size:12.5px; transition: background .14s;
+}
+.tb-scene:hover { background:rgba(28,36,64,.05); }
+.tb-scene .id { font-size:10px; color:var(--ink-faint); font-weight:600; min-width:26px; }
+.tb-scene .t { font-family:var(--serif-display); font-weight:500; font-size:13px; }
+
+/* ---- WRITE ---- */
+.write-canvas { flex:1; overflow-y:auto; padding: 48px 40px 120px; }
+.manuscript { max-width: 600px; margin: 0 auto; }
+.ms-breadcrumb { font-size:11px; letter-spacing:.1em; color:var(--ink-faint); font-weight:600; display:flex; gap:8px; align-items:center; }
+.ms-breadcrumb .sep { opacity:.5; }
+.ms-title { font-family:var(--serif-display); font-weight:600; font-size:31px; letter-spacing:-.015em; margin: 10px 0 26px; }
+.ms-body { font-family:var(--serif-body); font-size:17.5px; line-height:1.75; color:#2A2F45; }
+.ms-body p { margin-bottom: 1.1em; }
+.ms-body .tele { font-style:italic; letter-spacing:.02em; }
+.write-meta { width: 270px; flex-shrink:0; border-left:1px solid var(--hairline); padding: 26px 22px; overflow-y:auto; }
+.meta-block { margin-bottom: 24px; }
+.meta-row { display:flex; justify-content:space-between; font-size:12.5px; margin-top:10px; color:var(--ink-soft); }
+.meta-row b { color:var(--ink); font-weight:600; }
+.syn-card {
+  margin-top:10px; font-family:var(--serif-body); font-size:13px; line-height:1.55; color:var(--ink-soft);
+  background:var(--paper-card); border:1px solid var(--hairline); border-radius:10px; padding:12px 14px;
+}
+.progress-thread { height:3px; border-radius:2px; background:var(--paper-deep); margin-top:10px; overflow:hidden; }
+.progress-thread i { display:block; height:100%; width:64%; background:linear-gradient(90deg, var(--maya), var(--noah)); border-radius:2px; }
+
+/* ---- REVIEW ---- */
+.review-canvas { flex:1; overflow-y:auto; padding: 42px 56px 90px; }
+.review-inner { max-width: 860px; margin:0 auto; }
+.review-h { font-family:var(--serif-display); font-weight:600; font-size:28px; letter-spacing:-.015em; margin-bottom:24px; }
+.stat-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; }
+.stat-card {
+  background:var(--paper-card); border:1px solid var(--hairline); border-radius:14px;
+  padding: 18px 19px; box-shadow:var(--shadow-soft);
+}
+.stat-card .l { font-size:10.5px; letter-spacing:.12em; color:var(--ink-faint); font-weight:600; }
+.stat-card .v { font-family:var(--serif-display); font-weight:600; font-size:30px; margin-top:8px; }
+.stat-card .v small { font-size:15px; color:var(--ink-faint); font-weight:500; }
+.stat-card .s { font-size:11.5px; color:var(--ink-soft); margin-top:5px; }
+.stat-card .s.good { color:var(--green); }
+.stat-card .s.warn { color:var(--amber); }
+.hours-card {
+  grid-column: 1 / -1; display:flex; gap:40px; align-items:center;
+  background:var(--paper-card); border:1px solid var(--hairline); border-radius:14px;
+  padding: 24px 28px; box-shadow:var(--shadow-soft); margin-top:14px;
+}
+.hours-num { font-family:var(--serif-display); font-weight:600; font-size:46px; }
+.hours-num small { font-size:20px; color:var(--ink-faint); font-weight:500; }
+.bars { display:flex; gap:14px; align-items:flex-end; height:90px; flex:1; }
+.bar { flex:1; display:flex; flex-direction:column; align-items:center; gap:7px; height:100%; justify-content:flex-end; }
+.bar i { display:block; width:100%; max-width:38px; border-radius:6px 6px 3px 3px; background:linear-gradient(180deg, #8B5CF6, #6B3DF5); transform-origin:bottom; animation: grow .7s cubic-bezier(.2,.7,.2,1) both; }
+.bar:nth-child(2) i { animation-delay:.06s } .bar:nth-child(3) i { animation-delay:.12s }
+.bar:nth-child(4) i { animation-delay:.18s } .bar:nth-child(5) i { animation-delay:.24s }
+.bar:nth-child(6) i { animation-delay:.3s } .bar:nth-child(7) i { animation-delay:.36s }
+@keyframes grow { from { transform: scaleY(0); } }
+.bar .d { font-size:10px; color:var(--ink-faint); font-weight:600; letter-spacing:.05em; }
+.bar.today .d { color:var(--ink); }
+.review-note { font-family:var(--serif-body); font-style:italic; font-size:13px; color:var(--ink-faint); margin-top:18px; }
+
+/* ---- NOTES SLIDE-OVER ---- */
+.notes-panel {
+  position:absolute; top:0; right:0; bottom:0; width: 400px;
+  background: var(--paper-card); border-left:1px solid var(--hairline);
+  box-shadow: var(--shadow-panel); transform: translateX(105%);
+  transition: transform .32s cubic-bezier(.3,.8,.3,1); z-index: 40;
+  display:flex; flex-direction:column; padding: 24px 26px;
+}
+.notes-panel.open { transform: translateX(0); }
+.notes-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.notes-head h3 { font-family:var(--serif-display); font-weight:600; font-size:19px; }
+.note-item { padding: 11px 2px; border-bottom: 1px solid var(--hairline); cursor:pointer; }
+.note-item .t { font-family:var(--serif-display); font-weight:600; font-size:14px; }
+.note-item .x { font-family:var(--serif-body); font-size:12.5px; color:var(--ink-soft); margin-top:3px; line-height:1.5; }
+.note-item .tags { display:flex; gap:5px; margin-top:6px; }
+.note-tag { font-size:9.5px; color:var(--maya); background:color-mix(in srgb, var(--maya) 9%, transparent); padding:2px 7px; border-radius:99px; font-weight:600; }
+.scrim { position:absolute; inset:0; background:rgba(28,36,64,.08); opacity:0; pointer-events:none; transition:opacity .3s; z-index:30; }
+.scrim.show { opacity:1; pointer-events:auto; }
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 99px; border: 3px solid var(--paper); }
+::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- RAIL -->
+  <nav class="rail">
+    <div class="wordmark">
+      <svg class="braid-glyph" viewBox="0 0 26 30">
+        <path d="M5 1 C5 9 21 9 21 16 C21 23 5 23 5 29" stroke="#ED2EB4" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+        <path d="M13 1 C13 8 13 22 13 29" stroke="#6B3DF5" stroke-width="2.6" fill="none" stroke-linecap="round" opacity=".9"/>
+        <path d="M21 1 C21 9 5 9 5 16 C5 23 21 23 21 29" stroke="#1B6DFF" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      </svg>
+      Braidr<span class="dot">.</span>
+    </div>
+    <div class="modes">
+      <div class="mode-label">MODES</div>
+      <button class="mode-btn active" data-mode="plan">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13" stroke-linecap="round"/></svg>
+        Plan <span class="key">1</span>
+      </button>
+      <button class="mode-btn" data-mode="braid">
+        <svg viewBox="0 0 24 24"><path d="M7 3c0 6 10 6 10 9s-10 3-10 9M17 3c0 6-10 6-10 9s10 3 10 9" stroke-linecap="round"/></svg>
+        Braid <span class="key">2</span>
+      </button>
+      <button class="mode-btn" data-mode="write">
+        <svg viewBox="0 0 24 24"><path d="M16.5 3.5l4 4L8 20l-5 1 1-5L16.5 3.5z" stroke-linejoin="round"/></svg>
+        Write <span class="key">3</span>
+      </button>
+      <button class="mode-btn" data-mode="review">
+        <svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7" stroke-linecap="round"/></svg>
+        Review <span class="key">4</span>
+      </button>
+    </div>
+    <div class="rail-foot">
+      <div class="rail-divider"></div>
+      <button class="mode-btn" id="notesToggle">
+        <svg viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2zM9 8h6M9 12h6M9 16h4" stroke-linecap="round"/></svg>
+        Notes <span class="key">N</span>
+      </button>
+      <button class="mode-btn">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.5 3.6-5.5 7-5.5s6.2 2 7 5.5" stroke-linecap="round"/></svg>
+        Brian
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- unified toolbar shell -->
+    <header class="topbar">
+      <div class="project-chunk">
+        <span class="project-name">America America</span>
+        <button class="branch-chip">
+          <svg viewBox="0 0 24 24"><path d="M6 3v12a3 3 0 003 3h6M18 6a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          rewrite
+        </button>
+      </div>
+
+      <div class="subtabs" id="subtabs"></div>
+
+      <div class="topbar-actions">
+        <span class="save-state" id="saveState">Saved</span>
+        <button class="icon-btn" title="Search ⌘K"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5" stroke-linecap="round"/></svg></button>
+        <button class="icon-btn" title="Undo"><svg viewBox="0 0 24 24"><path d="M8 5L3 10l5 5M3 10h11a6 6 0 016 6v1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="icon-btn" title="Project menu"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="19" r="1.4" fill="currentColor"/></svg></button>
+      </div>
+    </header>
+
+    <!-- ============ PLAN ============ -->
+    <section class="view active" id="view-plan">
+      <div class="plan-canvas">
+        <div class="plan-inner hide-syn-target">
+          <div class="plan-head reveal">
+            <div class="char-select">
+              <span class="char-thread" style="background:var(--maya)"></span>
+              <span class="name">Maya</span>
+              <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <button class="btn-primary">+ New Scene</button>
+            <div class="plan-tools">
+              <div class="toggle on" id="synToggle"><span class="track"></span> Synopses</div>
+            </div>
+          </div>
+
+          <div class="section reveal">
+            <div class="section-head"><span class="section-title">Hook</span><span class="section-count">1 / 1</span></div>
+            <div class="section-syn">Maya intro on her hard life in Brooklyn. We see her mother is dying. There is a huge riot that kicks off the hook, and we learn that Maya’s sister, Ava, is in the middle of it.</div>
+            <div class="scene-row" style="--thread:var(--maya)">
+              <span class="scene-id">M·1</span>
+              <div class="scene-body">
+                <div class="scene-title">Maya intro in Brooklyn</div>
+                <div class="scene-syn">Maya Jones, 12, is about ready to meet her older sister to go to the grocery store when she hears the drums start beating in Brooklyn.</div>
+              </div>
+              <div class="scene-meta"><span class="pill v1">V1</span><span class="task-dot" title="1 open task"></span></div>
+            </div>
+          </div>
+
+          <div class="section reveal">
+            <div class="section-head"><span class="section-title">Setup</span><span class="section-count">2 / 3</span></div>
+            <div class="section-syn">Maya needs to find food and medicine for herself and her sick mother. We see a decaying Brooklyn that is ready to snap.</div>
+            <div class="scene-row" style="--thread:var(--maya)">
+              <span class="scene-id">M·2</span>
+              <div class="scene-body">
+                <div class="scene-title">Grocery store</div>
+                <div class="scene-syn">Maya travels alone to the grocery store in Brooklyn to get food for her and Mama.</div>
+              </div>
+              <div class="scene-meta"><span class="pill v1">V1</span></div>
+            </div>
+            <div class="scene-row" style="--thread:var(--maya)">
+              <span class="scene-id">M·3</span>
+              <div class="scene-body">
+                <div class="scene-title">Lighting a candle for Ava and Mama</div>
+                <div class="scene-syn">Maya goes to the Cathedral to light candles for her sister.</div>
+              </div>
+              <div class="scene-meta"><span class="pill v1">V1</span></div>
+            </div>
+          </div>
+
+          <div class="section reveal">
+            <div class="section-head"><span class="section-title">Inciting incident</span><span class="section-count">1 / 1</span></div>
+            <div class="scene-row" style="--thread:var(--maya)">
+              <span class="scene-id">M·4</span>
+              <div class="scene-body">
+                <div class="scene-title">Ava finally comes home</div>
+                <div class="scene-syn">Ava comes home after the Miguel riots. She is thrilled.</div>
+              </div>
+              <div class="scene-meta"><span class="pill composing">Composing</span></div>
+            </div>
+          </div>
+
+          <div class="section reveal">
+            <div class="section-head"><span class="section-title">Build up</span><span class="section-count over">4 / 3 over target</span></div>
+            <div class="section-syn">The build up before the raids.</div>
+            <div class="scene-row" style="--thread:var(--maya)">
+              <span class="scene-id">M·5</span>
+              <div class="scene-body">
+                <div class="scene-title">Maya at the PA warehouse with Ava</div>
+                <div class="scene-syn">Ava brings Maya to the warehouse to show her what the movement is building.</div>
+              </div>
+              <div class="scene-meta"><span class="pill v1">V1</span></div>
+            </div>
+            <div class="scene-row" style="--thread:var(--maya)">
+              <span class="scene-id">M·6</span>
+              <div class="scene-body">
+                <div class="scene-title">Confession</div>
+                <div class="scene-syn">Maya confesses what she saw at the warehouse.</div>
+              </div>
+              <div class="scene-meta"><span class="pill v1">V1</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="bullpen">
+        <div class="panel-label">BULLPEN <span class="n">2</span></div>
+        <div class="bullpen-scene" style="--thread:var(--maya)">
+          <div class="t">Maya — Vignette scene</div><div class="c">Maya · unplaced</div>
+        </div>
+        <div class="bullpen-scene" style="--thread:var(--maya)">
+          <div class="t">New scene</div><div class="c">Maya · unplaced</div>
+        </div>
+        <button class="add-ghost">+ Add scene to bullpen</button>
+        <p class="bullpen-hint">Scenes wait here until you place them in a section — or braid them straight into the weave.</p>
+      </aside>
+    </section>
+
+    <!-- ============ BRAID ============ -->
+    <section class="view" id="view-braid">
+      <div class="braid-canvas">
+        <div id="railsWrap" class="reveal">
+          <div class="rails-grid" id="railsGrid"><!-- injected by JS --></div>
+        </div>
+        <div id="weaveWrap" style="display:none">
+          <div class="braid-inner" id="braidList">
+            <svg class="threads-svg" id="threadsSvg"></svg>
+            <!-- rows injected by JS -->
+          </div>
+        </div>
+      </div>
+      <aside class="tobraid">
+        <div class="panel-label">TO BRAID <span class="n">56</span></div>
+        <div class="tb-group">
+          <div class="tb-char" style="color:var(--maya)"><span class="swatch" style="background:var(--maya)"></span> MAYA <span class="n">4</span></div>
+          <div class="tb-scene"><span class="id">M·15</span><span class="t">Missing Ava</span></div>
+          <div class="tb-scene"><span class="id">M·13</span><span class="t">Time passing in the camp</span></div>
+          <div class="tb-scene"><span class="id">M·14</span><span class="t">First people coming into the camp</span></div>
+        </div>
+        <div class="tb-group">
+          <div class="tb-char" style="color:var(--kate)"><span class="swatch" style="background:var(--kate)"></span> KATE <span class="n">5</span></div>
+          <div class="tb-scene"><span class="id">K·15</span><span class="t">Confronting Cormac?</span></div>
+          <div class="tb-scene"><span class="id">K·10</span><span class="t">Attack</span></div>
+          <div class="tb-scene"><span class="id">K·11</span><span class="t">Kate Captured</span></div>
+        </div>
+        <div class="tb-group">
+          <div class="tb-char" style="color:var(--noah)"><span class="swatch" style="background:var(--noah)"></span> NOAH <span class="n">47</span></div>
+          <div class="tb-scene"><span class="id">N·29</span><span class="t">Order from Cormac</span></div>
+          <div class="tb-scene"><span class="id">N·30</span><span class="t">Killing the Priest</span></div>
+          <div class="tb-scene"><span class="id">N·31</span><span class="t">Noah alone, reflecting</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ============ WRITE ============ -->
+    <section class="view" id="view-write">
+      <div class="write-canvas">
+        <div class="manuscript reveal">
+          <div class="ms-breadcrumb">
+            <span style="color:var(--maya)">MAYA · 1</span><span class="sep">/</span><span>HOOK</span>
+          </div>
+          <h1 class="ms-title">Maya intro in Brooklyn</h1>
+          <div class="ms-body">
+            <p>The first drum rhythm stops Maya as she’s tying her shoes. On the second she reaches for her phone on the second, the third she sees her last text to her sister undelivered—<em>See you at the bus! :-)</em>— and on the fourth she mouths a prayer.</p>
+            <p>Once the drums start, they’ll keep their rhythm for hours or sometimes even days. There are night spent dreaming in drums, homework done to drums, dinners cooked and served to drums. It’s as if the drums have always been in Brooklyn and will always be in Brooklyn, even though Maya can remember just last summer when there were no drums. Ava would say that someday, when the revolution is complete and the world reborn, the drums will stop.</p>
+            <p>Maya checks her phone again. No service, but a text message from 0000:</p>
+            <p class="tele">A CELLULAR CURFEW IS IN AFFECT. DO NOT CALL EMERGENCY SERVICES.</p>
+            <p>Out of habit, Maya checks on Mama, careful not to step on the creaky spot on the floor, and seeing her deep in her chemical sleep, Maya climbs the two flights of stairs to the roof of their apartment building…</p>
+          </div>
+        </div>
+      </div>
+      <aside class="write-meta">
+        <div class="meta-block">
+          <div class="panel-label">SCENE</div>
+          <div class="meta-row"><span>Status</span><b><span class="pill v1">V1</span></b></div>
+          <div class="meta-row"><span>Words</span><b>1,271</b></div>
+          <div class="meta-row"><span>Reading time</span><b>5 min</b></div>
+          <div class="progress-thread"><i></i></div>
+        </div>
+        <div class="meta-block">
+          <div class="panel-label">SYNOPSIS</div>
+          <div class="syn-card">Maya Jones, 12, is about ready to meet her older sister when she hears the drums start beating in Brooklyn. Drums only mean one thing: a riot is coming.</div>
+        </div>
+        <div class="meta-block">
+          <div class="panel-label">TASKS <span class="n">1</span></div>
+          <div class="syn-card" style="display:flex; gap:9px; align-items:baseline;">
+            <span class="task-dot" style="flex-shrink:0; position:relative; top:-2px;"></span>
+            This needs to feel more formal — more emotional register.
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ============ REVIEW ============ -->
+    <section class="view" id="view-review">
+      <div class="review-canvas">
+        <div class="review-inner">
+          <h1 class="review-h reveal">This week on <em style="font-style:italic">America America</em></h1>
+          <div class="stat-grid reveal">
+            <div class="stat-card"><div class="l">CURRENT STREAK</div><div class="v">4 <small>days</small></div><div class="s good">Best: 12 days</div></div>
+            <div class="stat-card"><div class="l">WORDS THIS MONTH</div><div class="v">316</div><div class="s">Total: 42,172</div></div>
+            <div class="stat-card"><div class="l">AVG WORDS / DAY</div><div class="v">63</div><div class="s warn">Target: 500</div></div>
+            <div class="stat-card"><div class="l">TIME WRITING</div><div class="v">31<small>m</small></div><div class="s">5 sessions this month</div></div>
+          </div>
+          <div class="hours-card reveal">
+            <div>
+              <div class="panel-label">WEEKLY HOURS</div>
+              <div class="hours-num">7.9 <small>/ 15h</small></div>
+              <div class="s warn" style="font-size:11.5px; color:var(--amber); font-weight:600; margin-top:4px;">⚠ BEHIND PACE — 4.9h behind target</div>
+            </div>
+            <div class="bars">
+              <div class="bar"><i style="height:46%"></i><span class="d">SAT</span></div>
+              <div class="bar"><i style="height:38%"></i><span class="d">SUN</span></div>
+              <div class="bar"><i style="height:16%"></i><span class="d">MON</span></div>
+              <div class="bar"><i style="height:0%"></i><span class="d">TUE</span></div>
+              <div class="bar"><i style="height:0%"></i><span class="d">WED</span></div>
+              <div class="bar today"><i style="height:8%"></i><span class="d">THU</span></div>
+              <div class="bar"><i style="height:0%"></i><span class="d">FRI</span></div>
+            </div>
+          </div>
+          <p class="review-note reveal">One number, one source of truth — the launcher hero reads from this same series.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- NOTES SLIDE-OVER -->
+    <div class="scrim" id="scrim"></div>
+    <aside class="notes-panel" id="notesPanel">
+      <div class="notes-head">
+        <h3>Notes</h3>
+        <button class="icon-btn" id="notesClose"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+      </div>
+      <p style="font-family:var(--serif-body); font-style:italic; font-size:12.5px; color:var(--ink-faint); margin-bottom:10px;">Reference beside your work — in every mode.</p>
+      <div class="note-item">
+        <div class="t">Noah’s attack on Kate scenes</div>
+        <div class="x">The attack needs to be seeded two scenes earlier — Kate notices the van on her street…</div>
+        <div class="tags"><span class="note-tag">#noah</span><span class="note-tag">#kate</span></div>
+      </div>
+      <div class="note-item">
+        <div class="t">Maya Character Arc</div>
+        <div class="x">Faith → doubt → chosen family. The cathedral candles bookend the arc.</div>
+        <div class="tags"><span class="note-tag">#maya</span></div>
+      </div>
+      <div class="note-item">
+        <div class="t">Section/scene flags</div>
+        <div class="x">Build up is running long — candidates to merge: Confession + Maya at night.</div>
+      </div>
+      <div class="note-item">
+        <div class="t">His search for Miguel</div>
+        <div class="x">Noah’s search threads through Mexico City, Brooklyn, and the camp…</div>
+        <div class="tags"><span class="note-tag">#noah</span><span class="note-tag">#miguel</span></div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<script>
+/* ---------- mode switching + sub-tabs ---------- */
+const SUBTABS = {
+  plan:   ['Outline', 'Arc', 'Table'],
+  braid:  ['Rails', 'Weave', 'Timeline'],
+  write:  ['Draft', 'Versions', 'Scratchpad'],
+  review: ['Progress', 'Tasks', 'Compile'],
+};
+let currentMode = 'plan';
+const subtabsEl = document.getElementById('subtabs');
+function setBraidLens(name) {
+  document.getElementById('railsWrap').style.display = name === 'Rails' ? '' : 'none';
+  document.getElementById('weaveWrap').style.display = name === 'Weave' ? '' : 'none';
+  if (name === 'Weave') requestAnimationFrame(drawThreads);
+}
+function renderSubtabs(mode) {
+  subtabsEl.innerHTML = SUBTABS[mode].map((t, i) =>
+    `<button class="subtab ${i===0?'active':''}">${t}</button>`).join('');
+  subtabsEl.querySelectorAll('.subtab').forEach(b =>
+    b.addEventListener('click', () => {
+      subtabsEl.querySelectorAll('.subtab').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      if (currentMode === 'braid') setBraidLens(b.textContent);
+    }));
+}
+document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentMode = btn.dataset.mode;
+    document.querySelectorAll('.mode-btn[data-mode]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + btn.dataset.mode).classList.add('active');
+    renderSubtabs(btn.dataset.mode);
+    if (btn.dataset.mode === 'braid') setBraidLens('Rails');
+  });
+});
+document.addEventListener('keydown', e => {
+  const map = { '1':'plan', '2':'braid', '3':'write', '4':'review' };
+  if (map[e.key] && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== 'INPUT')
+    document.querySelector(`.mode-btn[data-mode="${map[e.key]}"]`).click();
+});
+renderSubtabs('plan');
+
+/* ---------- synopses toggle (one control, visible state) ---------- */
+const synToggle = document.getElementById('synToggle');
+synToggle.addEventListener('click', () => {
+  synToggle.classList.toggle('on');
+  document.querySelector('.hide-syn-target').classList.toggle('hide-syn', !synToggle.classList.contains('on'));
+});
+
+/* ---------- notes slide-over ---------- */
+const notesPanel = document.getElementById('notesPanel');
+const scrim = document.getElementById('scrim');
+function setNotes(open) {
+  notesPanel.classList.toggle('open', open);
+  scrim.classList.toggle('show', open);
+}
+document.getElementById('notesToggle').addEventListener('click', () => setNotes(!notesPanel.classList.contains('open')));
+document.getElementById('notesClose').addEventListener('click', () => setNotes(false));
+scrim.addEventListener('click', () => setNotes(false));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') setNotes(false); });
+
+/* ---------- braid weave: rows + woven threads ---------- */
+const C = { maya:'var(--maya)', kate:'var(--kate)', noah:'var(--noah)', narrator:'var(--narrator)' };
+const HEX = { maya:'#ED2EB4', kate:'#6B3DF5', noah:'#1B6DFF', narrator:'#757B86' };
+const CHARS = ['maya','kate','noah','narrator'];
+const BRAID = [
+  ['narrator','NARRATOR','Poem','Nar·1','15'],
+  ['narrator','NARRATOR','Noah intro','Nar·2','210'],
+  ['noah','NOAH','Noah intro — passage of time timelapse','N·1','859'],
+  ['noah','NOAH','Noah intro — chasing Miguel','N·2','1.5k'],
+  ['maya','MAYA','Maya intro in Brooklyn','M·1','1.3k'],
+  ['noah','NOAH','Noah in Mexico City','N·3','1.7k'],
+  ['noah','NOAH','Noah reflecting','N·4','1.9k'],
+  ['maya','MAYA','Grocery store','M·2','1.1k'],
+  ['noah','NOAH','Noah in Brooklyn','N·5','726'],
+  ['noah','NOAH','Miguel Announcement','N·6','553'],
+  ['maya','MAYA','Lighting a candle for Ava and Mama','M·3','239'],
+  ['kate','KATE','Kate intro','K·1','1.3k'],
+  ['noah','NOAH','Riot in Brooklyn Park','N·7','928'],
+  ['noah','NOAH','First contact with the PA','N·8','612'],
+  ['maya','MAYA','Ava finally comes home','M·4','1.1k'],
+  ['kate','KATE','Kate with her parents','K·2','876'],
+];
+const braidList = document.getElementById('braidList');
+const svg = document.getElementById('threadsSvg');
+BRAID.forEach(([key, who, title, id, wc], i) => {
+  const row = document.createElement('div');
+  row.className = 'braid-row';
+  row.style.setProperty('--thread', C[key]);
+  row.dataset.char = key;
+  row.innerHTML = `<span class="knot"></span><span class="who">${who}</span><span class="t">${title}</span><span class="pos">${i+1} · ${id}</span>`;
+  braidList.appendChild(row);
+});
+
+/* rails lens: character columns, cards at braid position, continuous rails */
+const railsGrid = document.getElementById('railsGrid');
+const CHAR_LABEL = { maya:'MAYA', kate:'KATE', noah:'NOAH', narrator:'NARRATOR' };
+let railsHtml = '<div></div>' + CHARS.map(c =>
+  `<div class="rails-headcell" style="--railc:${HEX[c]}"><span class="name"><span class="swatch"></span>${CHAR_LABEL[c]}</span></div>`).join('');
+BRAID.forEach(([key, who, title, id, wc], i) => {
+  railsHtml += `<div class="pos-cell">${i+1}</div>`;
+  railsHtml += CHARS.map(c =>
+    `<div class="rail-cell" style="--railc:${HEX[c]}">${c === key
+      ? `<div class="rails-card"><div class="t">${title}</div><div class="m"><span>${id}</span><span>${wc} words</span></div></div>`
+      : ''}</div>`).join('');
+});
+railsGrid.innerHTML = railsHtml;
+
+/* draw continuous bezier threads through each character's scenes */
+function drawThreads() {
+  const rows = [...braidList.querySelectorAll('.braid-row')];
+  if (!rows.length) return;
+  const listRect = braidList.getBoundingClientRect();
+  svg.setAttribute('height', braidList.scrollHeight);
+  svg.innerHTML = '';
+  const lanes = { narrator: 14, kate: 30, noah: 46, maya: 62 };
+  const byChar = {};
+  rows.forEach(r => {
+    const rect = r.getBoundingClientRect();
+    const y = rect.top - listRect.top + rect.height / 2;
+    (byChar[r.dataset.char] ??= []).push(y);
+  });
+  for (const [key, ys] of Object.entries(byChar)) {
+    if (ys.length < 1) continue;
+    const x = lanes[key];
+    let d = `M ${x} ${ys[0]}`;
+    for (let i = 1; i < ys.length; i++) {
+      const midY = (ys[i-1] + ys[i]) / 2;
+      const sway = (i % 2 ? 9 : -9);
+      d += ` C ${x + sway} ${midY}, ${x + sway} ${midY}, ${x} ${ys[i]}`;
+    }
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('stroke', HEX[key]);
+    svg.appendChild(p);
+    /* knot dots where the thread meets each scene */
+    ys.forEach(y => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', lanes[key]); c.setAttribute('cy', y); c.setAttribute('r', 4);
+      c.setAttribute('fill', HEX[key]);
+      svg.appendChild(c);
+    });
+  }
+}
+window.addEventListener('resize', drawThreads);
+
+/* ---------- save-state demo: Edited → Saving → Saved ---------- */
+const saveState = document.getElementById('saveState');
+let saveTimer;
+document.addEventListener('keydown', () => {
+  if (!document.getElementById('view-write').classList.contains('active')) return;
+  saveState.textContent = 'Edited';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveState.textContent = 'Saving…';
+    setTimeout(() => saveState.textContent = 'Saved', 600);
+  }, 800);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timeline Canvas Concept — Braidr</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  .top-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: #16213e; border-bottom: 1px solid #2a2a4a; flex-shrink: 0; }
+  .top-bar h1 { font-size: 14px; font-weight: 600; color: #a0a0c0; }
+  .controls { display: flex; gap: 12px; align-items: center; }
+  .controls label { font-size: 12px; color: #808090; }
+  .controls select, .controls input[type=range] { background: #1a1a2e; border: 1px solid #2a2a4a; color: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+  .controls input[type=range] { width: 100px; }
+  .controls button { background: #2a2a5a; border: 1px solid #3a3a6a; color: #c0c0e0; padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+  .controls button:hover { background: #3a3a6a; }
+  .controls button.active { background: #4a4a8a; border-color: #6a6aba; }
+
+  .main-area { display: flex; flex: 1; overflow: hidden; }
+
+  canvas { flex: 1; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+
+  .sidebar { width: 280px; background: #16213e; border-left: 1px solid #2a2a4a; overflow-y: auto; flex-shrink: 0; }
+  .sidebar-header { padding: 12px 16px; border-bottom: 1px solid #2a2a4a; display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-header h2 { font-size: 13px; font-weight: 600; color: #a0a0c0; }
+  .sidebar-header button { background: #2a2a5a; border: 1px solid #3a3a6a; color: #c0c0e0; padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+
+  .event-item { padding: 10px 16px; border-bottom: 1px solid #1a1a2e; cursor: pointer; transition: background 0.15s; }
+  .event-item:hover { background: #1a1a3e; }
+  .event-item.selected { background: #2a2a5a; border-left: 3px solid #6a6aba; }
+  .event-date { font-size: 11px; color: #6a6a8a; margin-bottom: 2px; }
+  .event-title { font-size: 13px; color: #d0d0e0; }
+  .event-desc { font-size: 11px; color: #808090; margin-top: 3px; }
+  .event-links { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+  .event-link { font-size: 10px; background: #2a2a4a; padding: 2px 6px; border-radius: 3px; color: #a0a0c0; }
+
+  .detail-panel { padding: 16px; border-top: 1px solid #2a2a4a; }
+  .detail-panel h3 { font-size: 12px; color: #808090; margin-bottom: 8px; }
+  .detail-field { margin-bottom: 8px; }
+  .detail-field label { font-size: 11px; color: #6a6a8a; display: block; margin-bottom: 2px; }
+  .detail-field .value { font-size: 13px; color: #d0d0e0; }
+
+  .legend { display: flex; gap: 16px; padding: 8px 20px; background: #16213e; border-top: 1px solid #2a2a4a; flex-shrink: 0; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #808090; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  .zoom-info { position: fixed; bottom: 50px; left: 20px; font-size: 11px; color: #4a4a6a; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>Timeline View — Canvas Concept (Approach C)</h1>
+  <div class="controls">
+    <label>Zoom:</label>
+    <input type="range" id="zoomSlider" min="0.3" max="3" step="0.1" value="1">
+    <button id="fitBtn">Fit All</button>
+    <button id="todayBtn">Go to Day 10</button>
+    <label style="margin-left: 12px;">Show:</label>
+    <button id="toggleConnections" class="active">Connections</button>
+    <button id="toggleEvents" class="active">World Events</button>
+    <button id="toggleLabels" class="active">Day Labels</button>
+  </div>
+</div>
+
+<div class="main-area">
+  <canvas id="canvas"></canvas>
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>World Events</h2>
+      <button>+ New Event</button>
+    </div>
+    <div id="eventsList"></div>
+    <div class="detail-panel" id="detailPanel" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#e06060"></div> Noah</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#60a0e0"></div> Grace</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#60c080"></div> Cormac</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#c090e0"></div> Sofia</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#e0c060; border-radius:2px; width:10px; height:10px;"></div> World Event</div>
+  <div class="legend-item" style="margin-left: auto; color: #4a4a6a;">Scroll to zoom · Drag to pan · Click nodes for details</div>
+</div>
+
+<div class="zoom-info" id="zoomInfo">100%</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// --- DATA ---
+const characters = [
+  { id: 'noah', name: 'Noah', color: '#e06060', y: 0 },
+  { id: 'grace', name: 'Grace', color: '#60a0e0', y: 1 },
+  { id: 'cormac', name: 'Cormac', color: '#60c080', y: 2 },
+  { id: 'sofia', name: 'Sofia', color: '#c090e0', y: 3 },
+];
+
+const scenes = [
+  // Day 1
+  { id: 's1', char: 'noah', day: 1, title: 'Chasing Miguel', order: 0 },
+  { id: 's2', char: 'grace', day: 1, title: 'Morning briefing', order: 0 },
+  // Day 2
+  { id: 's3', char: 'noah', day: 2, title: 'Border crossing', order: 0 },
+  { id: 's4', char: 'cormac', day: 2, title: 'Surveillance setup', order: 0 },
+  { id: 's5', char: 'grace', day: 2, title: 'Intel analysis', order: 0 },
+  // Day 3
+  { id: 's6', char: 'noah', day: 3, title: 'Meeting Cormac', order: 0 },
+  { id: 's7', char: 'cormac', day: 3, title: 'Meeting Noah', order: 0 },
+  { id: 's8', char: 'sofia', day: 3, title: 'Arrives in city', order: 0 },
+  // Day 4
+  { id: 's9', char: 'grace', day: 4, title: 'Discovers the link', order: 0 },
+  { id: 's10', char: 'sofia', day: 4, title: 'Cathedral visit', order: 0 },
+  // Day 5
+  { id: 's11', char: 'noah', day: 5, title: 'Stakeout', order: 0 },
+  { id: 's12', char: 'noah', day: 5, title: 'Chase through market', order: 1 },
+  { id: 's13', char: 'cormac', day: 5, title: 'Backup arrives', order: 0 },
+  { id: 's14', char: 'grace', day: 5, title: 'Phone intercept', order: 0 },
+  // Day 7
+  { id: 's15', char: 'noah', day: 7, title: 'Interrogation', order: 0 },
+  { id: 's16', char: 'sofia', day: 7, title: 'Secret meeting', order: 0 },
+  // Day 8
+  { id: 's17', char: 'grace', day: 8, title: 'Breakthrough', order: 0 },
+  { id: 's18', char: 'cormac', day: 8, title: 'Going dark', order: 0 },
+  // Day 10
+  { id: 's19', char: 'noah', day: 10, title: 'Final pursuit', order: 0 },
+  { id: 's20', char: 'grace', day: 10, title: 'Command center', order: 0 },
+  { id: 's21', char: 'cormac', day: 10, title: 'Extraction', order: 0 },
+  { id: 's22', char: 'sofia', day: 10, title: 'Revelation', order: 0 },
+  // Day 12
+  { id: 's23', char: 'noah', day: 12, title: 'Aftermath', order: 0 },
+  { id: 's24', char: 'grace', day: 12, title: 'Debrief', order: 0 },
+];
+
+const connections = [
+  { from: 's6', to: 's7' },   // Noah meets Cormac / Cormac meets Noah
+  { from: 's9', to: 's10' },  // Grace discovers link → Sofia cathedral
+  { from: 's11', to: 's13' }, // Noah stakeout → Cormac backup
+  { from: 's12', to: 's14' }, // Chase → phone intercept
+  { from: 's19', to: 's21' }, // Final pursuit → extraction
+  { from: 's20', to: 's22' }, // Command center → revelation
+];
+
+const worldEvents = [
+  { id: 'e1', day: 1, title: 'Cartel summit begins', desc: 'Major cartel leaders gather in Mexico City for annual summit', scenes: ['s1', 's2'] },
+  { id: 'e2', day: 3, title: 'Embassy bombing', desc: 'Car bomb detonates outside the US Embassy. 3 dead, 12 injured.', scenes: ['s6', 's7', 's8'] },
+  { id: 'e3', day: 5, title: 'Border lockdown', desc: 'All border crossings shut down. Military deployed.', scenes: ['s11', 's12', 's13', 's14'] },
+  { id: 'e4', day: 8, title: 'CIA leak published', desc: 'Washington Post publishes classified documents naming operatives.', scenes: ['s17', 's18'] },
+  { id: 'e5', day: 10, title: 'President addresses nation', desc: 'Emergency prime-time address. Operation authorized.', scenes: ['s19', 's20', 's21', 's22'] },
+];
+
+// --- STATE ---
+const state = {
+  zoom: 1,
+  panX: 80,
+  panY: 60,
+  showConnections: true,
+  showEvents: true,
+  showLabels: true,
+  hoveredNode: null,
+  selectedNode: null,
+  selectedEvent: null,
+  isDragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  dragStartPanX: 0,
+  dragStartPanY: 0,
+};
+
+// --- LAYOUT ---
+const LANE_HEIGHT = 90;
+const DAY_WIDTH = 130;
+const CARD_W = 115;
+const CARD_H = 44;
+const EVENT_HEIGHT = 32;
+const LANE_GAP = 8;
+const TOP_MARGIN = 50; // for world events row + day labels
+
+const days = [...new Set(scenes.map(s => s.day))].concat([6, 9, 11]).sort((a, b) => a - b);
+// Fill in missing days
+const allDays = [];
+for (let d = days[0]; d <= days[days.length - 1]; d++) allDays.push(d);
+
+function dayX(day) {
+  return (day - allDays[0]) * DAY_WIDTH;
+}
+
+function laneY(charIndex) {
+  return TOP_MARGIN + EVENT_HEIGHT + LANE_GAP + charIndex * LANE_HEIGHT;
+}
+
+function scenePos(scene) {
+  const ci = characters.findIndex(c => c.id === scene.char);
+  const x = dayX(scene.day) + scene.order * (CARD_W + 6);
+  const y = laneY(ci);
+  return { x, y, w: CARD_W, h: CARD_H };
+}
+
+function eventPos(evt) {
+  const x = dayX(evt.day);
+  return { x, y: TOP_MARGIN, w: CARD_W, h: EVENT_HEIGHT };
+}
+
+// --- RENDERING ---
+function resize() {
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+
+function draw() {
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.save();
+  ctx.translate(state.panX, state.panY);
+  ctx.scale(state.zoom, state.zoom);
+
+  // Day columns
+  for (const day of allDays) {
+    const x = dayX(day);
+    const hasScenes = scenes.some(s => s.day === day);
+    const hasEvent = worldEvents.some(e => e.day === day);
+
+    // Day column background
+    if (hasScenes || hasEvent) {
+      ctx.fillStyle = 'rgba(42, 42, 74, 0.15)';
+      ctx.fillRect(x - 10, TOP_MARGIN - 10, DAY_WIDTH - 10, LANE_HEIGHT * characters.length + EVENT_HEIGHT + LANE_GAP + 20);
+    }
+
+    // Day label
+    if (state.showLabels) {
+      ctx.fillStyle = hasScenes ? '#6a6a8a' : '#3a3a5a';
+      ctx.font = '11px -apple-system, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Day ${day}`, x + CARD_W / 2, TOP_MARGIN - 16);
+
+      // Tick mark
+      ctx.strokeStyle = hasScenes ? '#3a3a5a' : '#2a2a3a';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + CARD_W / 2, TOP_MARGIN - 8);
+      ctx.lineTo(x + CARD_W / 2, TOP_MARGIN - 2);
+      ctx.stroke();
+    }
+  }
+
+  // Character lane backgrounds
+  for (let i = 0; i < characters.length; i++) {
+    const y = laneY(i);
+    const char = characters[i];
+
+    // Lane stripe
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(26, 26, 46, 0.3)' : 'rgba(22, 33, 62, 0.3)';
+    ctx.fillRect(-40, y - 8, allDays.length * DAY_WIDTH + 80, LANE_HEIGHT);
+
+    // Lane label
+    ctx.fillStyle = char.color + '80';
+    ctx.font = 'bold 11px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(char.name, -12, y + CARD_H / 2 + 4);
+  }
+
+  // World events row label
+  if (state.showEvents) {
+    ctx.fillStyle = '#e0c06080';
+    ctx.font = 'bold 11px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('World', -12, TOP_MARGIN + EVENT_HEIGHT / 2 + 4);
+  }
+
+  // Connections
+  if (state.showConnections) {
+    for (const conn of connections) {
+      const fromScene = scenes.find(s => s.id === conn.from);
+      const toScene = scenes.find(s => s.id === conn.to);
+      if (!fromScene || !toScene) continue;
+
+      const p1 = scenePos(fromScene);
+      const p2 = scenePos(toScene);
+
+      const x1 = p1.x + p1.w / 2;
+      const y1 = p1.y + p1.h / 2;
+      const x2 = p2.x + p2.w / 2;
+      const y2 = p2.y + p2.h / 2;
+
+      const isHovered = state.hoveredNode && (state.hoveredNode === conn.from || state.hoveredNode === conn.to);
+
+      ctx.strokeStyle = isHovered ? '#8080c0' : '#3a3a6a';
+      ctx.lineWidth = isHovered ? 2 : 1;
+      ctx.setLineDash(isHovered ? [] : [4, 4]);
+      ctx.beginPath();
+
+      const cpx1 = x1 + (x2 - x1) * 0.4;
+      const cpx2 = x1 + (x2 - x1) * 0.6;
+      ctx.moveTo(x1, y1);
+      ctx.bezierCurveTo(cpx1, y1, cpx2, y2, x2, y2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Arrow
+      if (isHovered) {
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        ctx.fillStyle = '#8080c0';
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - 8 * Math.cos(angle - 0.3), y2 - 8 * Math.sin(angle - 0.3));
+        ctx.lineTo(x2 - 8 * Math.cos(angle + 0.3), y2 - 8 * Math.sin(angle + 0.3));
+        ctx.fill();
+      }
+    }
+  }
+
+  // World event → scene links
+  if (state.showEvents) {
+    for (const evt of worldEvents) {
+      const ep = eventPos(evt);
+      const isSelected = state.selectedEvent === evt.id;
+
+      for (const sid of evt.scenes) {
+        const scene = scenes.find(s => s.id === sid);
+        if (!scene) continue;
+        const sp = scenePos(scene);
+
+        ctx.strokeStyle = isSelected ? '#e0c06060' : '#e0c06020';
+        ctx.lineWidth = isSelected ? 1.5 : 0.5;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(ep.x + ep.w / 2, ep.y + ep.h);
+        ctx.lineTo(sp.x + sp.w / 2, sp.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+  }
+
+  // World event cards
+  if (state.showEvents) {
+    for (const evt of worldEvents) {
+      const { x, y, w, h } = eventPos(evt);
+      const isHovered = state.hoveredNode === evt.id;
+      const isSelected = state.selectedEvent === evt.id;
+
+      // Card background
+      ctx.fillStyle = isSelected ? '#e0c06030' : isHovered ? '#e0c06020' : '#e0c06010';
+      ctx.strokeStyle = isSelected ? '#e0c060' : isHovered ? '#e0c06080' : '#e0c06040';
+      ctx.lineWidth = isSelected ? 2 : 1;
+
+      roundRect(ctx, x, y, w, h, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Diamond icon
+      ctx.fillStyle = '#e0c060';
+      ctx.save();
+      ctx.translate(x + 10, y + h / 2);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillRect(-4, -4, 8, 8);
+      ctx.restore();
+
+      // Title
+      ctx.fillStyle = isHovered || isSelected ? '#e0c060' : '#e0c060a0';
+      ctx.font = '11px -apple-system, system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      const titleText = evt.title.length > 14 ? evt.title.slice(0, 13) + '...' : evt.title;
+      ctx.fillText(titleText, x + 22, y + h / 2 + 4);
+    }
+  }
+
+  // Scene cards
+  for (const scene of scenes) {
+    const { x, y, w, h } = scenePos(scene);
+    const char = characters.find(c => c.id === scene.char);
+    const isHovered = state.hoveredNode === scene.id;
+    const isSelected = state.selectedNode === scene.id;
+    const isConnected = state.hoveredNode && connections.some(c =>
+      (c.from === state.hoveredNode && c.to === scene.id) ||
+      (c.to === state.hoveredNode && c.from === scene.id)
+    );
+    const isEventLinked = state.selectedEvent && worldEvents.some(e => e.id === state.selectedEvent && e.scenes.includes(scene.id));
+
+    // Card shadow
+    if (isHovered || isSelected) {
+      ctx.shadowColor = char.color + '40';
+      ctx.shadowBlur = 12;
+    }
+
+    // Card background
+    ctx.fillStyle = isSelected ? char.color + '30' : isHovered ? char.color + '20' : '#1e1e3a';
+    ctx.strokeStyle = isEventLinked ? '#e0c060' : isConnected ? '#8080c0' : isSelected ? char.color : isHovered ? char.color + '80' : '#2a2a4a';
+    ctx.lineWidth = isSelected || isEventLinked ? 2 : 1;
+
+    roundRect(ctx, x, y, w, h, 6);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Left color bar
+    ctx.fillStyle = char.color;
+    roundRect(ctx, x, y, 4, h, 6);
+    // Clip to left side only
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, 4, h);
+    ctx.clip();
+    roundRect(ctx, x, y, 8, h, 6);
+    ctx.fill();
+    ctx.restore();
+
+    // Scene number
+    ctx.fillStyle = char.color + '80';
+    ctx.font = 'bold 10px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`#${scene.id.slice(1)}`, x + 10, y + 14);
+
+    // Scene title
+    ctx.fillStyle = isHovered || isSelected ? '#f0f0f0' : '#c0c0d0';
+    ctx.font = '12px -apple-system, system-ui, sans-serif';
+    const text = scene.title.length > 14 ? scene.title.slice(0, 13) + '...' : scene.title;
+    ctx.fillText(text, x + 10, y + 32);
+
+    // Connection dot
+    if (connections.some(c => c.from === scene.id || c.to === scene.id)) {
+      ctx.fillStyle = '#8080c0';
+      ctx.beginPath();
+      ctx.arc(x + w - 8, y + 10, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// --- HIT TESTING ---
+function hitTest(mx, my) {
+  const x = (mx - state.panX) / state.zoom;
+  const y = (my - state.panY) / state.zoom;
+
+  // Check scenes
+  for (const scene of scenes) {
+    const p = scenePos(scene);
+    if (x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h) {
+      return { type: 'scene', id: scene.id };
+    }
+  }
+
+  // Check world events
+  if (state.showEvents) {
+    for (const evt of worldEvents) {
+      const p = eventPos(evt);
+      if (x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h) {
+        return { type: 'event', id: evt.id };
+      }
+    }
+  }
+
+  return null;
+}
+
+// --- INTERACTIONS ---
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  if (state.isDragging) {
+    state.panX = state.dragStartPanX + (e.clientX - state.dragStartX);
+    state.panY = state.dragStartPanY + (e.clientY - state.dragStartY);
+    draw();
+    return;
+  }
+
+  const hit = hitTest(mx, my);
+  const newHover = hit ? hit.id : null;
+  if (newHover !== state.hoveredNode) {
+    state.hoveredNode = newHover;
+    canvas.style.cursor = hit ? 'pointer' : 'grab';
+    draw();
+  }
+});
+
+canvas.addEventListener('mousedown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const hit = hitTest(mx, my);
+
+  if (hit) {
+    if (hit.type === 'scene') {
+      state.selectedNode = hit.id;
+      state.selectedEvent = null;
+      showSceneDetail(hit.id);
+    } else if (hit.type === 'event') {
+      state.selectedEvent = hit.id;
+      state.selectedNode = null;
+      showEventDetail(hit.id);
+    }
+    draw();
+    renderEventsList();
+    return;
+  }
+
+  state.isDragging = true;
+  state.dragStartX = e.clientX;
+  state.dragStartY = e.clientY;
+  state.dragStartPanX = state.panX;
+  state.dragStartPanY = state.panY;
+  canvas.style.cursor = 'grabbing';
+});
+
+canvas.addEventListener('mouseup', () => {
+  state.isDragging = false;
+  canvas.style.cursor = state.hoveredNode ? 'pointer' : 'grab';
+});
+
+canvas.addEventListener('mouseleave', () => {
+  state.isDragging = false;
+  state.hoveredNode = null;
+  draw();
+});
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const oldZoom = state.zoom;
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  state.zoom = Math.max(0.3, Math.min(3, state.zoom * delta));
+
+  // Zoom toward cursor
+  state.panX = mx - (mx - state.panX) * (state.zoom / oldZoom);
+  state.panY = my - (my - state.panY) * (state.zoom / oldZoom);
+
+  document.getElementById('zoomSlider').value = state.zoom;
+  document.getElementById('zoomInfo').textContent = Math.round(state.zoom * 100) + '%';
+  draw();
+}, { passive: false });
+
+// --- CONTROLS ---
+document.getElementById('zoomSlider').addEventListener('input', (e) => {
+  const oldZoom = state.zoom;
+  state.zoom = parseFloat(e.target.value);
+  const cx = canvas.clientWidth / 2;
+  const cy = canvas.clientHeight / 2;
+  state.panX = cx - (cx - state.panX) * (state.zoom / oldZoom);
+  state.panY = cy - (cy - state.panY) * (state.zoom / oldZoom);
+  document.getElementById('zoomInfo').textContent = Math.round(state.zoom * 100) + '%';
+  draw();
+});
+
+document.getElementById('fitBtn').addEventListener('click', () => {
+  const totalW = allDays.length * DAY_WIDTH + 120;
+  const totalH = characters.length * LANE_HEIGHT + TOP_MARGIN + EVENT_HEIGHT + 60;
+  const scaleX = canvas.clientWidth / totalW;
+  const scaleY = canvas.clientHeight / totalH;
+  state.zoom = Math.min(scaleX, scaleY, 2);
+  state.panX = (canvas.clientWidth - totalW * state.zoom) / 2 + 40 * state.zoom;
+  state.panY = 20;
+  document.getElementById('zoomSlider').value = state.zoom;
+  document.getElementById('zoomInfo').textContent = Math.round(state.zoom * 100) + '%';
+  draw();
+});
+
+document.getElementById('todayBtn').addEventListener('click', () => {
+  const x = dayX(10);
+  state.panX = canvas.clientWidth / 2 - x * state.zoom;
+  state.panY = 40;
+  draw();
+});
+
+function toggleBtn(id, key) {
+  document.getElementById(id).addEventListener('click', () => {
+    state[key] = !state[key];
+    document.getElementById(id).classList.toggle('active', state[key]);
+    draw();
+  });
+}
+toggleBtn('toggleConnections', 'showConnections');
+toggleBtn('toggleEvents', 'showEvents');
+toggleBtn('toggleLabels', 'showLabels');
+
+// --- SIDEBAR ---
+function renderEventsList() {
+  const el = document.getElementById('eventsList');
+  el.innerHTML = worldEvents.map(evt => `
+    <div class="event-item ${state.selectedEvent === evt.id ? 'selected' : ''}" data-id="${evt.id}">
+      <div class="event-date">Day ${evt.day}</div>
+      <div class="event-title">${evt.title}</div>
+      <div class="event-desc">${evt.desc}</div>
+      <div class="event-links">
+        ${evt.scenes.map(sid => {
+          const s = scenes.find(sc => sc.id === sid);
+          return s ? `<span class="event-link">${characters.find(c => c.id === s.char).name} #${s.id.slice(1)}</span>` : '';
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  el.querySelectorAll('.event-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const id = item.dataset.id;
+      state.selectedEvent = id;
+      state.selectedNode = null;
+      renderEventsList();
+      showEventDetail(id);
+      // Pan to event
+      const evt = worldEvents.find(e => e.id === id);
+      if (evt) {
+        const x = dayX(evt.day);
+        state.panX = canvas.clientWidth / 2 - x * state.zoom - 200;
+      }
+      draw();
+    });
+  });
+}
+
+function showSceneDetail(sceneId) {
+  const scene = scenes.find(s => s.id === sceneId);
+  const char = characters.find(c => c.id === scene.char);
+  const linkedEvents = worldEvents.filter(e => e.scenes.includes(sceneId));
+  const linkedScenes = connections
+    .filter(c => c.from === sceneId || c.to === sceneId)
+    .map(c => c.from === sceneId ? c.to : c.from)
+    .map(id => scenes.find(s => s.id === id));
+
+  const panel = document.getElementById('detailPanel');
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <h3 style="color:${char.color}">Scene Details</h3>
+    <div class="detail-field"><label>Title</label><div class="value">${scene.title}</div></div>
+    <div class="detail-field"><label>Character</label><div class="value" style="color:${char.color}">${char.name}</div></div>
+    <div class="detail-field"><label>Day</label><div class="value">Day ${scene.day}</div></div>
+    ${linkedScenes.length ? `<div class="detail-field"><label>Connected Scenes</label>${linkedScenes.map(s => `<div class="value" style="font-size:12px; margin-top:2px;">• ${characters.find(c=>c.id===s.char).name} — ${s.title}</div>`).join('')}</div>` : ''}
+    ${linkedEvents.length ? `<div class="detail-field"><label>World Events</label>${linkedEvents.map(e => `<div class="value" style="font-size:12px; color:#e0c060; margin-top:2px;">◆ ${e.title}</div>`).join('')}</div>` : ''}
+  `;
+}
+
+function showEventDetail(eventId) {
+  const evt = worldEvents.find(e => e.id === eventId);
+  const linkedScenes = evt.scenes.map(sid => scenes.find(s => s.id === sid)).filter(Boolean);
+
+  const panel = document.getElementById('detailPanel');
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <h3 style="color:#e0c060">World Event</h3>
+    <div class="detail-field"><label>Title</label><div class="value">${evt.title}</div></div>
+    <div class="detail-field"><label>Day</label><div class="value">Day ${evt.day}</div></div>
+    <div class="detail-field"><label>Description</label><div class="value" style="font-size:12px;">${evt.desc}</div></div>
+    ${linkedScenes.length ? `<div class="detail-field"><label>Affected Scenes</label>${linkedScenes.map(s => `<div class="value" style="font-size:12px; margin-top:2px;">• ${characters.find(c=>c.id===s.char).name} — ${s.title}</div>`).join('')}</div>` : ''}
+  `;
+}
+
+// --- INIT ---
+window.addEventListener('resize', () => { resize(); draw(); });
+resize();
+renderEventsList();
+
+// Initial fit
+setTimeout(() => {
+  document.getElementById('fitBtn').click();
+}, 50);
+</script>
+</body>
+</html>

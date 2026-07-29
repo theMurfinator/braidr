@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Braidr — POV room (mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#15171C; --ink-soft:#5b6068; --ink-faint:#9aa0a8;
+    --paper:#ffffff; --hair:#ececee; --hair-strong:#dddfe3; --wash:#fafafb;
+    --noah:#1B6DFF; --maya:#ED2EB4; --kate:#6B3DF5; --narr:#8a9099;
+    --accent:var(--noah);
+    --warn:#F26419;
+    --r:10px;
+    --sans:'Instrument Sans',system-ui,sans-serif;
+    --serif:'Newsreader',Georgia,serif;
+    --display:'Fraunces',Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
+  ::selection{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+
+  /* ---- shell ---- */
+  .app{display:grid;grid-template-rows:auto 1fr;height:100vh}
+  .topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+    padding:13px 22px;border-bottom:1px solid var(--hair)}
+  .word{font-family:var(--display);font-weight:600;font-size:19px;letter-spacing:-.01em}
+  .word .dot{color:var(--accent)}
+  .rooms{display:flex;gap:2px;background:var(--wash);border:1px solid var(--hair);border-radius:999px;padding:3px}
+  .room{font-family:var(--sans);font-weight:500;font-size:12.5px;letter-spacing:.02em;
+    color:var(--ink-soft);background:none;border:none;cursor:pointer;
+    padding:6px 16px;border-radius:999px;transition:.15s}
+  .room:hover{color:var(--ink)}
+  .room.on{background:var(--ink);color:#fff}
+  .topright{display:flex;justify-content:flex-end;align-items:center;gap:14px}
+  .search{display:flex;align-items:center;gap:8px;color:var(--ink-faint);
+    border:1px solid var(--hair);border-radius:999px;padding:6px 12px;font-size:12.5px;cursor:text;min-width:160px}
+  .search kbd{font-family:var(--sans);font-size:10.5px;border:1px solid var(--hair-strong);border-radius:4px;padding:1px 5px;color:var(--ink-faint);margin-left:auto}
+  .saved{font-size:12px;color:var(--ink-faint);display:flex;align-items:center;gap:6px}
+  .saved::before{content:"";width:6px;height:6px;border-radius:50%;background:#39b56a}
+
+  .body{display:grid;grid-template-columns:1fr 320px;min-height:0}
+  .main{min-height:0;overflow:auto;padding:0 0 80px}
+
+  /* ---- character bar ---- */
+  .charbar{position:sticky;top:0;z-index:5;background:var(--paper);
+    display:flex;align-items:center;gap:18px;padding:18px 40px 14px;border-bottom:1px solid var(--hair)}
+  .chars{display:flex;gap:8px}
+  .chip{display:flex;align-items:center;gap:7px;border:1px solid var(--hair);background:#fff;
+    border-radius:999px;padding:5px 13px 5px 9px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;transition:.15s}
+  .chip .swatch{width:9px;height:9px;border-radius:50%}
+  .chip:hover{border-color:var(--hair-strong);color:var(--ink)}
+  .chip.on{border-color:var(--ink);color:var(--ink);font-weight:500}
+  .charbar .meta{margin-left:auto;font-size:12px;color:var(--ink-faint)}
+
+  /* ---- POV outline ---- */
+  .outline{max-width:760px;margin:0 auto;padding:34px 40px 0}
+  .actrow{display:flex;align-items:baseline;gap:12px;margin:34px 0 4px}
+  .actrow:first-child{margin-top:6px}
+  .act{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+  .actrule{flex:1;height:1px;background:var(--hair)}
+
+  .section{margin:22px 0 6px}
+  .sechead{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
+  .secname{font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.01em}
+  .seccount{font-size:12px;color:var(--ink-faint)}
+  .secsyn{font-family:var(--serif);font-size:15px;color:var(--ink-soft);line-height:1.55;margin:2px 0 10px;max-width:62ch}
+
+  .scene{display:grid;grid-template-columns:46px 1fr;gap:14px;padding:11px 12px;border-radius:var(--r);cursor:pointer;transition:.12s}
+  .scene:hover{background:var(--wash)}
+  .scene.sel{background:color-mix(in srgb,var(--accent) 7%,#fff);box-shadow:inset 2px 0 0 var(--accent)}
+  .num{font-family:var(--sans);font-size:12px;color:var(--ink-faint);text-align:right;padding-top:3px;font-variant-numeric:tabular-nums}
+  .scene.sel .num{color:var(--accent);font-weight:600}
+  .stitle{font-family:var(--display);font-weight:500;font-size:16px;letter-spacing:-.005em;line-height:1.35}
+  .scene.hl .stitle{font-weight:600}
+  .ssyn{font-family:var(--serif);font-size:14.5px;color:var(--ink-soft);line-height:1.55;margin-top:2px;max-width:64ch}
+  .tags{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
+  .tag{font-size:11px;color:var(--ink-faint);background:var(--wash);border:1px solid var(--hair);border-radius:5px;padding:1px 7px}
+  .tag .d{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+  .bullpen{max-width:760px;margin:46px auto 0;padding:18px 40px 0;border-top:1px dashed var(--hair-strong)}
+  .bptitle{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:12px;padding-left:12px}
+  .bp .scene{opacity:.78}
+
+  /* ---- right toolbar ---- */
+  .right{border-left:1px solid var(--hair);background:#fff;display:flex;flex-direction:column;min-height:0}
+  .rtop{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid var(--hair)}
+  .rtitle{font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint)}
+  .rfor{font-family:var(--display);font-weight:600;font-size:16px;margin-top:3px}
+  .rcollapse{border:none;background:none;color:var(--ink-faint);cursor:pointer;font-size:16px;padding:4px;border-radius:6px}
+  .rcollapse:hover{background:var(--wash);color:var(--ink)}
+  .rbody{overflow:auto;padding:6px 20px 24px}
+  .grp{margin-top:20px}
+  .grplabel{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
+  .field{padding:9px 0;border-bottom:1px solid var(--hair)}
+  .field:last-child{border-bottom:none}
+  .flabel{font-size:11.5px;color:var(--ink-faint);margin-bottom:3px}
+  .fval{font-family:var(--serif);font-size:14.5px;color:var(--ink)}
+  .fval.empty{font-family:var(--sans);font-size:12.5px;color:var(--ink-faint);font-style:normal}
+  .polarity{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--accent)}
+  .countpill{display:inline-block;font-size:12px;background:var(--wash);border:1px solid var(--hair);border-radius:6px;padding:2px 9px;font-variant-numeric:tabular-nums}
+  .countpill.over{color:#fff;background:var(--warn);border-color:var(--warn)}
+
+  .hint{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+    font-size:11.5px;color:var(--ink-faint);background:#fff;border:1px solid var(--hair);
+    border-radius:999px;padding:7px 16px;box-shadow:0 4px 18px rgba(20,23,28,.06)}
+  .hint b{color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- top: wordmark · the three rooms · search/save -->
+  <header class="topbar">
+    <div class="word">Braidr<span class="dot">.</span></div>
+    <nav class="rooms">
+      <button class="room on">POV</button>
+      <button class="room">Braid</button>
+      <button class="room">Editor</button>
+    </nav>
+    <div class="topright">
+      <div class="search">Search <kbd>⌘K</kbd></div>
+      <div class="saved">Saved</div>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- LEFT/MAIN: the POV spine for one character -->
+    <main class="main">
+      <div class="charbar">
+        <div class="chars">
+          <button class="chip on"><span class="swatch" style="background:var(--noah)"></span>Noah</button>
+          <button class="chip"><span class="swatch" style="background:var(--maya)"></span>Maya</button>
+          <button class="chip"><span class="swatch" style="background:var(--kate)"></span>Cormac</button>
+          <button class="chip"><span class="swatch" style="background:var(--narr)"></span>Narrator</button>
+        </div>
+        <div class="meta">12 scenes · 8,940 words</div>
+      </div>
+
+      <div class="outline">
+
+        <div class="actrow"><span class="act">Act One</span><span class="actrule"></span></div>
+
+        <section class="section">
+          <div class="sechead"><span class="secname">Hook</span><span class="seccount">2 scenes</span></div>
+          <p class="secsyn">Noah is introduced mid-flight — we learn what he's running from before we learn his name.</p>
+
+          <div class="scene hl">
+            <div class="num">Noah · 1</div>
+            <div>
+              <div class="stitle">Chasing Miguel</div>
+              <div class="ssyn">Noah chases Miguel through the back alleys of Juárez. The rosary in his pocket. This establishes his main arc and the debt that follows him north.</div>
+              <div class="tags"><span class="tag"><span class="d" style="background:var(--maya)"></span>Miguel</span><span class="tag">Juárez</span><span class="tag">rosary</span></div>
+            </div>
+          </div>
+
+          <div class="scene sel">
+            <div class="num">Noah · 2</div>
+            <div>
+              <div class="stitle">The Crossing</div>
+              <div class="ssyn">Night at the river. Noah pays the coyote with money that isn't his. First glimpse of who he's willing to become.</div>
+              <div class="tags"><span class="tag">Rio Grande</span><span class="tag">night</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="sechead"><span class="secname">Setup</span><span class="seccount">3 scenes</span></div>
+          <p class="secsyn">Brooklyn. Noah builds a fragile new life and meets the people who will undo it.</p>
+
+          <div class="scene">
+            <div class="num">Noah · 3</div>
+            <div>
+              <div class="stitle">Meeting Cormac</div>
+              <div class="ssyn">Noah meets Cormac at Thane HQ. A job offer that is really a test.</div>
+              <div class="tags"><span class="tag"><span class="d" style="background:var(--kate)"></span>Cormac</span><span class="tag">Thane HQ</span></div>
+            </div>
+          </div>
+          <div class="scene">
+            <div class="num">Noah · 4</div>
+            <div>
+              <div class="stitle">Brooklyn, first morning</div>
+              <div class="ssyn">A quiet scene. Coffee on a fire escape. The city indifferent.</div>
+            </div>
+          </div>
+          <div class="scene">
+            <div class="num">Noah · 5</div>
+            <div>
+              <div class="stitle">The Photograph</div>
+              <div class="ssyn">Noah finds a photo that proves Cormac knew Miguel. The past arrives early.</div>
+              <div class="tags"><span class="tag"><span class="d" style="background:var(--maya)"></span>Miguel</span><span class="tag">photograph</span></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="actrow"><span class="act">Act Two</span><span class="actrule"></span></div>
+        <section class="section">
+          <div class="sechead"><span class="secname">Rising Cost</span><span class="seccount">2 scenes</span></div>
+          <p class="secsyn">Every choice now charges interest.</p>
+          <div class="scene">
+            <div class="num">Noah · 6</div>
+            <div>
+              <div class="stitle">The Errand</div>
+              <div class="ssyn">Cormac sends Noah to collect. Noah tells himself it's the last time.</div>
+            </div>
+          </div>
+          <div class="scene">
+            <div class="num">Noah · 7</div>
+            <div>
+              <div class="stitle">What the rosary cost</div>
+              <div class="ssyn">The collection goes wrong. Noah crosses a line he can't recross.</div>
+              <div class="tags"><span class="tag">rosary</span><span class="tag">pistol</span></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="bullpen">
+          <div class="bptitle">Set aside · was in “Setup”</div>
+          <div class="bp">
+            <div class="scene">
+              <div class="num">—</div>
+              <div>
+                <div class="stitle">Subway dream</div>
+                <div class="ssyn">A surreal interlude. Unsure if it earns its place yet.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- RIGHT: POV's quiet planning toolbar, scoped to the selected scene -->
+    <aside class="right">
+      <div class="rtop">
+        <div>
+          <div class="rtitle">Planning</div>
+          <div class="rfor">Noah · 2 — The Crossing</div>
+        </div>
+        <button class="rcollapse" title="Collapse">›</button>
+      </div>
+      <div class="rbody">
+
+        <div class="grp">
+          <div class="grplabel">Section · Hook</div>
+          <div class="field">
+            <div class="flabel">Scenes</div>
+            <div class="fval"><span class="countpill">2 / 2</span></div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grplabel">Arc — this scene</div>
+          <div class="field">
+            <div class="flabel">Starting state</div>
+            <div class="fval">Running, certain he's the victim</div>
+          </div>
+          <div class="field">
+            <div class="flabel">Ending state</div>
+            <div class="fval">Complicit, and knows it</div>
+          </div>
+          <div class="field">
+            <div class="flabel">Polarity</div>
+            <div class="fval"><span class="polarity">▲ positive → negative</span></div>
+          </div>
+          <div class="field">
+            <div class="flabel">Dilemma</div>
+            <div class="fval empty">Add a dilemma…</div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grplabel">Threads</div>
+          <div class="field">
+            <div class="flabel">Tags</div>
+            <div class="fval" style="display:flex;gap:6px;flex-wrap:wrap">
+              <span class="tag">Rio Grande</span><span class="tag">night</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="hint">One scene, three rooms — <b>POV</b> · Braid · Editor. The right rail is POV's planning; metadata lives in the <b>Editor</b>'s rail. Collapse the rail (<b>›</b>) and the spine is all that's left.</div>
+</body>
+</html>

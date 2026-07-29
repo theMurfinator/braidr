@@ -44,3 +44,12 @@ ios/App/Pods/
 
 # Git worktrees
 .worktrees/
+
+# Agent scratch + stale worktrees (1.9GB, includes its own node_modules)
+.claude/
+# Separate Next.js project with its own git repo
+braidr-landing/
+# Local DB rescue copies — large SQLite binaries, not source
+Launch/rescue-*/
+# Ephemeral brainstorm session state
+.superpowers/brainstorm/
