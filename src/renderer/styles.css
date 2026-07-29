@@ -23113,6 +23113,72 @@ tr:hover .task-add-subtask-inline {
 .shaper-hdr-top h1 { margin:0; font-size:14px; font-weight:600; }
 .shaper-crumb { color:var(--text-muted); font-size:12px; }
 
+/* Saved-view tabs — same visual language as Table view's tab strip so the
+   pattern reads as one feature across screens. */
+.shaper-view-tabs {
+  display:flex; align-items:center; gap:2px; flex-wrap:wrap; padding:10px 0 0;
+}
+.shaper-view-tab {
+  display:flex; align-items:center; gap:5px;
+  padding:4px 10px; font-size:13px; font-family:var(--font-ui); font-weight:400;
+  color:var(--text-muted); background:transparent; border:none; border-radius:5px;
+  cursor:pointer; white-space:nowrap; transition:background 0.12s, color 0.12s;
+}
+.shaper-view-tab:hover { background:var(--bg-tertiary); color:var(--text-primary); }
+.shaper-view-tab.on { background:var(--bg-tertiary); color:var(--text-primary); font-weight:500; }
+.shaper-view-tab-star { font-size:10px; color:var(--text-muted); }
+.shaper-view-tab-x {
+  display:none; font-size:14px; line-height:1; color:var(--text-muted);
+  padding:1px 2px; border-radius:3px;
+}
+.shaper-view-tab:hover .shaper-view-tab-x { display:inline; }
+.shaper-view-tab-x:hover { color:var(--text-primary); }
+
+.shaper-view-add {
+  font-family:var(--font-ui); font-size:14px; line-height:1;
+  color:var(--text-muted); background:transparent; border:none;
+  border-radius:var(--radius-sm); padding:4px 8px; cursor:pointer;
+}
+.shaper-view-add:hover { background:var(--bg-tertiary); color:var(--text-primary); }
+
+.shaper-view-default-btn {
+  font-family:var(--font-ui); font-size:11px; color:var(--text-muted);
+  background:transparent; border:none; border-radius:var(--radius-sm);
+  padding:4px 8px; cursor:pointer;
+}
+.shaper-view-default-btn:hover { background:var(--bg-tertiary); color:var(--text-primary); }
+
+.shaper-view-overflow { position:relative; }
+.shaper-view-menu {
+  position:absolute; top:100%; left:0; z-index:300; min-width:160px;
+  background:var(--bg-primary); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:4px; box-shadow:var(--shadow-md, 0 4px 12px rgba(0,0,0,0.12));
+}
+.shaper-view-menu-row { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.shaper-view-menu-row button {
+  flex:1; text-align:left; font-family:var(--font-ui); font-size:12.5px;
+  color:var(--text-primary); background:transparent; border:none;
+  padding:5px 7px; border-radius:3px; cursor:pointer;
+}
+.shaper-view-menu-row button:hover { background:var(--bg-tertiary); }
+.shaper-view-menu-row span { color:var(--text-muted); cursor:pointer; padding:0 5px; }
+.shaper-view-menu-row span:hover { color:var(--text-primary); }
+
+.shaper-view-dialog { display:flex; align-items:center; gap:6px; padding:8px 0 0; }
+.shaper-view-dialog input {
+  font-family:var(--font-ui); font-size:13px; color:var(--text-primary);
+  background:var(--bg-tertiary); border:1px solid transparent;
+  border-radius:var(--radius-sm); padding:5px 8px; min-width:200px;
+}
+.shaper-view-dialog input:focus { outline:none; border-color:var(--text-muted); }
+.shaper-view-dialog button {
+  font-family:var(--font-ui); font-size:12.5px; color:var(--text-secondary);
+  background:var(--bg-tertiary); border:none; border-radius:var(--radius-sm);
+  padding:5px 10px; cursor:pointer;
+}
+.shaper-view-dialog button:hover:not(:disabled) { color:var(--text-primary); }
+.shaper-view-dialog button:disabled { opacity:0.5; cursor:default; }
+
 .shaper-controls { display:flex; align-items:center; gap:20px; flex-wrap:wrap; padding:12px 0 0; }
 .shaper-ctl { display:flex; align-items:center; gap:6px; }
 .shaper-ctl label, .shaper-ctl-label {

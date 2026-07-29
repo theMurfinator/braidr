@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology, ArcFieldDef, ArcTemplate } from '../shared/types';
+import { Character, Scene, PlotPoint, Tag, TagCategory, ProjectData, Chapter, RecentProject, ProjectTemplate, ArchivedScene, ArchivedNote, MetadataFieldDef, DraftVersion, NoteMetadata, NotesIndex, LicenseStatus, SceneComment, Task, TaskFieldDef, TaskViewConfig, TableViewConfig, WorldEvent, BranchIndex, BranchCompareData, Act, CharacterPsychology, ArcFieldDef, ArcTemplate, ShaperViewConfig } from '../shared/types';
 import EditorView, { EditorViewHandle } from './components/EditorView';
 import CompileModal from './components/CompileModal';
 import { dataService } from './services/dataService';
@@ -204,6 +204,7 @@ function App() {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const chaptersRef = useRef<Chapter[]>([]);
   const [tableViews, setTableViews] = useState<TableViewConfig[]>([]);
+  const [shaperViews, setShaperViews] = useState<ShaperViewConfig[]>([]);
   const [acts, setActs] = useState<Act[]>([]);
   const [characterPsychologies, setCharacterPsychologies] = useState<Record<string, CharacterPsychology>>({});
   const [characterColors, setCharacterColors] = useState<Record<string, string>>({});
@@ -1556,6 +1557,9 @@ function App() {
     const loadedTableViews = await dataService.loadTableViews();
     setTableViews(loadedTableViews);
 
+    const loadedShaperViews = await dataService.loadShaperViews();
+    setShaperViews(loadedShaperViews);
+
     // Load acts for all characters
     const allActs: Act[] = [];
     for (const char of data.characters) {
@@ -1920,6 +1924,12 @@ function App() {
   const handleSaveTableViews = useCallback(async (views: TableViewConfig[]) => {
     setTableViews(views);
     await dataService.saveTableViews(views);
+  }, []);
+
+  // Shaper view handler
+  const handleSaveShaperViews = useCallback(async (views: ShaperViewConfig[]) => {
+    setShaperViews(views);
+    await dataService.saveShaperViews(views);
   }, []);
 
   // Arc handlers
@@ -4242,6 +4252,8 @@ function App() {
                 onSaveArcFieldValues={handleSaveArcFieldValues}
                 onSaveArcFieldDefs={handleSaveArcFieldDefs}
                 onGoToScene={handleOpenInEditor}
+                shaperViews={shaperViews}
+                onShaperViewsChange={handleSaveShaperViews}
               />
             ) : mode === 'arc' ? (
               // Arc Planning View

@@ -995,6 +995,8 @@ export class CapacitorDataService implements DataService {
   async assignSceneToChapter(_sceneId: string, _chapterId: string | null, _sceneOrder: number): Promise<void> {}
   async loadTableViews(): Promise<import('../../shared/types').TableViewConfig[]> { return []; }
   async saveTableViews(_views: import('../../shared/types').TableViewConfig[]): Promise<void> {}
+  async loadShaperViews(): Promise<import('../../shared/types').ShaperViewConfig[]> { return []; }
+  async saveShaperViews(_views: import('../../shared/types').ShaperViewConfig[]): Promise<void> {}
   async loadActs(_characterId: string): Promise<import('../../shared/types').Act[]> { return []; }
   async saveAct(_act: import('../../shared/types').Act): Promise<void> {}
   async deleteAct(_actId: string): Promise<void> {}

@@ -92,6 +92,8 @@ const IPC_CHANNELS = {
   // Table views
   BRAIDR_LOAD_TABLE_VIEWS: 'braidr:load-table-views',
   BRAIDR_SAVE_TABLE_VIEWS: 'braidr:save-table-views',
+  BRAIDR_LOAD_SHAPER_VIEWS: 'braidr:load-shaper-views',
+  BRAIDR_SAVE_SHAPER_VIEWS: 'braidr:save-shaper-views',
   // Acts
   BRAIDR_LOAD_ACTS: 'braidr:load-acts',
   BRAIDR_SAVE_ACT: 'braidr:save-act',
@@ -321,6 +323,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_LOAD_TABLE_VIEWS, braidrPath),
   braidrSaveTableViews: (braidrPath: string, views: unknown[]) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_TABLE_VIEWS, braidrPath, views),
+  braidrLoadShaperViews: (braidrPath: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_LOAD_SHAPER_VIEWS, braidrPath),
+  braidrSaveShaperViews: (braidrPath: string, views: unknown[]) =>
+    ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_SHAPER_VIEWS, braidrPath, views),
   braidrSaveChapter: (braidrPath: string, chapter: any) =>
     ipcRenderer.invoke(IPC_CHANNELS.BRAIDR_SAVE_CHAPTER, braidrPath, chapter),
   braidrDeleteChapter: (braidrPath: string, chapterId: string) =>

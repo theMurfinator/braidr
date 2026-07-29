@@ -1040,6 +1040,32 @@ ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_TABLE_VIEWS, (_event, braidrPath: string
   }
 });
 
+// ── Shaper view handlers ──────────────────────────────────────────────────────
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_LOAD_SHAPER_VIEWS, (_event, braidrPath: string) => {
+  try {
+    const db = getDb(braidrPath);
+    return { success: true, data: db.getShaperViews() };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+});
+
+ipcMain.handle(IPC_CHANNELS.BRAIDR_SAVE_SHAPER_VIEWS, (
+  _event,
+  braidrPath: string,
+  views: { id: string; name: string; createdAt: number }[]
+) => {
+  try {
+    const db = getDb(braidrPath);
+    db.replaceShaperViews(views);
+    db.checkpoint(); writeSyncInfo(braidrPath);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+});
+
 ipcMain.handle(IPC_CHANNELS.BRAIDR_ASSIGN_SCENE_TO_CHAPTER, (
   _event,
   braidrPath: string,
